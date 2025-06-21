@@ -1,0 +1,7 @@
+session处理逻辑
+
+event 处理后发送相关逻辑到session包中处理
+
+session负责对event进行解析，处理session逻辑
+
+buffer缓存写入到clickhouse中，使用幂等方式实现对clickhouse 中session的处理

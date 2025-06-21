@@ -1,0 +1,30 @@
+server_port: 8011
+server_host: 0.0.0.0
+
+pool_size: 100
+app_debug: true
+log_level: debug
+secret_key: 'KKfc8Y5Zpn5CE/0P+ce3ptJRRAZJBhbcOHSqoessJ4kLxkEi+S4nNsl6ekj0AxKF'
+data_path: './data'
+maxmind_license_key: '' # 'Your MaxMind License Key', you can set env: ZENSTATS_MAXMIND_LICENSE_KEY
+
+scheme:
+  address: 0.0.0.0
+  unix_file:
+  # unix_file: /tmp/clickhouse.sock
+  http_port: 8080
+
+clickhouse:
+  addr:
+    # - 127.0.0.1:9000
+    - 192.168.31.2:9000
+  database: zenstats_events_db
+  username: default
+  password: ''
+  ssl: false
+
+db:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  database: 'zenstats'
