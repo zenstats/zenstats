@@ -15,8 +15,9 @@ scheme:
   http_port: 8080
 
 clickhouse:
+  #  This configuration can be overridden using the environment variable ZENSTAT_SLICKHOUSEOADDR
   addr:
-    - 127.0.0.1:9000
+    - zenstats_events_db:9000  # docker compose service name
   database: zenstats_events_db
   username: default
   password: ''
@@ -24,6 +25,7 @@ clickhouse:
 
 db:
   host: 127.0.0.1
-  port: 3306
-  user: root
+  port: 5432
+  username: postgres
+  password: 'postgres'
   database: 'zenstats'

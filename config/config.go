@@ -3,10 +3,12 @@ package config
 import (
 	"bytes"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/spf13/viper"
@@ -129,7 +131,20 @@ func bindEnvVars() {
 	viper.BindEnv("db.host", "ZENSTATS_DB_HOST")
 	viper.BindEnv("db.password", "ZENSTATS_DB_PASSWORD")
 	viper.BindEnv("db.user", "ZENSTATS_DB_USERNAME")
+
+	viper.BindEnv("clickhouse.addr", "ZENSTATS_CLICKHOUSE_ADDR")
 	viper.BindEnv("clickhouse.password", "ZENSTATS_CLICKHOUSE_PASSWORD")
 	viper.BindEnv("clickhouse.username", "ZENSTATS_CLICKHOUSE_USERNAME")
+
 	viper.BindEnv("maxmind_license_key", "ZENSTATS_MAXMIND_LICENSE_KEY")
+
+	if addrStr := os.Getenv("ZENSTATS_CLICKHOUSE_ADDR"); addrStr != "" {
+		// try json
+		var addr []string
+		if err := json.Unmarshal([]byte(addrStr), &addr); err == nil {
+			viper.Set("clickhouse.addr", addr)
+		} else {
+			viper.Set("clickhouse.addr", strings.Split(addrStr, ","))
+		}
+	}
 }

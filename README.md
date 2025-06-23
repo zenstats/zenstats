@@ -1,6 +1,7 @@
 ## TODO
 
 - [X] 添加session聚合层
+- [ ] 添加event 接口限流器
 
 ## GeoIP 数据库配置
 
@@ -9,3 +10,5 @@
 1. 从 MaxMind 下载 GeoLite2-City.mmdb
 2. 放置到 `data/geoip/` 目录
 3. 确保文件权限正确
+
+

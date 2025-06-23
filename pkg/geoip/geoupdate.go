@@ -111,8 +111,9 @@ func (g *GeoIP) DownloadGeoIPDB() (string, error) {
 func (g *GeoIP) extractGzFile(gzFilePath string) (string, error) {
 	// 判断默认文件是否存在 如果不存在则保存至默认文件
 	outPutFile := defaultDB
-	if _, err := os.Stat(defaultDB); os.IsNotExist(err) {
+	if _, err := os.Stat(defaultDB); err == nil {
 		outPutFile = filepath.Join(config.Conf.DataPath, fmt.Sprintf("GeoLite2-City-%s.mmdb", carbon.Now().ToDateString()))
+		slog.Info("The default file does not exist, save to default file", "geoipFile", outPutFile)
 	}
 
 	// 打开 .gz 文件

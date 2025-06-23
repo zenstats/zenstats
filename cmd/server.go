@@ -47,8 +47,9 @@ the address is defined in config file`,
 		r.Use(
 			gin.Recovery(),
 		)
-		// 注册路由
-		router.RegisterExternalAPI(r)
+
+		api := r.Group("/api")
+		router.RegisterRouter(api)
 
 		httpBase := fmt.Sprintf("%s:%d", config.Conf.Scheme.Address, config.Conf.Scheme.HttpPort)
 		slog.Info(fmt.Sprintf("start HTTP server %s", httpBase))

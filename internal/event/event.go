@@ -46,7 +46,7 @@ func NewEventWork(q *generic.DynamicQueue[*common.EventRequest], batchSize int) 
 		shutdownCtx:    ctx,
 		shutdownCancel: cancel,
 		pool:           pool.NewPool(),
-		sessionManager: session.NewSessionManager(batchSize),
+		sessionManager: session.NewSessionManager(ctx, batchSize),
 	}
 	e.writeBuffer = NewWriteBuffer(ctx, batchSize, time.Second*5)
 
@@ -200,13 +200,11 @@ func (e *EventWork) Shutdown() {
 		e.queue.Close()
 		e.wg.Wait()
 
+		e.writeBuffer.Shutdown()
+		e.sessionManager.Shutdown()
 		e.pool.Release()
 		close(done)
 	}()
-
-	e.writeBuffer.Shutdown()
-
-	e.sessionManager.Shutdown()
 
 	select {
 	case <-done:

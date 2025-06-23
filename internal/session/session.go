@@ -21,8 +21,8 @@ type SessionManager struct {
 	cache *expirable.LRU[string, *models.Sessions]
 }
 
-func NewSessionManager(batchSize int) *SessionManager {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewSessionManager(ctx context.Context, batchSize int) *SessionManager {
+	ctx, cancel := context.WithCancel(ctx)
 	l := expirable.NewLRU[string, *models.Sessions](1000, nil, 30*time.Minute)
 
 	s := &SessionManager{
