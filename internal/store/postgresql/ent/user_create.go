@@ -28,64 +28,16 @@ func (uc *UserCreate) SetEmail(s string) *UserCreate {
 	return uc
 }
 
-// SetPassword sets the "password" field.
-func (uc *UserCreate) SetPassword(s string) *UserCreate {
-	uc.mutation.SetPassword(s)
+// SetEmailVerified sets the "email_verified" field.
+func (uc *UserCreate) SetEmailVerified(b bool) *UserCreate {
+	uc.mutation.SetEmailVerified(b)
 	return uc
 }
 
-// SetVerified sets the "verified" field.
-func (uc *UserCreate) SetVerified(b bool) *UserCreate {
-	uc.mutation.SetVerified(b)
-	return uc
-}
-
-// SetNillableVerified sets the "verified" field if the given value is not nil.
-func (uc *UserCreate) SetNillableVerified(b *bool) *UserCreate {
+// SetNillableEmailVerified sets the "email_verified" field if the given value is not nil.
+func (uc *UserCreate) SetNillableEmailVerified(b *bool) *UserCreate {
 	if b != nil {
-		uc.SetVerified(*b)
-	}
-	return uc
-}
-
-// SetVerifyToken sets the "verify_token" field.
-func (uc *UserCreate) SetVerifyToken(s string) *UserCreate {
-	uc.mutation.SetVerifyToken(s)
-	return uc
-}
-
-// SetNillableVerifyToken sets the "verify_token" field if the given value is not nil.
-func (uc *UserCreate) SetNillableVerifyToken(s *string) *UserCreate {
-	if s != nil {
-		uc.SetVerifyToken(*s)
-	}
-	return uc
-}
-
-// SetResetToken sets the "reset_token" field.
-func (uc *UserCreate) SetResetToken(s string) *UserCreate {
-	uc.mutation.SetResetToken(s)
-	return uc
-}
-
-// SetNillableResetToken sets the "reset_token" field if the given value is not nil.
-func (uc *UserCreate) SetNillableResetToken(s *string) *UserCreate {
-	if s != nil {
-		uc.SetResetToken(*s)
-	}
-	return uc
-}
-
-// SetResetTokenExpiresAt sets the "reset_token_expires_at" field.
-func (uc *UserCreate) SetResetTokenExpiresAt(t time.Time) *UserCreate {
-	uc.mutation.SetResetTokenExpiresAt(t)
-	return uc
-}
-
-// SetNillableResetTokenExpiresAt sets the "reset_token_expires_at" field if the given value is not nil.
-func (uc *UserCreate) SetNillableResetTokenExpiresAt(t *time.Time) *UserCreate {
-	if t != nil {
-		uc.SetResetTokenExpiresAt(*t)
+		uc.SetEmailVerified(*b)
 	}
 	return uc
 }
@@ -114,6 +66,34 @@ func (uc *UserCreate) SetLastSeen(t time.Time) *UserCreate {
 func (uc *UserCreate) SetNillableLastSeen(t *time.Time) *UserCreate {
 	if t != nil {
 		uc.SetLastSeen(*t)
+	}
+	return uc
+}
+
+// SetPasswordHash sets the "password_hash" field.
+func (uc *UserCreate) SetPasswordHash(s string) *UserCreate {
+	uc.mutation.SetPasswordHash(s)
+	return uc
+}
+
+// SetNillablePasswordHash sets the "password_hash" field if the given value is not nil.
+func (uc *UserCreate) SetNillablePasswordHash(s *string) *UserCreate {
+	if s != nil {
+		uc.SetPasswordHash(*s)
+	}
+	return uc
+}
+
+// SetPreviousEmail sets the "previous_email" field.
+func (uc *UserCreate) SetPreviousEmail(s string) *UserCreate {
+	uc.mutation.SetPreviousEmail(s)
+	return uc
+}
+
+// SetNillablePreviousEmail sets the "previous_email" field if the given value is not nil.
+func (uc *UserCreate) SetNillablePreviousEmail(s *string) *UserCreate {
+	if s != nil {
+		uc.SetPreviousEmail(*s)
 	}
 	return uc
 }
@@ -279,9 +259,9 @@ func (uc *UserCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (uc *UserCreate) defaults() {
-	if _, ok := uc.mutation.Verified(); !ok {
-		v := user.DefaultVerified
-		uc.mutation.SetVerified(v)
+	if _, ok := uc.mutation.EmailVerified(); !ok {
+		v := user.DefaultEmailVerified
+		uc.mutation.SetEmailVerified(v)
 	}
 	if _, ok := uc.mutation.LastSeen(); !ok {
 		v := user.DefaultLastSeen()
@@ -306,11 +286,8 @@ func (uc *UserCreate) check() error {
 	if _, ok := uc.mutation.Email(); !ok {
 		return &ValidationError{Name: "email", err: errors.New(`ent: missing required field "User.email"`)}
 	}
-	if _, ok := uc.mutation.Password(); !ok {
-		return &ValidationError{Name: "password", err: errors.New(`ent: missing required field "User.password"`)}
-	}
-	if _, ok := uc.mutation.Verified(); !ok {
-		return &ValidationError{Name: "verified", err: errors.New(`ent: missing required field "User.verified"`)}
+	if _, ok := uc.mutation.EmailVerified(); !ok {
+		return &ValidationError{Name: "email_verified", err: errors.New(`ent: missing required field "User.email_verified"`)}
 	}
 	if _, ok := uc.mutation.LastSeen(); !ok {
 		return &ValidationError{Name: "last_seen", err: errors.New(`ent: missing required field "User.last_seen"`)}
@@ -360,25 +337,9 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
 		_node.Email = value
 	}
-	if value, ok := uc.mutation.Password(); ok {
-		_spec.SetField(user.FieldPassword, field.TypeString, value)
-		_node.Password = value
-	}
-	if value, ok := uc.mutation.Verified(); ok {
-		_spec.SetField(user.FieldVerified, field.TypeBool, value)
-		_node.Verified = value
-	}
-	if value, ok := uc.mutation.VerifyToken(); ok {
-		_spec.SetField(user.FieldVerifyToken, field.TypeString, value)
-		_node.VerifyToken = value
-	}
-	if value, ok := uc.mutation.ResetToken(); ok {
-		_spec.SetField(user.FieldResetToken, field.TypeString, value)
-		_node.ResetToken = value
-	}
-	if value, ok := uc.mutation.ResetTokenExpiresAt(); ok {
-		_spec.SetField(user.FieldResetTokenExpiresAt, field.TypeTime, value)
-		_node.ResetTokenExpiresAt = value
+	if value, ok := uc.mutation.EmailVerified(); ok {
+		_spec.SetField(user.FieldEmailVerified, field.TypeBool, value)
+		_node.EmailVerified = value
 	}
 	if value, ok := uc.mutation.Name(); ok {
 		_spec.SetField(user.FieldName, field.TypeString, value)
@@ -387,6 +348,14 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := uc.mutation.LastSeen(); ok {
 		_spec.SetField(user.FieldLastSeen, field.TypeTime, value)
 		_node.LastSeen = value
+	}
+	if value, ok := uc.mutation.PasswordHash(); ok {
+		_spec.SetField(user.FieldPasswordHash, field.TypeString, value)
+		_node.PasswordHash = value
+	}
+	if value, ok := uc.mutation.PreviousEmail(); ok {
+		_spec.SetField(user.FieldPreviousEmail, field.TypeString, value)
+		_node.PreviousEmail = value
 	}
 	if value, ok := uc.mutation.TotpSecret(); ok {
 		_spec.SetField(user.FieldTotpSecret, field.TypeBytes, value)

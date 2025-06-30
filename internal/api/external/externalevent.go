@@ -8,11 +8,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/common"
+	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/pkg/globals"
 	"github.com/zenstats/zenstats/pkg/utils"
 )
 
-func Event() gin.HandlerFunc {
+func Event(siteService *service.SiteService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		slog.Debug("received event")
 
@@ -23,6 +24,11 @@ func Event() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, "bad")
 			return
 		}
+		if can, _ := siteService.IsDomainInList(c, req.Domain); !can {
+			c.JSON(http.StatusBadRequest, "bad")
+			return
+		}
+
 		req.Timestamp = time.Now()
 		req.Ip = utils.ClientIP(c.Request)
 		req.UserAgent = c.Request.UserAgent()

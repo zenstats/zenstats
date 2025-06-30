@@ -4,8 +4,9 @@ go 1.24.0
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.33.1
-	github.com/aarondl/authboss/v3 v3.5.1
-	github.com/gin-gonic/gin v1.10.0
+	github.com/gin-contrib/cors v1.7.6
+	github.com/gin-gonic/gin v1.10.1
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/joho/godotenv v1.5.1
 	github.com/mileusna/useragent v1.3.5
@@ -23,7 +24,6 @@ require (
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/friendsofgo/errors v0.9.2 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/go-openapi/inflect v0.19.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
@@ -41,16 +41,13 @@ require (
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/mod v0.25.0 // indirect
-	golang.org/x/oauth2 v0.25.0 // indirect
-	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
 
 require (
 	entgo.io/ent v0.14.4
 	github.com/ClickHouse/ch-go v0.65.1 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
-	github.com/bytedance/sonic v1.13.2 // indirect
+	github.com/bytedance/sonic v1.13.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.4 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
 	github.com/dromara/carbon/v2 v2.6.3
@@ -83,11 +80,11 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/spf13/viper v1.20.1
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
-	github.com/ugorji/go/codec v1.2.12 // indirect
+	github.com/ugorji/go/codec v1.3.0 // indirect
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
-	golang.org/x/arch v0.16.0 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
+	golang.org/x/arch v0.18.0 // indirect
+	golang.org/x/crypto v0.39.0
 	golang.org/x/exp v0.0.0-20250606033433-dcc06ee1d476
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect

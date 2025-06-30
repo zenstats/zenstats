@@ -131,6 +131,7 @@ var (
 	SitesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
 		{Name: "domain", Type: field.TypeString, Unique: true, Size: 255},
+		{Name: "remark", Type: field.TypeString, Nullable: true, Size: 255},
 		{Name: "timezone", Type: field.TypeString, Size: 50, Default: "UTC"},
 		{Name: "public", Type: field.TypeBool, Default: false},
 		{Name: "stats_start_date", Type: field.TypeTime, Nullable: true},
@@ -190,13 +191,11 @@ var (
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
 		{Name: "email", Type: field.TypeString, Unique: true},
-		{Name: "password", Type: field.TypeString},
-		{Name: "verified", Type: field.TypeBool, Default: false},
-		{Name: "verify_token", Type: field.TypeString, Nullable: true},
-		{Name: "reset_token", Type: field.TypeString, Nullable: true},
-		{Name: "reset_token_expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "email_verified", Type: field.TypeBool, Default: false},
 		{Name: "name", Type: field.TypeString, Nullable: true},
 		{Name: "last_seen", Type: field.TypeTime},
+		{Name: "password_hash", Type: field.TypeString, Nullable: true},
+		{Name: "previous_email", Type: field.TypeString, Nullable: true},
 		{Name: "totp_secret", Type: field.TypeBytes, Nullable: true},
 		{Name: "totp_enabled", Type: field.TypeBool, Default: false},
 		{Name: "totp_last_used_at", Type: field.TypeTime, Nullable: true},
@@ -214,7 +213,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_sites_members",
-				Columns:    []*schema.Column{UsersColumns[16]},
+				Columns:    []*schema.Column{UsersColumns[14]},
 				RefColumns: []*schema.Column{SitesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

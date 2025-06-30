@@ -16,6 +16,8 @@ const (
 	FieldID = "id"
 	// FieldDomain holds the string denoting the domain field in the database.
 	FieldDomain = "domain"
+	// FieldRemark holds the string denoting the remark field in the database.
+	FieldRemark = "remark"
 	// FieldTimezone holds the string denoting the timezone field in the database.
 	FieldTimezone = "timezone"
 	// FieldPublic holds the string denoting the public field in the database.
@@ -74,6 +76,7 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldDomain,
+	FieldRemark,
 	FieldTimezone,
 	FieldPublic,
 	FieldStatsStartDate,
@@ -96,6 +99,8 @@ func ValidColumn(column string) bool {
 var (
 	// DomainValidator is a validator for the "domain" field. It is called by the builders before save.
 	DomainValidator func(string) error
+	// RemarkValidator is a validator for the "remark" field. It is called by the builders before save.
+	RemarkValidator func(string) error
 	// DefaultTimezone holds the default value on creation for the "timezone" field.
 	DefaultTimezone string
 	// TimezoneValidator is a validator for the "timezone" field. It is called by the builders before save.
@@ -125,6 +130,11 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // ByDomain orders the results by the domain field.
 func ByDomain(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDomain, opts...).ToFunc()
+}
+
+// ByRemark orders the results by the remark field.
+func ByRemark(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRemark, opts...).ToFunc()
 }
 
 // ByTimezone orders the results by the timezone field.

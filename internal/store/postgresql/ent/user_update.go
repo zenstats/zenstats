@@ -44,91 +44,17 @@ func (uu *UserUpdate) SetNillableEmail(s *string) *UserUpdate {
 	return uu
 }
 
-// SetPassword sets the "password" field.
-func (uu *UserUpdate) SetPassword(s string) *UserUpdate {
-	uu.mutation.SetPassword(s)
+// SetEmailVerified sets the "email_verified" field.
+func (uu *UserUpdate) SetEmailVerified(b bool) *UserUpdate {
+	uu.mutation.SetEmailVerified(b)
 	return uu
 }
 
-// SetNillablePassword sets the "password" field if the given value is not nil.
-func (uu *UserUpdate) SetNillablePassword(s *string) *UserUpdate {
-	if s != nil {
-		uu.SetPassword(*s)
-	}
-	return uu
-}
-
-// SetVerified sets the "verified" field.
-func (uu *UserUpdate) SetVerified(b bool) *UserUpdate {
-	uu.mutation.SetVerified(b)
-	return uu
-}
-
-// SetNillableVerified sets the "verified" field if the given value is not nil.
-func (uu *UserUpdate) SetNillableVerified(b *bool) *UserUpdate {
+// SetNillableEmailVerified sets the "email_verified" field if the given value is not nil.
+func (uu *UserUpdate) SetNillableEmailVerified(b *bool) *UserUpdate {
 	if b != nil {
-		uu.SetVerified(*b)
+		uu.SetEmailVerified(*b)
 	}
-	return uu
-}
-
-// SetVerifyToken sets the "verify_token" field.
-func (uu *UserUpdate) SetVerifyToken(s string) *UserUpdate {
-	uu.mutation.SetVerifyToken(s)
-	return uu
-}
-
-// SetNillableVerifyToken sets the "verify_token" field if the given value is not nil.
-func (uu *UserUpdate) SetNillableVerifyToken(s *string) *UserUpdate {
-	if s != nil {
-		uu.SetVerifyToken(*s)
-	}
-	return uu
-}
-
-// ClearVerifyToken clears the value of the "verify_token" field.
-func (uu *UserUpdate) ClearVerifyToken() *UserUpdate {
-	uu.mutation.ClearVerifyToken()
-	return uu
-}
-
-// SetResetToken sets the "reset_token" field.
-func (uu *UserUpdate) SetResetToken(s string) *UserUpdate {
-	uu.mutation.SetResetToken(s)
-	return uu
-}
-
-// SetNillableResetToken sets the "reset_token" field if the given value is not nil.
-func (uu *UserUpdate) SetNillableResetToken(s *string) *UserUpdate {
-	if s != nil {
-		uu.SetResetToken(*s)
-	}
-	return uu
-}
-
-// ClearResetToken clears the value of the "reset_token" field.
-func (uu *UserUpdate) ClearResetToken() *UserUpdate {
-	uu.mutation.ClearResetToken()
-	return uu
-}
-
-// SetResetTokenExpiresAt sets the "reset_token_expires_at" field.
-func (uu *UserUpdate) SetResetTokenExpiresAt(t time.Time) *UserUpdate {
-	uu.mutation.SetResetTokenExpiresAt(t)
-	return uu
-}
-
-// SetNillableResetTokenExpiresAt sets the "reset_token_expires_at" field if the given value is not nil.
-func (uu *UserUpdate) SetNillableResetTokenExpiresAt(t *time.Time) *UserUpdate {
-	if t != nil {
-		uu.SetResetTokenExpiresAt(*t)
-	}
-	return uu
-}
-
-// ClearResetTokenExpiresAt clears the value of the "reset_token_expires_at" field.
-func (uu *UserUpdate) ClearResetTokenExpiresAt() *UserUpdate {
-	uu.mutation.ClearResetTokenExpiresAt()
 	return uu
 }
 
@@ -163,6 +89,46 @@ func (uu *UserUpdate) SetNillableLastSeen(t *time.Time) *UserUpdate {
 	if t != nil {
 		uu.SetLastSeen(*t)
 	}
+	return uu
+}
+
+// SetPasswordHash sets the "password_hash" field.
+func (uu *UserUpdate) SetPasswordHash(s string) *UserUpdate {
+	uu.mutation.SetPasswordHash(s)
+	return uu
+}
+
+// SetNillablePasswordHash sets the "password_hash" field if the given value is not nil.
+func (uu *UserUpdate) SetNillablePasswordHash(s *string) *UserUpdate {
+	if s != nil {
+		uu.SetPasswordHash(*s)
+	}
+	return uu
+}
+
+// ClearPasswordHash clears the value of the "password_hash" field.
+func (uu *UserUpdate) ClearPasswordHash() *UserUpdate {
+	uu.mutation.ClearPasswordHash()
+	return uu
+}
+
+// SetPreviousEmail sets the "previous_email" field.
+func (uu *UserUpdate) SetPreviousEmail(s string) *UserUpdate {
+	uu.mutation.SetPreviousEmail(s)
+	return uu
+}
+
+// SetNillablePreviousEmail sets the "previous_email" field if the given value is not nil.
+func (uu *UserUpdate) SetNillablePreviousEmail(s *string) *UserUpdate {
+	if s != nil {
+		uu.SetPreviousEmail(*s)
+	}
+	return uu
+}
+
+// ClearPreviousEmail clears the value of the "previous_email" field.
+func (uu *UserUpdate) ClearPreviousEmail() *UserUpdate {
+	uu.mutation.ClearPreviousEmail()
 	return uu
 }
 
@@ -396,29 +362,8 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := uu.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
 	}
-	if value, ok := uu.mutation.Password(); ok {
-		_spec.SetField(user.FieldPassword, field.TypeString, value)
-	}
-	if value, ok := uu.mutation.Verified(); ok {
-		_spec.SetField(user.FieldVerified, field.TypeBool, value)
-	}
-	if value, ok := uu.mutation.VerifyToken(); ok {
-		_spec.SetField(user.FieldVerifyToken, field.TypeString, value)
-	}
-	if uu.mutation.VerifyTokenCleared() {
-		_spec.ClearField(user.FieldVerifyToken, field.TypeString)
-	}
-	if value, ok := uu.mutation.ResetToken(); ok {
-		_spec.SetField(user.FieldResetToken, field.TypeString, value)
-	}
-	if uu.mutation.ResetTokenCleared() {
-		_spec.ClearField(user.FieldResetToken, field.TypeString)
-	}
-	if value, ok := uu.mutation.ResetTokenExpiresAt(); ok {
-		_spec.SetField(user.FieldResetTokenExpiresAt, field.TypeTime, value)
-	}
-	if uu.mutation.ResetTokenExpiresAtCleared() {
-		_spec.ClearField(user.FieldResetTokenExpiresAt, field.TypeTime)
+	if value, ok := uu.mutation.EmailVerified(); ok {
+		_spec.SetField(user.FieldEmailVerified, field.TypeBool, value)
 	}
 	if value, ok := uu.mutation.Name(); ok {
 		_spec.SetField(user.FieldName, field.TypeString, value)
@@ -428,6 +373,18 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := uu.mutation.LastSeen(); ok {
 		_spec.SetField(user.FieldLastSeen, field.TypeTime, value)
+	}
+	if value, ok := uu.mutation.PasswordHash(); ok {
+		_spec.SetField(user.FieldPasswordHash, field.TypeString, value)
+	}
+	if uu.mutation.PasswordHashCleared() {
+		_spec.ClearField(user.FieldPasswordHash, field.TypeString)
+	}
+	if value, ok := uu.mutation.PreviousEmail(); ok {
+		_spec.SetField(user.FieldPreviousEmail, field.TypeString, value)
+	}
+	if uu.mutation.PreviousEmailCleared() {
+		_spec.ClearField(user.FieldPreviousEmail, field.TypeString)
 	}
 	if value, ok := uu.mutation.TotpSecret(); ok {
 		_spec.SetField(user.FieldTotpSecret, field.TypeBytes, value)
@@ -586,91 +543,17 @@ func (uuo *UserUpdateOne) SetNillableEmail(s *string) *UserUpdateOne {
 	return uuo
 }
 
-// SetPassword sets the "password" field.
-func (uuo *UserUpdateOne) SetPassword(s string) *UserUpdateOne {
-	uuo.mutation.SetPassword(s)
+// SetEmailVerified sets the "email_verified" field.
+func (uuo *UserUpdateOne) SetEmailVerified(b bool) *UserUpdateOne {
+	uuo.mutation.SetEmailVerified(b)
 	return uuo
 }
 
-// SetNillablePassword sets the "password" field if the given value is not nil.
-func (uuo *UserUpdateOne) SetNillablePassword(s *string) *UserUpdateOne {
-	if s != nil {
-		uuo.SetPassword(*s)
-	}
-	return uuo
-}
-
-// SetVerified sets the "verified" field.
-func (uuo *UserUpdateOne) SetVerified(b bool) *UserUpdateOne {
-	uuo.mutation.SetVerified(b)
-	return uuo
-}
-
-// SetNillableVerified sets the "verified" field if the given value is not nil.
-func (uuo *UserUpdateOne) SetNillableVerified(b *bool) *UserUpdateOne {
+// SetNillableEmailVerified sets the "email_verified" field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableEmailVerified(b *bool) *UserUpdateOne {
 	if b != nil {
-		uuo.SetVerified(*b)
+		uuo.SetEmailVerified(*b)
 	}
-	return uuo
-}
-
-// SetVerifyToken sets the "verify_token" field.
-func (uuo *UserUpdateOne) SetVerifyToken(s string) *UserUpdateOne {
-	uuo.mutation.SetVerifyToken(s)
-	return uuo
-}
-
-// SetNillableVerifyToken sets the "verify_token" field if the given value is not nil.
-func (uuo *UserUpdateOne) SetNillableVerifyToken(s *string) *UserUpdateOne {
-	if s != nil {
-		uuo.SetVerifyToken(*s)
-	}
-	return uuo
-}
-
-// ClearVerifyToken clears the value of the "verify_token" field.
-func (uuo *UserUpdateOne) ClearVerifyToken() *UserUpdateOne {
-	uuo.mutation.ClearVerifyToken()
-	return uuo
-}
-
-// SetResetToken sets the "reset_token" field.
-func (uuo *UserUpdateOne) SetResetToken(s string) *UserUpdateOne {
-	uuo.mutation.SetResetToken(s)
-	return uuo
-}
-
-// SetNillableResetToken sets the "reset_token" field if the given value is not nil.
-func (uuo *UserUpdateOne) SetNillableResetToken(s *string) *UserUpdateOne {
-	if s != nil {
-		uuo.SetResetToken(*s)
-	}
-	return uuo
-}
-
-// ClearResetToken clears the value of the "reset_token" field.
-func (uuo *UserUpdateOne) ClearResetToken() *UserUpdateOne {
-	uuo.mutation.ClearResetToken()
-	return uuo
-}
-
-// SetResetTokenExpiresAt sets the "reset_token_expires_at" field.
-func (uuo *UserUpdateOne) SetResetTokenExpiresAt(t time.Time) *UserUpdateOne {
-	uuo.mutation.SetResetTokenExpiresAt(t)
-	return uuo
-}
-
-// SetNillableResetTokenExpiresAt sets the "reset_token_expires_at" field if the given value is not nil.
-func (uuo *UserUpdateOne) SetNillableResetTokenExpiresAt(t *time.Time) *UserUpdateOne {
-	if t != nil {
-		uuo.SetResetTokenExpiresAt(*t)
-	}
-	return uuo
-}
-
-// ClearResetTokenExpiresAt clears the value of the "reset_token_expires_at" field.
-func (uuo *UserUpdateOne) ClearResetTokenExpiresAt() *UserUpdateOne {
-	uuo.mutation.ClearResetTokenExpiresAt()
 	return uuo
 }
 
@@ -705,6 +588,46 @@ func (uuo *UserUpdateOne) SetNillableLastSeen(t *time.Time) *UserUpdateOne {
 	if t != nil {
 		uuo.SetLastSeen(*t)
 	}
+	return uuo
+}
+
+// SetPasswordHash sets the "password_hash" field.
+func (uuo *UserUpdateOne) SetPasswordHash(s string) *UserUpdateOne {
+	uuo.mutation.SetPasswordHash(s)
+	return uuo
+}
+
+// SetNillablePasswordHash sets the "password_hash" field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillablePasswordHash(s *string) *UserUpdateOne {
+	if s != nil {
+		uuo.SetPasswordHash(*s)
+	}
+	return uuo
+}
+
+// ClearPasswordHash clears the value of the "password_hash" field.
+func (uuo *UserUpdateOne) ClearPasswordHash() *UserUpdateOne {
+	uuo.mutation.ClearPasswordHash()
+	return uuo
+}
+
+// SetPreviousEmail sets the "previous_email" field.
+func (uuo *UserUpdateOne) SetPreviousEmail(s string) *UserUpdateOne {
+	uuo.mutation.SetPreviousEmail(s)
+	return uuo
+}
+
+// SetNillablePreviousEmail sets the "previous_email" field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillablePreviousEmail(s *string) *UserUpdateOne {
+	if s != nil {
+		uuo.SetPreviousEmail(*s)
+	}
+	return uuo
+}
+
+// ClearPreviousEmail clears the value of the "previous_email" field.
+func (uuo *UserUpdateOne) ClearPreviousEmail() *UserUpdateOne {
+	uuo.mutation.ClearPreviousEmail()
 	return uuo
 }
 
@@ -968,29 +891,8 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	if value, ok := uuo.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
 	}
-	if value, ok := uuo.mutation.Password(); ok {
-		_spec.SetField(user.FieldPassword, field.TypeString, value)
-	}
-	if value, ok := uuo.mutation.Verified(); ok {
-		_spec.SetField(user.FieldVerified, field.TypeBool, value)
-	}
-	if value, ok := uuo.mutation.VerifyToken(); ok {
-		_spec.SetField(user.FieldVerifyToken, field.TypeString, value)
-	}
-	if uuo.mutation.VerifyTokenCleared() {
-		_spec.ClearField(user.FieldVerifyToken, field.TypeString)
-	}
-	if value, ok := uuo.mutation.ResetToken(); ok {
-		_spec.SetField(user.FieldResetToken, field.TypeString, value)
-	}
-	if uuo.mutation.ResetTokenCleared() {
-		_spec.ClearField(user.FieldResetToken, field.TypeString)
-	}
-	if value, ok := uuo.mutation.ResetTokenExpiresAt(); ok {
-		_spec.SetField(user.FieldResetTokenExpiresAt, field.TypeTime, value)
-	}
-	if uuo.mutation.ResetTokenExpiresAtCleared() {
-		_spec.ClearField(user.FieldResetTokenExpiresAt, field.TypeTime)
+	if value, ok := uuo.mutation.EmailVerified(); ok {
+		_spec.SetField(user.FieldEmailVerified, field.TypeBool, value)
 	}
 	if value, ok := uuo.mutation.Name(); ok {
 		_spec.SetField(user.FieldName, field.TypeString, value)
@@ -1000,6 +902,18 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	}
 	if value, ok := uuo.mutation.LastSeen(); ok {
 		_spec.SetField(user.FieldLastSeen, field.TypeTime, value)
+	}
+	if value, ok := uuo.mutation.PasswordHash(); ok {
+		_spec.SetField(user.FieldPasswordHash, field.TypeString, value)
+	}
+	if uuo.mutation.PasswordHashCleared() {
+		_spec.ClearField(user.FieldPasswordHash, field.TypeString)
+	}
+	if value, ok := uuo.mutation.PreviousEmail(); ok {
+		_spec.SetField(user.FieldPreviousEmail, field.TypeString, value)
+	}
+	if uuo.mutation.PreviousEmailCleared() {
+		_spec.ClearField(user.FieldPreviousEmail, field.TypeString)
 	}
 	if value, ok := uuo.mutation.TotpSecret(); ok {
 		_spec.SetField(user.FieldTotpSecret, field.TypeBytes, value)

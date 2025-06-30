@@ -23,15 +23,23 @@ func (Site) Fields() []ent.Field {
 		field.String("domain").
 			Unique().
 			NotEmpty().
-			MaxLen(255),
+			MaxLen(255).
+			Comment("The domain of the site"),
+		field.String("remark").
+			MaxLen(255).
+			Optional().
+			Comment("The remark of the site"),
+
 		field.String("timezone").
 			Default("UTC").
-			MaxLen(50),
+			MaxLen(50).
+			Comment("The timezone of the site"),
 		field.Bool("public").
 			Default(false),
 		field.Time("stats_start_date").
 			Optional().
-			Nillable(),
+			Nillable().
+			Comment("The stats start date of the site"),
 		field.Int("ingest_rate_limit_scale_seconds").
 			Default(60),
 		field.Int("ingest_limit_per_minute").

@@ -46,6 +46,26 @@ func (su *SiteUpdate) SetNillableDomain(s *string) *SiteUpdate {
 	return su
 }
 
+// SetRemark sets the "remark" field.
+func (su *SiteUpdate) SetRemark(s string) *SiteUpdate {
+	su.mutation.SetRemark(s)
+	return su
+}
+
+// SetNillableRemark sets the "remark" field if the given value is not nil.
+func (su *SiteUpdate) SetNillableRemark(s *string) *SiteUpdate {
+	if s != nil {
+		su.SetRemark(*s)
+	}
+	return su
+}
+
+// ClearRemark clears the value of the "remark" field.
+func (su *SiteUpdate) ClearRemark() *SiteUpdate {
+	su.mutation.ClearRemark()
+	return su
+}
+
 // SetTimezone sets the "timezone" field.
 func (su *SiteUpdate) SetTimezone(s string) *SiteUpdate {
 	su.mutation.SetTimezone(s)
@@ -334,6 +354,11 @@ func (su *SiteUpdate) check() error {
 			return &ValidationError{Name: "domain", err: fmt.Errorf(`ent: validator failed for field "Site.domain": %w`, err)}
 		}
 	}
+	if v, ok := su.mutation.Remark(); ok {
+		if err := site.RemarkValidator(v); err != nil {
+			return &ValidationError{Name: "remark", err: fmt.Errorf(`ent: validator failed for field "Site.remark": %w`, err)}
+		}
+	}
 	if v, ok := su.mutation.Timezone(); ok {
 		if err := site.TimezoneValidator(v); err != nil {
 			return &ValidationError{Name: "timezone", err: fmt.Errorf(`ent: validator failed for field "Site.timezone": %w`, err)}
@@ -356,6 +381,12 @@ func (su *SiteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := su.mutation.Domain(); ok {
 		_spec.SetField(site.FieldDomain, field.TypeString, value)
+	}
+	if value, ok := su.mutation.Remark(); ok {
+		_spec.SetField(site.FieldRemark, field.TypeString, value)
+	}
+	if su.mutation.RemarkCleared() {
+		_spec.ClearField(site.FieldRemark, field.TypeString)
 	}
 	if value, ok := su.mutation.Timezone(); ok {
 		_spec.SetField(site.FieldTimezone, field.TypeString, value)
@@ -595,6 +626,26 @@ func (suo *SiteUpdateOne) SetNillableDomain(s *string) *SiteUpdateOne {
 	if s != nil {
 		suo.SetDomain(*s)
 	}
+	return suo
+}
+
+// SetRemark sets the "remark" field.
+func (suo *SiteUpdateOne) SetRemark(s string) *SiteUpdateOne {
+	suo.mutation.SetRemark(s)
+	return suo
+}
+
+// SetNillableRemark sets the "remark" field if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableRemark(s *string) *SiteUpdateOne {
+	if s != nil {
+		suo.SetRemark(*s)
+	}
+	return suo
+}
+
+// ClearRemark clears the value of the "remark" field.
+func (suo *SiteUpdateOne) ClearRemark() *SiteUpdateOne {
+	suo.mutation.ClearRemark()
 	return suo
 }
 
@@ -899,6 +950,11 @@ func (suo *SiteUpdateOne) check() error {
 			return &ValidationError{Name: "domain", err: fmt.Errorf(`ent: validator failed for field "Site.domain": %w`, err)}
 		}
 	}
+	if v, ok := suo.mutation.Remark(); ok {
+		if err := site.RemarkValidator(v); err != nil {
+			return &ValidationError{Name: "remark", err: fmt.Errorf(`ent: validator failed for field "Site.remark": %w`, err)}
+		}
+	}
 	if v, ok := suo.mutation.Timezone(); ok {
 		if err := site.TimezoneValidator(v); err != nil {
 			return &ValidationError{Name: "timezone", err: fmt.Errorf(`ent: validator failed for field "Site.timezone": %w`, err)}
@@ -938,6 +994,12 @@ func (suo *SiteUpdateOne) sqlSave(ctx context.Context) (_node *Site, err error) 
 	}
 	if value, ok := suo.mutation.Domain(); ok {
 		_spec.SetField(site.FieldDomain, field.TypeString, value)
+	}
+	if value, ok := suo.mutation.Remark(); ok {
+		_spec.SetField(site.FieldRemark, field.TypeString, value)
+	}
+	if suo.mutation.RemarkCleared() {
+		_spec.ClearField(site.FieldRemark, field.TypeString)
 	}
 	if value, ok := suo.mutation.Timezone(); ok {
 		_spec.SetField(site.FieldTimezone, field.TypeString, value)

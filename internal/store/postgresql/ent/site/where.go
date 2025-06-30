@@ -60,6 +60,11 @@ func Domain(v string) predicate.Site {
 	return predicate.Site(sql.FieldEQ(FieldDomain, v))
 }
 
+// Remark applies equality check predicate on the "remark" field. It's identical to RemarkEQ.
+func Remark(v string) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldRemark, v))
+}
+
 // Timezone applies equality check predicate on the "timezone" field. It's identical to TimezoneEQ.
 func Timezone(v string) predicate.Site {
 	return predicate.Site(sql.FieldEQ(FieldTimezone, v))
@@ -158,6 +163,81 @@ func DomainEqualFold(v string) predicate.Site {
 // DomainContainsFold applies the ContainsFold predicate on the "domain" field.
 func DomainContainsFold(v string) predicate.Site {
 	return predicate.Site(sql.FieldContainsFold(FieldDomain, v))
+}
+
+// RemarkEQ applies the EQ predicate on the "remark" field.
+func RemarkEQ(v string) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldRemark, v))
+}
+
+// RemarkNEQ applies the NEQ predicate on the "remark" field.
+func RemarkNEQ(v string) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldRemark, v))
+}
+
+// RemarkIn applies the In predicate on the "remark" field.
+func RemarkIn(vs ...string) predicate.Site {
+	return predicate.Site(sql.FieldIn(FieldRemark, vs...))
+}
+
+// RemarkNotIn applies the NotIn predicate on the "remark" field.
+func RemarkNotIn(vs ...string) predicate.Site {
+	return predicate.Site(sql.FieldNotIn(FieldRemark, vs...))
+}
+
+// RemarkGT applies the GT predicate on the "remark" field.
+func RemarkGT(v string) predicate.Site {
+	return predicate.Site(sql.FieldGT(FieldRemark, v))
+}
+
+// RemarkGTE applies the GTE predicate on the "remark" field.
+func RemarkGTE(v string) predicate.Site {
+	return predicate.Site(sql.FieldGTE(FieldRemark, v))
+}
+
+// RemarkLT applies the LT predicate on the "remark" field.
+func RemarkLT(v string) predicate.Site {
+	return predicate.Site(sql.FieldLT(FieldRemark, v))
+}
+
+// RemarkLTE applies the LTE predicate on the "remark" field.
+func RemarkLTE(v string) predicate.Site {
+	return predicate.Site(sql.FieldLTE(FieldRemark, v))
+}
+
+// RemarkContains applies the Contains predicate on the "remark" field.
+func RemarkContains(v string) predicate.Site {
+	return predicate.Site(sql.FieldContains(FieldRemark, v))
+}
+
+// RemarkHasPrefix applies the HasPrefix predicate on the "remark" field.
+func RemarkHasPrefix(v string) predicate.Site {
+	return predicate.Site(sql.FieldHasPrefix(FieldRemark, v))
+}
+
+// RemarkHasSuffix applies the HasSuffix predicate on the "remark" field.
+func RemarkHasSuffix(v string) predicate.Site {
+	return predicate.Site(sql.FieldHasSuffix(FieldRemark, v))
+}
+
+// RemarkIsNil applies the IsNil predicate on the "remark" field.
+func RemarkIsNil() predicate.Site {
+	return predicate.Site(sql.FieldIsNull(FieldRemark))
+}
+
+// RemarkNotNil applies the NotNil predicate on the "remark" field.
+func RemarkNotNil() predicate.Site {
+	return predicate.Site(sql.FieldNotNull(FieldRemark))
+}
+
+// RemarkEqualFold applies the EqualFold predicate on the "remark" field.
+func RemarkEqualFold(v string) predicate.Site {
+	return predicate.Site(sql.FieldEqualFold(FieldRemark, v))
+}
+
+// RemarkContainsFold applies the ContainsFold predicate on the "remark" field.
+func RemarkContainsFold(v string) predicate.Site {
+	return predicate.Site(sql.FieldContainsFold(FieldRemark, v))
 }
 
 // TimezoneEQ applies the EQ predicate on the "timezone" field.

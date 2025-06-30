@@ -53,30 +53,34 @@ func init() {
 			return nil
 		}
 	}()
+	// siteDescRemark is the schema descriptor for remark field.
+	siteDescRemark := siteFields[2].Descriptor()
+	// site.RemarkValidator is a validator for the "remark" field. It is called by the builders before save.
+	site.RemarkValidator = siteDescRemark.Validators[0].(func(string) error)
 	// siteDescTimezone is the schema descriptor for timezone field.
-	siteDescTimezone := siteFields[2].Descriptor()
+	siteDescTimezone := siteFields[3].Descriptor()
 	// site.DefaultTimezone holds the default value on creation for the timezone field.
 	site.DefaultTimezone = siteDescTimezone.Default.(string)
 	// site.TimezoneValidator is a validator for the "timezone" field. It is called by the builders before save.
 	site.TimezoneValidator = siteDescTimezone.Validators[0].(func(string) error)
 	// siteDescPublic is the schema descriptor for public field.
-	siteDescPublic := siteFields[3].Descriptor()
+	siteDescPublic := siteFields[4].Descriptor()
 	// site.DefaultPublic holds the default value on creation for the public field.
 	site.DefaultPublic = siteDescPublic.Default.(bool)
 	// siteDescIngestRateLimitScaleSeconds is the schema descriptor for ingest_rate_limit_scale_seconds field.
-	siteDescIngestRateLimitScaleSeconds := siteFields[5].Descriptor()
+	siteDescIngestRateLimitScaleSeconds := siteFields[6].Descriptor()
 	// site.DefaultIngestRateLimitScaleSeconds holds the default value on creation for the ingest_rate_limit_scale_seconds field.
 	site.DefaultIngestRateLimitScaleSeconds = siteDescIngestRateLimitScaleSeconds.Default.(int)
 	// siteDescIngestLimitPerMinute is the schema descriptor for ingest_limit_per_minute field.
-	siteDescIngestLimitPerMinute := siteFields[6].Descriptor()
+	siteDescIngestLimitPerMinute := siteFields[7].Descriptor()
 	// site.DefaultIngestLimitPerMinute holds the default value on creation for the ingest_limit_per_minute field.
 	site.DefaultIngestLimitPerMinute = siteDescIngestLimitPerMinute.Default.(int)
 	// siteDescCreatedAt is the schema descriptor for created_at field.
-	siteDescCreatedAt := siteFields[7].Descriptor()
+	siteDescCreatedAt := siteFields[8].Descriptor()
 	// site.DefaultCreatedAt holds the default value on creation for the created_at field.
 	site.DefaultCreatedAt = siteDescCreatedAt.Default.(func() time.Time)
 	// siteDescUpdatedAt is the schema descriptor for updated_at field.
-	siteDescUpdatedAt := siteFields[8].Descriptor()
+	siteDescUpdatedAt := siteFields[9].Descriptor()
 	// site.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	site.DefaultUpdatedAt = siteDescUpdatedAt.Default.(func() time.Time)
 	// site.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -85,24 +89,24 @@ func init() {
 	_ = sitemembershipFields
 	userFields := schema.User{}.Fields()
 	_ = userFields
-	// userDescVerified is the schema descriptor for verified field.
-	userDescVerified := userFields[3].Descriptor()
-	// user.DefaultVerified holds the default value on creation for the verified field.
-	user.DefaultVerified = userDescVerified.Default.(bool)
+	// userDescEmailVerified is the schema descriptor for email_verified field.
+	userDescEmailVerified := userFields[2].Descriptor()
+	// user.DefaultEmailVerified holds the default value on creation for the email_verified field.
+	user.DefaultEmailVerified = userDescEmailVerified.Default.(bool)
 	// userDescLastSeen is the schema descriptor for last_seen field.
-	userDescLastSeen := userFields[8].Descriptor()
+	userDescLastSeen := userFields[4].Descriptor()
 	// user.DefaultLastSeen holds the default value on creation for the last_seen field.
 	user.DefaultLastSeen = userDescLastSeen.Default.(func() time.Time)
 	// userDescTotpEnabled is the schema descriptor for totp_enabled field.
-	userDescTotpEnabled := userFields[10].Descriptor()
+	userDescTotpEnabled := userFields[8].Descriptor()
 	// user.DefaultTotpEnabled holds the default value on creation for the totp_enabled field.
 	user.DefaultTotpEnabled = userDescTotpEnabled.Default.(bool)
 	// userDescCreatedAt is the schema descriptor for created_at field.
-	userDescCreatedAt := userFields[14].Descriptor()
+	userDescCreatedAt := userFields[12].Descriptor()
 	// user.DefaultCreatedAt holds the default value on creation for the created_at field.
 	user.DefaultCreatedAt = userDescCreatedAt.Default.(func() time.Time)
 	// userDescUpdatedAt is the schema descriptor for updated_at field.
-	userDescUpdatedAt := userFields[15].Descriptor()
+	userDescUpdatedAt := userFields[13].Descriptor()
 	// user.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	user.DefaultUpdatedAt = userDescUpdatedAt.Default.(func() time.Time)
 	usersessionFields := schema.UserSession{}.Fields()

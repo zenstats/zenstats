@@ -30,6 +30,20 @@ func (sc *SiteCreate) SetDomain(s string) *SiteCreate {
 	return sc
 }
 
+// SetRemark sets the "remark" field.
+func (sc *SiteCreate) SetRemark(s string) *SiteCreate {
+	sc.mutation.SetRemark(s)
+	return sc
+}
+
+// SetNillableRemark sets the "remark" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableRemark(s *string) *SiteCreate {
+	if s != nil {
+		sc.SetRemark(*s)
+	}
+	return sc
+}
+
 // SetTimezone sets the "timezone" field.
 func (sc *SiteCreate) SetTimezone(s string) *SiteCreate {
 	sc.mutation.SetTimezone(s)
@@ -265,6 +279,11 @@ func (sc *SiteCreate) check() error {
 			return &ValidationError{Name: "domain", err: fmt.Errorf(`ent: validator failed for field "Site.domain": %w`, err)}
 		}
 	}
+	if v, ok := sc.mutation.Remark(); ok {
+		if err := site.RemarkValidator(v); err != nil {
+			return &ValidationError{Name: "remark", err: fmt.Errorf(`ent: validator failed for field "Site.remark": %w`, err)}
+		}
+	}
 	if _, ok := sc.mutation.Timezone(); !ok {
 		return &ValidationError{Name: "timezone", err: errors.New(`ent: missing required field "Site.timezone"`)}
 	}
@@ -323,6 +342,10 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 	if value, ok := sc.mutation.Domain(); ok {
 		_spec.SetField(site.FieldDomain, field.TypeString, value)
 		_node.Domain = value
+	}
+	if value, ok := sc.mutation.Remark(); ok {
+		_spec.SetField(site.FieldRemark, field.TypeString, value)
+		_node.Remark = value
 	}
 	if value, ok := sc.mutation.Timezone(); ok {
 		_spec.SetField(site.FieldTimezone, field.TypeString, value)

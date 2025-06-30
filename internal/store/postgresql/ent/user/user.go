@@ -16,20 +16,16 @@ const (
 	FieldID = "id"
 	// FieldEmail holds the string denoting the email field in the database.
 	FieldEmail = "email"
-	// FieldPassword holds the string denoting the password field in the database.
-	FieldPassword = "password"
-	// FieldVerified holds the string denoting the verified field in the database.
-	FieldVerified = "verified"
-	// FieldVerifyToken holds the string denoting the verify_token field in the database.
-	FieldVerifyToken = "verify_token"
-	// FieldResetToken holds the string denoting the reset_token field in the database.
-	FieldResetToken = "reset_token"
-	// FieldResetTokenExpiresAt holds the string denoting the reset_token_expires_at field in the database.
-	FieldResetTokenExpiresAt = "reset_token_expires_at"
+	// FieldEmailVerified holds the string denoting the email_verified field in the database.
+	FieldEmailVerified = "email_verified"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldLastSeen holds the string denoting the last_seen field in the database.
 	FieldLastSeen = "last_seen"
+	// FieldPasswordHash holds the string denoting the password_hash field in the database.
+	FieldPasswordHash = "password_hash"
+	// FieldPreviousEmail holds the string denoting the previous_email field in the database.
+	FieldPreviousEmail = "previous_email"
 	// FieldTotpSecret holds the string denoting the totp_secret field in the database.
 	FieldTotpSecret = "totp_secret"
 	// FieldTotpEnabled holds the string denoting the totp_enabled field in the database.
@@ -70,13 +66,11 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldEmail,
-	FieldPassword,
-	FieldVerified,
-	FieldVerifyToken,
-	FieldResetToken,
-	FieldResetTokenExpiresAt,
+	FieldEmailVerified,
 	FieldName,
 	FieldLastSeen,
+	FieldPasswordHash,
+	FieldPreviousEmail,
 	FieldTotpSecret,
 	FieldTotpEnabled,
 	FieldTotpLastUsedAt,
@@ -108,8 +102,8 @@ func ValidColumn(column string) bool {
 }
 
 var (
-	// DefaultVerified holds the default value on creation for the "verified" field.
-	DefaultVerified bool
+	// DefaultEmailVerified holds the default value on creation for the "email_verified" field.
+	DefaultEmailVerified bool
 	// DefaultLastSeen holds the default value on creation for the "last_seen" field.
 	DefaultLastSeen func() time.Time
 	// DefaultTotpEnabled holds the default value on creation for the "totp_enabled" field.
@@ -133,29 +127,9 @@ func ByEmail(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEmail, opts...).ToFunc()
 }
 
-// ByPassword orders the results by the password field.
-func ByPassword(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldPassword, opts...).ToFunc()
-}
-
-// ByVerified orders the results by the verified field.
-func ByVerified(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldVerified, opts...).ToFunc()
-}
-
-// ByVerifyToken orders the results by the verify_token field.
-func ByVerifyToken(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldVerifyToken, opts...).ToFunc()
-}
-
-// ByResetToken orders the results by the reset_token field.
-func ByResetToken(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldResetToken, opts...).ToFunc()
-}
-
-// ByResetTokenExpiresAt orders the results by the reset_token_expires_at field.
-func ByResetTokenExpiresAt(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldResetTokenExpiresAt, opts...).ToFunc()
+// ByEmailVerified orders the results by the email_verified field.
+func ByEmailVerified(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEmailVerified, opts...).ToFunc()
 }
 
 // ByName orders the results by the name field.
@@ -166,6 +140,16 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByLastSeen orders the results by the last_seen field.
 func ByLastSeen(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLastSeen, opts...).ToFunc()
+}
+
+// ByPasswordHash orders the results by the password_hash field.
+func ByPasswordHash(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPasswordHash, opts...).ToFunc()
+}
+
+// ByPreviousEmail orders the results by the previous_email field.
+func ByPreviousEmail(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPreviousEmail, opts...).ToFunc()
 }
 
 // ByTotpEnabled orders the results by the totp_enabled field.

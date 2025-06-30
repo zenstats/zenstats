@@ -19,20 +19,16 @@ type User struct {
 	ID int64 `json:"id,omitempty"`
 	// Email holds the value of the "email" field.
 	Email string `json:"email,omitempty"`
-	// Password holds the value of the "password" field.
-	Password string `json:"password,omitempty"`
-	// Verified holds the value of the "verified" field.
-	Verified bool `json:"verified,omitempty"`
-	// VerifyToken holds the value of the "verify_token" field.
-	VerifyToken string `json:"verify_token,omitempty"`
-	// ResetToken holds the value of the "reset_token" field.
-	ResetToken string `json:"reset_token,omitempty"`
-	// ResetTokenExpiresAt holds the value of the "reset_token_expires_at" field.
-	ResetTokenExpiresAt time.Time `json:"reset_token_expires_at,omitempty"`
+	// EmailVerified holds the value of the "email_verified" field.
+	EmailVerified bool `json:"email_verified,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// LastSeen holds the value of the "last_seen" field.
 	LastSeen time.Time `json:"last_seen,omitempty"`
+	// PasswordHash holds the value of the "password_hash" field.
+	PasswordHash string `json:"password_hash,omitempty"`
+	// PreviousEmail holds the value of the "previous_email" field.
+	PreviousEmail string `json:"previous_email,omitempty"`
 	// TotpSecret holds the value of the "totp_secret" field.
 	TotpSecret []byte `json:"totp_secret,omitempty"`
 	// TotpEnabled holds the value of the "totp_enabled" field.
@@ -90,13 +86,13 @@ func (*User) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case user.FieldTotpSecret:
 			values[i] = new([]byte)
-		case user.FieldVerified, user.FieldTotpEnabled:
+		case user.FieldEmailVerified, user.FieldTotpEnabled:
 			values[i] = new(sql.NullBool)
 		case user.FieldID:
 			values[i] = new(sql.NullInt64)
-		case user.FieldEmail, user.FieldPassword, user.FieldVerifyToken, user.FieldResetToken, user.FieldName, user.FieldTotpToken, user.FieldNotes:
+		case user.FieldEmail, user.FieldName, user.FieldPasswordHash, user.FieldPreviousEmail, user.FieldTotpToken, user.FieldNotes:
 			values[i] = new(sql.NullString)
-		case user.FieldResetTokenExpiresAt, user.FieldLastSeen, user.FieldTotpLastUsedAt, user.FieldCreatedAt, user.FieldUpdatedAt:
+		case user.FieldLastSeen, user.FieldTotpLastUsedAt, user.FieldCreatedAt, user.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		case user.ForeignKeys[0]: // site_members
 			values[i] = new(sql.NullInt64)
@@ -127,35 +123,11 @@ func (u *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				u.Email = value.String
 			}
-		case user.FieldPassword:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field password", values[i])
-			} else if value.Valid {
-				u.Password = value.String
-			}
-		case user.FieldVerified:
+		case user.FieldEmailVerified:
 			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field verified", values[i])
+				return fmt.Errorf("unexpected type %T for field email_verified", values[i])
 			} else if value.Valid {
-				u.Verified = value.Bool
-			}
-		case user.FieldVerifyToken:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field verify_token", values[i])
-			} else if value.Valid {
-				u.VerifyToken = value.String
-			}
-		case user.FieldResetToken:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field reset_token", values[i])
-			} else if value.Valid {
-				u.ResetToken = value.String
-			}
-		case user.FieldResetTokenExpiresAt:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field reset_token_expires_at", values[i])
-			} else if value.Valid {
-				u.ResetTokenExpiresAt = value.Time
+				u.EmailVerified = value.Bool
 			}
 		case user.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -168,6 +140,18 @@ func (u *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field last_seen", values[i])
 			} else if value.Valid {
 				u.LastSeen = value.Time
+			}
+		case user.FieldPasswordHash:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field password_hash", values[i])
+			} else if value.Valid {
+				u.PasswordHash = value.String
+			}
+		case user.FieldPreviousEmail:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field previous_email", values[i])
+			} else if value.Valid {
+				u.PreviousEmail = value.String
 			}
 		case user.FieldTotpSecret:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -267,26 +251,20 @@ func (u *User) String() string {
 	builder.WriteString("email=")
 	builder.WriteString(u.Email)
 	builder.WriteString(", ")
-	builder.WriteString("password=")
-	builder.WriteString(u.Password)
-	builder.WriteString(", ")
-	builder.WriteString("verified=")
-	builder.WriteString(fmt.Sprintf("%v", u.Verified))
-	builder.WriteString(", ")
-	builder.WriteString("verify_token=")
-	builder.WriteString(u.VerifyToken)
-	builder.WriteString(", ")
-	builder.WriteString("reset_token=")
-	builder.WriteString(u.ResetToken)
-	builder.WriteString(", ")
-	builder.WriteString("reset_token_expires_at=")
-	builder.WriteString(u.ResetTokenExpiresAt.Format(time.ANSIC))
+	builder.WriteString("email_verified=")
+	builder.WriteString(fmt.Sprintf("%v", u.EmailVerified))
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(u.Name)
 	builder.WriteString(", ")
 	builder.WriteString("last_seen=")
 	builder.WriteString(u.LastSeen.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("password_hash=")
+	builder.WriteString(u.PasswordHash)
+	builder.WriteString(", ")
+	builder.WriteString("previous_email=")
+	builder.WriteString(u.PreviousEmail)
 	builder.WriteString(", ")
 	builder.WriteString("totp_secret=")
 	builder.WriteString(fmt.Sprintf("%v", u.TotpSecret))

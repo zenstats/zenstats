@@ -17,13 +17,15 @@ type Site struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID int64 `json:"id,omitempty"`
-	// Domain holds the value of the "domain" field.
+	// The domain of the site
 	Domain string `json:"domain,omitempty"`
-	// Timezone holds the value of the "timezone" field.
+	// The remark of the site
+	Remark string `json:"remark,omitempty"`
+	// The timezone of the site
 	Timezone string `json:"timezone,omitempty"`
 	// Public holds the value of the "public" field.
 	Public bool `json:"public,omitempty"`
-	// StatsStartDate holds the value of the "stats_start_date" field.
+	// The stats start date of the site
 	StatsStartDate *time.Time `json:"stats_start_date,omitempty"`
 	// IngestRateLimitScaleSeconds holds the value of the "ingest_rate_limit_scale_seconds" field.
 	IngestRateLimitScaleSeconds int `json:"ingest_rate_limit_scale_seconds,omitempty"`
@@ -99,7 +101,7 @@ func (*Site) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case site.FieldID, site.FieldIngestRateLimitScaleSeconds, site.FieldIngestLimitPerMinute:
 			values[i] = new(sql.NullInt64)
-		case site.FieldDomain, site.FieldTimezone:
+		case site.FieldDomain, site.FieldRemark, site.FieldTimezone:
 			values[i] = new(sql.NullString)
 		case site.FieldStatsStartDate, site.FieldCreatedAt, site.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -129,6 +131,12 @@ func (s *Site) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field domain", values[i])
 			} else if value.Valid {
 				s.Domain = value.String
+			}
+		case site.FieldRemark:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field remark", values[i])
+			} else if value.Valid {
+				s.Remark = value.String
 			}
 		case site.FieldTimezone:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -231,6 +239,9 @@ func (s *Site) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", s.ID))
 	builder.WriteString("domain=")
 	builder.WriteString(s.Domain)
+	builder.WriteString(", ")
+	builder.WriteString("remark=")
+	builder.WriteString(s.Remark)
 	builder.WriteString(", ")
 	builder.WriteString("timezone=")
 	builder.WriteString(s.Timezone)

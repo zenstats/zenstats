@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"github.com/zenstats/zenstats/config"
@@ -27,7 +28,7 @@ var ServerCmd = &cobra.Command{
 	Long: `Start the server at the specified address
 the address is defined in config file`,
 	Run: func(cmd *cobra.Command, args []string) {
-		Init()
+		InitServer()
 
 		queue := globals.GetQueue()
 
@@ -47,6 +48,13 @@ the address is defined in config file`,
 		r.Use(
 			gin.Recovery(),
 		)
+		// 解决cors
+		cconfig := cors.DefaultConfig()
+		cconfig.AllowOrigins = []string{"*"}                            // 允许的源
+		cconfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE"} // 允许的方法
+		cconfig.AllowHeaders = []string{"*"}                            // 允许的头部
+		cconfig.AllowCredentials = true                                 // 允许携带 cookie 等凭证
+		r.Use(cors.New(cconfig))
 
 		api := r.Group("/api")
 		router.RegisterRouter(api)
