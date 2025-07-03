@@ -31,6 +31,10 @@ func GetUserService() *UserService {
 	return userServiceInstance
 }
 
+func (s *UserService) GetUserCount(ctx context.Context) (int, error) {
+	return s.db.Client.User.Query().Count(ctx)
+}
+
 func (s *UserService) CreateUser(ctx context.Context, name, email, password string) (*ent.User, error) {
 
 	passwordHash, err := utils.GeneratedBcrypt(password)

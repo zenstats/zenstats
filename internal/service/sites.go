@@ -189,7 +189,7 @@ func (s *SiteService) GetSiteList(ctx *gin.Context) ([]*ent.Site, error) {
 	return sites, nil
 }
 
-// IsDomainInList 判断域名是否在用户的站点域名列表中
+// IsDomainInList
 func (s *SiteService) IsDomainInList(ctx *gin.Context, domain string) (bool, error) {
 	sites, err := s.GetSiteList(ctx)
 	if err != nil {

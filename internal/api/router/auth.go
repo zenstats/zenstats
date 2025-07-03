@@ -14,5 +14,7 @@ func RegisterAuthRouter(router *gin.RouterGroup) {
 	auth.POST("/login", authHandle.Login())
 	auth.GET("/refresh", authHandle.Refresh())
 
+	auth.GET("/state", authHandle.State())
+
 	auth.Use(middleware.CheckInitialization()).POST("/init", authHandle.Initialize())
 }

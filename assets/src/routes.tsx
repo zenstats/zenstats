@@ -4,11 +4,16 @@ import { Navigate } from "react-router-dom";
 import Login from "@/pages/login/login";
 import Sites from "@/pages/sites/sites";
 import NewSite from "@/pages/sites/new";
+import Setup from './pages/login/setup';
 
 const routes: RouteObject[] = [
   {
     path: "/login",
     element: <Login />
+  },
+    {
+    path: "/setup",
+    element: <Setup />
   },
   {
     path: "/sites",

@@ -5,6 +5,7 @@ import qs from 'qs'
 export interface BaseResponse<T = unknown> {
     code: number;
     message: string;
+    error?: string;
     data: T;
 }
 

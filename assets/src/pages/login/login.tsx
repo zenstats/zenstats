@@ -16,6 +16,8 @@ export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+
+  const [serverError, setServerError] = useState('');
   const [errors, setErrors] = useState({
     email: "",
     password: ""
@@ -60,7 +62,8 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) return
+    if (!validateForm()) return;
+    setServerError('');
 
     setIsLoading(true)
 
@@ -68,44 +71,74 @@ export default function Login() {
     try {
       axios.post<BaseResponse<LoginResponse>>("/auth/login", { "email": email, "password": password }).then((res) => {
         setIsLoading(false)
-        toast.success("登录成功")
-        if (rememberMe) {
-          localStorage.setItem("rememberedEmail", email)
+        if (res.data.code !== 200) {
+          toast.error("登录失败", {
+            description: res.data.error,
+          })
+          setServerError(res.data.error || "")
+          return;
         } else {
-          localStorage.removeItem("rememberedEmail")
-        }
-        localStorage.setItem("token", res.data.data.token)
-        localStorage.setItem("refreshToken", res.data.data.refresh_token)
-        localStorage.setItem("name", res.data.data.user.name)
-        localStorage.setItem("email", res.data.data.user.email)
+          toast.success("登录成功")
+          if (rememberMe) {
+            localStorage.setItem("rememberedEmail", email)
+          } else {
+            localStorage.removeItem("rememberedEmail")
+          }
+          localStorage.setItem("token", res.data.data.token)
+          localStorage.setItem("refreshToken", res.data.data.refresh_token)
+          localStorage.setItem("name", res.data.data.user.name)
+          localStorage.setItem("email", res.data.data.user.email)
 
-        navigate("/sites")
+          navigate("/sites")
+
+        }
       }).catch((err) => {
         toast.error("登录失败", {
           description: err instanceof AxiosError ? err.response?.data.error : "未知错误",
         })
+        setServerError(err instanceof AxiosError ? err.response?.data.error : "未知错误")
       })
 
     } catch (err) {
       toast.error("登录失败", {
         description: err instanceof AxiosError ? err.response?.data.error : "未知错误",
       })
+      setServerError(err instanceof AxiosError ? err.response?.data.error : "未知错误")
     } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
-    if (token) {
-      navigate("/sites")
-    }
+    const checkAuthState = async () => {
+      try {
+        const { data } = await axios.get<BaseResponse<string>>("/auth/state");
+        console.log(data)
+        // 如果系统未初始化，跳转到 setup 页面
+        if (data.data === 'not_initialized') {
+          navigate("/setup");
+          return;
+        }
 
-    const rememberedEmail = localStorage.getItem("rememberedEmail")
-    if (rememberedEmail) {
-      setEmail(rememberedEmail)
-      setRememberMe(true) // 自动勾选记住我
-    }
+        // 原有的 token 检查逻辑
+        const token = localStorage.getItem("token");
+        if (token) {
+          navigate("/sites");
+        }
+
+        // 原有的记住我逻辑
+        const rememberedEmail = localStorage.getItem("rememberedEmail");
+        if (rememberedEmail) {
+          setEmail(rememberedEmail);
+          setRememberMe(true);
+        }
+      } catch (err) {
+        console.error("检查系统状态失败:", err);
+        // 可以添加 toast 提示或静默处理
+      }
+    };
+
+    checkAuthState();
   }, [])
 
   return (
@@ -115,6 +148,12 @@ export default function Login() {
           <CardTitle className="text-2xl text-center">登录</CardTitle>
         </CardHeader>
         <CardContent className="w-full">
+
+          {serverError && (
+            <div className="mb-4 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+              {serverError}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">邮箱地址</Label>

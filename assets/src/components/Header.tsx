@@ -53,8 +53,8 @@ const UserDropdown = ({
         <div
           className="inline-flex items-center w-full justify-center rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-700 cursor-pointer"
         >
-          {user.name}
-          <Avatar className="h-6 w-6 ml-1">
+          {user.name || "未登录"}
+          <Avatar className="h-6 w-6 ml-1" hidden={!user.name}>
             <AvatarImage src={avatar} />
           </Avatar>
         </div>
