@@ -14,9 +14,9 @@ interface SetupFormData {
 }
 
 interface SetupResponse {
-  message: string;
+  token: string;
+  refresh_token: string;
   user: {
-    id: string;
     name: string;
     email: string;
   }
@@ -100,9 +100,16 @@ export default function Setup() {
 
       if (response.data.code === 200) {
         // 初始化成功，重定向到登录页
-        navigate('/login', {
-          state: { success: '管理员账户创建成功，请登录' }
+
+        localStorage.setItem("token", response.data.data.token)
+        localStorage.setItem("refreshToken", response.data.data.refresh_token)
+        localStorage.setItem("name", response.data.data.user.name)
+        localStorage.setItem("email", response.data.data.user.email)
+
+        navigate('/sites', {
+          state: { success: '管理员账户创建成功' }
         });
+
       } else {
         setServerError(response.data.message || '初始化失败，请重试');
       }

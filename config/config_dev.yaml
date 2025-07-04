@@ -23,6 +23,8 @@ clickhouse:
   password: ''
   ssl: false
 
+
+
 db:
   host: 192.168.31.3
   port: 5432

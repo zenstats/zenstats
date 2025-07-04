@@ -113,7 +113,7 @@ export default function NewSitePage() {
               <Input
                 {...register("limit_minute", {
                   valueAsNumber: true,
-                  min: 10
+                  min: 0
                 })}
                 placeholder="Limit count"
                 type="number"

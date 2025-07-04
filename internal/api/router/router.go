@@ -8,10 +8,13 @@ func RegisterRouter(router *gin.RouterGroup) {
 
 	// auth api
 	RegisterAuthRouter(router)
+	// stats api
+	RegisterStatsRouter(router)
 
 	// user api
 	RegisterUserRouter(router)
 
 	// site api
 	RegisterSitesRouter(router)
+
 }

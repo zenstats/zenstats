@@ -73,10 +73,11 @@ export default function Sites() {
 
       {/* 搜索和添加按钮行 */}
       <div className="flex justify-between mb-6">
-        <div className="w-1/3">
+        <div className="w-1/4">
           <Input
             placeholder="搜索站点..."
             value={searchQuery}
+            className="bg-white"
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>

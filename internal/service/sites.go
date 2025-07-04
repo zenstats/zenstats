@@ -24,8 +24,10 @@ type allSitesCacheItem struct {
 }
 
 type SiteService struct {
-	db    *postgresql.Client
-	cache sync.Map // 用于存储缓存数据
+	db               *postgresql.Client
+	cache            sync.Map
+	domainCache      sync.Map
+	allSitesCacheKey string
 }
 
 func GetSiteService() *SiteService {
@@ -35,8 +37,10 @@ func GetSiteService() *SiteService {
 			panic("DB is not initialized")
 		}
 		siteServiceInstance = &SiteService{
-			db:    db,
-			cache: sync.Map{},
+			db:               db,
+			cache:            sync.Map{},
+			domainCache:      sync.Map{},
+			allSitesCacheKey: "all_sites",
 		}
 	})
 	return siteServiceInstance
@@ -92,7 +96,7 @@ func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*en
 	// 触发缓存更新，删除对应缓存
 	s.cache.Delete(ctx.GetInt64("user_id"))
 	// 新增：删除全站列表缓存
-	s.cache.Delete("all_sites")
+	s.cache.Delete(s.allSitesCacheKey)
 
 	return site, nil
 }
@@ -169,20 +173,18 @@ func (s *SiteService) GetUserSiteByDomain(ctx *gin.Context, domain string) ([]*S
 // 新增：完成 GetSiteList 方法，使用缓存
 func (s *SiteService) GetSiteList(ctx *gin.Context) ([]*ent.Site, error) {
 	// 尝试从缓存中获取全站列表数据
-	if cached, ok := s.cache.Load("all_sites"); ok {
+	if cached, ok := s.cache.Load(s.allSitesCacheKey); ok {
 		item := cached.(allSitesCacheItem)
 
 		return item.sites, nil
 	}
 
-	// 缓存未命中或已过期，从数据库获取数据
 	sites, err := s.db.Client.Site.Query().All(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// 将获取到的数据存入缓存，设置缓存过期时间为 5 分钟
-	s.cache.Store("all_sites", allSitesCacheItem{
+	s.cache.Store(s.allSitesCacheKey, allSitesCacheItem{
 		sites: sites,
 	})
 
@@ -191,16 +193,19 @@ func (s *SiteService) GetSiteList(ctx *gin.Context) ([]*ent.Site, error) {
 
 // IsDomainInList
 func (s *SiteService) IsDomainInList(ctx *gin.Context, domain string) (bool, error) {
-	sites, err := s.GetSiteList(ctx)
+	if v, ok := s.domainCache.Load(domain); ok {
+		return v.(bool), nil
+	}
+
+	// 数据库查询
+	count, err := s.db.Client.Site.Query().
+		Where(site.Domain(domain)).
+		Count(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	for _, site := range sites {
-		if site.Domain == domain {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	// 设置缓存
+	s.domainCache.Store(domain, count > 0)
+	return count > 0, nil
 }
