@@ -42,7 +42,7 @@ const UserDropdown = ({
   user,
   onLogout,
 }: {
-  user: { name: string };
+  user: { name: string; email: string };
   onLogout: () => void;
 }) => {
   const navigate = useNavigate();
@@ -62,7 +62,7 @@ const UserDropdown = ({
       <DropdownMenuContent className="w-56">
         <div className="px-2 py-1.5">
           <div className="text-sm text-muted-foreground">Signed in as</div>
-          <div className="text-sm font-medium">wrpota@gmail.com</div>
+          <div className="text-sm font-medium">{user.email}</div>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate("/settings")}>
@@ -77,7 +77,6 @@ const UserDropdown = ({
 export default function Header() {
   const { user, logout, set } = useUser();
   const location = useLocation();
-
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -87,6 +86,7 @@ export default function Header() {
     }
     set(user)
   }, [location.pathname]);
+
   return (
     <header className="bg-white shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -104,7 +104,7 @@ export default function Header() {
             </div>
           </div>
           <div className="flex items-center">
-            {user ? (
+            {user?.name ? (
               <UserDropdown user={user} onLogout={logout} />
             ) : (
               <button

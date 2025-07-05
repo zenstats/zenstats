@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zenstats/zenstats/internal/api/types"
 	"github.com/zenstats/zenstats/internal/auth"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
 	"github.com/zenstats/zenstats/pkg/response"
@@ -12,7 +13,7 @@ import (
 
 func (h *AuthHandler) Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req LoginRequest
+		var req types.LoginRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
@@ -44,10 +45,10 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 			response.Error(c, http.StatusInternalServerError, err)
 			return
 		}
-		data := &LoginResponse{
+		data := &types.LoginResponse{
 			Token:        token,
 			RefreshToken: refreshToken,
-			User: &User{
+			User: &types.User{
 				Email: user.Email,
 				Name:  user.Name,
 			},

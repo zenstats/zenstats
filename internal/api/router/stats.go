@@ -11,5 +11,5 @@ func RegisterStatsRouter(router *gin.RouterGroup) {
 
 	router.Group("/stats")
 
-	router.GET("/:site/top_stats", handle.GetTopStats())
+	router.GET("/:domain/top_stats", handle.GetTopStats())
 }

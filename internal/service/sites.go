@@ -24,10 +24,11 @@ type allSitesCacheItem struct {
 }
 
 type SiteService struct {
-	db               *postgresql.Client
-	cache            sync.Map
-	domainCache      sync.Map
-	allSitesCacheKey string
+	db                *postgresql.Client
+	cache             sync.Map
+	domainCache       sync.Map
+	domainExistsCache sync.Map
+	allSitesCacheKey  string
 }
 
 func GetSiteService() *SiteService {
@@ -37,10 +38,11 @@ func GetSiteService() *SiteService {
 			panic("DB is not initialized")
 		}
 		siteServiceInstance = &SiteService{
-			db:               db,
-			cache:            sync.Map{},
-			domainCache:      sync.Map{},
-			allSitesCacheKey: "all_sites",
+			db:                db,
+			cache:             sync.Map{},
+			domainCache:       sync.Map{},
+			domainExistsCache: sync.Map{},
+			allSitesCacheKey:  "all_sites",
 		}
 	})
 	return siteServiceInstance
@@ -97,6 +99,20 @@ func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*en
 	s.cache.Delete(ctx.GetInt64("user_id"))
 	// 新增：删除全站列表缓存
 	s.cache.Delete(s.allSitesCacheKey)
+
+	return site, nil
+}
+
+func (s *SiteService) GetSiteByDomain(ctx *gin.Context, domain string) (*ent.Site, error) {
+	if cached, ok := s.domainCache.Load(domain); ok {
+		return cached.(*ent.Site), nil
+	}
+
+	site, err := s.db.Client.Site.Query().Where(site.Domain(domain)).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.domainCache.Store(domain, site)
 
 	return site, nil
 }
@@ -193,7 +209,7 @@ func (s *SiteService) GetSiteList(ctx *gin.Context) ([]*ent.Site, error) {
 
 // IsDomainInList
 func (s *SiteService) IsDomainInList(ctx *gin.Context, domain string) (bool, error) {
-	if v, ok := s.domainCache.Load(domain); ok {
+	if v, ok := s.domainExistsCache.Load(domain); ok {
 		return v.(bool), nil
 	}
 
@@ -206,6 +222,6 @@ func (s *SiteService) IsDomainInList(ctx *gin.Context, domain string) (bool, err
 	}
 
 	// 设置缓存
-	s.domainCache.Store(domain, count > 0)
+	s.domainExistsCache.Store(domain, count > 0)
 	return count > 0, nil
 }

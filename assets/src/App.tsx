@@ -6,7 +6,7 @@ import "./App.css";
 
 export default function App() {
   return (
-    <>
+    <div>
       <Header />
       <Toaster
         position="top-right"
@@ -19,6 +19,6 @@ export default function App() {
           {useRoutes(routes)}
         </div>
       </div>
-    </>
+    </div>
   );
 }

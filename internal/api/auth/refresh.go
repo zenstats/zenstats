@@ -6,13 +6,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/zenstats/zenstats/internal/api/types"
 	authJwt "github.com/zenstats/zenstats/internal/auth"
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
 func (h *AuthHandler) Refresh() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req RefreshRequest
+		var req types.RefreshRequest
 		if err := c.ShouldBindQuery(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, errors.New("invalid refresh token"+err.Error()))
 			return

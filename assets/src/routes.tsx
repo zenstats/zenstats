@@ -5,7 +5,8 @@ import Login from "@/pages/login/login";
 import Sites from "@/pages/sites/sites";
 import NewSite from "@/pages/sites/new";
 import State from "@/pages/sites/state";
-import Setup from './pages/login/setup';
+import Setup from '@/pages/login/setup';
+import NotFoundPage from '@/pages/404';
 
 const routes: RouteObject[] = [
   {
@@ -35,8 +36,12 @@ const routes: RouteObject[] = [
     ]
   },
   {
-    path: "*",
+    path: "/",
     element: <Navigate to="/login" replace />
+  },
+  {
+    path: "*",
+    element: <NotFoundPage />
   }
 ];
 

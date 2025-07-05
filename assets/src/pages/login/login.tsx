@@ -113,7 +113,6 @@ export default function Login() {
     const checkAuthState = async () => {
       try {
         const { data } = await axios.get<BaseResponse<string>>("/auth/state");
-        console.log(data)
         // 如果系统未初始化，跳转到 setup 页面
         if (data.data === 'not_initialized') {
           navigate("/setup");
@@ -125,7 +124,6 @@ export default function Login() {
         if (token) {
           navigate("/sites");
         }
-
         // 原有的记住我逻辑
         const rememberedEmail = localStorage.getItem("rememberedEmail");
         if (rememberedEmail) {

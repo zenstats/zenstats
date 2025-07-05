@@ -89,7 +89,12 @@ export default function Sites() {
       {/* 站点卡片列表 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {sites.map((site) => (
-          <Card key={site.id}>
+          // 为 Card 添加点击事件，跳转到 state 页面
+          <Card
+            key={site.id}
+            onClick={() => navigate(`/sites/state?domain=${site.domain}`)}
+            className="cursor-pointer"
+          >
             <CardHeader className="relative">
               <CardTitle>{site.domain}</CardTitle>
               <CardDescription>{site.remark}</CardDescription>
@@ -98,6 +103,11 @@ export default function Sites() {
                   disabled={site.role === "viewer"}
                   variant="link"
                   className="cursor-pointer hover:cursor-pointer text-gray-400 dark:text-gray-600 hover:text-black dark:hover:text-indigo-40"
+                  // 为设置按钮添加点击事件，跳转到设置页面
+                  onClick={(e) => {
+                    e.stopPropagation(); // 阻止事件冒泡，避免触发卡片点击事件
+                    navigate(`/sites/settings?domain=${site.domain}`);
+                  }}
                 >
                   <Settings />
                 </Button>

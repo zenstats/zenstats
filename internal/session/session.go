@@ -186,11 +186,12 @@ func (s *SessionManager) updateSession(session *models.Sessions, event *models.E
 		newSession.EntryPage = event.PathName
 	}
 
-	if session.ExitPage == "" && pageview {
+	if pageview {
 		newSession.ExitPage = event.PathName
 	}
+
 	if session.HostName == "" && pageview {
-		newSession.ExitPage = event.HostName
+		newSession.HostName = event.HostName
 	}
 	if session.IsBounce == 1 {
 		if session.PageViews > 1 || (event.Interactive && !pageview) {
@@ -198,7 +199,7 @@ func (s *SessionManager) updateSession(session *models.Sessions, event *models.E
 		}
 	}
 
-	newSession.Duration = uint32(time.Since(session.Start))
+	newSession.Duration = uint32(time.Since(session.Start).Seconds())
 
 	newSession.Events += 1
 

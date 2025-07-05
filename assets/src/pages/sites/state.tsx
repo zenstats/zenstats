@@ -259,118 +259,124 @@ const StatePage: React.FC = () => {
             <Calendar
               mode="range"
               numberOfMonths={2}
-              // onSelect={() => setIsDatePickerOpen(!isDatePickerOpen)}
+            // onSelect={() => setIsDatePickerOpen(!isDatePickerOpen)}
             />
           </PopoverContent>
         </Popover>
       </div>
-      {/* 顶部流量数据卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="col-span-1 md:col-span-2 lg:col-span-1">
-          <CardHeader className="p-4 pb-2">
+      {/* 合并顶部流量数据卡片 */}
+      <Card className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
+          <CardHeader className="p-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
               总访问量 (UV)
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent className="p-0 pt-0">
             {isLoading ? (
-              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-14 w-30" />
             ) : (
-              <div className="text-2xl font-bold">
-                {todayTrafficData.uv.toLocaleString()}
+              <div>
+                <div className="text-2xl font-bold">
+                  {todayTrafficData.uv.toLocaleString()}
+                </div>
+                <p className="text-xs text-green-500 mt-1 flex items-center">
+                  <ChevronsUpDown className="h-3 w-3 mr-1" />
+                  12.5%
+                </p>
               </div>
             )}
-            <p className="text-xs text-green-500 mt-1 flex items-center">
-              <ChevronsUpDown className="h-3 w-3 mr-1" />
-              12.5% 较昨日
-            </p>
           </CardContent>
-        </Card>
+        </div>
 
-        <Card className="col-span-1 md:col-span-2 lg:col-span-1">
-          <CardHeader className="p-4 pb-2">
+        <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
+          <CardHeader className="p-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
               总浏览量 (PV)
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent className="p-0 pt-0">
             {isLoading ? (
-              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-14 w-30" />
             ) : (
-              <div className="text-2xl font-bold">
+              <div><div className="text-2xl font-bold">
                 {todayTrafficData.pv.toLocaleString()}
               </div>
+                <p className="text-xs text-green-500 mt-1 flex items-center">
+                  <ChevronsUpDown className="h-3 w-3 mr-1" />
+                  8.3%
+                </p></div>
             )}
-            <p className="text-xs text-green-500 mt-1 flex items-center">
-              <ChevronsUpDown className="h-3 w-3 mr-1" />
-              8.3% 较昨日
-            </p>
-          </CardContent>
-        </Card>
 
-        <Card className="col-span-1 md:col-span-2 lg:col-span-1">
-          <CardHeader className="p-4 pb-2">
+          </CardContent>
+        </div>
+
+        <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
+          <CardHeader className="p-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
               跳出率
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent className="p-0 pt-0">
             {isLoading ? (
-              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-14 w-30" />
             ) : (
-              <div className="text-2xl font-bold">
+              <div> <div className="text-2xl font-bold">
                 {todayTrafficData.bounceRate}
               </div>
-            )}
-            <p className="text-xs text-red-500 mt-1 flex items-center">
-              <ChevronsUpDown className="h-3 w-3 mr-1" />
-              2.1% 较昨日
-            </p>
-          </CardContent>
-        </Card>
 
-        <Card className="col-span-1 md:col-span-2 lg:col-span-1">
-          <CardHeader className="p-4 pb-2">
+                <p className="text-xs text-red-500 mt-1 flex items-center">
+                  <ChevronsUpDown className="h-3 w-3 mr-1" />
+                  2.1%
+                </p></div>
+            )}
+          </CardContent>
+        </div>
+
+        <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
+          <CardHeader className="p-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
               平均访问时长
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent className="p-0 pt-0">
             {isLoading ? (
-              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-14 w-30" />
             ) : (
-              <div className="text-2xl font-bold">
-                {todayTrafficData.avgVisitTime}
-              </div>
+              <div>
+                <div className="text-2xl font-bold">
+                  {todayTrafficData.avgVisitTime}
+                </div>
+                <p className="text-xs text-green-500 mt-1 flex items-center">
+                  <ChevronsUpDown className="h-3 w-3 mr-1" />
+                  0:12
+                </p></div>
             )}
-            <p className="text-xs text-green-500 mt-1 flex items-center">
-              <ChevronsUpDown className="h-3 w-3 mr-1" />
-              0:12 较昨日
-            </p>
           </CardContent>
-        </Card>
+        </div>
 
-        <Card className="col-span-1 md:col-span-2 lg:col-span-1">
-          <CardHeader className="p-4 pb-2">
+        <div className="col-span-1 md:col-span-1 p-4">
+          <CardHeader className="p-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
               新访客比例
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 pt-0">
+          <CardContent className="p-0 pt-0">
             {isLoading ? (
-              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-14 w-30" />
             ) : (
-              <div className="text-2xl font-bold">
-                {todayTrafficData.newVisitors}
-              </div>
+              <div>
+                <div className="text-2xl font-bold">
+                  {todayTrafficData.newVisitors}
+                </div>
+                <p className="text-xs text-green-500 mt-1 flex items-center">
+                  <ChevronsUpDown className="h-3 w-3 mr-1" />
+                  3.7% 较昨日
+                </p></div>
             )}
-            <p className="text-xs text-green-500 mt-1 flex items-center">
-              <ChevronsUpDown className="h-3 w-3 mr-1" />
-              3.7% 较昨日
-            </p>
           </CardContent>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       {/* 时间段UV曲线图 */}
       <Card>
@@ -584,9 +590,6 @@ const StatePage: React.FC = () => {
                           outerRadius={90}
                           paddingAngle={5}
                           dataKey="value"
-                          label={({ name, percent }) =>
-                            `${name} ${(percent * 100).toFixed(0)}%`
-                          }
                           labelLine={false}
                         >
                           {deviceData.map((entry, index) => (

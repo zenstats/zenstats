@@ -142,6 +142,7 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 	eventResult.IP = net.ParseIP(eventRequest.Ip)
 	// set timestamp
 	eventResult.Timestamp = eventRequest.Timestamp
+	eventResult.Interactive = eventRequest.Interactive
 
 	// set userid and path
 	userId, err := e.generateUserID(eventRequest.Ip, eventRequest.UserAgent, eventRequest.Domain)

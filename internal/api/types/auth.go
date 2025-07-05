@@ -1,4 +1,4 @@
-package auth
+package types
 
 type InitializeRequest struct {
 	Email    string `json:"email" binding:"required"`

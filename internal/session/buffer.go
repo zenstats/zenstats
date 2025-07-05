@@ -58,7 +58,6 @@ func (wb *WriteBuffer) Add(event *models.Sessions) {
 }
 
 func (wb *WriteBuffer) flush() {
-	slog.Debug("flush buffer")
 	wb.mu.Lock()
 	if len(wb.buffer) == 0 {
 		wb.mu.Unlock()
