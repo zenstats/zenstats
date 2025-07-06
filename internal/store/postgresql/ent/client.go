@@ -19,6 +19,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -38,6 +39,8 @@ type Client struct {
 	FunnelStep *FunnelStepClient
 	// Goal is the client for interacting with the Goal builders.
 	Goal *GoalClient
+	// SearchEngines is the client for interacting with the SearchEngines builders.
+	SearchEngines *SearchEnginesClient
 	// Site is the client for interacting with the Site builders.
 	Site *SiteClient
 	// SiteMembership is the client for interacting with the SiteMembership builders.
@@ -61,6 +64,7 @@ func (c *Client) init() {
 	c.Funnel = NewFunnelClient(c.config)
 	c.FunnelStep = NewFunnelStepClient(c.config)
 	c.Goal = NewGoalClient(c.config)
+	c.SearchEngines = NewSearchEnginesClient(c.config)
 	c.Site = NewSiteClient(c.config)
 	c.SiteMembership = NewSiteMembershipClient(c.config)
 	c.User = NewUserClient(c.config)
@@ -161,6 +165,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Funnel:         NewFunnelClient(cfg),
 		FunnelStep:     NewFunnelStepClient(cfg),
 		Goal:           NewGoalClient(cfg),
+		SearchEngines:  NewSearchEnginesClient(cfg),
 		Site:           NewSiteClient(cfg),
 		SiteMembership: NewSiteMembershipClient(cfg),
 		User:           NewUserClient(cfg),
@@ -188,6 +193,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Funnel:         NewFunnelClient(cfg),
 		FunnelStep:     NewFunnelStepClient(cfg),
 		Goal:           NewGoalClient(cfg),
+		SearchEngines:  NewSearchEnginesClient(cfg),
 		Site:           NewSiteClient(cfg),
 		SiteMembership: NewSiteMembershipClient(cfg),
 		User:           NewUserClient(cfg),
@@ -221,8 +227,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.Funnel, c.FunnelStep, c.Goal, c.Site, c.SiteMembership, c.User,
-		c.UserSession,
+		c.APIKey, c.Funnel, c.FunnelStep, c.Goal, c.SearchEngines, c.Site,
+		c.SiteMembership, c.User, c.UserSession,
 	} {
 		n.Use(hooks...)
 	}
@@ -232,8 +238,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.Funnel, c.FunnelStep, c.Goal, c.Site, c.SiteMembership, c.User,
-		c.UserSession,
+		c.APIKey, c.Funnel, c.FunnelStep, c.Goal, c.SearchEngines, c.Site,
+		c.SiteMembership, c.User, c.UserSession,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -250,6 +256,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.FunnelStep.mutate(ctx, m)
 	case *GoalMutation:
 		return c.Goal.mutate(ctx, m)
+	case *SearchEnginesMutation:
+		return c.SearchEngines.mutate(ctx, m)
 	case *SiteMutation:
 		return c.Site.mutate(ctx, m)
 	case *SiteMembershipMutation:
@@ -904,6 +912,139 @@ func (c *GoalClient) mutate(ctx context.Context, m *GoalMutation) (Value, error)
 		return (&GoalDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Goal mutation op: %q", m.Op())
+	}
+}
+
+// SearchEnginesClient is a client for the SearchEngines schema.
+type SearchEnginesClient struct {
+	config
+}
+
+// NewSearchEnginesClient returns a client for the SearchEngines from the given config.
+func NewSearchEnginesClient(c config) *SearchEnginesClient {
+	return &SearchEnginesClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `searchengines.Hooks(f(g(h())))`.
+func (c *SearchEnginesClient) Use(hooks ...Hook) {
+	c.hooks.SearchEngines = append(c.hooks.SearchEngines, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `searchengines.Intercept(f(g(h())))`.
+func (c *SearchEnginesClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SearchEngines = append(c.inters.SearchEngines, interceptors...)
+}
+
+// Create returns a builder for creating a SearchEngines entity.
+func (c *SearchEnginesClient) Create() *SearchEnginesCreate {
+	mutation := newSearchEnginesMutation(c.config, OpCreate)
+	return &SearchEnginesCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SearchEngines entities.
+func (c *SearchEnginesClient) CreateBulk(builders ...*SearchEnginesCreate) *SearchEnginesCreateBulk {
+	return &SearchEnginesCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SearchEnginesClient) MapCreateBulk(slice any, setFunc func(*SearchEnginesCreate, int)) *SearchEnginesCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SearchEnginesCreateBulk{err: fmt.Errorf("calling to SearchEnginesClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SearchEnginesCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SearchEnginesCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SearchEngines.
+func (c *SearchEnginesClient) Update() *SearchEnginesUpdate {
+	mutation := newSearchEnginesMutation(c.config, OpUpdate)
+	return &SearchEnginesUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SearchEnginesClient) UpdateOne(se *SearchEngines) *SearchEnginesUpdateOne {
+	mutation := newSearchEnginesMutation(c.config, OpUpdateOne, withSearchEngines(se))
+	return &SearchEnginesUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SearchEnginesClient) UpdateOneID(id int64) *SearchEnginesUpdateOne {
+	mutation := newSearchEnginesMutation(c.config, OpUpdateOne, withSearchEnginesID(id))
+	return &SearchEnginesUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SearchEngines.
+func (c *SearchEnginesClient) Delete() *SearchEnginesDelete {
+	mutation := newSearchEnginesMutation(c.config, OpDelete)
+	return &SearchEnginesDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SearchEnginesClient) DeleteOne(se *SearchEngines) *SearchEnginesDeleteOne {
+	return c.DeleteOneID(se.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SearchEnginesClient) DeleteOneID(id int64) *SearchEnginesDeleteOne {
+	builder := c.Delete().Where(searchengines.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SearchEnginesDeleteOne{builder}
+}
+
+// Query returns a query builder for SearchEngines.
+func (c *SearchEnginesClient) Query() *SearchEnginesQuery {
+	return &SearchEnginesQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSearchEngines},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SearchEngines entity by its id.
+func (c *SearchEnginesClient) Get(ctx context.Context, id int64) (*SearchEngines, error) {
+	return c.Query().Where(searchengines.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SearchEnginesClient) GetX(ctx context.Context, id int64) *SearchEngines {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *SearchEnginesClient) Hooks() []Hook {
+	return c.hooks.SearchEngines
+}
+
+// Interceptors returns the client interceptors.
+func (c *SearchEnginesClient) Interceptors() []Interceptor {
+	return c.inters.SearchEngines
+}
+
+func (c *SearchEnginesClient) mutate(ctx context.Context, m *SearchEnginesMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SearchEnginesCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SearchEnginesUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SearchEnginesUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SearchEnginesDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SearchEngines mutation op: %q", m.Op())
 	}
 }
 
@@ -1570,11 +1711,11 @@ func (c *UserSessionClient) mutate(ctx context.Context, m *UserSessionMutation) 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, Funnel, FunnelStep, Goal, Site, SiteMembership, User,
+		APIKey, Funnel, FunnelStep, Goal, SearchEngines, Site, SiteMembership, User,
 		UserSession []ent.Hook
 	}
 	inters struct {
-		APIKey, Funnel, FunnelStep, Goal, Site, SiteMembership, User,
+		APIKey, Funnel, FunnelStep, Goal, SearchEngines, Site, SiteMembership, User,
 		UserSession []ent.Interceptor
 	}
 )

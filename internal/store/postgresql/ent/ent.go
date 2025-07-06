@@ -16,6 +16,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -84,6 +85,7 @@ func checkColumn(table, column string) error {
 			funnel.Table:         funnel.ValidColumn,
 			funnelstep.Table:     funnelstep.ValidColumn,
 			goal.Table:           goal.ValidColumn,
+			searchengines.Table:  searchengines.ValidColumn,
 			site.Table:           site.ValidColumn,
 			sitemembership.Table: sitemembership.ValidColumn,
 			user.Table:           user.ValidColumn,

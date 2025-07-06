@@ -8,6 +8,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/schema"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/usersession"
@@ -33,6 +34,40 @@ func init() {
 	funnelDescName := funnelFields[2].Descriptor()
 	// funnel.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	funnel.NameValidator = funnelDescName.Validators[0].(func(string) error)
+	searchenginesFields := schema.SearchEngines{}.Fields()
+	_ = searchenginesFields
+	// searchenginesDescDomain is the schema descriptor for domain field.
+	searchenginesDescDomain := searchenginesFields[1].Descriptor()
+	// searchengines.DomainValidator is a validator for the "domain" field. It is called by the builders before save.
+	searchengines.DomainValidator = func() func(string) error {
+		validators := searchenginesDescDomain.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(domain string) error {
+			for _, fn := range fns {
+				if err := fn(domain); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// searchenginesDescName is the schema descriptor for name field.
+	searchenginesDescName := searchenginesFields[2].Descriptor()
+	// searchengines.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	searchengines.NameValidator = searchenginesDescName.Validators[0].(func(string) error)
+	// searchenginesDescCreatedAt is the schema descriptor for created_at field.
+	searchenginesDescCreatedAt := searchenginesFields[3].Descriptor()
+	// searchengines.DefaultCreatedAt holds the default value on creation for the created_at field.
+	searchengines.DefaultCreatedAt = searchenginesDescCreatedAt.Default.(func() time.Time)
+	// searchenginesDescUpdatedAt is the schema descriptor for updated_at field.
+	searchenginesDescUpdatedAt := searchenginesFields[4].Descriptor()
+	// searchengines.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	searchengines.DefaultUpdatedAt = searchenginesDescUpdatedAt.Default.(func() time.Time)
+	// searchengines.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	searchengines.UpdateDefaultUpdatedAt = searchenginesDescUpdatedAt.UpdateDefault.(func() time.Time)
 	siteFields := schema.Site{}.Fields()
 	_ = siteFields
 	// siteDescDomain is the schema descriptor for domain field.

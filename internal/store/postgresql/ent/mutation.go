@@ -16,6 +16,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -35,6 +36,7 @@ const (
 	TypeFunnel         = "Funnel"
 	TypeFunnelStep     = "FunnelStep"
 	TypeGoal           = "Goal"
+	TypeSearchEngines  = "SearchEngines"
 	TypeSite           = "Site"
 	TypeSiteMembership = "SiteMembership"
 	TypeUser           = "User"
@@ -2397,6 +2399,522 @@ func (m *GoalMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Goal edge %s", name)
+}
+
+// SearchEnginesMutation represents an operation that mutates the SearchEngines nodes in the graph.
+type SearchEnginesMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	domain        *string
+	name          *string
+	created_at    *time.Time
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*SearchEngines, error)
+	predicates    []predicate.SearchEngines
+}
+
+var _ ent.Mutation = (*SearchEnginesMutation)(nil)
+
+// searchenginesOption allows management of the mutation configuration using functional options.
+type searchenginesOption func(*SearchEnginesMutation)
+
+// newSearchEnginesMutation creates new mutation for the SearchEngines entity.
+func newSearchEnginesMutation(c config, op Op, opts ...searchenginesOption) *SearchEnginesMutation {
+	m := &SearchEnginesMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSearchEngines,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSearchEnginesID sets the ID field of the mutation.
+func withSearchEnginesID(id int64) searchenginesOption {
+	return func(m *SearchEnginesMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SearchEngines
+		)
+		m.oldValue = func(ctx context.Context) (*SearchEngines, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SearchEngines.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSearchEngines sets the old SearchEngines of the mutation.
+func withSearchEngines(node *SearchEngines) searchenginesOption {
+	return func(m *SearchEnginesMutation) {
+		m.oldValue = func(context.Context) (*SearchEngines, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SearchEnginesMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SearchEnginesMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of SearchEngines entities.
+func (m *SearchEnginesMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SearchEnginesMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SearchEnginesMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SearchEngines.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetDomain sets the "domain" field.
+func (m *SearchEnginesMutation) SetDomain(s string) {
+	m.domain = &s
+}
+
+// Domain returns the value of the "domain" field in the mutation.
+func (m *SearchEnginesMutation) Domain() (r string, exists bool) {
+	v := m.domain
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDomain returns the old "domain" field's value of the SearchEngines entity.
+// If the SearchEngines object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SearchEnginesMutation) OldDomain(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDomain is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDomain requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDomain: %w", err)
+	}
+	return oldValue.Domain, nil
+}
+
+// ResetDomain resets all changes to the "domain" field.
+func (m *SearchEnginesMutation) ResetDomain() {
+	m.domain = nil
+}
+
+// SetName sets the "name" field.
+func (m *SearchEnginesMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *SearchEnginesMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the SearchEngines entity.
+// If the SearchEngines object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SearchEnginesMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ClearName clears the value of the "name" field.
+func (m *SearchEnginesMutation) ClearName() {
+	m.name = nil
+	m.clearedFields[searchengines.FieldName] = struct{}{}
+}
+
+// NameCleared returns if the "name" field was cleared in this mutation.
+func (m *SearchEnginesMutation) NameCleared() bool {
+	_, ok := m.clearedFields[searchengines.FieldName]
+	return ok
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *SearchEnginesMutation) ResetName() {
+	m.name = nil
+	delete(m.clearedFields, searchengines.FieldName)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SearchEnginesMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SearchEnginesMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SearchEngines entity.
+// If the SearchEngines object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SearchEnginesMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SearchEnginesMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *SearchEnginesMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *SearchEnginesMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the SearchEngines entity.
+// If the SearchEngines object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SearchEnginesMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *SearchEnginesMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the SearchEnginesMutation builder.
+func (m *SearchEnginesMutation) Where(ps ...predicate.SearchEngines) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SearchEnginesMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SearchEnginesMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SearchEngines, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SearchEnginesMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SearchEnginesMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SearchEngines).
+func (m *SearchEnginesMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SearchEnginesMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.domain != nil {
+		fields = append(fields, searchengines.FieldDomain)
+	}
+	if m.name != nil {
+		fields = append(fields, searchengines.FieldName)
+	}
+	if m.created_at != nil {
+		fields = append(fields, searchengines.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, searchengines.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SearchEnginesMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case searchengines.FieldDomain:
+		return m.Domain()
+	case searchengines.FieldName:
+		return m.Name()
+	case searchengines.FieldCreatedAt:
+		return m.CreatedAt()
+	case searchengines.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SearchEnginesMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case searchengines.FieldDomain:
+		return m.OldDomain(ctx)
+	case searchengines.FieldName:
+		return m.OldName(ctx)
+	case searchengines.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case searchengines.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SearchEngines field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SearchEnginesMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case searchengines.FieldDomain:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDomain(v)
+		return nil
+	case searchengines.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case searchengines.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case searchengines.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SearchEngines field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SearchEnginesMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SearchEnginesMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SearchEnginesMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown SearchEngines numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SearchEnginesMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(searchengines.FieldName) {
+		fields = append(fields, searchengines.FieldName)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SearchEnginesMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SearchEnginesMutation) ClearField(name string) error {
+	switch name {
+	case searchengines.FieldName:
+		m.ClearName()
+		return nil
+	}
+	return fmt.Errorf("unknown SearchEngines nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SearchEnginesMutation) ResetField(name string) error {
+	switch name {
+	case searchengines.FieldDomain:
+		m.ResetDomain()
+		return nil
+	case searchengines.FieldName:
+		m.ResetName()
+		return nil
+	case searchengines.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case searchengines.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SearchEngines field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SearchEnginesMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SearchEnginesMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SearchEnginesMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SearchEnginesMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SearchEnginesMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SearchEnginesMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SearchEnginesMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown SearchEngines unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SearchEnginesMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown SearchEngines edge %s", name)
 }
 
 // SiteMutation represents an operation that mutates the Site nodes in the graph.

@@ -36,61 +36,47 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, ChevronsUpDown } from "lucide-react";
-// import axios from "@utils/axios";
+import axios, { type BaseResponse } from "@utils/axios";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@radix-ui/react-popover";
+import { useParams } from 'react-router-dom';
 
-// 模拟数据 - 实际项目中应从API获取
-const todayTrafficData = {
-  uv: 12543,
-  pv: 45231,
-  bounceRate: "32.4%",
-  avgVisitTime: "3:45",
-  newVisitors: "68.2%",
-};
+interface TopStats {
+  pv: number;
+  uv: number;
+  sessions: number;
+  pv_change: number;
+  uv_change: number;
+  session_change: number;
+  avg_duration: number;
+  avg_duration_change: number;
+  avg_duration_format: string;
+}
 
-// 时间段UV数据
-const timeRangeUvData = [
-  { time: "00:00", uv: 230 },
-  { time: "03:00", uv: 120 },
-  { time: "06:00", uv: 180 },
-  { time: "09:00", uv: 850 },
-  { time: "12:00", uv: 1200 },
-  { time: "15:00", uv: 1450 },
-  { time: "18:00", uv: 2100 },
-  { time: "21:00", uv: 980 },
-];
+interface TimeRangeVisitor {
+  date: string;
+  uv: number;
+}
 
-// Top Source数据
-const topSourceData = [
-  { name: "Direct", value: 35, percentage: "35.2%" },
-  { name: "Google", value: 28, percentage: "28.1%" },
-  { name: "Baidu", value: 15, percentage: "15.3%" },
-  { name: "Social", value: 12, percentage: "12.4%" },
-  { name: "Other", value: 10, percentage: "9.0%" },
-];
+interface RankItem {
+  key: string;
+  visits: number;
+  percentage?: number;
+}
 
-// Top Pages数据
-const topPagesData = [
-  { page: "/home", visits: 4523, percentage: "28.3%" },
-  { page: "/product", visits: 3254, percentage: "20.4%" },
-  { page: "/about", visits: 1856, percentage: "11.6%" },
-  { page: "/contact", visits: 1254, percentage: "7.9%" },
-  { page: "/blog", visits: 987, percentage: "6.2%" },
-];
 
-// 设备数据
-const deviceData = [
-  { name: "Mobile", value: 65, color: "#0088FE" },
-  { name: "Desktop", value: 25, color: "#00C49F" },
-  { name: "Tablet", value: 10, color: "#FFBB28" },
-];
+interface StatsRequest {
+  period: string;
+  date?: string; // 日期，可选
+  start_date?: string; // 开始日期，可选
+  end_data?: string; // 结束日期，可选
+}
+
 
 const StatePage: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedDateRange, setSelectedDateRange] = useState<{
     start: Date | null;
     end: Date | null;
@@ -99,21 +85,129 @@ const StatePage: React.FC = () => {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   // 新增状态控制 DropdownMenu 的显示
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const { domain } = useParams();
+
+
+  const [topStatsLoading, setTopStatsLoading] = useState(true);
+  const [topStats, setTopStats] = useState<BaseResponse<TopStats> | undefined>();
+  const [timeRangeVisitorLoading, setTimeRangeVisitorLoading] = useState(true);
+  const [timeRangeVisitor, setTimeRangeVisitor] = useState<BaseResponse<TimeRangeVisitor[]> | undefined>();
+
+  const [sourceRankLoading, setSourceRankLoading] = useState(true);
+  const [sourceRank, setSourceRank] = useState<BaseResponse<RankItem[]> | undefined>();
+  const [pageRankLoading, setPageRankLoading] = useState(true);
+  const [pageRank, setPageRank] = useState<BaseResponse<RankItem[]> | undefined>();
+  const [deviceRankLoading, setDeviceRankLoading] = useState(true);
+  const [deviceRank, setDeviceRank] = useState<BaseResponse<RankItem[]> | undefined>();
+
+  const api = {
+    // 获取今日流量数据
+    getTopStats: async (dateRange: StatsRequest) => {
+      const response = await axios.get<BaseResponse<TopStats>>(domain + "/top_stats", {
+        params: dateRange
+      });
+      return response.data;
+    },
+    getTimeRangeVisitor: async (dateRange: StatsRequest) => {
+      const response = await axios.get<BaseResponse<TimeRangeVisitor[]>>(domain + "/curve", {
+        params: dateRange
+      });
+      return response.data;
+    },
+    getPageRank: async (dateRange: StatsRequest) => {
+      const response = await axios.get<BaseResponse<RankItem[]>>(domain + "/page_rank", {
+        params: dateRange
+      });
+      return response.data;
+    },
+    getDeviceRank: async (dateRange: StatsRequest) => {
+      const response = await axios.get<BaseResponse<RankItem[]>>(domain + "/device_rank", {
+        params: dateRange
+      });
+      return response.data;
+    },
+    getSourceRank: async (dateRange: StatsRequest) => {
+      const response = await axios.get<BaseResponse<RankItem[]>>(domain + "/source_rank", {
+        params: dateRange
+      });
+      return response.data;
+    },
+  };
+
 
   // 模拟数据加载
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
+    const fetchData = async () => {
+      setTopStatsLoading(true);
+      setTimeRangeVisitorLoading(true);
+      try {
+        const results = await Promise.allSettled([
+          api.getTopStats({
+            period: "T",
+            date: "2025-07-02"
+          }),
+          api.getTimeRangeVisitor({
+            period: "T",
+            date: "2025-07-02"
+          }),
+          api.getDeviceRank({
+            period: "T",
+            date: "2025-07-02"
+          }),
+          api.getPageRank({
+            period: "T",
+            date: "2025-07-02"
+          }),
+          api.getSourceRank({
+            period: "T",
+            date: "2025-07-02"
+          }),
+        ]);
+        // 处理每个结果
+        results.forEach((result, index) => {
+          if (result.status === "fulfilled") {
+            switch (index) {
+              case 0:
+                setTopStats(result.value as BaseResponse<TopStats>);
+                setTopStatsLoading(false);
+                break;
+              case 1:
+                setTimeRangeVisitor(result.value as BaseResponse<TimeRangeVisitor[]>);
+                setTimeRangeVisitorLoading(false);
+                break;
+              case 2:
+                setDeviceRank(result.value as BaseResponse<RankItem[]>);
+                setDeviceRankLoading(false);
+                break;
+              case 3:
+                setPageRank(result.value as BaseResponse<RankItem[]>);
+                setPageRankLoading(false);
+                break;
+              case 4:
+                setSourceRank(result.value as BaseResponse<RankItem[]>);
+                setSourceRankLoading(false);
+                break;
+            }
+          } else {
+            console.error(`请求失败: ${index}`, result.reason);
+          }
+        });
+      } catch (error) {
+        console.error("数据加载失败:", error);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    fetchData();
   }, [selectedDateRange]);
+
 
   // 刷新数据
   const refreshData = () => {
-    setIsLoading(true);
+
+    setTopStatsLoading(true);
     setTimeout(() => {
-      setIsLoading(false);
+      setTopStatsLoading(false);
+
     }, 1000);
   };
 
@@ -264,118 +358,100 @@ const StatePage: React.FC = () => {
           </PopoverContent>
         </Popover>
       </div>
-      {/* 合并顶部流量数据卡片 */}
-      <Card className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
-          <CardHeader className="p-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              总访问量 (UV)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 pt-0">
-            {isLoading ? (
-              <Skeleton className="h-14 w-30" />
-            ) : (
-              <div>
+
+      <Card className="grid grid-cols-1 md:grid-cols-5 gap-4 ">
+        {topStatsLoading ? (
+          <Skeleton className="col-span-5 h-30 w-full" />
+        ) : (
+          <>
+            <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
+              <CardHeader className="p-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  总访问量 (UV)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 pt-0">
                 <div className="text-2xl font-bold">
-                  {todayTrafficData.uv.toLocaleString()}
+                  {topStats?.data.uv}
                 </div>
                 <p className="text-xs text-green-500 mt-1 flex items-center">
                   <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  12.5%
+                  {topStats?.data.uv_change}%
                 </p>
-              </div>
-            )}
-          </CardContent>
-        </div>
+              </CardContent>
+            </div>
 
-        <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
-          <CardHeader className="p-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              总浏览量 (PV)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 pt-0">
-            {isLoading ? (
-              <Skeleton className="h-14 w-30" />
-            ) : (
-              <div><div className="text-2xl font-bold">
-                {todayTrafficData.pv.toLocaleString()}
-              </div>
+            <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
+              <CardHeader className="p-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  总浏览量 (PV)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 pt-0">
+                <div className="text-lg md:text-2xl font-bold">
+                  {topStats?.data.pv}
+                </div>
+                <p className="text-xs text-green-500 mt-1 flex items-center">
+                  <ChevronsUpDown className="h-3 w-3 mr-1" />
+                  {topStats?.data.pv_change}%
+                </p>
+              </CardContent>
+            </div>
+
+            <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
+              <CardHeader className="p-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  跳出率
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 pt-0">
+                <div className="text-2xl font-bold">
+                  123
+                </div>
                 <p className="text-xs text-green-500 mt-1 flex items-center">
                   <ChevronsUpDown className="h-3 w-3 mr-1" />
                   8.3%
-                </p></div>
-            )}
+                </p>
+              </CardContent>
+            </div>
 
-          </CardContent>
-        </div>
-
-        <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
-          <CardHeader className="p-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              跳出率
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 pt-0">
-            {isLoading ? (
-              <Skeleton className="h-14 w-30" />
-            ) : (
-              <div> <div className="text-2xl font-bold">
-                {todayTrafficData.bounceRate}
-              </div>
-
-                <p className="text-xs text-red-500 mt-1 flex items-center">
-                  <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  2.1%
-                </p></div>
-            )}
-          </CardContent>
-        </div>
-
-        <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
-          <CardHeader className="p-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              平均访问时长
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 pt-0">
-            {isLoading ? (
-              <Skeleton className="h-14 w-30" />
-            ) : (
-              <div>
+            <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
+              <CardHeader className="p-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  平均访问时长
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 pt-0">
                 <div className="text-2xl font-bold">
-                  {todayTrafficData.avgVisitTime}
+                  {topStats?.data.avg_duration_format}
                 </div>
                 <p className="text-xs text-green-500 mt-1 flex items-center">
                   <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  0:12
-                </p></div>
-            )}
-          </CardContent>
-        </div>
+                  {topStats?.data.avg_duration_change}%
+                </p>
+              </CardContent>
+            </div>
 
-        <div className="col-span-1 md:col-span-1 p-4">
-          <CardHeader className="p-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              新访客比例
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 pt-0">
-            {isLoading ? (
-              <Skeleton className="h-14 w-30" />
-            ) : (
-              <div>
+            <div className="col-span-1 md:col-span-1 p-4">
+              <CardHeader className="p-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  新访客比例
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 pt-0">
+
                 <div className="text-2xl font-bold">
-                  {todayTrafficData.newVisitors}
+                  {topStats?.data.avg_duration}
                 </div>
                 <p className="text-xs text-green-500 mt-1 flex items-center">
                   <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  3.7% 较昨日
-                </p></div>
-            )}
-          </CardContent>
-        </div>
+                  8.3%
+                </p>
+              </CardContent>
+            </div>
+          </>
+        )
+        }
       </Card>
 
       {/* 时间段UV曲线图 */}
@@ -395,12 +471,12 @@ const StatePage: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
-            {isLoading ? (
+            {timeRangeVisitorLoading ? (
               <Skeleton className="h-full w-full rounded-md" />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={timeRangeUvData}
+                  data={timeRangeVisitor?.data}
                   margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                 >
                   <defs>
@@ -457,7 +533,7 @@ const StatePage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="h-[300px] flex items-center justify-center">
-              {isLoading ? (
+              {sourceRankLoading ? (
                 <Skeleton className="h-full w-full rounded-md" />
               ) : (
                 <div className="flex flex-col md:flex-row items-center justify-between w-full h-full">
@@ -465,22 +541,24 @@ const StatePage: React.FC = () => {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={topSourceData}
+                          data={sourceRank?.data}
                           cx="50%"
                           cy="50%"
+                          dataKey="visits"
+                          nameKey="key"
                           innerRadius={60}
                           outerRadius={80}
                           paddingAngle={2}
-                          dataKey="value"
                         >
-                          {topSourceData.map((entry, index) => (
+                          {sourceRank?.data.map((entry, index) => (
                             <Cell
                               key={`cell-${index}`}
                               fill={`hsl(${index * 70}, 70%, 50%)`}
                             />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value) => [`${value}%`, "占比"]} />
+                        <Tooltip />
+                        {/* <Tooltip formatter={(value) => [`${value}%`, "占比"]} /> */}
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -493,13 +571,13 @@ const StatePage: React.FC = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {topSourceData.map((source, index) => (
+                        {sourceRank?.data.map((source, index) => (
                           <TableRow key={index}>
                             <TableCell className="font-medium">
-                              {source.name}
+                              {source.key}
                             </TableCell>
                             <TableCell className="text-right">
-                              {source.percentage}
+                              {source.percentage}%
                             </TableCell>
                           </TableRow>
                         ))}
@@ -519,7 +597,7 @@ const StatePage: React.FC = () => {
             <CardDescription>访问量最高的页面</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {pageRankLoading ? (
               <div className="space-y-4">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className="flex justify-between items-center">
@@ -538,14 +616,14 @@ const StatePage: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topPagesData.map((page, index) => (
+                  {pageRank?.data.map((page, index) => (
                     <TableRow key={index}>
-                      <TableCell className="font-medium">{page.page}</TableCell>
+                      <TableCell className="font-medium">{page.key}</TableCell>
                       <TableCell className="text-right">
                         {page.visits.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        {page.percentage}
+                        {page.percentage}%
                       </TableCell>
                     </TableRow>
                   ))}
@@ -575,7 +653,7 @@ const StatePage: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="h-[300px] flex items-center justify-center">
-              {isLoading ? (
+              {deviceRankLoading ? (
                 <Skeleton className="h-full w-full rounded-md" />
               ) : (
                 <div className="w-full h-full flex flex-col md:flex-row items-center justify-around">
@@ -583,43 +661,45 @@ const StatePage: React.FC = () => {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={deviceData}
+                          data={deviceRank?.data}
                           cx="50%"
                           cy="50%"
-                          innerRadius={70}
-                          outerRadius={90}
-                          paddingAngle={5}
-                          dataKey="value"
-                          labelLine={false}
+                          dataKey="visits"
+                          nameKey="key"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={2}
                         >
-                          {deviceData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          {deviceRank?.data.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`hsl(${index * 70}, 70%, 50%)`}
+                            />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value) => [`${value}%`, "占比"]} />
+                        <Tooltip />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="w-1/2 h-full flex flex-col justify-center">
-                    {deviceData.map((device, index) => (
+                    {deviceRank?.data.map((device, index) => (
                       <div key={index} className="flex items-center mb-6">
                         <div
                           className="w-4 h-4 rounded-full mr-3"
-                          style={{ backgroundColor: device.color }}
                         ></div>
                         <div className="flex-1">
                           <div className="flex justify-between mb-1">
                             <span className="text-sm font-medium">
-                              {device.name}
+                              {device.key}
                             </span>
                             <span className="text-sm font-medium">
-                              {device.value}%
+                              {device.percentage}%
                             </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
                               className="bg-blue-600 h-2 rounded-full"
-                              style={{ width: `${device.value}%` }}
+                              style={{ width: `${device.percentage}%` }}
                             ></div>
                           </div>
                         </div>

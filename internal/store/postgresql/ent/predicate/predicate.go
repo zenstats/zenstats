@@ -18,6 +18,9 @@ type FunnelStep func(*sql.Selector)
 // Goal is the predicate function for goal builders.
 type Goal func(*sql.Selector)
 
+// SearchEngines is the predicate function for searchengines builders.
+type SearchEngines func(*sql.Selector)
+
 // Site is the predicate function for site builders.
 type Site func(*sql.Selector)
 

@@ -20,6 +20,8 @@ type Tx struct {
 	FunnelStep *FunnelStepClient
 	// Goal is the client for interacting with the Goal builders.
 	Goal *GoalClient
+	// SearchEngines is the client for interacting with the SearchEngines builders.
+	SearchEngines *SearchEnginesClient
 	// Site is the client for interacting with the Site builders.
 	Site *SiteClient
 	// SiteMembership is the client for interacting with the SiteMembership builders.
@@ -163,6 +165,7 @@ func (tx *Tx) init() {
 	tx.Funnel = NewFunnelClient(tx.config)
 	tx.FunnelStep = NewFunnelStepClient(tx.config)
 	tx.Goal = NewGoalClient(tx.config)
+	tx.SearchEngines = NewSearchEnginesClient(tx.config)
 	tx.Site = NewSiteClient(tx.config)
 	tx.SiteMembership = NewSiteMembershipClient(tx.config)
 	tx.User = NewUserClient(tx.config)

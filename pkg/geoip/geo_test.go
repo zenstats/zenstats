@@ -27,4 +27,13 @@ func TestGeoIP(t *testing.T) {
 	if geoData.Country != "美国" || geoData.Continent != "北美洲" || geoData.IsoCode != "US" {
 		t.Errorf("Unexpected result for IP %s: %+v", ip, geoData)
 	}
+	ip = "125.92.206.12"
+	geoData, err = geoip.GetCountryAndRegion(ip)
+	fmt.Println(geoData)
+	if err != nil {
+		t.Fatalf("Failed to get country and region for IP %s: %v", ip, err)
+	}
+	if geoData.Country != "美国" || geoData.Continent != "北美洲" || geoData.IsoCode != "US" {
+		t.Errorf("Unexpected result for IP %s: %+v", ip, geoData)
+	}
 }

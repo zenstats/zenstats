@@ -7,7 +7,7 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
-func (s *StateHandle) GetTopStats() gin.HandlerFunc {
+func (s *StateHandle) GetSourceRank() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		domain := c.Param("domain")
 
@@ -17,7 +17,7 @@ func (s *StateHandle) GetTopStats() gin.HandlerFunc {
 			return
 		}
 
-		stats, err := s.service.GetTopStats(c, domain, req)
+		stats, err := s.service.GetSourceRank(c, domain, req)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return

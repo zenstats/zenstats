@@ -127,6 +127,20 @@ var (
 			},
 		},
 	}
+	// SearchEnginesColumns holds the columns for the "search_engines" table.
+	SearchEnginesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "domain", Type: field.TypeString, Unique: true, Size: 255},
+		{Name: "name", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// SearchEnginesTable holds the schema information for the "search_engines" table.
+	SearchEnginesTable = &schema.Table{
+		Name:       "search_engines",
+		Columns:    SearchEnginesColumns,
+		PrimaryKey: []*schema.Column{SearchEnginesColumns[0]},
+	}
 	// SitesColumns holds the columns for the "sites" table.
 	SitesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -255,6 +269,7 @@ var (
 		FunnelsTable,
 		FunnelStepsTable,
 		GoalsTable,
+		SearchEnginesTable,
 		SitesTable,
 		SiteMembershipsTable,
 		UsersTable,

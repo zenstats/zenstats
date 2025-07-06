@@ -92,7 +92,7 @@ export default function Sites() {
           // 为 Card 添加点击事件，跳转到 state 页面
           <Card
             key={site.id}
-            onClick={() => navigate(`/sites/state?domain=${site.domain}`)}
+            onClick={() => navigate(`/sites/${site.domain}/stats`)}
             className="cursor-pointer"
           >
             <CardHeader className="relative">

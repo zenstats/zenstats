@@ -1,0 +1,24 @@
+app_debug: true
+clickhouse:
+    addr:
+        - 192.168.31.2:9000
+    database: zenstats_events_db
+    password: ""
+    ssl: false
+    username: default
+data_path: ./data
+db:
+    database: zenstats
+    host: 192.168.31.3
+    password: postgres
+    port: 5432
+    username: postgres
+log_level: debug
+maxmind_license_key: ""
+pool_size: 100
+scheme:
+    address: 0.0.0.0
+    http_port: 8080
+secret_key: KKfc8Y5Zpn5CE/0P+ce3ptJRRAZJBhbcOHSqoessJ4kLxkEi+S4nNsl6ekj0AxKF
+server_host: 0.0.0.0
+server_port: 8011
