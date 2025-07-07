@@ -53,7 +53,7 @@ func (u *UAParser) Parse(ua string) *Client {
 		UserAgent: client.UserAgent,
 		Screen: &ScreenSize{
 			Family: device,
-			Bot:    device == "Spider" || device == "Other",
+			Bot:    (device == "Spider" || device == "Other"),
 			Spider: device == "Spider",
 		},
 	}
@@ -80,7 +80,7 @@ func (u *UAParser) getDeviceType(client *uaparser.Client) string {
 		return "Spider"
 	}
 
-	if strings.Contains(deviceLower, "other") {
+	if !strings.Contains(os, "Windows") && strings.Contains(deviceLower, "other") {
 		return "Other"
 	}
 
