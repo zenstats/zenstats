@@ -51,7 +51,7 @@ func (e *Events) BatchInsert(ctx context.Context, events []*models.Events) error
 			event.Referrer,
 			event.ReferrerSource,
 			event.OperatingSystem,
-			event.Device,
+			event.ScreenSize,
 			event.UtmMedium,
 			event.UtmSource,
 			event.UtmContent,

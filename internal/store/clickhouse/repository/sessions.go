@@ -59,7 +59,7 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 			session.Referrer,
 			session.ReferrerSource,
 			session.OperatingSystem,
-			session.Device,
+			session.ScreenSize,
 
 			session.UtmMedium,
 			session.UtmSource,

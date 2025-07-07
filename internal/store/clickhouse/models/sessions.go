@@ -38,7 +38,7 @@ type Sessions struct {
 	UtmTerm                string            `json:"utm_term" ch:"utm_term"`
 	UtmCampaign            string            `json:"utm_campaign" ch:"utm_campaign"`
 	Channel                string            `json:"channel" ch:"channel"`
-	Device                 string            `json:"device" ch:"device"`
+	ScreenSize             string            `json:"screen_size" ch:"screen_size"`
 	OperatingSystem        string            `json:"operating_system" ch:"operating_system"`
 	OperatingSystemVersion string            `json:"operating_system_version" ch:"operating_system_version"`
 	Browser                string            `json:"browser" ch:"browser"`

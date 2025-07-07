@@ -12,9 +12,7 @@ import (
 
 var MigrateCmd = &cobra.Command{
 	Use:   "migrate",
-	Short: "Start the server at the specified address",
-	Long: `Start the server at the specified address
-the address is defined in config file`,
+	Short: "migrate database",
 	Run: func(cmd *cobra.Command, args []string) {
 		Init()
 

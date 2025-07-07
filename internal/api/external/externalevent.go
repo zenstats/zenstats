@@ -66,7 +66,7 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			Timestamp:      tempReq.Timestamp,
 			Hash:           tempReq.Hash,
 			EventName:      tempReq.EventName,
-			JSVersion:      tempReq.JSVersion,
+			JSVersion:      "v1",
 			URL:            tempReq.URL,
 			Domain:         tempReq.Domain,
 			Referrer:       tempReq.Referrer,

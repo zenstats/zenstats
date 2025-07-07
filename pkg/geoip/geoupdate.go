@@ -41,9 +41,11 @@ func (g *GeoIP) UpdateGeoIPDB(path string) error {
 		}
 	}
 
-	// Close the current GeoIP database
-	if err := g.geoDB.Close(); err != nil {
-		return err
+	// Rename the old database to the backup name
+	if !strings.HasSuffix(g.geoDBPath, "GeoLite2-City.mmdb") {
+		if err := os.Rename(g.geoDBPath, backupPath); err != nil {
+			return err
+		}
 	}
 
 	// Open the new GeoIP database
@@ -52,13 +54,10 @@ func (g *GeoIP) UpdateGeoIPDB(path string) error {
 		return err
 	}
 
-	// Rename the old database to the backup name
-	if !strings.HasSuffix(g.geoDBPath, "GeoLite2-City.mmdb") {
-		if err := os.Rename(g.geoDBPath, backupPath); err != nil {
-			return err
-		}
+	// Close the current GeoIP database
+	if err := g.geoDB.Close(); err != nil {
+		return err
 	}
-
 	// Replace the old GeoIP database with the new one
 	g.geoDB = newDB
 	g.geoDBPath = path

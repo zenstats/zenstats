@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mileusna/useragent"
 	"github.com/zenstats/zenstats/internal/common"
 	"github.com/zenstats/zenstats/internal/session"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
@@ -20,6 +19,7 @@ import (
 	"github.com/zenstats/zenstats/pkg/generic"
 	"github.com/zenstats/zenstats/pkg/geoip"
 	"github.com/zenstats/zenstats/pkg/pool"
+	uaparser "github.com/zenstats/zenstats/pkg/ua_parser"
 )
 
 type EventWork struct {
@@ -33,6 +33,7 @@ type EventWork struct {
 
 	writeBuffer *WriteBuffer
 
+	uaparser       *uaparser.UAParser
 	sessionManager *session.SessionManager
 }
 
@@ -46,6 +47,7 @@ func NewEventWork(q *generic.DynamicQueue[*common.EventRequest], batchSize int) 
 		shutdownCtx:    ctx,
 		shutdownCancel: cancel,
 		pool:           pool.NewPool(),
+		uaparser:       uaparser.New(),
 		sessionManager: session.NewSessionManager(ctx, batchSize),
 	}
 	e.writeBuffer = NewWriteBuffer(ctx, batchSize, time.Second*5)
@@ -163,7 +165,7 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 	}
 	//TODO 部分逻辑过滤
 	/*
-		1. 对用户UA进行验证 屏蔽非法请求  drop_verification_agent
+		1. 对用户UA进行验证 屏蔽非法请求  drop_verification_agent ->done
 		2. 对IP进行验证 删除数据中心IP   drop_datacenter_ip
 		3. 对hostname 进行验证 仅允许白名单  drop_shield_rule_hostname
 		4. 对pathname 进行验证 删除需要排除的路径 drop_shield_rule_page
@@ -172,7 +174,12 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 	*/
 
 	// parse UA
-	e.PutUserAgent(&eventResult)
+	client := e.PutUserAgent(&eventResult)
+	// drop_verification_agent
+	if e.dropVerificationAgent(client) {
+		slog.Debug("drop verification agent", "isbot", client.Screen.Bot)
+		return nil
+	}
 	// parse IP
 	e.PutGeolocation(&eventResult)
 	// parse source
@@ -232,18 +239,21 @@ func (e *EventWork) generateUserID(ip, user_agent, domain string) (uint64, error
 //   - ua: event
 //
 // The function uses the useragent.Parse method to extract:
-//   - Device information (stored in event.Device)
+//   - ScreenSize information (stored in event.ScreenSize)
 //   - Operating system (stored in event.OperatingSystem)
 //   - OS version (stored in event.OperatingSystemVersion)
 //   - Browser name (stored in event.Browser)
 //   - Browser version (stored in event.BrowserVersion)
-func (e *EventWork) PutUserAgent(event *models.Events) {
-	parseUserAgent := useragent.Parse(event.UserAgent)
-	event.Device = parseUserAgent.OS
-	event.OperatingSystem = parseUserAgent.Device
-	event.OperatingSystemVersion = parseUserAgent.OSVersion
-	event.Browser = parseUserAgent.Name
-	event.BrowserVersion = parseUserAgent.Version
+func (e *EventWork) PutUserAgent(event *models.Events) *uaparser.Client {
+	client := e.uaparser.Parse(event.UserAgent)
+
+	event.ScreenSize = client.Screen.Family
+	event.OperatingSystem = client.Os.Family
+	event.OperatingSystemVersion = client.Os.ToVersionString()
+	event.Browser = client.UserAgent.Family
+	event.BrowserVersion = client.UserAgent.ToVersionString()
+
+	return client
 }
 
 // PutGeolocation updates the session attributes with geolocation data based on the given IP address.
@@ -311,22 +321,6 @@ func (e *EventWork) formatReferrer(referrer string) string {
 	return host + path
 }
 
-// drop_verification_agent: &drop_verification_agent/2,
-// drop_datacenter_ip: &drop_datacenter_ip/2,
-// drop_shield_rule_hostname: &drop_shield_rule_hostname/2,
-// drop_shield_rule_page: &drop_shield_rule_page/2,
-// drop_shield_rule_ip: &drop_shield_rule_ip/2,
-// put_geolocation: &put_geolocation/2,
-// drop_shield_rule_country: &drop_shield_rule_country/2,
-// put_user_agent: &put_user_agent/2,
-// put_basic_info: &put_basic_info/2,
-// put_source_info: &put_source_info/2,
-// maybe_infer_medium: &maybe_infer_medium/2,
-// put_props: &put_props/2,
-// put_revenue: &put_revenue/2,
-// put_salts: &put_salts/2,
-// put_user_id: &put_user_id/2,
-// validate_clickhouse_event: &validate_clickhouse_event/2,
-// register_session: &register_session/2,
-// write_to_buffer: &write_to_buffer/2
-// ]
+func (e *EventWork) dropVerificationAgent(client *uaparser.Client) bool {
+	return client.Screen.IsBot()
+}

@@ -19,7 +19,7 @@ type Events struct {
 	ReferrerSource         string            `json:"referrer_source" ch:"referrer_source"` // 来源
 	OperatingSystem        string            `json:"operating_system" ch:"operating_system"`
 	OperatingSystemVersion string            `json:"operating_system_version" ch:"operating_system_version"`
-	Device                 string            `json:"device" ch:"device"`
+	ScreenSize             string            `json:"screen_size" ch:"screen_size"`
 	MetaKey                []string          `json:"meta.key" ch:"meta.key"`
 	MetaValue              []string          `json:"meta.value" ch:"meta.value"`
 	Browser                string            `json:"browser" ch:"browser"`

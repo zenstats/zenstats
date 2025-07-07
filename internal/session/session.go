@@ -54,13 +54,6 @@ func (s *SessionManager) OnEvent(event *models.Events) (*models.Sessions, error)
 	if err != nil {
 		return session, err
 	}
-	if session == nil {
-
-		session = &models.Sessions{
-			UserId:    event.UserId,
-			SessionId: uint64(123456),
-		}
-	}
 
 	return session, nil
 }
@@ -82,16 +75,19 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 	// if session exists and event is not engagement
 	// update session
 	if findSession != nil {
-		updateSession := s.updateSession(findSession, event)
 		// copy old session
 		oldSession := s.CopySession(findSession)
 		oldSession.Sign = -1
 		s.writeBuffer.Add(oldSession)
-
+		// update session
+		updateSession := s.updateSession(findSession, event)
 		updateSession.Sign = 1
 		s.writeBuffer.Add(updateSession)
 
 		s.updateSessionCache(updateSession)
+
+		slog.Debug("update session", "oldSession", oldSession.Timestamp, "updateSession", updateSession.Timestamp)
+		slog.Debug("save session", "findSession", findSession.Timestamp, "oldSession", oldSession.Timestamp)
 
 		return updateSession, nil
 	}
@@ -152,7 +148,7 @@ func (s *SessionManager) newSession(event *models.Events) *models.Sessions {
 	session.UtmTerm = event.UtmTerm
 	session.UtmCampaign = event.UtmCampaign
 	session.Channel = event.Channel
-	session.Device = event.Device
+	session.ScreenSize = event.ScreenSize
 	session.OperatingSystem = event.OperatingSystem
 	session.OperatingSystemVersion = event.OperatingSystemVersion
 	session.Browser = event.Browser
@@ -246,8 +242,8 @@ func (s *SessionManager) CopySession(session *models.Sessions) *models.Sessions 
 		SessionId:              session.SessionId,
 		SiteId:                 session.SiteId,
 		UserId:                 session.UserId,
-		Start:                  session.Start.In(time.UTC),     // 深度复制时间类型字段
-		Timestamp:              session.Timestamp.In(time.UTC), // 深度复制时间类型字段
+		Start:                  session.Start,
+		Timestamp:              session.Timestamp,
 		IP:                     session.IP,
 		IPv6:                   session.IPv6,
 		HostName:               session.HostName,
@@ -264,7 +260,7 @@ func (s *SessionManager) CopySession(session *models.Sessions) *models.Sessions 
 		UtmTerm:                session.UtmTerm,
 		UtmCampaign:            session.UtmCampaign,
 		Channel:                session.Channel,
-		Device:                 session.Device,
+		ScreenSize:             session.ScreenSize,
 		OperatingSystem:        session.OperatingSystem,
 		OperatingSystemVersion: session.OperatingSystemVersion,
 		Browser:                session.Browser,

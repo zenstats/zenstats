@@ -24,6 +24,8 @@ type WriteBuffer struct {
 	cancel       context.CancelFunc
 
 	batchPool sync.Pool
+
+	sequenceNumber uint64
 }
 
 func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Duration) *WriteBuffer {

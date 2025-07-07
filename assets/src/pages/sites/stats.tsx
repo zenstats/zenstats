@@ -144,23 +144,23 @@ const StatePage: React.FC = () => {
         const results = await Promise.allSettled([
           api.getTopStats({
             period: "T",
-            date: "2025-07-02"
+            date: "2025-07-06"
           }),
           api.getTimeRangeVisitor({
             period: "T",
-            date: "2025-07-02"
+            date: "2025-07-06"
           }),
           api.getDeviceRank({
             period: "T",
-            date: "2025-07-02"
+            date: "2025-07-06"
           }),
           api.getPageRank({
             period: "T",
-            date: "2025-07-02"
+            date: "2025-07-06"
           }),
           api.getSourceRank({
             period: "T",
-            date: "2025-07-02"
+            date: "2025-07-06"
           }),
         ]);
         // 处理每个结果

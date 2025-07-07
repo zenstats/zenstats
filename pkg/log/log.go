@@ -30,7 +30,8 @@ func Init() {
 		slogLevel = slog.LevelInfo
 	}
 	handler := slog.NewJSONHandler(lumberjackLogger, &slog.HandlerOptions{
-		AddSource: slogLevel == slog.LevelDebug, // 如果设置为 true，日志输出中将包含源代码的位置（文件名和行号）
+		// AddSource: slogLevel == slog.LevelDebug, // 如果设置为 true，日志输出中将包含源代码的位置（文件名和行号）
+		AddSource: false,
 		Level:     slogLevel,
 	})
 
