@@ -64,6 +64,7 @@ func (u *UAParser) getDeviceType(client *uaparser.Client) string {
 	ua := client.UserAgent.Family
 	deviceLower := strings.ToLower(device)
 	uaLower := strings.ToLower(ua)
+	osLower := strings.ToLower(os)
 
 	// 优先判断爬虫（Spider），避免被其他设备类型覆盖
 	if strings.Contains(deviceLower, "spider") ||
@@ -80,10 +81,6 @@ func (u *UAParser) getDeviceType(client *uaparser.Client) string {
 		return "Spider"
 	}
 
-	if !strings.Contains(os, "Windows") && strings.Contains(deviceLower, "other") {
-		return "Other"
-	}
-
 	if strings.Contains(device, "iPad") ||
 		strings.Contains(device, "Tablet") ||
 		(os == "Android" && !strings.Contains(ua, "Mobile")) {
@@ -98,5 +95,12 @@ func (u *UAParser) getDeviceType(client *uaparser.Client) string {
 		return "Mobile"
 	}
 
-	return "Desktop"
+	desktopOS := []string{"windows", "mac", "linux"}
+	for _, osName := range desktopOS {
+		if strings.Contains(osLower, osName) {
+			return "Desktop"
+		}
+	}
+
+	return "Other"
 }
