@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/zenstats/zenstats/internal/common"
+	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/internal/session"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
@@ -35,6 +36,7 @@ type EventWork struct {
 
 	uaparser       *uaparser.UAParser
 	sessionManager *session.SessionManager
+	siteService    *service.SiteService
 }
 
 func NewEventWork(q *generic.DynamicQueue[*common.EventRequest], batchSize int) (*EventWork, error) {
@@ -49,6 +51,7 @@ func NewEventWork(q *generic.DynamicQueue[*common.EventRequest], batchSize int) 
 		pool:           pool.NewPool(),
 		uaparser:       uaparser.New(),
 		sessionManager: session.NewSessionManager(ctx, batchSize),
+		siteService:    service.GetSiteService(),
 	}
 	e.writeBuffer = NewWriteBuffer(ctx, batchSize, time.Second*5)
 
@@ -145,6 +148,12 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 	// set timestamp
 	eventResult.Timestamp = eventRequest.Timestamp
 	eventResult.Interactive = eventRequest.Interactive
+	// set siteid
+	site, err := e.siteService.GetSiteByDomain(e.shutdownCtx, eventRequest.Domain)
+	if err != nil {
+		return nil
+	}
+	eventResult.SiteId = uint64(site.ID)
 
 	// set userid and path
 	userId, err := e.generateUserID(eventRequest.Ip, eventRequest.UserAgent, eventRequest.Domain)

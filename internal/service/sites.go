@@ -1,11 +1,14 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
@@ -24,11 +27,11 @@ type allSitesCacheItem struct {
 }
 
 type SiteService struct {
-	db                *postgresql.Client
-	cache             sync.Map
-	domainCache       sync.Map
-	domainExistsCache sync.Map
-	allSitesCacheKey  string
+	db               *postgresql.Client
+	cache            sync.Map
+	allSitesCacheKey string
+
+	domainCache *expirable.LRU[string, *ent.Site]
 }
 
 func GetSiteService() *SiteService {
@@ -37,12 +40,12 @@ func GetSiteService() *SiteService {
 		if db == nil {
 			panic("DB is not initialized")
 		}
+		l := expirable.NewLRU[string, *ent.Site](1000, nil, 30*time.Minute)
 		siteServiceInstance = &SiteService{
-			db:                db,
-			cache:             sync.Map{},
-			domainCache:       sync.Map{},
-			domainExistsCache: sync.Map{},
-			allSitesCacheKey:  "all_sites",
+			db:               db,
+			domainCache:      l,
+			cache:            sync.Map{},
+			allSitesCacheKey: "all_sites",
 		}
 	})
 	return siteServiceInstance
@@ -103,16 +106,16 @@ func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*en
 	return site, nil
 }
 
-func (s *SiteService) GetSiteByDomain(ctx *gin.Context, domain string) (*ent.Site, error) {
-	if cached, ok := s.domainCache.Load(domain); ok {
-		return cached.(*ent.Site), nil
+func (s *SiteService) GetSiteByDomain(ctx context.Context, domain string) (*ent.Site, error) {
+	if site, ok := s.domainCache.Get(domain); ok {
+		return site, nil
 	}
 
 	site, err := s.db.Client.Site.Query().Where(site.Domain(domain)).Only(ctx)
 	if err != nil {
 		return nil, err
 	}
-	s.domainCache.Store(domain, site)
+	s.domainCache.Add(domain, site)
 
 	return site, nil
 }
@@ -209,19 +212,10 @@ func (s *SiteService) GetSiteList(ctx *gin.Context) ([]*ent.Site, error) {
 
 // IsDomainInList
 func (s *SiteService) IsDomainInList(ctx *gin.Context, domain string) (bool, error) {
-	if v, ok := s.domainExistsCache.Load(domain); ok {
-		return v.(bool), nil
-	}
-
-	// 数据库查询
-	count, err := s.db.Client.Site.Query().
-		Where(site.Domain(domain)).
-		Count(ctx)
+	_, err := s.GetSiteByDomain(ctx, domain)
 	if err != nil {
 		return false, err
 	}
 
-	// 设置缓存
-	s.domainExistsCache.Store(domain, count > 0)
-	return count > 0, nil
+	return true, nil
 }

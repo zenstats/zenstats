@@ -43,6 +43,9 @@ import {
   PopoverTrigger,
 } from "@radix-ui/react-popover";
 import { useParams } from 'react-router-dom';
+import type { DateRange } from "react-day-picker";
+import { se } from "date-fns/locale";
+import { set } from "date-fns";
 
 interface TopStats {
   pv: number;
@@ -78,15 +81,15 @@ interface StatsRequest {
 
 
 const StatePage: React.FC = () => {
-  const [selectedDateRange, setSelectedDateRange] = useState<{
-    start: Date | null;
-    end: Date | null;
-  }>({ start: null, end: null });
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange>({ from: undefined, to: undefined });
+  const [date, setDate] = useState<Date>(new Date());
   const [selectedOption, setSelectedOption] = useState<string>("Today");
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   // 新增状态控制 DropdownMenu 的显示
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { domain } = useParams();
+
+
 
 
   const [topStatsLoading, setTopStatsLoading] = useState(true);
@@ -199,7 +202,7 @@ const StatePage: React.FC = () => {
     };
 
     fetchData();
-  }, [selectedDateRange]);
+  }, []); //todo  selectedDateRange
 
 
   // 刷新数据
@@ -213,14 +216,71 @@ const StatePage: React.FC = () => {
   };
 
   // 格式化日期范围显示
-  const formatDateRange = (start: Date | null, end: Date | null) => {
+  const formatDateRange = (start: Date | undefined, end: Date | undefined) => {
     if (!start || !end) return "Custom Range";
     const formatDate = (date: Date) =>
       `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
     return `${formatDate(start)} - ${formatDate(end)}`;
   };
-   const handleDayClick =  (day: unknown) =>  {
-    console.log(day)
+
+  const handleDayClick = (day: Date) => {
+    const { from, to } = selectedDateRange;
+    const newRange = { ...selectedDateRange };
+
+    if (!from && !to) {
+      newRange.from = day;
+      // newRange.to = day;
+    } else if (!from && to) {
+      newRange.from = day;
+      if (day > to) {
+        newRange.to = day;
+      }
+    } else if (from && !to) {
+      newRange.to = day;
+      if (day < from) {
+        newRange.from = day;
+      }
+    } else if (from && to) {
+      if (day < from) {
+        newRange.from = day;
+      }
+      if (day > to) {
+        newRange.to = day;
+      }
+    }
+    console.log(newRange)
+    setSelectedDateRange(newRange);
+    if (newRange.from && newRange.to) {
+      setIsDatePickerOpen(false)
+      handleChangeOoption("cr")
+    }
+  }
+
+  const handleChangeOoption = (option: string) => {
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+
+    switch (option) {
+      case "T":
+        setDate(now)
+        break;
+      case "Y":
+        setDate(yesterday);
+        break;
+      case "R":
+      case "w":
+      case "m":
+      case "p7":
+      case "p14":
+      case "p30":
+        setSelectedDateRange({from: undefined, to: undefined})
+        setDate(now);
+        break;
+    }
+
+    setSelectedOption(option);
+    setIsDropdownOpen(false); // 新增关闭逻辑
   }
 
   return (
@@ -237,89 +297,70 @@ const StatePage: React.FC = () => {
               >
                 <span className="text-sm font-medium">
                   {selectedOption === "cr"
-                    ? formatDateRange(selectedDateRange.start, selectedDateRange.end)
+                    ? formatDateRange(selectedDateRange.from, selectedDateRange.to)
                     : selectedOption === "T" ? "今日"
-                    : selectedOption === "Y" ? "昨日"
-                    : selectedOption === "R" ? "实时"
-                    : selectedOption === "p7" ? "最近7天"
-                    : selectedOption === "p14" ? "最近14天"
-                    : selectedOption === "p30" ? "最近30天"
-                    : "自定义范围"}
+                      : selectedOption === "Y" ? "昨日"
+                        : selectedOption === "R" ? "实时"
+                          : selectedOption === "p7" ? "最近7天"
+                            : selectedOption === "p14" ? "最近14天"
+                              : selectedOption === "p30" ? "最近30天"
+                                : "自定义范围"}
                 </span>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56 p-2 rounded-lg">
               <DropdownMenuItem
-                onClick={() => {
-                  setSelectedOption("T");
-                  setIsDropdownOpen(false); // 统一关闭逻辑
-                }}
+                onClick={() => { handleChangeOoption("T") }}
                 className="flex items-center space-x-3"
               >
                 <span>今日</span>
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
-                  setSelectedOption("Y");
-                  const yesterday = new Date();
-                  yesterday.setDate(yesterday.getDate() - 1);
-                  setSelectedDateRange({ start: yesterday, end: yesterday });
-                  setIsDropdownOpen(false); // 新增关闭逻辑
-                }}
+                onClick={() => { handleChangeOoption("Y") }}
                 className="flex items-center space-x-3"
               >
                 <span>昨日</span>
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
-                  setSelectedOption("R");
-                  setIsDropdownOpen(false); // 新增关闭逻辑
-                }}
+                onClick={() => { handleChangeOoption("R") }}
                 className="flex items-center space-x-3"
               >
                 <span>实时</span>
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="my-2" /> {/* 调整分隔线间距 */}
+              <DropdownMenuSeparator className="my-2" />
               <DropdownMenuItem
-                onClick={() => {
-                  setSelectedOption("p7");
-                  const now = new Date();
-                  const sevenDaysAgo = new Date(now);
-                  sevenDaysAgo.setDate(now.getDate() - 7);
-                  setSelectedDateRange({ start: sevenDaysAgo, end: now });
-                  setIsDropdownOpen(false); // 保持关闭逻辑
-                }}
+                onClick={() => { handleChangeOoption("w") }}
+                className="flex items-center space-x-3"
+              >
+                <span>本周</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => { handleChangeOoption("m") }}
+                className="flex items-center space-x-3"
+              >
+                <span>本月</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="my-2" />
+              <DropdownMenuItem
+                onClick={() => { handleChangeOoption("p7") }}
                 className="flex items-center space-x-3"
               >
                 <span>最近7天</span>
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
-                  setSelectedOption("p14");
-                  const now = new Date();
-                  const fourteenDaysAgo = new Date(now);
-                  fourteenDaysAgo.setDate(now.getDate() - 14);
-                  setSelectedDateRange({ start: fourteenDaysAgo, end: now });
-                  setIsDropdownOpen(false); // 新增关闭逻辑
-                }}
+                onClick={() => { handleChangeOoption("p14") }}
                 className="flex items-center space-x-3"
               >
                 <span>最近14天</span>
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
-                  setSelectedOption("p30");
-                  const now = new Date();
-                  const thirtyDaysAgo = new Date(now);
-                  thirtyDaysAgo.setDate(now.getDate() - 30);
-                  setSelectedDateRange({ start: thirtyDaysAgo, end: now });
-                  setIsDropdownOpen(false); // 新增关闭逻辑
-                }}
+                onClick={() => { handleChangeOoption("p30") }}
                 className="flex items-center space-x-3"
               >
                 <span>最近30天</span>
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="my-2" /> {/* 调整分隔线间距 */}
+              <DropdownMenuSeparator className="my-2" />
               <DropdownMenuItem
                 onClick={() => {
                   setIsDatePickerOpen(true);
@@ -343,25 +384,12 @@ const StatePage: React.FC = () => {
             <span />
           </PopoverTrigger>
           <PopoverContent>
-            {/* 新增onSelect回调处理日期选择 */}
             <Calendar
               mode="range"
+              showOutsideDays={false}
               numberOfMonths={2}
               onDayClick={handleDayClick}
-              // 当用户选择日期范围时触发
-              onSelect={(range) => {
-                  if (range?.from && range?.to) {
-      console.log("完整范围已选择:", range);
-      // 在这里处理完整的日期范围
-    }
-    // see https://react-day-picker-v7.netlify.app/examples/selected-range
-                // 更新选中的日期范围状态
-                // setSelectedDateRange(range);
-                // 关闭日期选择器
-                // setIsDatePickerOpen(false);
-                // 设置为自定义范围选项
-                // setSelectedOption("cr");
-              }}
+              selected={selectedDateRange}
             />
           </PopoverContent>
         </Popover>
