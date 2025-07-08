@@ -37,6 +37,7 @@ type TopStats struct {
 	SessionChange     float64 `json:"session_change"`
 	AvgDurationChange float64 `json:"avg_duration_change"`
 	AvgDurationFormat string  `json:"avg_duration_format"`
+	BounceRate        float64 `json:"bounce_rate"`
 }
 
 type TimeRangeUV struct {
@@ -149,6 +150,21 @@ func (s *StateService) GetTopStats(ctx *gin.Context, domain string, req *types.T
 	stats.SessionChange = math.Round(stats.SessionChange*100) / 100
 	stats.AvgDurationChange = math.Round(stats.AvgDurationChange*100) / 100
 	stats.AvgDurationFormat = s.formatDuration(stats.AvgDuration)
+
+	// 计算 跳出率
+	var bounceSessions uint64
+	bounceQuery := fmt.Sprintf(`SELECT count(distinct session_id) FROM zenstats_events_db.sessions WHERE %s AND is_bounce = 1`, where)
+	err = s.cl.QueryRow(context.Background(), bounceQuery).Scan(&bounceSessions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query bounce sessions: %w", err)
+	}
+
+	// 计算跳出率（保留两位小数）
+	if stats.Sessions > 0 {
+		stats.BounceRate = math.Round((float64(bounceSessions)/float64(stats.Sessions))*100*100) / 100
+	} else {
+		stats.BounceRate = 0
+	}
 
 	return &stats, nil
 }

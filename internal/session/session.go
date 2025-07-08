@@ -86,9 +86,6 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 
 		s.updateSessionCache(updateSession)
 
-		slog.Debug("update session", "oldSession", oldSession.Timestamp, "updateSession", updateSession.Timestamp)
-		slog.Debug("save session", "findSession", findSession.Timestamp, "oldSession", oldSession.Timestamp)
-
 		return updateSession, nil
 	}
 

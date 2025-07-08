@@ -54,6 +54,7 @@ interface TopStats {
   avg_duration: number;
   avg_duration_change: number;
   avg_duration_format: string;
+  bounce_rate: number;
 }
 
 interface TimeRangeVisitor {
@@ -144,23 +145,23 @@ const StatePage: React.FC = () => {
         const results = await Promise.allSettled([
           api.getTopStats({
             period: "T",
-            date: "2025-07-06"
+            date: "2025-07-08"
           }),
           api.getTimeRangeVisitor({
             period: "T",
-            date: "2025-07-06"
+            date: "2025-07-08"
           }),
           api.getDeviceRank({
             period: "T",
-            date: "2025-07-06"
+            date: "2025-07-08"
           }),
           api.getPageRank({
             period: "T",
-            date: "2025-07-06"
+            date: "2025-07-08"
           }),
           api.getSourceRank({
             period: "T",
-            date: "2025-07-06"
+            date: "2025-07-08"
           }),
         ]);
         // 处理每个结果
@@ -218,85 +219,79 @@ const StatePage: React.FC = () => {
       `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
     return `${formatDate(start)} - ${formatDate(end)}`;
   };
+   const handleDayClick =  (day: unknown) =>  {
+    console.log(day)
+  }
 
   return (
     <div className="container mx-auto py-6 px-4 space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">网站流量分析</h1>
         <div className="flex items-center space-x-3">
-          {/* dropdown-menu */}
           <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex items-center space-x-2 bg-white p-1 rounded-md shadow-sm w-[180px] text-left"
+                className="flex items-center space-x-2 bg-white p-2 rounded-lg shadow-sm w-[180px] text-left transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               >
                 <span className="text-sm font-medium">
                   {selectedOption === "cr"
-                    ? formatDateRange(
-                      selectedDateRange.start,
-                      selectedDateRange.end,
-                    )
-                    : selectedOption === "T"
-                      ? "Today"
-                      : selectedOption === "Y"
-                        ? "Yesterday"
-                        : selectedOption === "R"
-                          ? "Realtime"
-                          : selectedOption === "p7"
-                            ? "Last 7 Days"
-                            : selectedOption === "p14"
-                              ? "Last 14 Days"
-                              : selectedOption === "p30"
-                                ? "Last 30 Days"
-                                : "Custom Range"}
+                    ? formatDateRange(selectedDateRange.start, selectedDateRange.end)
+                    : selectedOption === "T" ? "今日"
+                    : selectedOption === "Y" ? "昨日"
+                    : selectedOption === "R" ? "实时"
+                    : selectedOption === "p7" ? "最近7天"
+                    : selectedOption === "p14" ? "最近14天"
+                    : selectedOption === "p30" ? "最近30天"
+                    : "自定义范围"}
                 </span>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56">
+            <DropdownMenuContent className="w-56 p-2 rounded-lg">
               <DropdownMenuItem
                 onClick={() => {
                   setSelectedOption("T");
+                  setIsDropdownOpen(false); // 统一关闭逻辑
                 }}
+                className="flex items-center space-x-3"
               >
-                Today
+                <span>今日</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
                   setSelectedOption("Y");
                   const yesterday = new Date();
                   yesterday.setDate(yesterday.getDate() - 1);
-                  setSelectedDateRange({
-                    start: yesterday,
-                    end: yesterday,
-                  });
+                  setSelectedDateRange({ start: yesterday, end: yesterday });
+                  setIsDropdownOpen(false); // 新增关闭逻辑
                 }}
+                className="flex items-center space-x-3"
               >
-                Yesterday
+                <span>昨日</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
                   setSelectedOption("R");
+                  setIsDropdownOpen(false); // 新增关闭逻辑
                 }}
+                className="flex items-center space-x-3"
               >
-                Realtime
+                <span>实时</span>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="my-2" /> {/* 调整分隔线间距 */}
               <DropdownMenuItem
                 onClick={() => {
                   setSelectedOption("p7");
                   const now = new Date();
                   const sevenDaysAgo = new Date(now);
                   sevenDaysAgo.setDate(now.getDate() - 7);
-                  setSelectedDateRange({
-                    start: sevenDaysAgo,
-                    end: now,
-                  });
-                  setIsDropdownOpen(false); // 选择后关闭 DropdownMenu
+                  setSelectedDateRange({ start: sevenDaysAgo, end: now });
+                  setIsDropdownOpen(false); // 保持关闭逻辑
                 }}
+                className="flex items-center space-x-3"
               >
-                Last 7 Days
+                <span>最近7天</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
@@ -304,13 +299,12 @@ const StatePage: React.FC = () => {
                   const now = new Date();
                   const fourteenDaysAgo = new Date(now);
                   fourteenDaysAgo.setDate(now.getDate() - 14);
-                  setSelectedDateRange({
-                    start: fourteenDaysAgo,
-                    end: now,
-                  });
+                  setSelectedDateRange({ start: fourteenDaysAgo, end: now });
+                  setIsDropdownOpen(false); // 新增关闭逻辑
                 }}
+                className="flex items-center space-x-3"
               >
-                Last 14 Days
+                <span>最近14天</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
@@ -318,23 +312,22 @@ const StatePage: React.FC = () => {
                   const now = new Date();
                   const thirtyDaysAgo = new Date(now);
                   thirtyDaysAgo.setDate(now.getDate() - 30);
-                  setSelectedDateRange({
-                    start: thirtyDaysAgo,
-                    end: now,
-                  });
+                  setSelectedDateRange({ start: thirtyDaysAgo, end: now });
+                  setIsDropdownOpen(false); // 新增关闭逻辑
                 }}
+                className="flex items-center space-x-3"
               >
-                Last 30 Days
+                <span>最近30天</span>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="my-2" /> {/* 调整分隔线间距 */}
               <DropdownMenuItem
                 onClick={() => {
                   setIsDatePickerOpen(true);
-                  setIsDropdownOpen(false); // 点击 Custom Range 后关闭 DropdownMenu
-                  console.log("Custom Range clicked");
+                  setIsDropdownOpen(false);
                 }}
+                className="flex items-center space-x-3 text-blue-600"
               >
-                Custom Range
+                <span>自定义范围</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -350,10 +343,25 @@ const StatePage: React.FC = () => {
             <span />
           </PopoverTrigger>
           <PopoverContent>
+            {/* 新增onSelect回调处理日期选择 */}
             <Calendar
               mode="range"
               numberOfMonths={2}
-            // onSelect={() => setIsDatePickerOpen(!isDatePickerOpen)}
+              onDayClick={handleDayClick}
+              // 当用户选择日期范围时触发
+              onSelect={(range) => {
+                  if (range?.from && range?.to) {
+      console.log("完整范围已选择:", range);
+      // 在这里处理完整的日期范围
+    }
+    // see https://react-day-picker-v7.netlify.app/examples/selected-range
+                // 更新选中的日期范围状态
+                // setSelectedDateRange(range);
+                // 关闭日期选择器
+                // setIsDatePickerOpen(false);
+                // 设置为自定义范围选项
+                // setSelectedOption("cr");
+              }}
             />
           </PopoverContent>
         </Popover>
@@ -406,12 +414,8 @@ const StatePage: React.FC = () => {
               </CardHeader>
               <CardContent className="p-0 pt-0">
                 <div className="text-2xl font-bold">
-                  123
+                  {topStats?.data?.bounce_rate}%
                 </div>
-                <p className="text-xs text-green-500 mt-1 flex items-center">
-                  <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  8.3%
-                </p>
               </CardContent>
             </div>
 
@@ -550,7 +554,7 @@ const StatePage: React.FC = () => {
                           outerRadius={80}
                           paddingAngle={2}
                         >
-                          {sourceRank?.data.map((entry, index) => (
+                          {sourceRank?.data?.map((entry, index) => (
                             <Cell
                               key={`cell-${index}`}
                               fill={`hsl(${index * 70}, 70%, 50%)`}
@@ -571,7 +575,7 @@ const StatePage: React.FC = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {sourceRank?.data.map((source, index) => (
+                        {sourceRank?.data?.map((source, index) => (
                           <TableRow key={index}>
                             <TableCell className="font-medium">
                               {source.key}
@@ -616,7 +620,7 @@ const StatePage: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pageRank?.data.map((page, index) => (
+                  {pageRank?.data?.map((page, index) => (
                     <TableRow key={index}>
                       <TableCell className="font-medium">{page.key}</TableCell>
                       <TableCell className="text-right">
@@ -670,7 +674,7 @@ const StatePage: React.FC = () => {
                           outerRadius={80}
                           paddingAngle={2}
                         >
-                          {deviceRank?.data.map((entry, index) => (
+                          {deviceRank?.data?.map((entry, index) => (
                             <Cell
                               key={`cell-${index}`}
                               fill={`hsl(${index * 70}, 70%, 50%)`}
@@ -682,7 +686,7 @@ const StatePage: React.FC = () => {
                     </ResponsiveContainer>
                   </div>
                   <div className="w-1/2 h-full flex flex-col justify-center">
-                    {deviceRank?.data.map((device, index) => (
+                    {deviceRank?.data?.map((device, index) => (
                       <div key={index} className="flex items-center mb-6">
                         <div
                           className="w-4 h-4 rounded-full mr-3"
