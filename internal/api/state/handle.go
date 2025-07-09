@@ -24,20 +24,20 @@ func (s *StateHandle) validate(c *gin.Context) (*types.TopStatsRequest, error) {
 	if err := c.ShouldBindQuery(&req); err != nil {
 		return nil, err
 	}
-	if req.Period == "cr" && (req.StartDate == "" || req.EndDate == "") {
+	if req.Period == "custom" && (req.From == "" || req.To == "") {
 		return nil, fmt.Errorf("start_date and end_date must be provided")
 	}
-	if req.Period != "cr" && req.Period != "R" && req.Date == "" {
+	if req.Period != "custom" && req.Period != "realtime" && req.Date == "" {
 		return nil, fmt.Errorf("date must be provided")
 	}
 
 	if req.Date != "" && !s.dateIsValid(req.Date) {
 		return nil, fmt.Errorf("date format must be valid")
 	}
-	if req.StartDate != "" && !s.dateIsValid(req.Date) {
+	if req.From != "" && !s.dateIsValid(req.Date) {
 		return nil, fmt.Errorf("date format must be valid")
 	}
-	if req.EndDate != "" && !s.dateIsValid(req.Date) {
+	if req.To != "" && !s.dateIsValid(req.Date) {
 		return nil, fmt.Errorf("date format must be valid")
 	}
 	return &req, nil

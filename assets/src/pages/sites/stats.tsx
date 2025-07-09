@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -32,11 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar } from "@/components/ui/calendar";
-import { Button } from "@/components/ui/button";
-import { RefreshCw, ChevronsUpDown } from "lucide-react";
-import axios, { type BaseResponse } from "@utils/axios";
+
 import {
   Popover,
   PopoverContent,
@@ -44,8 +40,13 @@ import {
 } from "@radix-ui/react-popover";
 import { useParams } from 'react-router-dom';
 import type { DateRange } from "react-day-picker";
-import { se } from "date-fns/locale";
-import { set } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, ChevronsUpDown, ChevronDown } from "lucide-react";
+import axios, { type BaseResponse } from "@utils/axios";
+import qs from 'qs';
+import dayjs from 'dayjs'
 
 interface TopStats {
   pv: number;
@@ -71,26 +72,21 @@ interface RankItem {
   percentage?: number;
 }
 
-
 interface StatsRequest {
   period: string;
   date?: string; // 日期，可选
-  start_date?: string; // 开始日期，可选
-  end_data?: string; // 结束日期，可选
+  from?: string; // 开始日期，可选
+  to?: string; // 结束日期，可选
 }
 
 
-const StatePage: React.FC = () => {
+export default function StatePage() {
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange>({ from: undefined, to: undefined });
-  const [date, setDate] = useState<Date>(new Date());
-  const [selectedOption, setSelectedOption] = useState<string>("Today");
+  const [queryTime, setQueryTime] = useState<Date>(new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   // 新增状态控制 DropdownMenu 的显示
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { domain } = useParams();
-
-
-
 
   const [topStatsLoading, setTopStatsLoading] = useState(true);
   const [topStats, setTopStats] = useState<BaseResponse<TopStats> | undefined>();
@@ -103,8 +99,9 @@ const StatePage: React.FC = () => {
   const [pageRank, setPageRank] = useState<BaseResponse<RankItem[]> | undefined>();
   const [deviceRankLoading, setDeviceRankLoading] = useState(true);
   const [deviceRank, setDeviceRank] = useState<BaseResponse<RankItem[]> | undefined>();
+  const [selectdOptionName, setSelectdOptionName] = useState<string>("Today");
 
-  const api = {
+  const api = useCallback(() => ({
     // 获取今日流量数据
     getTopStats: async (dateRange: StatsRequest) => {
       const response = await axios.get<BaseResponse<TopStats>>(domain + "/top_stats", {
@@ -136,36 +133,38 @@ const StatePage: React.FC = () => {
       });
       return response.data;
     },
-  };
+  }), [domain]);
 
+  const fetchAllData = useCallback(() => {
 
-  // 模拟数据加载
-  useEffect(() => {
+    const query = qs.parse(window.location.search, { ignoreQueryPrefix: true });
+
+    const period = ["realtime", "day", "month", "week", "custom"].includes(query.period as string) ? query.period as string : "day";
+    const date = query.date as string;
+    const from = query.from as string;
+    const to = query.to as string;
+
+    const request: StatsRequest = {
+      period: period,
+    };
+    // 如果date不为空
+    request.date = dayjs(date).format("YYYY-MM-DD");
+    if (from) {
+      request.from = dayjs(from).format("YYYY-MM-DD");
+    }
+    if (to) {
+      request.to = dayjs(to).format("YYYY-MM-DD");
+    }
     const fetchData = async () => {
       setTopStatsLoading(true);
       setTimeRangeVisitorLoading(true);
       try {
         const results = await Promise.allSettled([
-          api.getTopStats({
-            period: "T",
-            date: "2025-07-08"
-          }),
-          api.getTimeRangeVisitor({
-            period: "T",
-            date: "2025-07-08"
-          }),
-          api.getDeviceRank({
-            period: "T",
-            date: "2025-07-08"
-          }),
-          api.getPageRank({
-            period: "T",
-            date: "2025-07-08"
-          }),
-          api.getSourceRank({
-            period: "T",
-            date: "2025-07-08"
-          }),
+          api().getTopStats(request),
+          api().getTimeRangeVisitor(request),
+          api().getDeviceRank(request),
+          api().getPageRank(request),
+          api().getSourceRank(request),
         ]);
         // 处理每个结果
         results.forEach((result, index) => {
@@ -201,27 +200,9 @@ const StatePage: React.FC = () => {
       }
     };
 
-    fetchData();
-  }, []); //todo  selectedDateRange
+    fetchData()
 
-
-  // 刷新数据
-  const refreshData = () => {
-
-    setTopStatsLoading(true);
-    setTimeout(() => {
-      setTopStatsLoading(false);
-
-    }, 1000);
-  };
-
-  // 格式化日期范围显示
-  const formatDateRange = (start: Date | undefined, end: Date | undefined) => {
-    if (!start || !end) return "Custom Range";
-    const formatDate = (date: Date) =>
-      `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
-    return `${formatDate(start)} - ${formatDate(end)}`;
-  };
+  }, [api]);
 
   const handleDayClick = (day: Date) => {
     const { from, to } = selectedDateRange;
@@ -248,46 +229,113 @@ const StatePage: React.FC = () => {
         newRange.to = day;
       }
     }
-    console.log(newRange)
+
     setSelectedDateRange(newRange);
-    if (newRange.from && newRange.to) {
+
+  }
+  // 设置url并触发查询
+  const handleChangeOoption = useCallback((option: string) => {
+    const now = dayjs().toDate();
+    const yesterday = dayjs().subtract(1, 'day').toDate();
+    let date: Date | undefined;
+
+    if (option === "yesterday") {
+      date = yesterday
+      option = 'day'
+    } else {
+      date = now
+    }
+
+    if (option !== "custom") {
+      setSelectedDateRange({ from: undefined, to: undefined })
+    } else {
+      if (dayjs(selectedDateRange.from).isSame(selectedDateRange.to, 'day')) {
+        date = selectedDateRange.from;
+        option = 'day'
+      }
+    }
+
+
+    const params: StatsRequest = { period: option };
+    if (option === "custom") {
+      params.from = dayjs(selectedDateRange.from).format('YYYY-MM-DD');
+      params.to = dayjs(selectedDateRange.to).format('YYYY-MM-DD');
+    } else {
+      params.date = dayjs(date).format('YYYY-MM-DD');
+    }
+
+    const queryString = qs.stringify(params);
+    window.history.pushState({}, '', `${window.location.pathname}?${queryString.toString()}`);
+
+    setIsDropdownOpen(false);
+    // 触发查询
+    setQueryTime(new Date());
+  }, [selectedDateRange]);
+
+  useEffect(() => {
+    if (selectedDateRange.from && selectedDateRange.to) {
+      if (selectedDateRange.from == selectedDateRange.to) {
+        handleChangeOoption("day")
+      } else {
+        handleChangeOoption("custom")
+      }
       setIsDatePickerOpen(false)
-      handleChangeOoption("cr")
+    }
+  }, [handleChangeOoption, selectedDateRange]);
+
+
+  const handleSelectdOptionName = () => {
+    const query = qs.parse(window.location.search, { ignoreQueryPrefix: true });
+    const period = query.period
+    const date = query.date as string
+    // const from = query.from
+    // const to = query.to
+    if (period === 'day') {
+      if (dayjs(date).isSame(dayjs(), 'day')) {
+        setSelectdOptionName("Today")
+      } else {
+        setSelectdOptionName(dayjs(date).format('MMM DD, YYYY'))
+      }
     }
   }
 
-  const handleChangeOoption = (option: string) => {
-    const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
+  // 刷新数据
+  const refreshData = () => {
+    setQueryTime(new Date());
+  };
 
-    switch (option) {
-      case "T":
-        setDate(now)
-        break;
-      case "Y":
-        setDate(yesterday);
-        break;
-      case "R":
-      case "w":
-      case "m":
-      case "p7":
-      case "p14":
-      case "p30":
-        setSelectedDateRange({from: undefined, to: undefined})
-        setDate(now);
-        break;
-    }
+  // 模拟数据加载
+  useEffect(() => {
+    handleSelectdOptionName()
 
-    setSelectedOption(option);
-    setIsDropdownOpen(false); // 新增关闭逻辑
-  }
+    fetchAllData()
+  }, [queryTime, fetchAllData]);
+
 
   return (
     <div className="container mx-auto py-6 px-4 space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">网站流量分析</h1>
         <div className="flex items-center space-x-3">
+          <Popover open={isDatePickerOpen}>
+            <PopoverTrigger asChild>
+              <span />
+            </PopoverTrigger>
+            <PopoverContent>
+              <Calendar
+                className="mt-6 ml-35 z-10"
+                mode="range"
+                showOutsideDays={false}
+                numberOfMonths={1}
+                onDayClick={handleDayClick}
+                selected={selectedDateRange}
+                disabled={(date) =>
+                  date > new Date() || date < new Date("1900-01-01")
+                }
+              />
+            </PopoverContent>
+          </Popover>
+
           <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <button
@@ -296,33 +344,26 @@ const StatePage: React.FC = () => {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               >
                 <span className="text-sm font-medium">
-                  {selectedOption === "cr"
-                    ? formatDateRange(selectedDateRange.from, selectedDateRange.to)
-                    : selectedOption === "T" ? "今日"
-                      : selectedOption === "Y" ? "昨日"
-                        : selectedOption === "R" ? "实时"
-                          : selectedOption === "p7" ? "最近7天"
-                            : selectedOption === "p14" ? "最近14天"
-                              : selectedOption === "p30" ? "最近30天"
-                                : "自定义范围"}
+                  {selectdOptionName}
                 </span>
+                <ChevronDown className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56 p-2 rounded-lg">
               <DropdownMenuItem
-                onClick={() => { handleChangeOoption("T") }}
+                onClick={() => { handleChangeOoption("day") }}
                 className="flex items-center space-x-3"
               >
                 <span>今日</span>
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => { handleChangeOoption("Y") }}
+                onClick={() => { handleChangeOoption("yesterday") }}
                 className="flex items-center space-x-3"
               >
                 <span>昨日</span>
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => { handleChangeOoption("R") }}
+                onClick={() => { handleChangeOoption("realtime") }}
                 className="flex items-center space-x-3"
               >
                 <span>实时</span>
@@ -364,6 +405,7 @@ const StatePage: React.FC = () => {
               <DropdownMenuItem
                 onClick={() => {
                   setIsDatePickerOpen(true);
+                  setSelectedDateRange({ from: undefined, to: undefined })
                   setIsDropdownOpen(false);
                 }}
                 className="flex items-center space-x-3 text-blue-600"
@@ -372,28 +414,14 @@ const StatePage: React.FC = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+
           <Button variant="ghost" size="icon" onClick={refreshData}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="block absolute right-10 top-30">
-        <Popover open={isDatePickerOpen}>
-          <PopoverTrigger asChild>
-            <span />
-          </PopoverTrigger>
-          <PopoverContent>
-            <Calendar
-              mode="range"
-              showOutsideDays={false}
-              numberOfMonths={2}
-              onDayClick={handleDayClick}
-              selected={selectedDateRange}
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
 
       <Card className="grid grid-cols-1 md:grid-cols-5 gap-4 ">
         {topStatsLoading ? (
@@ -408,11 +436,11 @@ const StatePage: React.FC = () => {
               </CardHeader>
               <CardContent className="p-0 pt-0">
                 <div className="text-2xl font-bold">
-                  {topStats?.data.uv}
+                  {topStats?.data?.uv}
                 </div>
                 <p className="text-xs text-green-500 mt-1 flex items-center">
                   <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  {topStats?.data.uv_change}%
+                  {topStats?.data?.uv_change}%
                 </p>
               </CardContent>
             </div>
@@ -425,11 +453,11 @@ const StatePage: React.FC = () => {
               </CardHeader>
               <CardContent className="p-0 pt-0">
                 <div className="text-lg md:text-2xl font-bold">
-                  {topStats?.data.pv}
+                  {topStats?.data?.pv}
                 </div>
                 <p className="text-xs text-green-500 mt-1 flex items-center">
                   <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  {topStats?.data.pv_change}%
+                  {topStats?.data?.pv_change}%
                 </p>
               </CardContent>
             </div>
@@ -455,11 +483,11 @@ const StatePage: React.FC = () => {
               </CardHeader>
               <CardContent className="p-0 pt-0">
                 <div className="text-2xl font-bold">
-                  {topStats?.data.avg_duration_format}
+                  {topStats?.data?.avg_duration_format}
                 </div>
                 <p className="text-xs text-green-500 mt-1 flex items-center">
                   <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  {topStats?.data.avg_duration_change}%
+                  {topStats?.data?.avg_duration_change}%
                 </p>
               </CardContent>
             </div>
@@ -473,7 +501,7 @@ const StatePage: React.FC = () => {
               <CardContent className="p-0 pt-0">
 
                 <div className="text-2xl font-bold">
-                  {topStats?.data.avg_duration}
+                  {topStats?.data?.avg_duration}
                 </div>
                 <p className="text-xs text-green-500 mt-1 flex items-center">
                   <ChevronsUpDown className="h-3 w-3 mr-1" />
@@ -747,5 +775,3 @@ const StatePage: React.FC = () => {
     </div>
   );
 };
-
-export default StatePage;

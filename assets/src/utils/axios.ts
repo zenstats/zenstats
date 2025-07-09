@@ -19,6 +19,7 @@ let isRefreshToken = false
 // 请求白名单，无须token的接口
 const whiteList: string[] = ['/api/v1/token', '/login', '/v1/publicKey']
 const api = axios.create({
+    // baseURL: 'http://localhost:8080/api',
     baseURL: 'https://analysis.yzhyai.com/api',
 }) as AxiosInstance & {
     <T = unknown>(config: AxiosRequestConfig): Promise<BaseResponse<T>>;

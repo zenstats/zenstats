@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"strings"
 	"sync"
@@ -179,21 +180,13 @@ func (s *StateService) getTimestampWhere(site *ent.Site, req *types.TopStatsRequ
 	prevWhere := fmt.Sprintf(" site_id = %d", 0)
 
 	switch req.Period {
-	case "R":
+	case "realtime":
 		// 实时数据
 		where += fmt.Sprintf(" AND toTimeZone(timestamp, '%s') >= now() - INTERVAL 30 MINUTE ", site.Timezone)
-
 		prevWhere = fmt.Sprintf(" site_id = %d AND toTimeZone(timestamp, '%s') BETWEEN now() - INTERVAL 60 MINUTE AND now() - INTERVAL 30 MINUTE ", 0, site.Timezone)
-	case "T":
+	case "day":
 		where += fmt.Sprintf(" AND toDate(timestamp, '%s') = '%s' ", site.Timezone, req.Date)
-
 		prevDate := carbon.Parse(req.Date, site.Timezone).SubDays(1).Format("Y-m-d")
-		prevWhere = fmt.Sprintf(" site_id = %d AND toDate(timestamp, '%s') = '%s' ", 0, site.Timezone, prevDate)
-	case "Y":
-		date := carbon.Parse(req.Date, site.Timezone).SubDays(1).Format("Y-m-d")
-		where += fmt.Sprintf(" AND toDate(timestamp, '%s') = '%s' ", site.Timezone, date)
-
-		prevDate := carbon.Parse(req.Date, site.Timezone).SubDays(2).Format("Y-m-d")
 		prevWhere = fmt.Sprintf(" site_id = %d AND toDate(timestamp, '%s') = '%s' ", 0, site.Timezone, prevDate)
 	case "p7":
 		startDate := carbon.Parse(req.Date, site.Timezone).SubDays(6).Format("Y-m-d")
@@ -219,14 +212,16 @@ func (s *StateService) getTimestampWhere(site *ent.Site, req *types.TopStatsRequ
 		prevStartDate := carbon.Parse(req.Date, site.Timezone).SubDays(59).Format("Y-m-d")
 		prevEndDate := carbon.Parse(req.Date, site.Timezone).SubDays(30).Format("Y-m-d")
 		prevWhere = fmt.Sprintf(" site_id = %d AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", 0, site.Timezone, prevStartDate, prevEndDate)
-	case "cr": // custom range
-		startDate := carbon.Parse(req.StartDate, site.Timezone).Format("Y-m-d")
-		endDate := carbon.Parse(req.EndDate, site.Timezone).Format("Y-m-d")
+	case "custom": // custom range
+		startDate := carbon.Parse(req.From, site.Timezone).Format("Y-m-d")
+		endDate := carbon.Parse(req.To, site.Timezone).Format("Y-m-d")
 		where += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, startDate, endDate)
 		// 计算上一个周期的时间范围
 		days := carbon.Parse(endDate, site.Timezone).DiffInDays(carbon.Parse(startDate, site.Timezone))
 		prevStartDate := carbon.Parse(startDate, site.Timezone).SubDays(int(days)).Format("Y-m-d")
 		prevEndDate := carbon.Parse(startDate, site.Timezone).SubDays(1).Format("Y-m-d")
+		slog.Info("Calculate the time range for the current period", "startDate", startDate, "endDate", endDate)
+		slog.Info("Calculate the time range for the prev period", "startDate", prevStartDate, "endDate", prevEndDate)
 		prevWhere = fmt.Sprintf(" site_id = %d AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", 0, site.Timezone, prevStartDate, prevEndDate)
 	default:
 		return "", ""
@@ -280,17 +275,19 @@ func (s *StateService) GetCurve(ctx *gin.Context, domain string, req *types.TopS
 
 // getInterval 根据时间段长短确定时间间隔
 func (s *StateService) getInterval(req *types.TopStatsRequest) string {
+
+	if req.Interval != "" {
+		return req.Interval
+	}
+
 	var start, end carbon.Carbon
 	switch req.Period {
-	case "R":
+	case "realtime":
 		start = *carbon.Now().SubMinutes(30)
 		end = *carbon.Now()
-	case "T":
+	case "day":
 		start = *carbon.Parse(req.Date).StartOfDay()
 		end = *carbon.Parse(req.Date).EndOfDay()
-	case "Y":
-		start = *carbon.Parse(req.Date).SubDays(1).StartOfDay()
-		end = *carbon.Parse(req.Date).SubDays(1).EndOfDay()
 	case "p7":
 		start = *carbon.Parse(req.Date).SubDays(6).StartOfDay()
 		end = *carbon.Parse(req.Date).EndOfDay()
@@ -300,9 +297,9 @@ func (s *StateService) getInterval(req *types.TopStatsRequest) string {
 	case "p30":
 		start = *carbon.Parse(req.Date).SubDays(29).StartOfDay()
 		end = *carbon.Parse(req.Date).EndOfDay()
-	case "cr":
-		start = *carbon.Parse(req.StartDate)
-		end = *carbon.Parse(req.EndDate)
+	case "custom":
+		start = *carbon.Parse(req.From)
+		end = *carbon.Parse(req.To)
 	default:
 		return "1 HOUR"
 	}

@@ -28,11 +28,10 @@ const routes: RouteObject[] = [
         path: "new",
         element: <NewSite />
       },
-
       {
         path: ":domain/stats",
         element: <State />
-      }
+      },
     ]
   },
   {
