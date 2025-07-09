@@ -139,7 +139,7 @@ export default function StatePage() {
 
     const query = qs.parse(window.location.search, { ignoreQueryPrefix: true });
 
-    const period = ["realtime", "day", "month", "week", "custom"].includes(query.period as string) ? query.period as string : "day";
+    const period = ["realtime", "day", "month", "week", "custom", "w", "m", "p7", "p14", "p30"].includes(query.period as string) ? query.period as string : "day";
     const date = query.date as string;
     const from = query.from as string;
     const to = query.to as string;
@@ -254,8 +254,6 @@ export default function StatePage() {
         option = 'day'
       }
     }
-
-
     const params: StatsRequest = { period: option };
     if (option === "custom") {
       params.from = dayjs(selectedDateRange.from).format('YYYY-MM-DD');
