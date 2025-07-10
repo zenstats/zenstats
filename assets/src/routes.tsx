@@ -4,7 +4,7 @@ import { Navigate } from "react-router-dom";
 import Login from "@/pages/login/login";
 import Sites from "@/pages/sites/sites";
 import NewSite from "@/pages/sites/new";
-import State from "@/pages/sites/stats";
+import State from "@/pages/sites/stats/stats";
 import Setup from '@/pages/login/setup';
 import NotFoundPage from '@/pages/404';
 

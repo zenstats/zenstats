@@ -176,9 +176,8 @@ func (s *StateService) getTimestampWhere(site *ent.Site, req *types.TopStatsRequ
 	// where := fmt.Sprintf(" site_id = %d", site.ID)
 	// prevWhere := fmt.Sprintf(" site_id = %d", site.ID)
 
-	where := fmt.Sprintf(" site_id = %d", 0)
-	prevWhere := fmt.Sprintf(" site_id = %d", 0)
-
+	where := " 1 "
+	prevWhere := " 1 "
 	switch req.Period {
 	case "realtime":
 		// 实时数据
@@ -437,23 +436,25 @@ func (s *StateService) GetSourceRank(ctx *gin.Context, domain string, req *types
 
 	// 定义搜索引擎列表
 	searchEngines := s.db.Client.SearchEngines.Query().AllX(ctx)
+
 	// 构建查询语句
 	searchEngineConditions := []string{}
 	for _, searchEngine := range searchEngines {
 		searchEngineConditions = append(searchEngineConditions, fmt.Sprintf("positionCaseInsensitive(referrer_source, '%s') > 0", searchEngine.Domain))
 	}
+
 	searchEngineCondition := strings.Join(searchEngineConditions, " OR ")
 
 	query := fmt.Sprintf(`
 		SELECT
 			CASE
-				WHEN referrer = '' THEN 'Direct'
+				WHEN referrer_source = '' THEN 'Direct'
 				WHEN %s THEN
 					CASE
 						%s
 						ELSE 'Other'
 					END
-				ELSE 'Other'
+				ELSE referrer_source
 			END as source,
 			count(distinct user_id) as visits
 		FROM zenstats_events_db.events
@@ -462,7 +463,7 @@ func (s *StateService) GetSourceRank(ctx *gin.Context, domain string, req *types
 		ORDER BY visits DESC
 		LIMIT 10
 	`, searchEngineCondition, buildSearchEngineCase(searchEngines), where)
-
+	fmt.Println(query)
 	var trafficSourceRanks []RankItem
 	rows, err := s.cl.Query(context.Background(), query)
 	if err != nil {

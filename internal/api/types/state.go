@@ -6,4 +6,6 @@ type TopStatsRequest struct {
 	From     string `form:"from" binding:"omitempty"`
 	To       string `form:"to" binding:"omitempty"`
 	Interval string `form:"interval" binding:"omitempty"`
+	Limit    int    `form:"limit" binding:"omitempty"`
+	Page     int    `form:"page" binding:"omitempty"`
 }

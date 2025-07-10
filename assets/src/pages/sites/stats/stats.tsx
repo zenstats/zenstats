@@ -16,7 +16,6 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { PieChart, Pie, Cell } from "recharts";
 import {
   Table,
   TableBody,
@@ -175,7 +174,9 @@ export default function StatePage() {
                 setTopStatsLoading(false);
                 break;
               case 1:
-                setTimeRangeVisitor(result.value as BaseResponse<TimeRangeVisitor[]>);
+                if (result?.value?.data !== null) {
+                  setTimeRangeVisitor(result.value as BaseResponse<TimeRangeVisitor[]>);
+                }
                 setTimeRangeVisitorLoading(false);
                 break;
               case 2:
@@ -594,54 +595,27 @@ export default function StatePage() {
               {sourceRankLoading ? (
                 <Skeleton className="h-full w-full rounded-md" />
               ) : (
-                <div className="flex flex-col md:flex-row items-center justify-between w-full h-full">
-                  <div className="w-full md:w-1/2 h-64 flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={sourceRank?.data}
-                          cx="50%"
-                          cy="50%"
-                          dataKey="visits"
-                          nameKey="key"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={2}
-                        >
-                          {sourceRank?.data?.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={`hsl(${index * 70}, 70%, 50%)`}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        {/* <Tooltip formatter={(value) => [`${value}%`, "占比"]} /> */}
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="w-full md:w-1/2 mt-4 md:mt-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>来源</TableHead>
-                          <TableHead className="text-right">占比</TableHead>
+                <div className="w-full h-full">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>来源</TableHead>
+                        <TableHead className="text-right">占比</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sourceRank?.data?.map((source, index) => (
+                        <TableRow key={index}>
+                          <TableCell className="font-medium">
+                            {source.key}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {source.percentage}%
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sourceRank?.data?.map((source, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">
-                              {source.key}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {source.percentage}%
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>
@@ -715,31 +689,7 @@ export default function StatePage() {
                 <Skeleton className="h-full w-full rounded-md" />
               ) : (
                 <div className="w-full h-full flex flex-col md:flex-row items-center justify-around">
-                  <div className="w-1/2 h-64 flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={deviceRank?.data}
-                          cx="50%"
-                          cy="50%"
-                          dataKey="visits"
-                          nameKey="key"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={2}
-                        >
-                          {deviceRank?.data?.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={`hsl(${index * 70}, 70%, 50%)`}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="w-1/2 h-full flex flex-col justify-center">
+                  <div className="w-full h-full flex flex-col justify-center">
                     {deviceRank?.data?.map((device, index) => (
                       <div key={index} className="flex items-center mb-6">
                         <div

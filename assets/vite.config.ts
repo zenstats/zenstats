@@ -12,8 +12,4 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  server: {
-    host: '0.0.0.0', // 监听所有 IP
-    port: 5173,      // 可选：指定端口
-  },
 })
