@@ -11,9 +11,13 @@ import (
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/pkg/globals"
+	"github.com/zenstats/zenstats/pkg/utils"
 )
 
 var (
@@ -125,8 +129,8 @@ type SiteWithRemark struct {
 	Domain                      string `json:"domain"`
 	Timezone                    string `json:"timezone"`
 	Remark                      string `json:"remark"`
-	IngestRateLimitScaleSeconds int    `json:"ingestRateLimitScaleSeconds"`
-	IngetLimitPerMinute         int    `json:"ingestLimitPerMinute"`
+	IngestRateLimitScaleSeconds int    `json:"rate_seconds"`
+	IngetLimitPerMinute         int    `json:"limit_minute"`
 	Role                        string `json:"role"`
 }
 
@@ -208,6 +212,316 @@ func (s *SiteService) GetSiteList(ctx *gin.Context) ([]*ent.Site, error) {
 	})
 
 	return sites, nil
+}
+
+// GetSiteByID 根据ID获取站点信息
+func (s *SiteService) GetSiteByID(ctx *gin.Context, id int) (*ent.Site, error) {
+	cacheKey := fmt.Sprintf("site:%d", id)
+	if cached, ok := s.cache.Load(cacheKey); ok {
+		return cached.(*ent.Site), nil
+	}
+
+	site, err := s.db.Client.Site.Query().Where(site.ID(int64(id))).Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	s.cache.Store(cacheKey, site)
+	return site, nil
+}
+
+// AddShieldRuleIP 添加IP屏蔽规则
+func (s *SiteService) AddShieldRuleIP(ctx *gin.Context, domain string, ip string, action string, description string) (*ent.ShieldRulesIp, error) {
+	// 通过domain获取站点信息
+	site, err := s.GetSiteByDomain(ctx, domain)
+	if err != nil {
+		return nil, fmt.Errorf("site not found: %w", err)
+	}
+
+	ipInet, err := utils.ParseInet(ip)
+	if err != nil {
+		return nil, fmt.Errorf("invalid IP format: %w", err)
+	}
+
+	// 创建IP屏蔽规则
+	rule, err := s.db.Client.ShieldRulesIp.Create().
+		SetSiteID(site.ID).
+		SetInet(ipInet).
+		SetAction(action).
+		SetDescription(description).
+		SetAddedBy("system").
+		Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create shield rule ip failed: %w", err)
+	}
+
+	return rule, nil
+}
+
+// ListShieldRuleIP 获取IP屏蔽规则列表
+func (s *SiteService) ListShieldRuleIP(ctx *gin.Context, domain string) ([]*ent.ShieldRulesIp, error) {
+	// 通过domain获取站点信息
+	site, err := s.GetSiteByDomain(ctx, domain)
+	if err != nil {
+		return nil, fmt.Errorf("site not found: %w", err)
+	}
+
+	// 查询该站点的所有IP屏蔽规则
+	rules, err := s.db.Client.ShieldRulesIp.Query().
+		Where(shieldrulesip.SiteID(site.ID)).
+		Order(ent.Desc(shieldrulesip.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("query shield rule ip failed: %w", err)
+	}
+
+	return rules, nil
+}
+
+// RemoveShieldRuleIP 删除IP屏蔽规则
+func (s *SiteService) RemoveShieldRuleIP(ctx *gin.Context, domain string, ruleID int64) error {
+	// 通过domain获取站点信息
+	site, err := s.GetSiteByDomain(ctx, domain)
+	if err != nil {
+		return fmt.Errorf("site not found: %w", err)
+	}
+
+	// 验证规则是否属于该站点
+	count, err := s.db.Client.ShieldRulesIp.Query().
+		Where(
+			shieldrulesip.ID(ruleID),
+			shieldrulesip.SiteID(site.ID),
+		).
+		Count(ctx)
+	if err != nil {
+		return fmt.Errorf("query shield rule ip failed: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("shield rule ip not found or not belongs to site")
+	}
+
+	// 删除规则
+	if err := s.db.Client.ShieldRulesIp.DeleteOneID(ruleID).Exec(ctx); err != nil {
+		return fmt.Errorf("delete shield rule ip failed: %w", err)
+	}
+
+	return nil
+}
+
+// AddShieldRuleHostname 添加Hostname屏蔽规则
+func (s *SiteService) AddShieldRuleHostname(ctx *gin.Context, domain string, hostname string, hostnamePattern string, action string) (*ent.ShieldRulesHostname, error) {
+	// 验证站点是否存在
+	site, err := s.db.Client.Site.Query().Where(site.Domain(domain)).Only(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("site not found: %w", err)
+	}
+
+	// 创建Hostname屏蔽规则
+	rule, err := s.db.Client.ShieldRulesHostname.Create().
+		SetSiteID(site.ID).
+		SetHostname(hostname).
+		SetHostnamePattern(hostnamePattern).
+		SetAction(action).
+		SetAddedBy("system").
+		Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create shield rule hostname failed: %w", err)
+	}
+
+	return rule, nil
+}
+
+// ListShieldRuleHostname 获取Hostname屏蔽规则列表
+func (s *SiteService) ListShieldRuleHostname(ctx *gin.Context, domain string) ([]*ent.ShieldRulesHostname, error) {
+	// 通过domain获取站点信息
+	site, err := s.GetSiteByDomain(ctx, domain)
+	if err != nil {
+		return nil, fmt.Errorf("site not found: %w", err)
+	}
+
+	// 查询该站点的所有Hostname屏蔽规则
+	rules, err := s.db.Client.ShieldRulesHostname.Query().
+		Where(shieldruleshostname.SiteID(site.ID)).
+		Order(ent.Desc(shieldruleshostname.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("query shield rule hostname failed: %w", err)
+	}
+
+	return rules, nil
+}
+
+// RemoveShieldRuleHostname 删除Hostname屏蔽规则
+func (s *SiteService) RemoveShieldRuleHostname(ctx *gin.Context, domain string, ruleID int64) error {
+	site, err := s.GetSiteByDomain(ctx, domain)
+	if err != nil {
+		return fmt.Errorf("site not found: %w", err)
+	}
+
+	// 验证规则是否属于该站点
+	count, err := s.db.Client.ShieldRulesHostname.Query().
+		Where(
+			shieldruleshostname.ID(ruleID),
+			shieldruleshostname.SiteID(site.ID),
+		).
+		Count(ctx)
+	if err != nil {
+		return fmt.Errorf("query shield rule hostname failed: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("shield rule hostname not found or not belongs to site")
+	}
+
+	// 删除规则
+	if err := s.db.Client.ShieldRulesHostname.DeleteOneID(ruleID).Exec(ctx); err != nil {
+		return fmt.Errorf("delete shield rule hostname failed: %w", err)
+	}
+
+	return nil
+}
+
+// AddShieldRuleCountry 添加Country屏蔽规则
+func (s *SiteService) AddShieldRuleCountry(ctx *gin.Context, domain string, countryCode string, action string) (*ent.ShieldRulesCountry, error) {
+	// 验证站点是否存在
+	site, err := s.db.Client.Site.Query().Where(site.Domain(domain)).Only(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("site not found: %w", err)
+	}
+	// 获取当前登陆用户
+	user, _ := GetUserService().GetUserByID(ctx, ctx.GetInt64("user_id"))
+	// 创建Country屏蔽规则
+	rule, err := s.db.Client.ShieldRulesCountry.Create().
+		SetSiteID(site.ID).
+		SetCountryCode(countryCode).
+		SetAction(action).
+		SetAddedBy(user.Name).
+		Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create shield rule country failed: %w", err)
+	}
+
+	return rule, nil
+}
+
+// ListShieldRuleCountry 获取Country屏蔽规则列表
+func (s *SiteService) ListShieldRuleCountry(ctx *gin.Context, domain string) ([]*ent.ShieldRulesCountry, error) {
+	// 通过domain获取站点信息
+	site, err := s.GetSiteByDomain(ctx, domain)
+	if err != nil {
+		return nil, fmt.Errorf("site not found: %w", err)
+	}
+
+	// 查询该站点的所有Country屏蔽规则
+	rules, err := s.db.Client.ShieldRulesCountry.Query().
+		Where(shieldrulescountry.SiteID(site.ID)).
+		Order(ent.Desc(shieldrulescountry.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("query shield rule country failed: %w", err)
+	}
+
+	return rules, nil
+}
+
+// RemoveShieldRuleCountry 删除Country屏蔽规则
+func (s *SiteService) RemoveShieldRuleCountry(ctx *gin.Context, siteID int64, ruleID int64) error {
+	// 验证规则是否属于该站点
+	count, err := s.db.Client.ShieldRulesCountry.Query().
+		Where(
+			shieldrulescountry.ID(ruleID),
+			shieldrulescountry.SiteID(siteID),
+		).
+		Count(ctx)
+	if err != nil {
+		return fmt.Errorf("query shield rule country failed: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("shield rule country not found or not belongs to site")
+	}
+
+	// 删除规则
+	if err := s.db.Client.ShieldRulesCountry.DeleteOneID(ruleID).Exec(ctx); err != nil {
+		return fmt.Errorf("delete shield rule country failed: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateSite 更新站点信息
+func (s *SiteService) UpdateSite(ctx *gin.Context, domain string, name string) (*ent.Site, error) {
+	tx, err := s.db.Client.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("starting a transaction: %w", err)
+	}
+	site, err := tx.Site.Query().Where(site.Domain(domain)).First(ctx)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("query site failed: %w", err)
+	}
+
+	site, err = tx.Site.UpdateOne(site).
+		SetRemark(name).
+		Save(ctx)
+
+	if err != nil {
+		tx.Rollback()
+		if ent.IsConstraintError(err) {
+			return nil, errors.New("domain already exists")
+		}
+		return nil, fmt.Errorf("updating site: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("committing transaction: %w", err)
+	}
+
+	// 更新缓存
+	cacheKey := fmt.Sprintf("site:%d", site.ID)
+	s.cache.Store(cacheKey, site)
+	s.domainCache.Add(domain, site)
+	// 清除用户站点列表缓存
+	s.cache.Delete(s.allSitesCacheKey)
+
+	return site, nil
+}
+
+// DeleteSite 删除站点
+func (s *SiteService) DeleteSite(ctx *gin.Context, id int) error {
+	tx, err := s.db.Client.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("starting a transaction: %w", err)
+	}
+
+	// 先查询站点确认存在
+	site, err := tx.Site.Query().Where(site.ID(int64(id))).Only(ctx)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("site not found: %w", err)
+	}
+
+	// 删除站点成员关系
+	if _, err := tx.SiteMembership.Delete().Where(sitemembership.SiteID(int64(id))).Exec(ctx); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("deleting site memberships: %w", err)
+	}
+
+	// 删除站点
+	if err := tx.Site.DeleteOne(site).Exec(ctx); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("deleting site: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing transaction: %w", err)
+	}
+
+	// 清除缓存
+	cacheKey := fmt.Sprintf("site:%d", id)
+	s.cache.Delete(cacheKey)
+	s.domainCache.Remove(site.Domain)
+	s.cache.Delete(s.allSitesCacheKey)
+
+	return nil
 }
 
 // IsDomainInList

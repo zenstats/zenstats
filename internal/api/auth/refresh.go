@@ -11,6 +11,18 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
+// @Summary		刷新访问令牌
+// @Description	使用刷新令牌获取新的访问令牌
+// @Tags			auth
+// @Accept			json
+// @Produce		json
+// @Param			refreshToken	query		string					true	"刷新令牌"
+// @Success		200				{string}	string					"新的访问令牌"
+// @Failure		400				{object}	response.ErrorResponse	"请求参数错误"
+// @Failure		401				{object}	response.ErrorResponse	"无效的刷新令牌"
+// @Failure		431				{object}	response.ErrorResponse	"刷新令牌已过期"
+// @Failure		500				{object}	response.ErrorResponse	"服务器内部错误"
+// @Router			/auth/refresh [get]
 func (h *AuthHandler) Refresh() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req types.RefreshRequest
@@ -23,7 +35,7 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 
 		if err != nil {
 			if errors.Is(err, jwt.ErrTokenExpired) {
-				response.Error(c, 430, errors.New("the refresh token has expired"))
+				response.Error(c, 431, errors.New("the refresh token has expired"))
 				return
 			}
 			response.Error(c, http.StatusUnauthorized, errors.New("invalid refresh token"))

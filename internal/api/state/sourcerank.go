@@ -7,6 +7,19 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
+// GetSourceRank 获取来源排名统计
+//
+//	@Summary		获取来源排名统计
+//	@Description	获取指定域名的来源排名统计数据
+//	@Tags			统计分析
+//	@Security		BearerAuth
+//	@Accept			json
+//
+//	@Produce		json
+//	@Param			domain	path		string										true	"站点域名"
+//	@Success		200		{object}	response.SuccessResponse{data=interface{}}	"成功响应，返回来源排名统计数据"
+//	@Failure		400		{object}	response.ErrorResponse						"请求参数错误"
+//	@Router			/stats/{domain}/source_rank [get]
 func (s *StateHandle) GetSourceRank() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		domain := c.Param("domain")

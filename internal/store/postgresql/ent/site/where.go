@@ -617,6 +617,75 @@ func HasSiteMembershipsWith(preds ...predicate.SiteMembership) predicate.Site {
 	})
 }
 
+// HasShieldRulesIP applies the HasEdge predicate on the "shield_rules_ip" edge.
+func HasShieldRulesIP() predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ShieldRulesIPTable, ShieldRulesIPColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasShieldRulesIPWith applies the HasEdge predicate on the "shield_rules_ip" edge with a given conditions (other predicates).
+func HasShieldRulesIPWith(preds ...predicate.ShieldRulesIp) predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := newShieldRulesIPStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasShieldRulesHostname applies the HasEdge predicate on the "shield_rules_hostname" edge.
+func HasShieldRulesHostname() predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ShieldRulesHostnameTable, ShieldRulesHostnameColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasShieldRulesHostnameWith applies the HasEdge predicate on the "shield_rules_hostname" edge with a given conditions (other predicates).
+func HasShieldRulesHostnameWith(preds ...predicate.ShieldRulesHostname) predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := newShieldRulesHostnameStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasShieldRulesCountry applies the HasEdge predicate on the "shield_rules_country" edge.
+func HasShieldRulesCountry() predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ShieldRulesCountryTable, ShieldRulesCountryColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasShieldRulesCountryWith applies the HasEdge predicate on the "shield_rules_country" edge with a given conditions (other predicates).
+func HasShieldRulesCountryWith(preds ...predicate.ShieldRulesCountry) predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := newShieldRulesCountryStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Site) predicate.Site {
 	return predicate.Site(sql.AndPredicates(predicates...))

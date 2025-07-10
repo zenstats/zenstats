@@ -9,6 +9,9 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/schema"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/usersession"
@@ -68,6 +71,54 @@ func init() {
 	searchengines.DefaultUpdatedAt = searchenginesDescUpdatedAt.Default.(func() time.Time)
 	// searchengines.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	searchengines.UpdateDefaultUpdatedAt = searchenginesDescUpdatedAt.UpdateDefault.(func() time.Time)
+	shieldrulescountryFields := schema.ShieldRulesCountry{}.Fields()
+	_ = shieldrulescountryFields
+	// shieldrulescountryDescAction is the schema descriptor for action field.
+	shieldrulescountryDescAction := shieldrulescountryFields[3].Descriptor()
+	// shieldrulescountry.DefaultAction holds the default value on creation for the action field.
+	shieldrulescountry.DefaultAction = shieldrulescountryDescAction.Default.(string)
+	// shieldrulescountryDescCreatedAt is the schema descriptor for created_at field.
+	shieldrulescountryDescCreatedAt := shieldrulescountryFields[5].Descriptor()
+	// shieldrulescountry.DefaultCreatedAt holds the default value on creation for the created_at field.
+	shieldrulescountry.DefaultCreatedAt = shieldrulescountryDescCreatedAt.Default.(func() time.Time)
+	// shieldrulescountryDescUpdatedAt is the schema descriptor for updated_at field.
+	shieldrulescountryDescUpdatedAt := shieldrulescountryFields[6].Descriptor()
+	// shieldrulescountry.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	shieldrulescountry.DefaultUpdatedAt = shieldrulescountryDescUpdatedAt.Default.(func() time.Time)
+	// shieldrulescountry.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	shieldrulescountry.UpdateDefaultUpdatedAt = shieldrulescountryDescUpdatedAt.UpdateDefault.(func() time.Time)
+	shieldruleshostnameFields := schema.ShieldRulesHostname{}.Fields()
+	_ = shieldruleshostnameFields
+	// shieldruleshostnameDescAction is the schema descriptor for action field.
+	shieldruleshostnameDescAction := shieldruleshostnameFields[4].Descriptor()
+	// shieldruleshostname.DefaultAction holds the default value on creation for the action field.
+	shieldruleshostname.DefaultAction = shieldruleshostnameDescAction.Default.(string)
+	// shieldruleshostnameDescCreatedAt is the schema descriptor for created_at field.
+	shieldruleshostnameDescCreatedAt := shieldruleshostnameFields[6].Descriptor()
+	// shieldruleshostname.DefaultCreatedAt holds the default value on creation for the created_at field.
+	shieldruleshostname.DefaultCreatedAt = shieldruleshostnameDescCreatedAt.Default.(func() time.Time)
+	// shieldruleshostnameDescUpdatedAt is the schema descriptor for updated_at field.
+	shieldruleshostnameDescUpdatedAt := shieldruleshostnameFields[7].Descriptor()
+	// shieldruleshostname.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	shieldruleshostname.DefaultUpdatedAt = shieldruleshostnameDescUpdatedAt.Default.(func() time.Time)
+	// shieldruleshostname.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	shieldruleshostname.UpdateDefaultUpdatedAt = shieldruleshostnameDescUpdatedAt.UpdateDefault.(func() time.Time)
+	shieldrulesipFields := schema.ShieldRulesIp{}.Fields()
+	_ = shieldrulesipFields
+	// shieldrulesipDescAction is the schema descriptor for action field.
+	shieldrulesipDescAction := shieldrulesipFields[3].Descriptor()
+	// shieldrulesip.DefaultAction holds the default value on creation for the action field.
+	shieldrulesip.DefaultAction = shieldrulesipDescAction.Default.(string)
+	// shieldrulesipDescCreatedAt is the schema descriptor for created_at field.
+	shieldrulesipDescCreatedAt := shieldrulesipFields[6].Descriptor()
+	// shieldrulesip.DefaultCreatedAt holds the default value on creation for the created_at field.
+	shieldrulesip.DefaultCreatedAt = shieldrulesipDescCreatedAt.Default.(func() time.Time)
+	// shieldrulesipDescUpdatedAt is the schema descriptor for updated_at field.
+	shieldrulesipDescUpdatedAt := shieldrulesipFields[7].Descriptor()
+	// shieldrulesip.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	shieldrulesip.DefaultUpdatedAt = shieldrulesipDescUpdatedAt.Default.(func() time.Time)
+	// shieldrulesip.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	shieldrulesip.UpdateDefaultUpdatedAt = shieldrulesipDescUpdatedAt.UpdateDefault.(func() time.Time)
 	siteFields := schema.Site{}.Fields()
 	_ = siteFields
 	// siteDescDomain is the schema descriptor for domain field.

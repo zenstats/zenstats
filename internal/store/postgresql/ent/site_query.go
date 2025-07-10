@@ -15,6 +15,9 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -23,14 +26,17 @@ import (
 // SiteQuery is the builder for querying Site entities.
 type SiteQuery struct {
 	config
-	ctx                 *QueryContext
-	order               []site.OrderOption
-	inters              []Interceptor
-	predicates          []predicate.Site
-	withFunnels         *FunnelQuery
-	withMembers         *UserQuery
-	withGoals           *GoalQuery
-	withSiteMemberships *SiteMembershipQuery
+	ctx                     *QueryContext
+	order                   []site.OrderOption
+	inters                  []Interceptor
+	predicates              []predicate.Site
+	withFunnels             *FunnelQuery
+	withMembers             *UserQuery
+	withGoals               *GoalQuery
+	withSiteMemberships     *SiteMembershipQuery
+	withShieldRulesIP       *ShieldRulesIpQuery
+	withShieldRulesHostname *ShieldRulesHostnameQuery
+	withShieldRulesCountry  *ShieldRulesCountryQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -148,6 +154,72 @@ func (sq *SiteQuery) QuerySiteMemberships() *SiteMembershipQuery {
 			sqlgraph.From(site.Table, site.FieldID, selector),
 			sqlgraph.To(sitemembership.Table, sitemembership.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, site.SiteMembershipsTable, site.SiteMembershipsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryShieldRulesIP chains the current query on the "shield_rules_ip" edge.
+func (sq *SiteQuery) QueryShieldRulesIP() *ShieldRulesIpQuery {
+	query := (&ShieldRulesIpClient{config: sq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, selector),
+			sqlgraph.To(shieldrulesip.Table, shieldrulesip.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesIPTable, site.ShieldRulesIPColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryShieldRulesHostname chains the current query on the "shield_rules_hostname" edge.
+func (sq *SiteQuery) QueryShieldRulesHostname() *ShieldRulesHostnameQuery {
+	query := (&ShieldRulesHostnameClient{config: sq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, selector),
+			sqlgraph.To(shieldruleshostname.Table, shieldruleshostname.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesHostnameTable, site.ShieldRulesHostnameColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryShieldRulesCountry chains the current query on the "shield_rules_country" edge.
+func (sq *SiteQuery) QueryShieldRulesCountry() *ShieldRulesCountryQuery {
+	query := (&ShieldRulesCountryClient{config: sq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, selector),
+			sqlgraph.To(shieldrulescountry.Table, shieldrulescountry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesCountryTable, site.ShieldRulesCountryColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
 		return fromU, nil
@@ -342,15 +414,18 @@ func (sq *SiteQuery) Clone() *SiteQuery {
 		return nil
 	}
 	return &SiteQuery{
-		config:              sq.config,
-		ctx:                 sq.ctx.Clone(),
-		order:               append([]site.OrderOption{}, sq.order...),
-		inters:              append([]Interceptor{}, sq.inters...),
-		predicates:          append([]predicate.Site{}, sq.predicates...),
-		withFunnels:         sq.withFunnels.Clone(),
-		withMembers:         sq.withMembers.Clone(),
-		withGoals:           sq.withGoals.Clone(),
-		withSiteMemberships: sq.withSiteMemberships.Clone(),
+		config:                  sq.config,
+		ctx:                     sq.ctx.Clone(),
+		order:                   append([]site.OrderOption{}, sq.order...),
+		inters:                  append([]Interceptor{}, sq.inters...),
+		predicates:              append([]predicate.Site{}, sq.predicates...),
+		withFunnels:             sq.withFunnels.Clone(),
+		withMembers:             sq.withMembers.Clone(),
+		withGoals:               sq.withGoals.Clone(),
+		withSiteMemberships:     sq.withSiteMemberships.Clone(),
+		withShieldRulesIP:       sq.withShieldRulesIP.Clone(),
+		withShieldRulesHostname: sq.withShieldRulesHostname.Clone(),
+		withShieldRulesCountry:  sq.withShieldRulesCountry.Clone(),
 		// clone intermediate query.
 		sql:  sq.sql.Clone(),
 		path: sq.path,
@@ -398,6 +473,39 @@ func (sq *SiteQuery) WithSiteMemberships(opts ...func(*SiteMembershipQuery)) *Si
 		opt(query)
 	}
 	sq.withSiteMemberships = query
+	return sq
+}
+
+// WithShieldRulesIP tells the query-builder to eager-load the nodes that are connected to
+// the "shield_rules_ip" edge. The optional arguments are used to configure the query builder of the edge.
+func (sq *SiteQuery) WithShieldRulesIP(opts ...func(*ShieldRulesIpQuery)) *SiteQuery {
+	query := (&ShieldRulesIpClient{config: sq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withShieldRulesIP = query
+	return sq
+}
+
+// WithShieldRulesHostname tells the query-builder to eager-load the nodes that are connected to
+// the "shield_rules_hostname" edge. The optional arguments are used to configure the query builder of the edge.
+func (sq *SiteQuery) WithShieldRulesHostname(opts ...func(*ShieldRulesHostnameQuery)) *SiteQuery {
+	query := (&ShieldRulesHostnameClient{config: sq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withShieldRulesHostname = query
+	return sq
+}
+
+// WithShieldRulesCountry tells the query-builder to eager-load the nodes that are connected to
+// the "shield_rules_country" edge. The optional arguments are used to configure the query builder of the edge.
+func (sq *SiteQuery) WithShieldRulesCountry(opts ...func(*ShieldRulesCountryQuery)) *SiteQuery {
+	query := (&ShieldRulesCountryClient{config: sq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withShieldRulesCountry = query
 	return sq
 }
 
@@ -479,11 +587,14 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 	var (
 		nodes       = []*Site{}
 		_spec       = sq.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [7]bool{
 			sq.withFunnels != nil,
 			sq.withMembers != nil,
 			sq.withGoals != nil,
 			sq.withSiteMemberships != nil,
+			sq.withShieldRulesIP != nil,
+			sq.withShieldRulesHostname != nil,
+			sq.withShieldRulesCountry != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -529,6 +640,31 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 		if err := sq.loadSiteMemberships(ctx, query, nodes,
 			func(n *Site) { n.Edges.SiteMemberships = []*SiteMembership{} },
 			func(n *Site, e *SiteMembership) { n.Edges.SiteMemberships = append(n.Edges.SiteMemberships, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := sq.withShieldRulesIP; query != nil {
+		if err := sq.loadShieldRulesIP(ctx, query, nodes,
+			func(n *Site) { n.Edges.ShieldRulesIP = []*ShieldRulesIp{} },
+			func(n *Site, e *ShieldRulesIp) { n.Edges.ShieldRulesIP = append(n.Edges.ShieldRulesIP, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := sq.withShieldRulesHostname; query != nil {
+		if err := sq.loadShieldRulesHostname(ctx, query, nodes,
+			func(n *Site) { n.Edges.ShieldRulesHostname = []*ShieldRulesHostname{} },
+			func(n *Site, e *ShieldRulesHostname) {
+				n.Edges.ShieldRulesHostname = append(n.Edges.ShieldRulesHostname, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := sq.withShieldRulesCountry; query != nil {
+		if err := sq.loadShieldRulesCountry(ctx, query, nodes,
+			func(n *Site) { n.Edges.ShieldRulesCountry = []*ShieldRulesCountry{} },
+			func(n *Site, e *ShieldRulesCountry) {
+				n.Edges.ShieldRulesCountry = append(n.Edges.ShieldRulesCountry, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -641,6 +777,96 @@ func (sq *SiteQuery) loadSiteMemberships(ctx context.Context, query *SiteMembers
 	}
 	query.Where(predicate.SiteMembership(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(site.SiteMembershipsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SiteID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "site_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (sq *SiteQuery) loadShieldRulesIP(ctx context.Context, query *ShieldRulesIpQuery, nodes []*Site, init func(*Site), assign func(*Site, *ShieldRulesIp)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Site)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(shieldrulesip.FieldSiteID)
+	}
+	query.Where(predicate.ShieldRulesIp(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(site.ShieldRulesIPColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SiteID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "site_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (sq *SiteQuery) loadShieldRulesHostname(ctx context.Context, query *ShieldRulesHostnameQuery, nodes []*Site, init func(*Site), assign func(*Site, *ShieldRulesHostname)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Site)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(shieldruleshostname.FieldSiteID)
+	}
+	query.Where(predicate.ShieldRulesHostname(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(site.ShieldRulesHostnameColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SiteID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "site_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (sq *SiteQuery) loadShieldRulesCountry(ctx context.Context, query *ShieldRulesCountryQuery, nodes []*Site, init func(*Site), assign func(*Site, *ShieldRulesCountry)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Site)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(shieldrulescountry.FieldSiteID)
+	}
+	query.Where(predicate.ShieldRulesCountry(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(site.ShieldRulesCountryColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

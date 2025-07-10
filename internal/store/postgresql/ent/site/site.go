@@ -40,6 +40,12 @@ const (
 	EdgeGoals = "goals"
 	// EdgeSiteMemberships holds the string denoting the site_memberships edge name in mutations.
 	EdgeSiteMemberships = "site_memberships"
+	// EdgeShieldRulesIP holds the string denoting the shield_rules_ip edge name in mutations.
+	EdgeShieldRulesIP = "shield_rules_ip"
+	// EdgeShieldRulesHostname holds the string denoting the shield_rules_hostname edge name in mutations.
+	EdgeShieldRulesHostname = "shield_rules_hostname"
+	// EdgeShieldRulesCountry holds the string denoting the shield_rules_country edge name in mutations.
+	EdgeShieldRulesCountry = "shield_rules_country"
 	// Table holds the table name of the site in the database.
 	Table = "sites"
 	// FunnelsTable is the table that holds the funnels relation/edge.
@@ -70,6 +76,27 @@ const (
 	SiteMembershipsInverseTable = "site_memberships"
 	// SiteMembershipsColumn is the table column denoting the site_memberships relation/edge.
 	SiteMembershipsColumn = "site_id"
+	// ShieldRulesIPTable is the table that holds the shield_rules_ip relation/edge.
+	ShieldRulesIPTable = "shield_rules_ips"
+	// ShieldRulesIPInverseTable is the table name for the ShieldRulesIp entity.
+	// It exists in this package in order to avoid circular dependency with the "shieldrulesip" package.
+	ShieldRulesIPInverseTable = "shield_rules_ips"
+	// ShieldRulesIPColumn is the table column denoting the shield_rules_ip relation/edge.
+	ShieldRulesIPColumn = "site_id"
+	// ShieldRulesHostnameTable is the table that holds the shield_rules_hostname relation/edge.
+	ShieldRulesHostnameTable = "shield_rules_hostnames"
+	// ShieldRulesHostnameInverseTable is the table name for the ShieldRulesHostname entity.
+	// It exists in this package in order to avoid circular dependency with the "shieldruleshostname" package.
+	ShieldRulesHostnameInverseTable = "shield_rules_hostnames"
+	// ShieldRulesHostnameColumn is the table column denoting the shield_rules_hostname relation/edge.
+	ShieldRulesHostnameColumn = "site_id"
+	// ShieldRulesCountryTable is the table that holds the shield_rules_country relation/edge.
+	ShieldRulesCountryTable = "shield_rules_countries"
+	// ShieldRulesCountryInverseTable is the table name for the ShieldRulesCountry entity.
+	// It exists in this package in order to avoid circular dependency with the "shieldrulescountry" package.
+	ShieldRulesCountryInverseTable = "shield_rules_countries"
+	// ShieldRulesCountryColumn is the table column denoting the shield_rules_country relation/edge.
+	ShieldRulesCountryColumn = "site_id"
 )
 
 // Columns holds all SQL columns for site fields.
@@ -227,6 +254,48 @@ func BySiteMemberships(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newSiteMembershipsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByShieldRulesIPCount orders the results by shield_rules_ip count.
+func ByShieldRulesIPCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newShieldRulesIPStep(), opts...)
+	}
+}
+
+// ByShieldRulesIP orders the results by shield_rules_ip terms.
+func ByShieldRulesIP(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newShieldRulesIPStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByShieldRulesHostnameCount orders the results by shield_rules_hostname count.
+func ByShieldRulesHostnameCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newShieldRulesHostnameStep(), opts...)
+	}
+}
+
+// ByShieldRulesHostname orders the results by shield_rules_hostname terms.
+func ByShieldRulesHostname(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newShieldRulesHostnameStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByShieldRulesCountryCount orders the results by shield_rules_country count.
+func ByShieldRulesCountryCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newShieldRulesCountryStep(), opts...)
+	}
+}
+
+// ByShieldRulesCountry orders the results by shield_rules_country terms.
+func ByShieldRulesCountry(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newShieldRulesCountryStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newFunnelsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -253,5 +322,26 @@ func newSiteMembershipsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SiteMembershipsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, SiteMembershipsTable, SiteMembershipsColumn),
+	)
+}
+func newShieldRulesIPStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ShieldRulesIPInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ShieldRulesIPTable, ShieldRulesIPColumn),
+	)
+}
+func newShieldRulesHostnameStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ShieldRulesHostnameInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ShieldRulesHostnameTable, ShieldRulesHostnameColumn),
+	)
+}
+func newShieldRulesCountryStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ShieldRulesCountryInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ShieldRulesCountryTable, ShieldRulesCountryColumn),
 	)
 }

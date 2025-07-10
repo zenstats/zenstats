@@ -12,6 +12,7 @@ import { Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import axios, { type BaseResponse } from "@utils/axios";
+import type { Site } from "./types/interfaces";
 
 // 自定义防抖 Hook
 const useDebounce = (value: string, delay: number) => {
@@ -29,14 +30,6 @@ const useDebounce = (value: string, delay: number) => {
 
   return debouncedValue;
 };
-
-// 将 Site 接口定义提前
-interface Site {
-  id: number;
-  domain: string;
-  remark: string;
-  role: string;
-}
 
 export default function Sites() {
   const navigate = useNavigate();
@@ -106,7 +99,7 @@ export default function Sites() {
                   // 为设置按钮添加点击事件，跳转到设置页面
                   onClick={(e) => {
                     e.stopPropagation(); // 阻止事件冒泡，避免触发卡片点击事件
-                    navigate(`/sites/settings?domain=${site.domain}`);
+                    navigate(`/sites/${site.domain}/settings/general`);
                   }}
                 >
                   <Settings />

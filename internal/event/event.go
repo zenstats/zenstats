@@ -175,7 +175,7 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 	//TODO 部分逻辑过滤
 	/*
 		1. 对用户UA进行验证 屏蔽非法请求  drop_verification_agent ->done
-		2. 对IP进行验证 删除数据中心IP   drop_datacenter_ip
+		2. 对IP进行验证 删除数据中心IP   drop_datacenter_ip  -> not now
 		3. 对hostname 进行验证 仅允许白名单  drop_shield_rule_hostname
 		4. 对pathname 进行验证 删除需要排除的路径 drop_shield_rule_page
 		5. 对IP进行验证 删除需要排除的ip drop_shield_rule_ip

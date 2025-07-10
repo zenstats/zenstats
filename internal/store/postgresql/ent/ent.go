@@ -17,6 +17,9 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -81,15 +84,18 @@ var (
 func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			apikey.Table:         apikey.ValidColumn,
-			funnel.Table:         funnel.ValidColumn,
-			funnelstep.Table:     funnelstep.ValidColumn,
-			goal.Table:           goal.ValidColumn,
-			searchengines.Table:  searchengines.ValidColumn,
-			site.Table:           site.ValidColumn,
-			sitemembership.Table: sitemembership.ValidColumn,
-			user.Table:           user.ValidColumn,
-			usersession.Table:    usersession.ValidColumn,
+			apikey.Table:              apikey.ValidColumn,
+			funnel.Table:              funnel.ValidColumn,
+			funnelstep.Table:          funnelstep.ValidColumn,
+			goal.Table:                goal.ValidColumn,
+			searchengines.Table:       searchengines.ValidColumn,
+			shieldrulescountry.Table:  shieldrulescountry.ValidColumn,
+			shieldruleshostname.Table: shieldruleshostname.ValidColumn,
+			shieldrulesip.Table:       shieldrulesip.ValidColumn,
+			site.Table:                site.ValidColumn,
+			sitemembership.Table:      sitemembership.ValidColumn,
+			user.Table:                user.ValidColumn,
+			usersession.Table:         usersession.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)

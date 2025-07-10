@@ -21,6 +21,15 @@ type Goal func(*sql.Selector)
 // SearchEngines is the predicate function for searchengines builders.
 type SearchEngines func(*sql.Selector)
 
+// ShieldRulesCountry is the predicate function for shieldrulescountry builders.
+type ShieldRulesCountry func(*sql.Selector)
+
+// ShieldRulesHostname is the predicate function for shieldruleshostname builders.
+type ShieldRulesHostname func(*sql.Selector)
+
+// ShieldRulesIp is the predicate function for shieldrulesip builders.
+type ShieldRulesIp func(*sql.Selector)
+
 // Site is the predicate function for site builders.
 type Site func(*sql.Selector)
 

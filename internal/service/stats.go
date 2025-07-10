@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"math"
 	"strings"
 	"sync"
@@ -113,6 +112,7 @@ func (s *StateService) GetTopStats(ctx *gin.Context, domain string, req *types.T
 	if math.IsNaN(stats.PrevAvgDuration) {
 		stats.PrevAvgDuration = 0
 	}
+
 	// 获取上一个周期的对比数据
 	prevQuery := fmt.Sprintf(`SELECT count(*) as pv, count(distinct user_id) as uv, count(distinct session_id) as sessions FROM zenstats_events_db.events WHERE %s AND name = 'pageview'`, prevWhere)
 	err = s.cl.QueryRow(context.Background(), prevQuery).Scan(
@@ -219,8 +219,6 @@ func (s *StateService) getTimestampWhere(site *ent.Site, req *types.TopStatsRequ
 		days := carbon.Parse(endDate, site.Timezone).DiffInDays(carbon.Parse(startDate, site.Timezone))
 		prevStartDate := carbon.Parse(startDate, site.Timezone).SubDays(int(days)).Format("Y-m-d")
 		prevEndDate := carbon.Parse(startDate, site.Timezone).SubDays(1).Format("Y-m-d")
-		slog.Info("Calculate the time range for the current period", "startDate", startDate, "endDate", endDate)
-		slog.Info("Calculate the time range for the prev period", "startDate", prevStartDate, "endDate", prevEndDate)
 		prevWhere = fmt.Sprintf(" site_id = %d AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", 0, site.Timezone, prevStartDate, prevEndDate)
 	default:
 		return "", ""
@@ -308,13 +306,13 @@ func (s *StateService) getInterval(req *types.TopStatsRequest) string {
 
 	switch {
 	case hours <= 1:
-		return "5 MINUTE"
+		return "1 MINUTE"
 	case hours <= 6:
 		return "15 MINUTE"
 	case hours <= 72:
 		return "1 HOUR"
 	case hours <= 168:
-		return "2 HOUR"
+		return "1 HOUR"
 	default:
 		return "1 DAY"
 	}
@@ -326,6 +324,8 @@ func (s *StateService) getFormat(interval string) string {
 	case "5 MINUTE", "15 MINUTE", "1 HOUR":
 		return "%Y-%m-%d %H:%i"
 	case "1 DAY":
+		return "%Y-%m-%d"
+	case "1 WEEK":
 		return "%Y-%m-%d"
 	default:
 		return "%Y-%m-%d %H:%i"
@@ -463,7 +463,6 @@ func (s *StateService) GetSourceRank(ctx *gin.Context, domain string, req *types
 		ORDER BY visits DESC
 		LIMIT 10
 	`, searchEngineCondition, buildSearchEngineCase(searchEngines), where)
-	fmt.Println(query)
 	var trafficSourceRanks []RankItem
 	rows, err := s.cl.Query(context.Background(), query)
 	if err != nil {

@@ -69,6 +69,42 @@ func (f SearchEnginesFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Valu
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SearchEnginesMutation", m)
 }
 
+// The ShieldRulesCountryFunc type is an adapter to allow the use of ordinary
+// function as ShieldRulesCountry mutator.
+type ShieldRulesCountryFunc func(context.Context, *ent.ShieldRulesCountryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ShieldRulesCountryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ShieldRulesCountryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ShieldRulesCountryMutation", m)
+}
+
+// The ShieldRulesHostnameFunc type is an adapter to allow the use of ordinary
+// function as ShieldRulesHostname mutator.
+type ShieldRulesHostnameFunc func(context.Context, *ent.ShieldRulesHostnameMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ShieldRulesHostnameFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ShieldRulesHostnameMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ShieldRulesHostnameMutation", m)
+}
+
+// The ShieldRulesIpFunc type is an adapter to allow the use of ordinary
+// function as ShieldRulesIp mutator.
+type ShieldRulesIpFunc func(context.Context, *ent.ShieldRulesIpMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ShieldRulesIpFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ShieldRulesIpMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ShieldRulesIpMutation", m)
+}
+
 // The SiteFunc type is an adapter to allow the use of ordinary
 // function as Site mutator.
 type SiteFunc func(context.Context, *ent.SiteMutation) (ent.Value, error)

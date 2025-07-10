@@ -12,6 +12,9 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -206,6 +209,51 @@ func (sc *SiteCreate) AddSiteMemberships(s ...*SiteMembership) *SiteCreate {
 		ids[i] = s[i].ID
 	}
 	return sc.AddSiteMembershipIDs(ids...)
+}
+
+// AddShieldRulesIPIDs adds the "shield_rules_ip" edge to the ShieldRulesIp entity by IDs.
+func (sc *SiteCreate) AddShieldRulesIPIDs(ids ...int64) *SiteCreate {
+	sc.mutation.AddShieldRulesIPIDs(ids...)
+	return sc
+}
+
+// AddShieldRulesIP adds the "shield_rules_ip" edges to the ShieldRulesIp entity.
+func (sc *SiteCreate) AddShieldRulesIP(s ...*ShieldRulesIp) *SiteCreate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return sc.AddShieldRulesIPIDs(ids...)
+}
+
+// AddShieldRulesHostnameIDs adds the "shield_rules_hostname" edge to the ShieldRulesHostname entity by IDs.
+func (sc *SiteCreate) AddShieldRulesHostnameIDs(ids ...int64) *SiteCreate {
+	sc.mutation.AddShieldRulesHostnameIDs(ids...)
+	return sc
+}
+
+// AddShieldRulesHostname adds the "shield_rules_hostname" edges to the ShieldRulesHostname entity.
+func (sc *SiteCreate) AddShieldRulesHostname(s ...*ShieldRulesHostname) *SiteCreate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return sc.AddShieldRulesHostnameIDs(ids...)
+}
+
+// AddShieldRulesCountryIDs adds the "shield_rules_country" edge to the ShieldRulesCountry entity by IDs.
+func (sc *SiteCreate) AddShieldRulesCountryIDs(ids ...int64) *SiteCreate {
+	sc.mutation.AddShieldRulesCountryIDs(ids...)
+	return sc
+}
+
+// AddShieldRulesCountry adds the "shield_rules_country" edges to the ShieldRulesCountry entity.
+func (sc *SiteCreate) AddShieldRulesCountry(s ...*ShieldRulesCountry) *SiteCreate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return sc.AddShieldRulesCountryIDs(ids...)
 }
 
 // Mutation returns the SiteMutation object of the builder.
@@ -432,6 +480,54 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sitemembership.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := sc.mutation.ShieldRulesIPIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesIPTable,
+			Columns: []string{site.ShieldRulesIPColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesip.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := sc.mutation.ShieldRulesHostnameIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesHostnameTable,
+			Columns: []string{site.ShieldRulesHostnameColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldruleshostname.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := sc.mutation.ShieldRulesCountryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesCountryTable,
+			Columns: []string{site.ShieldRulesCountryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulescountry.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

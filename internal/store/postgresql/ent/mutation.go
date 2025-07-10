@@ -16,7 +16,11 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/schema"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -32,15 +36,18 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeAPIKey         = "APIKey"
-	TypeFunnel         = "Funnel"
-	TypeFunnelStep     = "FunnelStep"
-	TypeGoal           = "Goal"
-	TypeSearchEngines  = "SearchEngines"
-	TypeSite           = "Site"
-	TypeSiteMembership = "SiteMembership"
-	TypeUser           = "User"
-	TypeUserSession    = "UserSession"
+	TypeAPIKey              = "APIKey"
+	TypeFunnel              = "Funnel"
+	TypeFunnelStep          = "FunnelStep"
+	TypeGoal                = "Goal"
+	TypeSearchEngines       = "SearchEngines"
+	TypeShieldRulesCountry  = "ShieldRulesCountry"
+	TypeShieldRulesHostname = "ShieldRulesHostname"
+	TypeShieldRulesIp       = "ShieldRulesIp"
+	TypeSite                = "Site"
+	TypeSiteMembership      = "SiteMembership"
+	TypeUser                = "User"
+	TypeUserSession         = "UserSession"
 )
 
 // APIKeyMutation represents an operation that mutates the APIKey nodes in the graph.
@@ -2917,6 +2924,2195 @@ func (m *SearchEnginesMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown SearchEngines edge %s", name)
 }
 
+// ShieldRulesCountryMutation represents an operation that mutates the ShieldRulesCountry nodes in the graph.
+type ShieldRulesCountryMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	country_code  *string
+	action        *string
+	added_by      *string
+	created_at    *time.Time
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	site          *int64
+	clearedsite   bool
+	done          bool
+	oldValue      func(context.Context) (*ShieldRulesCountry, error)
+	predicates    []predicate.ShieldRulesCountry
+}
+
+var _ ent.Mutation = (*ShieldRulesCountryMutation)(nil)
+
+// shieldrulescountryOption allows management of the mutation configuration using functional options.
+type shieldrulescountryOption func(*ShieldRulesCountryMutation)
+
+// newShieldRulesCountryMutation creates new mutation for the ShieldRulesCountry entity.
+func newShieldRulesCountryMutation(c config, op Op, opts ...shieldrulescountryOption) *ShieldRulesCountryMutation {
+	m := &ShieldRulesCountryMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeShieldRulesCountry,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withShieldRulesCountryID sets the ID field of the mutation.
+func withShieldRulesCountryID(id int64) shieldrulescountryOption {
+	return func(m *ShieldRulesCountryMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ShieldRulesCountry
+		)
+		m.oldValue = func(ctx context.Context) (*ShieldRulesCountry, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ShieldRulesCountry.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withShieldRulesCountry sets the old ShieldRulesCountry of the mutation.
+func withShieldRulesCountry(node *ShieldRulesCountry) shieldrulescountryOption {
+	return func(m *ShieldRulesCountryMutation) {
+		m.oldValue = func(context.Context) (*ShieldRulesCountry, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ShieldRulesCountryMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ShieldRulesCountryMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ShieldRulesCountry entities.
+func (m *ShieldRulesCountryMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ShieldRulesCountryMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ShieldRulesCountryMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ShieldRulesCountry.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *ShieldRulesCountryMutation) SetSiteID(i int64) {
+	m.site = &i
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *ShieldRulesCountryMutation) SiteID() (r int64, exists bool) {
+	v := m.site
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the ShieldRulesCountry entity.
+// If the ShieldRulesCountry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesCountryMutation) OldSiteID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *ShieldRulesCountryMutation) ResetSiteID() {
+	m.site = nil
+}
+
+// SetCountryCode sets the "country_code" field.
+func (m *ShieldRulesCountryMutation) SetCountryCode(s string) {
+	m.country_code = &s
+}
+
+// CountryCode returns the value of the "country_code" field in the mutation.
+func (m *ShieldRulesCountryMutation) CountryCode() (r string, exists bool) {
+	v := m.country_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCountryCode returns the old "country_code" field's value of the ShieldRulesCountry entity.
+// If the ShieldRulesCountry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesCountryMutation) OldCountryCode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCountryCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCountryCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCountryCode: %w", err)
+	}
+	return oldValue.CountryCode, nil
+}
+
+// ResetCountryCode resets all changes to the "country_code" field.
+func (m *ShieldRulesCountryMutation) ResetCountryCode() {
+	m.country_code = nil
+}
+
+// SetAction sets the "action" field.
+func (m *ShieldRulesCountryMutation) SetAction(s string) {
+	m.action = &s
+}
+
+// Action returns the value of the "action" field in the mutation.
+func (m *ShieldRulesCountryMutation) Action() (r string, exists bool) {
+	v := m.action
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAction returns the old "action" field's value of the ShieldRulesCountry entity.
+// If the ShieldRulesCountry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesCountryMutation) OldAction(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAction is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAction requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAction: %w", err)
+	}
+	return oldValue.Action, nil
+}
+
+// ResetAction resets all changes to the "action" field.
+func (m *ShieldRulesCountryMutation) ResetAction() {
+	m.action = nil
+}
+
+// SetAddedBy sets the "added_by" field.
+func (m *ShieldRulesCountryMutation) SetAddedBy(s string) {
+	m.added_by = &s
+}
+
+// AddedBy returns the value of the "added_by" field in the mutation.
+func (m *ShieldRulesCountryMutation) AddedBy() (r string, exists bool) {
+	v := m.added_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAddedBy returns the old "added_by" field's value of the ShieldRulesCountry entity.
+// If the ShieldRulesCountry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesCountryMutation) OldAddedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAddedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAddedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAddedBy: %w", err)
+	}
+	return oldValue.AddedBy, nil
+}
+
+// ClearAddedBy clears the value of the "added_by" field.
+func (m *ShieldRulesCountryMutation) ClearAddedBy() {
+	m.added_by = nil
+	m.clearedFields[shieldrulescountry.FieldAddedBy] = struct{}{}
+}
+
+// AddedByCleared returns if the "added_by" field was cleared in this mutation.
+func (m *ShieldRulesCountryMutation) AddedByCleared() bool {
+	_, ok := m.clearedFields[shieldrulescountry.FieldAddedBy]
+	return ok
+}
+
+// ResetAddedBy resets all changes to the "added_by" field.
+func (m *ShieldRulesCountryMutation) ResetAddedBy() {
+	m.added_by = nil
+	delete(m.clearedFields, shieldrulescountry.FieldAddedBy)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ShieldRulesCountryMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ShieldRulesCountryMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ShieldRulesCountry entity.
+// If the ShieldRulesCountry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesCountryMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ShieldRulesCountryMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ShieldRulesCountryMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ShieldRulesCountryMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ShieldRulesCountry entity.
+// If the ShieldRulesCountry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesCountryMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ShieldRulesCountryMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearSite clears the "site" edge to the Site entity.
+func (m *ShieldRulesCountryMutation) ClearSite() {
+	m.clearedsite = true
+	m.clearedFields[shieldrulescountry.FieldSiteID] = struct{}{}
+}
+
+// SiteCleared reports if the "site" edge to the Site entity was cleared.
+func (m *ShieldRulesCountryMutation) SiteCleared() bool {
+	return m.clearedsite
+}
+
+// SiteIDs returns the "site" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SiteID instead. It exists only for internal usage by the builders.
+func (m *ShieldRulesCountryMutation) SiteIDs() (ids []int64) {
+	if id := m.site; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSite resets all changes to the "site" edge.
+func (m *ShieldRulesCountryMutation) ResetSite() {
+	m.site = nil
+	m.clearedsite = false
+}
+
+// Where appends a list predicates to the ShieldRulesCountryMutation builder.
+func (m *ShieldRulesCountryMutation) Where(ps ...predicate.ShieldRulesCountry) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ShieldRulesCountryMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ShieldRulesCountryMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ShieldRulesCountry, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ShieldRulesCountryMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ShieldRulesCountryMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ShieldRulesCountry).
+func (m *ShieldRulesCountryMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ShieldRulesCountryMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.site != nil {
+		fields = append(fields, shieldrulescountry.FieldSiteID)
+	}
+	if m.country_code != nil {
+		fields = append(fields, shieldrulescountry.FieldCountryCode)
+	}
+	if m.action != nil {
+		fields = append(fields, shieldrulescountry.FieldAction)
+	}
+	if m.added_by != nil {
+		fields = append(fields, shieldrulescountry.FieldAddedBy)
+	}
+	if m.created_at != nil {
+		fields = append(fields, shieldrulescountry.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, shieldrulescountry.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ShieldRulesCountryMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case shieldrulescountry.FieldSiteID:
+		return m.SiteID()
+	case shieldrulescountry.FieldCountryCode:
+		return m.CountryCode()
+	case shieldrulescountry.FieldAction:
+		return m.Action()
+	case shieldrulescountry.FieldAddedBy:
+		return m.AddedBy()
+	case shieldrulescountry.FieldCreatedAt:
+		return m.CreatedAt()
+	case shieldrulescountry.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ShieldRulesCountryMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case shieldrulescountry.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case shieldrulescountry.FieldCountryCode:
+		return m.OldCountryCode(ctx)
+	case shieldrulescountry.FieldAction:
+		return m.OldAction(ctx)
+	case shieldrulescountry.FieldAddedBy:
+		return m.OldAddedBy(ctx)
+	case shieldrulescountry.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case shieldrulescountry.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ShieldRulesCountry field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ShieldRulesCountryMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case shieldrulescountry.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case shieldrulescountry.FieldCountryCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCountryCode(v)
+		return nil
+	case shieldrulescountry.FieldAction:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAction(v)
+		return nil
+	case shieldrulescountry.FieldAddedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAddedBy(v)
+		return nil
+	case shieldrulescountry.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case shieldrulescountry.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesCountry field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ShieldRulesCountryMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ShieldRulesCountryMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ShieldRulesCountryMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ShieldRulesCountry numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ShieldRulesCountryMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(shieldrulescountry.FieldAddedBy) {
+		fields = append(fields, shieldrulescountry.FieldAddedBy)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ShieldRulesCountryMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ShieldRulesCountryMutation) ClearField(name string) error {
+	switch name {
+	case shieldrulescountry.FieldAddedBy:
+		m.ClearAddedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesCountry nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ShieldRulesCountryMutation) ResetField(name string) error {
+	switch name {
+	case shieldrulescountry.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case shieldrulescountry.FieldCountryCode:
+		m.ResetCountryCode()
+		return nil
+	case shieldrulescountry.FieldAction:
+		m.ResetAction()
+		return nil
+	case shieldrulescountry.FieldAddedBy:
+		m.ResetAddedBy()
+		return nil
+	case shieldrulescountry.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case shieldrulescountry.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesCountry field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ShieldRulesCountryMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.site != nil {
+		edges = append(edges, shieldrulescountry.EdgeSite)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ShieldRulesCountryMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case shieldrulescountry.EdgeSite:
+		if id := m.site; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ShieldRulesCountryMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ShieldRulesCountryMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ShieldRulesCountryMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsite {
+		edges = append(edges, shieldrulescountry.EdgeSite)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ShieldRulesCountryMutation) EdgeCleared(name string) bool {
+	switch name {
+	case shieldrulescountry.EdgeSite:
+		return m.clearedsite
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ShieldRulesCountryMutation) ClearEdge(name string) error {
+	switch name {
+	case shieldrulescountry.EdgeSite:
+		m.ClearSite()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesCountry unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ShieldRulesCountryMutation) ResetEdge(name string) error {
+	switch name {
+	case shieldrulescountry.EdgeSite:
+		m.ResetSite()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesCountry edge %s", name)
+}
+
+// ShieldRulesHostnameMutation represents an operation that mutates the ShieldRulesHostname nodes in the graph.
+type ShieldRulesHostnameMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *int64
+	hostname         *string
+	hostname_pattern *string
+	action           *string
+	added_by         *string
+	created_at       *time.Time
+	updated_at       *time.Time
+	clearedFields    map[string]struct{}
+	site             *int64
+	clearedsite      bool
+	done             bool
+	oldValue         func(context.Context) (*ShieldRulesHostname, error)
+	predicates       []predicate.ShieldRulesHostname
+}
+
+var _ ent.Mutation = (*ShieldRulesHostnameMutation)(nil)
+
+// shieldruleshostnameOption allows management of the mutation configuration using functional options.
+type shieldruleshostnameOption func(*ShieldRulesHostnameMutation)
+
+// newShieldRulesHostnameMutation creates new mutation for the ShieldRulesHostname entity.
+func newShieldRulesHostnameMutation(c config, op Op, opts ...shieldruleshostnameOption) *ShieldRulesHostnameMutation {
+	m := &ShieldRulesHostnameMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeShieldRulesHostname,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withShieldRulesHostnameID sets the ID field of the mutation.
+func withShieldRulesHostnameID(id int64) shieldruleshostnameOption {
+	return func(m *ShieldRulesHostnameMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ShieldRulesHostname
+		)
+		m.oldValue = func(ctx context.Context) (*ShieldRulesHostname, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ShieldRulesHostname.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withShieldRulesHostname sets the old ShieldRulesHostname of the mutation.
+func withShieldRulesHostname(node *ShieldRulesHostname) shieldruleshostnameOption {
+	return func(m *ShieldRulesHostnameMutation) {
+		m.oldValue = func(context.Context) (*ShieldRulesHostname, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ShieldRulesHostnameMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ShieldRulesHostnameMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ShieldRulesHostname entities.
+func (m *ShieldRulesHostnameMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ShieldRulesHostnameMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ShieldRulesHostnameMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ShieldRulesHostname.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *ShieldRulesHostnameMutation) SetSiteID(i int64) {
+	m.site = &i
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *ShieldRulesHostnameMutation) SiteID() (r int64, exists bool) {
+	v := m.site
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the ShieldRulesHostname entity.
+// If the ShieldRulesHostname object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesHostnameMutation) OldSiteID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *ShieldRulesHostnameMutation) ResetSiteID() {
+	m.site = nil
+}
+
+// SetHostname sets the "hostname" field.
+func (m *ShieldRulesHostnameMutation) SetHostname(s string) {
+	m.hostname = &s
+}
+
+// Hostname returns the value of the "hostname" field in the mutation.
+func (m *ShieldRulesHostnameMutation) Hostname() (r string, exists bool) {
+	v := m.hostname
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHostname returns the old "hostname" field's value of the ShieldRulesHostname entity.
+// If the ShieldRulesHostname object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesHostnameMutation) OldHostname(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHostname is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHostname requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHostname: %w", err)
+	}
+	return oldValue.Hostname, nil
+}
+
+// ResetHostname resets all changes to the "hostname" field.
+func (m *ShieldRulesHostnameMutation) ResetHostname() {
+	m.hostname = nil
+}
+
+// SetHostnamePattern sets the "hostname_pattern" field.
+func (m *ShieldRulesHostnameMutation) SetHostnamePattern(s string) {
+	m.hostname_pattern = &s
+}
+
+// HostnamePattern returns the value of the "hostname_pattern" field in the mutation.
+func (m *ShieldRulesHostnameMutation) HostnamePattern() (r string, exists bool) {
+	v := m.hostname_pattern
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHostnamePattern returns the old "hostname_pattern" field's value of the ShieldRulesHostname entity.
+// If the ShieldRulesHostname object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesHostnameMutation) OldHostnamePattern(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHostnamePattern is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHostnamePattern requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHostnamePattern: %w", err)
+	}
+	return oldValue.HostnamePattern, nil
+}
+
+// ResetHostnamePattern resets all changes to the "hostname_pattern" field.
+func (m *ShieldRulesHostnameMutation) ResetHostnamePattern() {
+	m.hostname_pattern = nil
+}
+
+// SetAction sets the "action" field.
+func (m *ShieldRulesHostnameMutation) SetAction(s string) {
+	m.action = &s
+}
+
+// Action returns the value of the "action" field in the mutation.
+func (m *ShieldRulesHostnameMutation) Action() (r string, exists bool) {
+	v := m.action
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAction returns the old "action" field's value of the ShieldRulesHostname entity.
+// If the ShieldRulesHostname object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesHostnameMutation) OldAction(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAction is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAction requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAction: %w", err)
+	}
+	return oldValue.Action, nil
+}
+
+// ResetAction resets all changes to the "action" field.
+func (m *ShieldRulesHostnameMutation) ResetAction() {
+	m.action = nil
+}
+
+// SetAddedBy sets the "added_by" field.
+func (m *ShieldRulesHostnameMutation) SetAddedBy(s string) {
+	m.added_by = &s
+}
+
+// AddedBy returns the value of the "added_by" field in the mutation.
+func (m *ShieldRulesHostnameMutation) AddedBy() (r string, exists bool) {
+	v := m.added_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAddedBy returns the old "added_by" field's value of the ShieldRulesHostname entity.
+// If the ShieldRulesHostname object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesHostnameMutation) OldAddedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAddedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAddedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAddedBy: %w", err)
+	}
+	return oldValue.AddedBy, nil
+}
+
+// ClearAddedBy clears the value of the "added_by" field.
+func (m *ShieldRulesHostnameMutation) ClearAddedBy() {
+	m.added_by = nil
+	m.clearedFields[shieldruleshostname.FieldAddedBy] = struct{}{}
+}
+
+// AddedByCleared returns if the "added_by" field was cleared in this mutation.
+func (m *ShieldRulesHostnameMutation) AddedByCleared() bool {
+	_, ok := m.clearedFields[shieldruleshostname.FieldAddedBy]
+	return ok
+}
+
+// ResetAddedBy resets all changes to the "added_by" field.
+func (m *ShieldRulesHostnameMutation) ResetAddedBy() {
+	m.added_by = nil
+	delete(m.clearedFields, shieldruleshostname.FieldAddedBy)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ShieldRulesHostnameMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ShieldRulesHostnameMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ShieldRulesHostname entity.
+// If the ShieldRulesHostname object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesHostnameMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ShieldRulesHostnameMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ShieldRulesHostnameMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ShieldRulesHostnameMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ShieldRulesHostname entity.
+// If the ShieldRulesHostname object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesHostnameMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ShieldRulesHostnameMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearSite clears the "site" edge to the Site entity.
+func (m *ShieldRulesHostnameMutation) ClearSite() {
+	m.clearedsite = true
+	m.clearedFields[shieldruleshostname.FieldSiteID] = struct{}{}
+}
+
+// SiteCleared reports if the "site" edge to the Site entity was cleared.
+func (m *ShieldRulesHostnameMutation) SiteCleared() bool {
+	return m.clearedsite
+}
+
+// SiteIDs returns the "site" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SiteID instead. It exists only for internal usage by the builders.
+func (m *ShieldRulesHostnameMutation) SiteIDs() (ids []int64) {
+	if id := m.site; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSite resets all changes to the "site" edge.
+func (m *ShieldRulesHostnameMutation) ResetSite() {
+	m.site = nil
+	m.clearedsite = false
+}
+
+// Where appends a list predicates to the ShieldRulesHostnameMutation builder.
+func (m *ShieldRulesHostnameMutation) Where(ps ...predicate.ShieldRulesHostname) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ShieldRulesHostnameMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ShieldRulesHostnameMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ShieldRulesHostname, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ShieldRulesHostnameMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ShieldRulesHostnameMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ShieldRulesHostname).
+func (m *ShieldRulesHostnameMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ShieldRulesHostnameMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.site != nil {
+		fields = append(fields, shieldruleshostname.FieldSiteID)
+	}
+	if m.hostname != nil {
+		fields = append(fields, shieldruleshostname.FieldHostname)
+	}
+	if m.hostname_pattern != nil {
+		fields = append(fields, shieldruleshostname.FieldHostnamePattern)
+	}
+	if m.action != nil {
+		fields = append(fields, shieldruleshostname.FieldAction)
+	}
+	if m.added_by != nil {
+		fields = append(fields, shieldruleshostname.FieldAddedBy)
+	}
+	if m.created_at != nil {
+		fields = append(fields, shieldruleshostname.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, shieldruleshostname.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ShieldRulesHostnameMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case shieldruleshostname.FieldSiteID:
+		return m.SiteID()
+	case shieldruleshostname.FieldHostname:
+		return m.Hostname()
+	case shieldruleshostname.FieldHostnamePattern:
+		return m.HostnamePattern()
+	case shieldruleshostname.FieldAction:
+		return m.Action()
+	case shieldruleshostname.FieldAddedBy:
+		return m.AddedBy()
+	case shieldruleshostname.FieldCreatedAt:
+		return m.CreatedAt()
+	case shieldruleshostname.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ShieldRulesHostnameMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case shieldruleshostname.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case shieldruleshostname.FieldHostname:
+		return m.OldHostname(ctx)
+	case shieldruleshostname.FieldHostnamePattern:
+		return m.OldHostnamePattern(ctx)
+	case shieldruleshostname.FieldAction:
+		return m.OldAction(ctx)
+	case shieldruleshostname.FieldAddedBy:
+		return m.OldAddedBy(ctx)
+	case shieldruleshostname.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case shieldruleshostname.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ShieldRulesHostname field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ShieldRulesHostnameMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case shieldruleshostname.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case shieldruleshostname.FieldHostname:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHostname(v)
+		return nil
+	case shieldruleshostname.FieldHostnamePattern:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHostnamePattern(v)
+		return nil
+	case shieldruleshostname.FieldAction:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAction(v)
+		return nil
+	case shieldruleshostname.FieldAddedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAddedBy(v)
+		return nil
+	case shieldruleshostname.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case shieldruleshostname.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesHostname field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ShieldRulesHostnameMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ShieldRulesHostnameMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ShieldRulesHostnameMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ShieldRulesHostname numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ShieldRulesHostnameMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(shieldruleshostname.FieldAddedBy) {
+		fields = append(fields, shieldruleshostname.FieldAddedBy)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ShieldRulesHostnameMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ShieldRulesHostnameMutation) ClearField(name string) error {
+	switch name {
+	case shieldruleshostname.FieldAddedBy:
+		m.ClearAddedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesHostname nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ShieldRulesHostnameMutation) ResetField(name string) error {
+	switch name {
+	case shieldruleshostname.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case shieldruleshostname.FieldHostname:
+		m.ResetHostname()
+		return nil
+	case shieldruleshostname.FieldHostnamePattern:
+		m.ResetHostnamePattern()
+		return nil
+	case shieldruleshostname.FieldAction:
+		m.ResetAction()
+		return nil
+	case shieldruleshostname.FieldAddedBy:
+		m.ResetAddedBy()
+		return nil
+	case shieldruleshostname.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case shieldruleshostname.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesHostname field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ShieldRulesHostnameMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.site != nil {
+		edges = append(edges, shieldruleshostname.EdgeSite)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ShieldRulesHostnameMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case shieldruleshostname.EdgeSite:
+		if id := m.site; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ShieldRulesHostnameMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ShieldRulesHostnameMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ShieldRulesHostnameMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsite {
+		edges = append(edges, shieldruleshostname.EdgeSite)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ShieldRulesHostnameMutation) EdgeCleared(name string) bool {
+	switch name {
+	case shieldruleshostname.EdgeSite:
+		return m.clearedsite
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ShieldRulesHostnameMutation) ClearEdge(name string) error {
+	switch name {
+	case shieldruleshostname.EdgeSite:
+		m.ClearSite()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesHostname unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ShieldRulesHostnameMutation) ResetEdge(name string) error {
+	switch name {
+	case shieldruleshostname.EdgeSite:
+		m.ResetSite()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesHostname edge %s", name)
+}
+
+// ShieldRulesIpMutation represents an operation that mutates the ShieldRulesIp nodes in the graph.
+type ShieldRulesIpMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	inet          **schema.Inet
+	action        *string
+	description   *string
+	added_by      *string
+	created_at    *time.Time
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	site          *int64
+	clearedsite   bool
+	done          bool
+	oldValue      func(context.Context) (*ShieldRulesIp, error)
+	predicates    []predicate.ShieldRulesIp
+}
+
+var _ ent.Mutation = (*ShieldRulesIpMutation)(nil)
+
+// shieldrulesipOption allows management of the mutation configuration using functional options.
+type shieldrulesipOption func(*ShieldRulesIpMutation)
+
+// newShieldRulesIpMutation creates new mutation for the ShieldRulesIp entity.
+func newShieldRulesIpMutation(c config, op Op, opts ...shieldrulesipOption) *ShieldRulesIpMutation {
+	m := &ShieldRulesIpMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeShieldRulesIp,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withShieldRulesIpID sets the ID field of the mutation.
+func withShieldRulesIpID(id int64) shieldrulesipOption {
+	return func(m *ShieldRulesIpMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ShieldRulesIp
+		)
+		m.oldValue = func(ctx context.Context) (*ShieldRulesIp, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ShieldRulesIp.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withShieldRulesIp sets the old ShieldRulesIp of the mutation.
+func withShieldRulesIp(node *ShieldRulesIp) shieldrulesipOption {
+	return func(m *ShieldRulesIpMutation) {
+		m.oldValue = func(context.Context) (*ShieldRulesIp, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ShieldRulesIpMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ShieldRulesIpMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ShieldRulesIp entities.
+func (m *ShieldRulesIpMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ShieldRulesIpMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ShieldRulesIpMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ShieldRulesIp.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *ShieldRulesIpMutation) SetSiteID(i int64) {
+	m.site = &i
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *ShieldRulesIpMutation) SiteID() (r int64, exists bool) {
+	v := m.site
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the ShieldRulesIp entity.
+// If the ShieldRulesIp object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesIpMutation) OldSiteID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *ShieldRulesIpMutation) ResetSiteID() {
+	m.site = nil
+}
+
+// SetInet sets the "inet" field.
+func (m *ShieldRulesIpMutation) SetInet(s *schema.Inet) {
+	m.inet = &s
+}
+
+// Inet returns the value of the "inet" field in the mutation.
+func (m *ShieldRulesIpMutation) Inet() (r *schema.Inet, exists bool) {
+	v := m.inet
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInet returns the old "inet" field's value of the ShieldRulesIp entity.
+// If the ShieldRulesIp object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesIpMutation) OldInet(ctx context.Context) (v *schema.Inet, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInet is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInet requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInet: %w", err)
+	}
+	return oldValue.Inet, nil
+}
+
+// ClearInet clears the value of the "inet" field.
+func (m *ShieldRulesIpMutation) ClearInet() {
+	m.inet = nil
+	m.clearedFields[shieldrulesip.FieldInet] = struct{}{}
+}
+
+// InetCleared returns if the "inet" field was cleared in this mutation.
+func (m *ShieldRulesIpMutation) InetCleared() bool {
+	_, ok := m.clearedFields[shieldrulesip.FieldInet]
+	return ok
+}
+
+// ResetInet resets all changes to the "inet" field.
+func (m *ShieldRulesIpMutation) ResetInet() {
+	m.inet = nil
+	delete(m.clearedFields, shieldrulesip.FieldInet)
+}
+
+// SetAction sets the "action" field.
+func (m *ShieldRulesIpMutation) SetAction(s string) {
+	m.action = &s
+}
+
+// Action returns the value of the "action" field in the mutation.
+func (m *ShieldRulesIpMutation) Action() (r string, exists bool) {
+	v := m.action
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAction returns the old "action" field's value of the ShieldRulesIp entity.
+// If the ShieldRulesIp object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesIpMutation) OldAction(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAction is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAction requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAction: %w", err)
+	}
+	return oldValue.Action, nil
+}
+
+// ResetAction resets all changes to the "action" field.
+func (m *ShieldRulesIpMutation) ResetAction() {
+	m.action = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *ShieldRulesIpMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *ShieldRulesIpMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the ShieldRulesIp entity.
+// If the ShieldRulesIp object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesIpMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *ShieldRulesIpMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[shieldrulesip.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *ShieldRulesIpMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[shieldrulesip.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *ShieldRulesIpMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, shieldrulesip.FieldDescription)
+}
+
+// SetAddedBy sets the "added_by" field.
+func (m *ShieldRulesIpMutation) SetAddedBy(s string) {
+	m.added_by = &s
+}
+
+// AddedBy returns the value of the "added_by" field in the mutation.
+func (m *ShieldRulesIpMutation) AddedBy() (r string, exists bool) {
+	v := m.added_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAddedBy returns the old "added_by" field's value of the ShieldRulesIp entity.
+// If the ShieldRulesIp object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesIpMutation) OldAddedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAddedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAddedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAddedBy: %w", err)
+	}
+	return oldValue.AddedBy, nil
+}
+
+// ClearAddedBy clears the value of the "added_by" field.
+func (m *ShieldRulesIpMutation) ClearAddedBy() {
+	m.added_by = nil
+	m.clearedFields[shieldrulesip.FieldAddedBy] = struct{}{}
+}
+
+// AddedByCleared returns if the "added_by" field was cleared in this mutation.
+func (m *ShieldRulesIpMutation) AddedByCleared() bool {
+	_, ok := m.clearedFields[shieldrulesip.FieldAddedBy]
+	return ok
+}
+
+// ResetAddedBy resets all changes to the "added_by" field.
+func (m *ShieldRulesIpMutation) ResetAddedBy() {
+	m.added_by = nil
+	delete(m.clearedFields, shieldrulesip.FieldAddedBy)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ShieldRulesIpMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ShieldRulesIpMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ShieldRulesIp entity.
+// If the ShieldRulesIp object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesIpMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ShieldRulesIpMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ShieldRulesIpMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ShieldRulesIpMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ShieldRulesIp entity.
+// If the ShieldRulesIp object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesIpMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ShieldRulesIpMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearSite clears the "site" edge to the Site entity.
+func (m *ShieldRulesIpMutation) ClearSite() {
+	m.clearedsite = true
+	m.clearedFields[shieldrulesip.FieldSiteID] = struct{}{}
+}
+
+// SiteCleared reports if the "site" edge to the Site entity was cleared.
+func (m *ShieldRulesIpMutation) SiteCleared() bool {
+	return m.clearedsite
+}
+
+// SiteIDs returns the "site" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SiteID instead. It exists only for internal usage by the builders.
+func (m *ShieldRulesIpMutation) SiteIDs() (ids []int64) {
+	if id := m.site; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSite resets all changes to the "site" edge.
+func (m *ShieldRulesIpMutation) ResetSite() {
+	m.site = nil
+	m.clearedsite = false
+}
+
+// Where appends a list predicates to the ShieldRulesIpMutation builder.
+func (m *ShieldRulesIpMutation) Where(ps ...predicate.ShieldRulesIp) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ShieldRulesIpMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ShieldRulesIpMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ShieldRulesIp, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ShieldRulesIpMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ShieldRulesIpMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ShieldRulesIp).
+func (m *ShieldRulesIpMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ShieldRulesIpMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.site != nil {
+		fields = append(fields, shieldrulesip.FieldSiteID)
+	}
+	if m.inet != nil {
+		fields = append(fields, shieldrulesip.FieldInet)
+	}
+	if m.action != nil {
+		fields = append(fields, shieldrulesip.FieldAction)
+	}
+	if m.description != nil {
+		fields = append(fields, shieldrulesip.FieldDescription)
+	}
+	if m.added_by != nil {
+		fields = append(fields, shieldrulesip.FieldAddedBy)
+	}
+	if m.created_at != nil {
+		fields = append(fields, shieldrulesip.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, shieldrulesip.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ShieldRulesIpMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case shieldrulesip.FieldSiteID:
+		return m.SiteID()
+	case shieldrulesip.FieldInet:
+		return m.Inet()
+	case shieldrulesip.FieldAction:
+		return m.Action()
+	case shieldrulesip.FieldDescription:
+		return m.Description()
+	case shieldrulesip.FieldAddedBy:
+		return m.AddedBy()
+	case shieldrulesip.FieldCreatedAt:
+		return m.CreatedAt()
+	case shieldrulesip.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ShieldRulesIpMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case shieldrulesip.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case shieldrulesip.FieldInet:
+		return m.OldInet(ctx)
+	case shieldrulesip.FieldAction:
+		return m.OldAction(ctx)
+	case shieldrulesip.FieldDescription:
+		return m.OldDescription(ctx)
+	case shieldrulesip.FieldAddedBy:
+		return m.OldAddedBy(ctx)
+	case shieldrulesip.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case shieldrulesip.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ShieldRulesIp field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ShieldRulesIpMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case shieldrulesip.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case shieldrulesip.FieldInet:
+		v, ok := value.(*schema.Inet)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInet(v)
+		return nil
+	case shieldrulesip.FieldAction:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAction(v)
+		return nil
+	case shieldrulesip.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case shieldrulesip.FieldAddedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAddedBy(v)
+		return nil
+	case shieldrulesip.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case shieldrulesip.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesIp field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ShieldRulesIpMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ShieldRulesIpMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ShieldRulesIpMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ShieldRulesIp numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ShieldRulesIpMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(shieldrulesip.FieldInet) {
+		fields = append(fields, shieldrulesip.FieldInet)
+	}
+	if m.FieldCleared(shieldrulesip.FieldDescription) {
+		fields = append(fields, shieldrulesip.FieldDescription)
+	}
+	if m.FieldCleared(shieldrulesip.FieldAddedBy) {
+		fields = append(fields, shieldrulesip.FieldAddedBy)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ShieldRulesIpMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ShieldRulesIpMutation) ClearField(name string) error {
+	switch name {
+	case shieldrulesip.FieldInet:
+		m.ClearInet()
+		return nil
+	case shieldrulesip.FieldDescription:
+		m.ClearDescription()
+		return nil
+	case shieldrulesip.FieldAddedBy:
+		m.ClearAddedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesIp nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ShieldRulesIpMutation) ResetField(name string) error {
+	switch name {
+	case shieldrulesip.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case shieldrulesip.FieldInet:
+		m.ResetInet()
+		return nil
+	case shieldrulesip.FieldAction:
+		m.ResetAction()
+		return nil
+	case shieldrulesip.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case shieldrulesip.FieldAddedBy:
+		m.ResetAddedBy()
+		return nil
+	case shieldrulesip.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case shieldrulesip.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesIp field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ShieldRulesIpMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.site != nil {
+		edges = append(edges, shieldrulesip.EdgeSite)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ShieldRulesIpMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case shieldrulesip.EdgeSite:
+		if id := m.site; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ShieldRulesIpMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ShieldRulesIpMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ShieldRulesIpMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsite {
+		edges = append(edges, shieldrulesip.EdgeSite)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ShieldRulesIpMutation) EdgeCleared(name string) bool {
+	switch name {
+	case shieldrulesip.EdgeSite:
+		return m.clearedsite
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ShieldRulesIpMutation) ClearEdge(name string) error {
+	switch name {
+	case shieldrulesip.EdgeSite:
+		m.ClearSite()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesIp unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ShieldRulesIpMutation) ResetEdge(name string) error {
+	switch name {
+	case shieldrulesip.EdgeSite:
+		m.ResetSite()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesIp edge %s", name)
+}
+
 // SiteMutation represents an operation that mutates the Site nodes in the graph.
 type SiteMutation struct {
 	config
@@ -2947,6 +5143,15 @@ type SiteMutation struct {
 	site_memberships                   map[int64]struct{}
 	removedsite_memberships            map[int64]struct{}
 	clearedsite_memberships            bool
+	shield_rules_ip                    map[int64]struct{}
+	removedshield_rules_ip             map[int64]struct{}
+	clearedshield_rules_ip             bool
+	shield_rules_hostname              map[int64]struct{}
+	removedshield_rules_hostname       map[int64]struct{}
+	clearedshield_rules_hostname       bool
+	shield_rules_country               map[int64]struct{}
+	removedshield_rules_country        map[int64]struct{}
+	clearedshield_rules_country        bool
 	done                               bool
 	oldValue                           func(context.Context) (*Site, error)
 	predicates                         []predicate.Site
@@ -3662,6 +5867,168 @@ func (m *SiteMutation) ResetSiteMemberships() {
 	m.removedsite_memberships = nil
 }
 
+// AddShieldRulesIPIDs adds the "shield_rules_ip" edge to the ShieldRulesIp entity by ids.
+func (m *SiteMutation) AddShieldRulesIPIDs(ids ...int64) {
+	if m.shield_rules_ip == nil {
+		m.shield_rules_ip = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.shield_rules_ip[ids[i]] = struct{}{}
+	}
+}
+
+// ClearShieldRulesIP clears the "shield_rules_ip" edge to the ShieldRulesIp entity.
+func (m *SiteMutation) ClearShieldRulesIP() {
+	m.clearedshield_rules_ip = true
+}
+
+// ShieldRulesIPCleared reports if the "shield_rules_ip" edge to the ShieldRulesIp entity was cleared.
+func (m *SiteMutation) ShieldRulesIPCleared() bool {
+	return m.clearedshield_rules_ip
+}
+
+// RemoveShieldRulesIPIDs removes the "shield_rules_ip" edge to the ShieldRulesIp entity by IDs.
+func (m *SiteMutation) RemoveShieldRulesIPIDs(ids ...int64) {
+	if m.removedshield_rules_ip == nil {
+		m.removedshield_rules_ip = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.shield_rules_ip, ids[i])
+		m.removedshield_rules_ip[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedShieldRulesIP returns the removed IDs of the "shield_rules_ip" edge to the ShieldRulesIp entity.
+func (m *SiteMutation) RemovedShieldRulesIPIDs() (ids []int64) {
+	for id := range m.removedshield_rules_ip {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ShieldRulesIPIDs returns the "shield_rules_ip" edge IDs in the mutation.
+func (m *SiteMutation) ShieldRulesIPIDs() (ids []int64) {
+	for id := range m.shield_rules_ip {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetShieldRulesIP resets all changes to the "shield_rules_ip" edge.
+func (m *SiteMutation) ResetShieldRulesIP() {
+	m.shield_rules_ip = nil
+	m.clearedshield_rules_ip = false
+	m.removedshield_rules_ip = nil
+}
+
+// AddShieldRulesHostnameIDs adds the "shield_rules_hostname" edge to the ShieldRulesHostname entity by ids.
+func (m *SiteMutation) AddShieldRulesHostnameIDs(ids ...int64) {
+	if m.shield_rules_hostname == nil {
+		m.shield_rules_hostname = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.shield_rules_hostname[ids[i]] = struct{}{}
+	}
+}
+
+// ClearShieldRulesHostname clears the "shield_rules_hostname" edge to the ShieldRulesHostname entity.
+func (m *SiteMutation) ClearShieldRulesHostname() {
+	m.clearedshield_rules_hostname = true
+}
+
+// ShieldRulesHostnameCleared reports if the "shield_rules_hostname" edge to the ShieldRulesHostname entity was cleared.
+func (m *SiteMutation) ShieldRulesHostnameCleared() bool {
+	return m.clearedshield_rules_hostname
+}
+
+// RemoveShieldRulesHostnameIDs removes the "shield_rules_hostname" edge to the ShieldRulesHostname entity by IDs.
+func (m *SiteMutation) RemoveShieldRulesHostnameIDs(ids ...int64) {
+	if m.removedshield_rules_hostname == nil {
+		m.removedshield_rules_hostname = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.shield_rules_hostname, ids[i])
+		m.removedshield_rules_hostname[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedShieldRulesHostname returns the removed IDs of the "shield_rules_hostname" edge to the ShieldRulesHostname entity.
+func (m *SiteMutation) RemovedShieldRulesHostnameIDs() (ids []int64) {
+	for id := range m.removedshield_rules_hostname {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ShieldRulesHostnameIDs returns the "shield_rules_hostname" edge IDs in the mutation.
+func (m *SiteMutation) ShieldRulesHostnameIDs() (ids []int64) {
+	for id := range m.shield_rules_hostname {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetShieldRulesHostname resets all changes to the "shield_rules_hostname" edge.
+func (m *SiteMutation) ResetShieldRulesHostname() {
+	m.shield_rules_hostname = nil
+	m.clearedshield_rules_hostname = false
+	m.removedshield_rules_hostname = nil
+}
+
+// AddShieldRulesCountryIDs adds the "shield_rules_country" edge to the ShieldRulesCountry entity by ids.
+func (m *SiteMutation) AddShieldRulesCountryIDs(ids ...int64) {
+	if m.shield_rules_country == nil {
+		m.shield_rules_country = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.shield_rules_country[ids[i]] = struct{}{}
+	}
+}
+
+// ClearShieldRulesCountry clears the "shield_rules_country" edge to the ShieldRulesCountry entity.
+func (m *SiteMutation) ClearShieldRulesCountry() {
+	m.clearedshield_rules_country = true
+}
+
+// ShieldRulesCountryCleared reports if the "shield_rules_country" edge to the ShieldRulesCountry entity was cleared.
+func (m *SiteMutation) ShieldRulesCountryCleared() bool {
+	return m.clearedshield_rules_country
+}
+
+// RemoveShieldRulesCountryIDs removes the "shield_rules_country" edge to the ShieldRulesCountry entity by IDs.
+func (m *SiteMutation) RemoveShieldRulesCountryIDs(ids ...int64) {
+	if m.removedshield_rules_country == nil {
+		m.removedshield_rules_country = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.shield_rules_country, ids[i])
+		m.removedshield_rules_country[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedShieldRulesCountry returns the removed IDs of the "shield_rules_country" edge to the ShieldRulesCountry entity.
+func (m *SiteMutation) RemovedShieldRulesCountryIDs() (ids []int64) {
+	for id := range m.removedshield_rules_country {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ShieldRulesCountryIDs returns the "shield_rules_country" edge IDs in the mutation.
+func (m *SiteMutation) ShieldRulesCountryIDs() (ids []int64) {
+	for id := range m.shield_rules_country {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetShieldRulesCountry resets all changes to the "shield_rules_country" edge.
+func (m *SiteMutation) ResetShieldRulesCountry() {
+	m.shield_rules_country = nil
+	m.clearedshield_rules_country = false
+	m.removedshield_rules_country = nil
+}
+
 // Where appends a list predicates to the SiteMutation builder.
 func (m *SiteMutation) Where(ps ...predicate.Site) {
 	m.predicates = append(m.predicates, ps...)
@@ -3973,7 +6340,7 @@ func (m *SiteMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SiteMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 7)
 	if m.funnels != nil {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -3985,6 +6352,15 @@ func (m *SiteMutation) AddedEdges() []string {
 	}
 	if m.site_memberships != nil {
 		edges = append(edges, site.EdgeSiteMemberships)
+	}
+	if m.shield_rules_ip != nil {
+		edges = append(edges, site.EdgeShieldRulesIP)
+	}
+	if m.shield_rules_hostname != nil {
+		edges = append(edges, site.EdgeShieldRulesHostname)
+	}
+	if m.shield_rules_country != nil {
+		edges = append(edges, site.EdgeShieldRulesCountry)
 	}
 	return edges
 }
@@ -4017,13 +6393,31 @@ func (m *SiteMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case site.EdgeShieldRulesIP:
+		ids := make([]ent.Value, 0, len(m.shield_rules_ip))
+		for id := range m.shield_rules_ip {
+			ids = append(ids, id)
+		}
+		return ids
+	case site.EdgeShieldRulesHostname:
+		ids := make([]ent.Value, 0, len(m.shield_rules_hostname))
+		for id := range m.shield_rules_hostname {
+			ids = append(ids, id)
+		}
+		return ids
+	case site.EdgeShieldRulesCountry:
+		ids := make([]ent.Value, 0, len(m.shield_rules_country))
+		for id := range m.shield_rules_country {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SiteMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 7)
 	if m.removedfunnels != nil {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -4035,6 +6429,15 @@ func (m *SiteMutation) RemovedEdges() []string {
 	}
 	if m.removedsite_memberships != nil {
 		edges = append(edges, site.EdgeSiteMemberships)
+	}
+	if m.removedshield_rules_ip != nil {
+		edges = append(edges, site.EdgeShieldRulesIP)
+	}
+	if m.removedshield_rules_hostname != nil {
+		edges = append(edges, site.EdgeShieldRulesHostname)
+	}
+	if m.removedshield_rules_country != nil {
+		edges = append(edges, site.EdgeShieldRulesCountry)
 	}
 	return edges
 }
@@ -4067,13 +6470,31 @@ func (m *SiteMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case site.EdgeShieldRulesIP:
+		ids := make([]ent.Value, 0, len(m.removedshield_rules_ip))
+		for id := range m.removedshield_rules_ip {
+			ids = append(ids, id)
+		}
+		return ids
+	case site.EdgeShieldRulesHostname:
+		ids := make([]ent.Value, 0, len(m.removedshield_rules_hostname))
+		for id := range m.removedshield_rules_hostname {
+			ids = append(ids, id)
+		}
+		return ids
+	case site.EdgeShieldRulesCountry:
+		ids := make([]ent.Value, 0, len(m.removedshield_rules_country))
+		for id := range m.removedshield_rules_country {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SiteMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 7)
 	if m.clearedfunnels {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -4085,6 +6506,15 @@ func (m *SiteMutation) ClearedEdges() []string {
 	}
 	if m.clearedsite_memberships {
 		edges = append(edges, site.EdgeSiteMemberships)
+	}
+	if m.clearedshield_rules_ip {
+		edges = append(edges, site.EdgeShieldRulesIP)
+	}
+	if m.clearedshield_rules_hostname {
+		edges = append(edges, site.EdgeShieldRulesHostname)
+	}
+	if m.clearedshield_rules_country {
+		edges = append(edges, site.EdgeShieldRulesCountry)
 	}
 	return edges
 }
@@ -4101,6 +6531,12 @@ func (m *SiteMutation) EdgeCleared(name string) bool {
 		return m.clearedgoals
 	case site.EdgeSiteMemberships:
 		return m.clearedsite_memberships
+	case site.EdgeShieldRulesIP:
+		return m.clearedshield_rules_ip
+	case site.EdgeShieldRulesHostname:
+		return m.clearedshield_rules_hostname
+	case site.EdgeShieldRulesCountry:
+		return m.clearedshield_rules_country
 	}
 	return false
 }
@@ -4128,6 +6564,15 @@ func (m *SiteMutation) ResetEdge(name string) error {
 		return nil
 	case site.EdgeSiteMemberships:
 		m.ResetSiteMemberships()
+		return nil
+	case site.EdgeShieldRulesIP:
+		m.ResetShieldRulesIP()
+		return nil
+	case site.EdgeShieldRulesHostname:
+		m.ResetShieldRulesHostname()
+		return nil
+	case site.EdgeShieldRulesCountry:
+		m.ResetShieldRulesCountry()
 		return nil
 	}
 	return fmt.Errorf("unknown Site edge %s", name)

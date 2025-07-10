@@ -14,6 +14,9 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -222,6 +225,51 @@ func (su *SiteUpdate) AddSiteMemberships(s ...*SiteMembership) *SiteUpdate {
 	return su.AddSiteMembershipIDs(ids...)
 }
 
+// AddShieldRulesIPIDs adds the "shield_rules_ip" edge to the ShieldRulesIp entity by IDs.
+func (su *SiteUpdate) AddShieldRulesIPIDs(ids ...int64) *SiteUpdate {
+	su.mutation.AddShieldRulesIPIDs(ids...)
+	return su
+}
+
+// AddShieldRulesIP adds the "shield_rules_ip" edges to the ShieldRulesIp entity.
+func (su *SiteUpdate) AddShieldRulesIP(s ...*ShieldRulesIp) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.AddShieldRulesIPIDs(ids...)
+}
+
+// AddShieldRulesHostnameIDs adds the "shield_rules_hostname" edge to the ShieldRulesHostname entity by IDs.
+func (su *SiteUpdate) AddShieldRulesHostnameIDs(ids ...int64) *SiteUpdate {
+	su.mutation.AddShieldRulesHostnameIDs(ids...)
+	return su
+}
+
+// AddShieldRulesHostname adds the "shield_rules_hostname" edges to the ShieldRulesHostname entity.
+func (su *SiteUpdate) AddShieldRulesHostname(s ...*ShieldRulesHostname) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.AddShieldRulesHostnameIDs(ids...)
+}
+
+// AddShieldRulesCountryIDs adds the "shield_rules_country" edge to the ShieldRulesCountry entity by IDs.
+func (su *SiteUpdate) AddShieldRulesCountryIDs(ids ...int64) *SiteUpdate {
+	su.mutation.AddShieldRulesCountryIDs(ids...)
+	return su
+}
+
+// AddShieldRulesCountry adds the "shield_rules_country" edges to the ShieldRulesCountry entity.
+func (su *SiteUpdate) AddShieldRulesCountry(s ...*ShieldRulesCountry) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.AddShieldRulesCountryIDs(ids...)
+}
+
 // Mutation returns the SiteMutation object of the builder.
 func (su *SiteUpdate) Mutation() *SiteMutation {
 	return su.mutation
@@ -309,6 +357,69 @@ func (su *SiteUpdate) RemoveSiteMemberships(s ...*SiteMembership) *SiteUpdate {
 		ids[i] = s[i].ID
 	}
 	return su.RemoveSiteMembershipIDs(ids...)
+}
+
+// ClearShieldRulesIP clears all "shield_rules_ip" edges to the ShieldRulesIp entity.
+func (su *SiteUpdate) ClearShieldRulesIP() *SiteUpdate {
+	su.mutation.ClearShieldRulesIP()
+	return su
+}
+
+// RemoveShieldRulesIPIDs removes the "shield_rules_ip" edge to ShieldRulesIp entities by IDs.
+func (su *SiteUpdate) RemoveShieldRulesIPIDs(ids ...int64) *SiteUpdate {
+	su.mutation.RemoveShieldRulesIPIDs(ids...)
+	return su
+}
+
+// RemoveShieldRulesIP removes "shield_rules_ip" edges to ShieldRulesIp entities.
+func (su *SiteUpdate) RemoveShieldRulesIP(s ...*ShieldRulesIp) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.RemoveShieldRulesIPIDs(ids...)
+}
+
+// ClearShieldRulesHostname clears all "shield_rules_hostname" edges to the ShieldRulesHostname entity.
+func (su *SiteUpdate) ClearShieldRulesHostname() *SiteUpdate {
+	su.mutation.ClearShieldRulesHostname()
+	return su
+}
+
+// RemoveShieldRulesHostnameIDs removes the "shield_rules_hostname" edge to ShieldRulesHostname entities by IDs.
+func (su *SiteUpdate) RemoveShieldRulesHostnameIDs(ids ...int64) *SiteUpdate {
+	su.mutation.RemoveShieldRulesHostnameIDs(ids...)
+	return su
+}
+
+// RemoveShieldRulesHostname removes "shield_rules_hostname" edges to ShieldRulesHostname entities.
+func (su *SiteUpdate) RemoveShieldRulesHostname(s ...*ShieldRulesHostname) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.RemoveShieldRulesHostnameIDs(ids...)
+}
+
+// ClearShieldRulesCountry clears all "shield_rules_country" edges to the ShieldRulesCountry entity.
+func (su *SiteUpdate) ClearShieldRulesCountry() *SiteUpdate {
+	su.mutation.ClearShieldRulesCountry()
+	return su
+}
+
+// RemoveShieldRulesCountryIDs removes the "shield_rules_country" edge to ShieldRulesCountry entities by IDs.
+func (su *SiteUpdate) RemoveShieldRulesCountryIDs(ids ...int64) *SiteUpdate {
+	su.mutation.RemoveShieldRulesCountryIDs(ids...)
+	return su
+}
+
+// RemoveShieldRulesCountry removes "shield_rules_country" edges to ShieldRulesCountry entities.
+func (su *SiteUpdate) RemoveShieldRulesCountry(s ...*ShieldRulesCountry) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.RemoveShieldRulesCountryIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -595,6 +706,141 @@ func (su *SiteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if su.mutation.ShieldRulesIPCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesIPTable,
+			Columns: []string{site.ShieldRulesIPColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesip.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.RemovedShieldRulesIPIDs(); len(nodes) > 0 && !su.mutation.ShieldRulesIPCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesIPTable,
+			Columns: []string{site.ShieldRulesIPColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesip.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.ShieldRulesIPIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesIPTable,
+			Columns: []string{site.ShieldRulesIPColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesip.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if su.mutation.ShieldRulesHostnameCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesHostnameTable,
+			Columns: []string{site.ShieldRulesHostnameColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldruleshostname.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.RemovedShieldRulesHostnameIDs(); len(nodes) > 0 && !su.mutation.ShieldRulesHostnameCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesHostnameTable,
+			Columns: []string{site.ShieldRulesHostnameColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldruleshostname.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.ShieldRulesHostnameIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesHostnameTable,
+			Columns: []string{site.ShieldRulesHostnameColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldruleshostname.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if su.mutation.ShieldRulesCountryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesCountryTable,
+			Columns: []string{site.ShieldRulesCountryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulescountry.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.RemovedShieldRulesCountryIDs(); len(nodes) > 0 && !su.mutation.ShieldRulesCountryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesCountryTable,
+			Columns: []string{site.ShieldRulesCountryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulescountry.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.ShieldRulesCountryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesCountryTable,
+			Columns: []string{site.ShieldRulesCountryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulescountry.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, su.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{site.Label}
@@ -805,6 +1051,51 @@ func (suo *SiteUpdateOne) AddSiteMemberships(s ...*SiteMembership) *SiteUpdateOn
 	return suo.AddSiteMembershipIDs(ids...)
 }
 
+// AddShieldRulesIPIDs adds the "shield_rules_ip" edge to the ShieldRulesIp entity by IDs.
+func (suo *SiteUpdateOne) AddShieldRulesIPIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.AddShieldRulesIPIDs(ids...)
+	return suo
+}
+
+// AddShieldRulesIP adds the "shield_rules_ip" edges to the ShieldRulesIp entity.
+func (suo *SiteUpdateOne) AddShieldRulesIP(s ...*ShieldRulesIp) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.AddShieldRulesIPIDs(ids...)
+}
+
+// AddShieldRulesHostnameIDs adds the "shield_rules_hostname" edge to the ShieldRulesHostname entity by IDs.
+func (suo *SiteUpdateOne) AddShieldRulesHostnameIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.AddShieldRulesHostnameIDs(ids...)
+	return suo
+}
+
+// AddShieldRulesHostname adds the "shield_rules_hostname" edges to the ShieldRulesHostname entity.
+func (suo *SiteUpdateOne) AddShieldRulesHostname(s ...*ShieldRulesHostname) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.AddShieldRulesHostnameIDs(ids...)
+}
+
+// AddShieldRulesCountryIDs adds the "shield_rules_country" edge to the ShieldRulesCountry entity by IDs.
+func (suo *SiteUpdateOne) AddShieldRulesCountryIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.AddShieldRulesCountryIDs(ids...)
+	return suo
+}
+
+// AddShieldRulesCountry adds the "shield_rules_country" edges to the ShieldRulesCountry entity.
+func (suo *SiteUpdateOne) AddShieldRulesCountry(s ...*ShieldRulesCountry) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.AddShieldRulesCountryIDs(ids...)
+}
+
 // Mutation returns the SiteMutation object of the builder.
 func (suo *SiteUpdateOne) Mutation() *SiteMutation {
 	return suo.mutation
@@ -892,6 +1183,69 @@ func (suo *SiteUpdateOne) RemoveSiteMemberships(s ...*SiteMembership) *SiteUpdat
 		ids[i] = s[i].ID
 	}
 	return suo.RemoveSiteMembershipIDs(ids...)
+}
+
+// ClearShieldRulesIP clears all "shield_rules_ip" edges to the ShieldRulesIp entity.
+func (suo *SiteUpdateOne) ClearShieldRulesIP() *SiteUpdateOne {
+	suo.mutation.ClearShieldRulesIP()
+	return suo
+}
+
+// RemoveShieldRulesIPIDs removes the "shield_rules_ip" edge to ShieldRulesIp entities by IDs.
+func (suo *SiteUpdateOne) RemoveShieldRulesIPIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.RemoveShieldRulesIPIDs(ids...)
+	return suo
+}
+
+// RemoveShieldRulesIP removes "shield_rules_ip" edges to ShieldRulesIp entities.
+func (suo *SiteUpdateOne) RemoveShieldRulesIP(s ...*ShieldRulesIp) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.RemoveShieldRulesIPIDs(ids...)
+}
+
+// ClearShieldRulesHostname clears all "shield_rules_hostname" edges to the ShieldRulesHostname entity.
+func (suo *SiteUpdateOne) ClearShieldRulesHostname() *SiteUpdateOne {
+	suo.mutation.ClearShieldRulesHostname()
+	return suo
+}
+
+// RemoveShieldRulesHostnameIDs removes the "shield_rules_hostname" edge to ShieldRulesHostname entities by IDs.
+func (suo *SiteUpdateOne) RemoveShieldRulesHostnameIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.RemoveShieldRulesHostnameIDs(ids...)
+	return suo
+}
+
+// RemoveShieldRulesHostname removes "shield_rules_hostname" edges to ShieldRulesHostname entities.
+func (suo *SiteUpdateOne) RemoveShieldRulesHostname(s ...*ShieldRulesHostname) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.RemoveShieldRulesHostnameIDs(ids...)
+}
+
+// ClearShieldRulesCountry clears all "shield_rules_country" edges to the ShieldRulesCountry entity.
+func (suo *SiteUpdateOne) ClearShieldRulesCountry() *SiteUpdateOne {
+	suo.mutation.ClearShieldRulesCountry()
+	return suo
+}
+
+// RemoveShieldRulesCountryIDs removes the "shield_rules_country" edge to ShieldRulesCountry entities by IDs.
+func (suo *SiteUpdateOne) RemoveShieldRulesCountryIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.RemoveShieldRulesCountryIDs(ids...)
+	return suo
+}
+
+// RemoveShieldRulesCountry removes "shield_rules_country" edges to ShieldRulesCountry entities.
+func (suo *SiteUpdateOne) RemoveShieldRulesCountry(s ...*ShieldRulesCountry) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.RemoveShieldRulesCountryIDs(ids...)
 }
 
 // Where appends a list predicates to the SiteUpdate builder.
@@ -1201,6 +1555,141 @@ func (suo *SiteUpdateOne) sqlSave(ctx context.Context) (_node *Site, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sitemembership.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if suo.mutation.ShieldRulesIPCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesIPTable,
+			Columns: []string{site.ShieldRulesIPColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesip.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.RemovedShieldRulesIPIDs(); len(nodes) > 0 && !suo.mutation.ShieldRulesIPCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesIPTable,
+			Columns: []string{site.ShieldRulesIPColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesip.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.ShieldRulesIPIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesIPTable,
+			Columns: []string{site.ShieldRulesIPColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesip.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if suo.mutation.ShieldRulesHostnameCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesHostnameTable,
+			Columns: []string{site.ShieldRulesHostnameColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldruleshostname.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.RemovedShieldRulesHostnameIDs(); len(nodes) > 0 && !suo.mutation.ShieldRulesHostnameCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesHostnameTable,
+			Columns: []string{site.ShieldRulesHostnameColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldruleshostname.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.ShieldRulesHostnameIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesHostnameTable,
+			Columns: []string{site.ShieldRulesHostnameColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldruleshostname.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if suo.mutation.ShieldRulesCountryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesCountryTable,
+			Columns: []string{site.ShieldRulesCountryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulescountry.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.RemovedShieldRulesCountryIDs(); len(nodes) > 0 && !suo.mutation.ShieldRulesCountryCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesCountryTable,
+			Columns: []string{site.ShieldRulesCountryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulescountry.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.ShieldRulesCountryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesCountryTable,
+			Columns: []string{site.ShieldRulesCountryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulescountry.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

@@ -19,8 +19,8 @@ let isRefreshToken = false
 // 请求白名单，无须token的接口
 const whiteList: string[] = ['/api/v1/token', '/login', '/v1/publicKey']
 const api = axios.create({
-    // baseURL: 'http://localhost:8080/api',
-    baseURL: 'https://analysis.yzhyai.com/api',
+    baseURL: 'http://localhost:8080/api',
+    // baseURL: 'https://analysis.yzhyai.com/api',
 }) as AxiosInstance & {
     <T = unknown>(config: AxiosRequestConfig): Promise<BaseResponse<T>>;
     <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<BaseResponse<T>>;
@@ -82,11 +82,11 @@ api.interceptors.response.use(
         const code = data.code;
         const msg = data.message;
         if (ignoreMsgs.indexOf(msg) !== -1) {
-            // 如果是忽略的错误码，直接返回 msg 异常
             return Promise.reject(msg);
         } else if (code === 430) {
             if (!isRefreshToken) {
                 isRefreshToken = true;
+
                 if (!localStorage.getItem("refreshToken")) {
                     await handleAuthorized();
                     return Promise.reject('认证失败');
@@ -136,11 +136,7 @@ api.interceptors.response.use(
             await handleAuthorized();
             return Promise.reject('认证失败');
         } else if (code === 401) {
-            if (!window.location.href.includes('login')) {
-                window.location.href = '/login';
-            }
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
+            await handleAuthorized();
         }
 
         // 始终返回 AxiosResponse
@@ -170,6 +166,8 @@ const handleAuthorized = () => {
     }
     localStorage.removeItem('token')
     localStorage.removeItem('refreshToken')
+    localStorage.removeItem('email')
+    localStorage.removeItem('name')
     window.location.href = '/login'
     return Promise.reject('认证失败')
 }

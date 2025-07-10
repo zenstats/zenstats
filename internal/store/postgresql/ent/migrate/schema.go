@@ -141,6 +141,94 @@ var (
 		Columns:    SearchEnginesColumns,
 		PrimaryKey: []*schema.Column{SearchEnginesColumns[0]},
 	}
+	// ShieldRulesCountriesColumns holds the columns for the "shield_rules_countries" table.
+	ShieldRulesCountriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "country_code", Type: field.TypeString, Size: 2147483647},
+		{Name: "action", Type: field.TypeString, Default: "deny"},
+		{Name: "added_by", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "site_id", Type: field.TypeInt64},
+	}
+	// ShieldRulesCountriesTable holds the schema information for the "shield_rules_countries" table.
+	ShieldRulesCountriesTable = &schema.Table{
+		Name:       "shield_rules_countries",
+		Columns:    ShieldRulesCountriesColumns,
+		PrimaryKey: []*schema.Column{ShieldRulesCountriesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "shield_rules_countries_sites_shield_rules_country",
+				Columns:    []*schema.Column{ShieldRulesCountriesColumns[6]},
+				RefColumns: []*schema.Column{SitesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "shieldrulescountry_site_id_country_code",
+				Unique:  true,
+				Columns: []*schema.Column{ShieldRulesCountriesColumns[6], ShieldRulesCountriesColumns[1]},
+			},
+		},
+	}
+	// ShieldRulesHostnamesColumns holds the columns for the "shield_rules_hostnames" table.
+	ShieldRulesHostnamesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "hostname", Type: field.TypeString, Size: 2147483647},
+		{Name: "hostname_pattern", Type: field.TypeString, Size: 2147483647},
+		{Name: "action", Type: field.TypeString, Default: "allow"},
+		{Name: "added_by", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "site_id", Type: field.TypeInt64},
+	}
+	// ShieldRulesHostnamesTable holds the schema information for the "shield_rules_hostnames" table.
+	ShieldRulesHostnamesTable = &schema.Table{
+		Name:       "shield_rules_hostnames",
+		Columns:    ShieldRulesHostnamesColumns,
+		PrimaryKey: []*schema.Column{ShieldRulesHostnamesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "shield_rules_hostnames_sites_shield_rules_hostname",
+				Columns:    []*schema.Column{ShieldRulesHostnamesColumns[7]},
+				RefColumns: []*schema.Column{SitesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "shieldruleshostname_site_id_hostname_pattern",
+				Unique:  true,
+				Columns: []*schema.Column{ShieldRulesHostnamesColumns[7], ShieldRulesHostnamesColumns[2]},
+			},
+		},
+	}
+	// ShieldRulesIpsColumns holds the columns for the "shield_rules_ips" table.
+	ShieldRulesIpsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "inet", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"mysql": "varchar(39)", "postgres": "inet"}},
+		{Name: "action", Type: field.TypeString, Default: "deny"},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "added_by", Type: field.TypeString, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "site_id", Type: field.TypeInt64},
+	}
+	// ShieldRulesIpsTable holds the schema information for the "shield_rules_ips" table.
+	ShieldRulesIpsTable = &schema.Table{
+		Name:       "shield_rules_ips",
+		Columns:    ShieldRulesIpsColumns,
+		PrimaryKey: []*schema.Column{ShieldRulesIpsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "shield_rules_ips_sites_shield_rules_ip",
+				Columns:    []*schema.Column{ShieldRulesIpsColumns[7]},
+				RefColumns: []*schema.Column{SitesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// SitesColumns holds the columns for the "sites" table.
 	SitesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -270,6 +358,9 @@ var (
 		FunnelStepsTable,
 		GoalsTable,
 		SearchEnginesTable,
+		ShieldRulesCountriesTable,
+		ShieldRulesHostnamesTable,
+		ShieldRulesIpsTable,
 		SitesTable,
 		SiteMembershipsTable,
 		UsersTable,
@@ -283,6 +374,9 @@ func init() {
 	FunnelStepsTable.ForeignKeys[0].RefTable = FunnelsTable
 	FunnelStepsTable.ForeignKeys[1].RefTable = GoalsTable
 	GoalsTable.ForeignKeys[0].RefTable = SitesTable
+	ShieldRulesCountriesTable.ForeignKeys[0].RefTable = SitesTable
+	ShieldRulesHostnamesTable.ForeignKeys[0].RefTable = SitesTable
+	ShieldRulesIpsTable.ForeignKeys[0].RefTable = SitesTable
 	SiteMembershipsTable.ForeignKeys[0].RefTable = SitesTable
 	SiteMembershipsTable.ForeignKeys[1].RefTable = UsersTable
 	UsersTable.ForeignKeys[0].RefTable = SitesTable

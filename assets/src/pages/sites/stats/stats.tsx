@@ -1,29 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-} from "recharts";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -37,70 +12,38 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@radix-ui/react-popover";
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import type { DateRange } from "react-day-picker";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ChevronsUpDown, ChevronDown } from "lucide-react";
+import { RefreshCw, ChevronDown, Settings, Link } from "lucide-react";
 import axios, { type BaseResponse } from "@utils/axios";
 import qs from 'qs';
 import dayjs from 'dayjs'
-
-interface TopStats {
-  pv: number;
-  uv: number;
-  sessions: number;
-  pv_change: number;
-  uv_change: number;
-  session_change: number;
-  avg_duration: number;
-  avg_duration_change: number;
-  avg_duration_format: string;
-  bounce_rate: number;
-}
-
-interface TimeRangeVisitor {
-  date: string;
-  uv: number;
-}
-
-interface RankItem {
-  key: string;
-  visits: number;
-  percentage?: number;
-}
-
-interface StatsRequest {
-  period: string;
-  date?: string; // 日期，可选
-  from?: string; // 开始日期，可选
-  to?: string; // 结束日期，可选
-}
-
+import type { RankItem, Site, StatsRequest, TimeRangeVisitor, TopStats } from "../types/interfaces";
+import TimeRange from "./components/time-range";
+import TopStatsComponent from "./components/top-stats";
+import TableRank from "./components/table-rank";
+import Devices from "./components/device";
+import Forbidden from "@components/403"
 
 export default function StatePage() {
+  const navigate = useNavigate();
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   const [queryTime, setQueryTime] = useState<Date>(new Date());
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  // 新增状态控制 DropdownMenu 的显示
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const { domain } = useParams();
-
-  const [topStatsLoading, setTopStatsLoading] = useState(true);
-  const [topStats, setTopStats] = useState<BaseResponse<TopStats> | undefined>();
-  const [timeRangeVisitorLoading, setTimeRangeVisitorLoading] = useState(true);
-  const [timeRangeVisitor, setTimeRangeVisitor] = useState<BaseResponse<TimeRangeVisitor[]> | undefined>();
-
-  const [sourceRankLoading, setSourceRankLoading] = useState(true);
-  const [sourceRank, setSourceRank] = useState<BaseResponse<RankItem[]> | undefined>();
-  const [pageRankLoading, setPageRankLoading] = useState(true);
-  const [pageRank, setPageRank] = useState<BaseResponse<RankItem[]> | undefined>();
-  const [deviceRankLoading, setDeviceRankLoading] = useState(true);
-  const [deviceRank, setDeviceRank] = useState<BaseResponse<RankItem[]> | undefined>();
   const [selectdOptionName, setSelectdOptionName] = useState<string>("Today");
+  const [sites, setSites] = useState([] as Site[]);
+  const { domain } = useParams();
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
-  const api = useCallback(() => ({
+
+  const [query, setQuery] = useState<StatsRequest>({
+    period: "day",
+  });
+
+  const api = useMemo(() => ({
     // 获取今日流量数据
     getTopStats: async (dateRange: StatsRequest) => {
       const response = await axios.get<BaseResponse<TopStats>>(domain + "/top_stats", {
@@ -132,12 +75,14 @@ export default function StatePage() {
       });
       return response.data;
     },
+    getSiteList: async () => {
+      const response = await axios.get<BaseResponse<Site[]>>("/sites");
+      return response.data;
+    },
   }), [domain]);
 
   const fetchAllData = useCallback(() => {
-
     const query = qs.parse(window.location.search, { ignoreQueryPrefix: true });
-
     const period = ["realtime", "day", "month", "week", "custom", "w", "m", "p7", "p14", "p30"].includes(query.period as string) ? query.period as string : "day";
     const date = query.date as string;
     const from = query.from as string;
@@ -154,56 +99,9 @@ export default function StatePage() {
     if (to) {
       request.to = dayjs(to).format("YYYY-MM-DD");
     }
-    const fetchData = async () => {
-      setTopStatsLoading(true);
-      setTimeRangeVisitorLoading(true);
-      try {
-        const results = await Promise.allSettled([
-          api().getTopStats(request),
-          api().getTimeRangeVisitor(request),
-          api().getDeviceRank(request),
-          api().getPageRank(request),
-          api().getSourceRank(request),
-        ]);
-        // 处理每个结果
-        results.forEach((result, index) => {
-          if (result.status === "fulfilled") {
-            switch (index) {
-              case 0:
-                setTopStats(result.value as BaseResponse<TopStats>);
-                setTopStatsLoading(false);
-                break;
-              case 1:
-                if (result?.value?.data !== null) {
-                  setTimeRangeVisitor(result.value as BaseResponse<TimeRangeVisitor[]>);
-                }
-                setTimeRangeVisitorLoading(false);
-                break;
-              case 2:
-                setDeviceRank(result.value as BaseResponse<RankItem[]>);
-                setDeviceRankLoading(false);
-                break;
-              case 3:
-                setPageRank(result.value as BaseResponse<RankItem[]>);
-                setPageRankLoading(false);
-                break;
-              case 4:
-                setSourceRank(result.value as BaseResponse<RankItem[]>);
-                setSourceRankLoading(false);
-                break;
-            }
-          } else {
-            console.error(`请求失败: ${index}`, result.reason);
-          }
-        });
-      } catch (error) {
-        console.error("数据加载失败:", error);
-      }
-    };
-
-    fetchData()
-
-  }, [api]);
+    request.refresh = dayjs().toDate();
+    setQuery(request);
+  }, []);
 
   const handleDayClick = (day: Date) => {
     const { from, to } = selectedDateRange;
@@ -234,6 +132,7 @@ export default function StatePage() {
     setSelectedDateRange(newRange);
 
   }
+
   // 设置url并触发查询
   const handleChangeOoption = useCallback((option: string) => {
     const now = dayjs().toDate();
@@ -271,6 +170,7 @@ export default function StatePage() {
     setQueryTime(new Date());
   }, [selectedDateRange]);
 
+  // 监听日期选择器的变化
   useEffect(() => {
     if (selectedDateRange.from && selectedDateRange.to) {
       if (selectedDateRange.from == selectedDateRange.to) {
@@ -282,13 +182,28 @@ export default function StatePage() {
     }
   }, [handleChangeOoption, selectedDateRange]);
 
+  useEffect(() => {
+    const fetchSiteList = async () => {
+      try {
+        const response = await api.getSiteList();
+        if (response.data) {
+          setSites(response.data);
+
+          const found = response.data.some(site => site.domain === domain);
+          setHasAccess(found);
+        }
+      } catch (error) {
+        console.error('获取站点列表失败:', error);
+      }
+    };
+
+    fetchSiteList();
+  }, [domain, api]);
 
   const handleSelectdOptionName = () => {
     const query = qs.parse(window.location.search, { ignoreQueryPrefix: true });
     const period = query.period
     const date = query.date as string
-    // const from = query.from
-    // const to = query.to
     if (period === 'day') {
       if (dayjs(date).isSame(dayjs(), 'day')) {
         setSelectdOptionName("Today")
@@ -298,23 +213,76 @@ export default function StatePage() {
     }
   }
 
-  // 刷新数据
   const refreshData = () => {
     setQueryTime(new Date());
   };
 
-  // 模拟数据加载
   useEffect(() => {
     handleSelectdOptionName()
 
     fetchAllData()
   }, [queryTime, fetchAllData]);
 
+  if (hasAccess === false) {
+    return (
+      <Forbidden />
+    );
+  }
+
+  if (hasAccess === null) {
+    return (
+      <div className="container mx-auto py-6 px-4 text-center">
+        <p className="text-lg">正在检查访问权限...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6 px-4 space-y-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">网站流量分析</h1>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="text-2xl font-bold flex items-center">
+              <Link className="mr-2 h-4 w-4" />
+              {domain}
+              <ChevronDown className="ml-2 h-5 w-5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+
+            {(sites.find(site => site.domain === domain)?.role === 'admin' ||
+              sites.find(site => site.domain === domain)?.role === 'owner') && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => window.location.href = `/sites/${domain}/settings`}
+                    className="flex items-center"
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    站点设置
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+            {sites.map(site => (
+              <DropdownMenuItem
+                key={site.domain}
+                onClick={() => {
+                  navigate(`/sites/${site.domain}`)
+                }}
+              >
+                <Link className="mr-2 h-4 w-4" />
+                {site.domain}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => window.location.href = `/sites`}
+              className="flex items-center"
+            >
+              View All
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <div className="flex items-center space-x-3">
           <Popover open={isDatePickerOpen}>
             <PopoverTrigger asChild>
@@ -339,7 +307,7 @@ export default function StatePage() {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex items-center space-x-2 bg-white p-2 rounded-lg shadow-sm w-[180px] text-left transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20"
+                className="flex justify-between items-center space-x-2 bg-white p-2 rounded-lg shadow-sm w-[180px] text-left transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               >
                 <span className="text-sm font-medium">
@@ -421,304 +389,34 @@ export default function StatePage() {
         </div>
       </div>
 
+      <TopStatsComponent api={api.getTopStats} query={query} setQuery={setQuery} />
 
-      <Card className="grid grid-cols-1 md:grid-cols-5 gap-4 ">
-        {topStatsLoading ? (
-          <Skeleton className="col-span-5 h-30 w-full" />
-        ) : (
-          <>
-            <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
-              <CardHeader className="p-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">
-                  总访问量 (UV)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 pt-0">
-                <div className="text-2xl font-bold">
-                  {topStats?.data?.uv}
-                </div>
-                <p className="text-xs text-green-500 mt-1 flex items-center">
-                  <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  {topStats?.data?.uv_change}%
-                </p>
-              </CardContent>
-            </div>
+      <TimeRange query={query} setQuery={setQuery} api={api.getTimeRangeVisitor} />
 
-            <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
-              <CardHeader className="p-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">
-                  总浏览量 (PV)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 pt-0">
-                <div className="text-lg md:text-2xl font-bold">
-                  {topStats?.data?.pv}
-                </div>
-                <p className="text-xs text-green-500 mt-1 flex items-center">
-                  <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  {topStats?.data?.pv_change}%
-                </p>
-              </CardContent>
-            </div>
-
-            <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
-              <CardHeader className="p-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">
-                  跳出率
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 pt-0">
-                <div className="text-2xl font-bold">
-                  {topStats?.data?.bounce_rate}%
-                </div>
-              </CardContent>
-            </div>
-
-            <div className="col-span-1 md:col-span-1 p-4 border-r border-gray-200 dark:border-gray-700">
-              <CardHeader className="p-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">
-                  平均访问时长
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 pt-0">
-                <div className="text-2xl font-bold">
-                  {topStats?.data?.avg_duration_format}
-                </div>
-                <p className="text-xs text-green-500 mt-1 flex items-center">
-                  <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  {topStats?.data?.avg_duration_change}%
-                </p>
-              </CardContent>
-            </div>
-
-            <div className="col-span-1 md:col-span-1 p-4">
-              <CardHeader className="p-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">
-                  新访客比例
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 pt-0">
-
-                <div className="text-2xl font-bold">
-                  {topStats?.data?.avg_duration}
-                </div>
-                <p className="text-xs text-green-500 mt-1 flex items-center">
-                  <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  8.3%
-                </p>
-              </CardContent>
-            </div>
-          </>
-        )
-        }
-      </Card>
-
-      {/* 时间段UV曲线图 */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div>
-            <CardTitle>访问趋势</CardTitle>
-            <CardDescription>今日各时段UV访问量</CardDescription>
-          </div>
-          <Tabs defaultValue="day" className="w-[300px]">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="day">日</TabsTrigger>
-              <TabsTrigger value="week">周</TabsTrigger>
-              <TabsTrigger value="month">月</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            {timeRangeVisitorLoading ? (
-              <Skeleton className="h-full w-full rounded-md" />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={timeRangeVisitor?.data}
-                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#f1f5f9"
-                  />
-                  <XAxis
-                    dataKey="time"
-                    tick={{ fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "none",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    }}
-                    formatter={(value) => [`${value}`, "访问量"]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="uv"
-                    stroke="#3b82f6"
-                    fillOpacity={1}
-                    fill="url(#colorUv)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Top Source 和 Top Pages */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Top Source */}
-        <Card>
-          <CardHeader>
-            <CardTitle>流量来源分布</CardTitle>
-            <CardDescription>访问来源渠道占比</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px] flex items-center justify-center">
-              {sourceRankLoading ? (
-                <Skeleton className="h-full w-full rounded-md" />
-              ) : (
-                <div className="w-full h-full">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>来源</TableHead>
-                        <TableHead className="text-right">占比</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sourceRank?.data?.map((source, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">
-                            {source.key}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {source.percentage}%
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <TableRank
+          title="来源"
+          keyName="Source"
+          limit={10}
+          query={query}
+          setQuery={setQuery}
+          api={api.getSourceRank}
+        />
 
-        {/* Top Pages */}
-        <Card>
-          <CardHeader>
-            <CardTitle>热门页面</CardTitle>
-            <CardDescription>访问量最高的页面</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {pageRankLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="flex justify-between items-center">
-                    <Skeleton className="h-5 w-3/5" />
-                    <Skeleton className="h-5 w-1/5" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>页面</TableHead>
-                    <TableHead className="text-right">访问量</TableHead>
-                    <TableHead className="text-right">占比</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pageRank?.data?.map((page, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{page.key}</TableCell>
-                      <TableCell className="text-right">
-                        {page.visits.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {page.percentage}%
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        <TableRank
+          title="热门页面"
+          keyName="Page"
+          limit={10}
+          query={query}
+          setQuery={setQuery}
+          api={api.getPageRank}
+        />
       </div>
 
       {/* 区域数据和设备数据 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* 区域数据 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>区域分布</CardTitle>
-            <CardDescription>国内各地区访问量</CardDescription>
-          </CardHeader>
-          <CardContent></CardContent>
-        </Card>
-
         {/* 设备数据 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>设备分布</CardTitle>
-            <CardDescription>访问设备类型占比</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px] flex items-center justify-center">
-              {deviceRankLoading ? (
-                <Skeleton className="h-full w-full rounded-md" />
-              ) : (
-                <div className="w-full h-full flex flex-col md:flex-row items-center justify-around">
-                  <div className="w-full h-full flex flex-col justify-center">
-                    {deviceRank?.data?.map((device, index) => (
-                      <div key={index} className="flex items-center mb-6">
-                        <div
-                          className="w-4 h-4 rounded-full mr-3"
-                        ></div>
-                        <div className="flex-1">
-                          <div className="flex justify-between mb-1">
-                            <span className="text-sm font-medium">
-                              {device.key}
-                            </span>
-                            <span className="text-sm font-medium">
-                              {device.percentage}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full"
-                              style={{ width: `${device.percentage}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <Devices query={query} setQuery={setQuery} limit={10} api={api.getDeviceRank} />
       </div>
     </div>
   );

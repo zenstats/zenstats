@@ -51,9 +51,15 @@ type SiteEdges struct {
 	Goals []*Goal `json:"goals,omitempty"`
 	// SiteMemberships holds the value of the site_memberships edge.
 	SiteMemberships []*SiteMembership `json:"site_memberships,omitempty"`
+	// ShieldRulesIP holds the value of the shield_rules_ip edge.
+	ShieldRulesIP []*ShieldRulesIp `json:"shield_rules_ip,omitempty"`
+	// ShieldRulesHostname holds the value of the shield_rules_hostname edge.
+	ShieldRulesHostname []*ShieldRulesHostname `json:"shield_rules_hostname,omitempty"`
+	// ShieldRulesCountry holds the value of the shield_rules_country edge.
+	ShieldRulesCountry []*ShieldRulesCountry `json:"shield_rules_country,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [7]bool
 }
 
 // FunnelsOrErr returns the Funnels value or an error if the edge
@@ -90,6 +96,33 @@ func (e SiteEdges) SiteMembershipsOrErr() ([]*SiteMembership, error) {
 		return e.SiteMemberships, nil
 	}
 	return nil, &NotLoadedError{edge: "site_memberships"}
+}
+
+// ShieldRulesIPOrErr returns the ShieldRulesIP value or an error if the edge
+// was not loaded in eager-loading.
+func (e SiteEdges) ShieldRulesIPOrErr() ([]*ShieldRulesIp, error) {
+	if e.loadedTypes[4] {
+		return e.ShieldRulesIP, nil
+	}
+	return nil, &NotLoadedError{edge: "shield_rules_ip"}
+}
+
+// ShieldRulesHostnameOrErr returns the ShieldRulesHostname value or an error if the edge
+// was not loaded in eager-loading.
+func (e SiteEdges) ShieldRulesHostnameOrErr() ([]*ShieldRulesHostname, error) {
+	if e.loadedTypes[5] {
+		return e.ShieldRulesHostname, nil
+	}
+	return nil, &NotLoadedError{edge: "shield_rules_hostname"}
+}
+
+// ShieldRulesCountryOrErr returns the ShieldRulesCountry value or an error if the edge
+// was not loaded in eager-loading.
+func (e SiteEdges) ShieldRulesCountryOrErr() ([]*ShieldRulesCountry, error) {
+	if e.loadedTypes[6] {
+		return e.ShieldRulesCountry, nil
+	}
+	return nil, &NotLoadedError{edge: "shield_rules_country"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -212,6 +245,21 @@ func (s *Site) QueryGoals() *GoalQuery {
 // QuerySiteMemberships queries the "site_memberships" edge of the Site entity.
 func (s *Site) QuerySiteMemberships() *SiteMembershipQuery {
 	return NewSiteClient(s.config).QuerySiteMemberships(s)
+}
+
+// QueryShieldRulesIP queries the "shield_rules_ip" edge of the Site entity.
+func (s *Site) QueryShieldRulesIP() *ShieldRulesIpQuery {
+	return NewSiteClient(s.config).QueryShieldRulesIP(s)
+}
+
+// QueryShieldRulesHostname queries the "shield_rules_hostname" edge of the Site entity.
+func (s *Site) QueryShieldRulesHostname() *ShieldRulesHostnameQuery {
+	return NewSiteClient(s.config).QueryShieldRulesHostname(s)
+}
+
+// QueryShieldRulesCountry queries the "shield_rules_country" edge of the Site entity.
+func (s *Site) QueryShieldRulesCountry() *ShieldRulesCountryQuery {
+	return NewSiteClient(s.config).QueryShieldRulesCountry(s)
 }
 
 // Update returns a builder for updating this Site.

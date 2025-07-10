@@ -20,6 +20,9 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -41,6 +44,12 @@ type Client struct {
 	Goal *GoalClient
 	// SearchEngines is the client for interacting with the SearchEngines builders.
 	SearchEngines *SearchEnginesClient
+	// ShieldRulesCountry is the client for interacting with the ShieldRulesCountry builders.
+	ShieldRulesCountry *ShieldRulesCountryClient
+	// ShieldRulesHostname is the client for interacting with the ShieldRulesHostname builders.
+	ShieldRulesHostname *ShieldRulesHostnameClient
+	// ShieldRulesIp is the client for interacting with the ShieldRulesIp builders.
+	ShieldRulesIp *ShieldRulesIpClient
 	// Site is the client for interacting with the Site builders.
 	Site *SiteClient
 	// SiteMembership is the client for interacting with the SiteMembership builders.
@@ -65,6 +74,9 @@ func (c *Client) init() {
 	c.FunnelStep = NewFunnelStepClient(c.config)
 	c.Goal = NewGoalClient(c.config)
 	c.SearchEngines = NewSearchEnginesClient(c.config)
+	c.ShieldRulesCountry = NewShieldRulesCountryClient(c.config)
+	c.ShieldRulesHostname = NewShieldRulesHostnameClient(c.config)
+	c.ShieldRulesIp = NewShieldRulesIpClient(c.config)
 	c.Site = NewSiteClient(c.config)
 	c.SiteMembership = NewSiteMembershipClient(c.config)
 	c.User = NewUserClient(c.config)
@@ -159,17 +171,20 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:            ctx,
-		config:         cfg,
-		APIKey:         NewAPIKeyClient(cfg),
-		Funnel:         NewFunnelClient(cfg),
-		FunnelStep:     NewFunnelStepClient(cfg),
-		Goal:           NewGoalClient(cfg),
-		SearchEngines:  NewSearchEnginesClient(cfg),
-		Site:           NewSiteClient(cfg),
-		SiteMembership: NewSiteMembershipClient(cfg),
-		User:           NewUserClient(cfg),
-		UserSession:    NewUserSessionClient(cfg),
+		ctx:                 ctx,
+		config:              cfg,
+		APIKey:              NewAPIKeyClient(cfg),
+		Funnel:              NewFunnelClient(cfg),
+		FunnelStep:          NewFunnelStepClient(cfg),
+		Goal:                NewGoalClient(cfg),
+		SearchEngines:       NewSearchEnginesClient(cfg),
+		ShieldRulesCountry:  NewShieldRulesCountryClient(cfg),
+		ShieldRulesHostname: NewShieldRulesHostnameClient(cfg),
+		ShieldRulesIp:       NewShieldRulesIpClient(cfg),
+		Site:                NewSiteClient(cfg),
+		SiteMembership:      NewSiteMembershipClient(cfg),
+		User:                NewUserClient(cfg),
+		UserSession:         NewUserSessionClient(cfg),
 	}, nil
 }
 
@@ -187,17 +202,20 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:            ctx,
-		config:         cfg,
-		APIKey:         NewAPIKeyClient(cfg),
-		Funnel:         NewFunnelClient(cfg),
-		FunnelStep:     NewFunnelStepClient(cfg),
-		Goal:           NewGoalClient(cfg),
-		SearchEngines:  NewSearchEnginesClient(cfg),
-		Site:           NewSiteClient(cfg),
-		SiteMembership: NewSiteMembershipClient(cfg),
-		User:           NewUserClient(cfg),
-		UserSession:    NewUserSessionClient(cfg),
+		ctx:                 ctx,
+		config:              cfg,
+		APIKey:              NewAPIKeyClient(cfg),
+		Funnel:              NewFunnelClient(cfg),
+		FunnelStep:          NewFunnelStepClient(cfg),
+		Goal:                NewGoalClient(cfg),
+		SearchEngines:       NewSearchEnginesClient(cfg),
+		ShieldRulesCountry:  NewShieldRulesCountryClient(cfg),
+		ShieldRulesHostname: NewShieldRulesHostnameClient(cfg),
+		ShieldRulesIp:       NewShieldRulesIpClient(cfg),
+		Site:                NewSiteClient(cfg),
+		SiteMembership:      NewSiteMembershipClient(cfg),
+		User:                NewUserClient(cfg),
+		UserSession:         NewUserSessionClient(cfg),
 	}, nil
 }
 
@@ -227,8 +245,9 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.Funnel, c.FunnelStep, c.Goal, c.SearchEngines, c.Site,
-		c.SiteMembership, c.User, c.UserSession,
+		c.APIKey, c.Funnel, c.FunnelStep, c.Goal, c.SearchEngines, c.ShieldRulesCountry,
+		c.ShieldRulesHostname, c.ShieldRulesIp, c.Site, c.SiteMembership, c.User,
+		c.UserSession,
 	} {
 		n.Use(hooks...)
 	}
@@ -238,8 +257,9 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.Funnel, c.FunnelStep, c.Goal, c.SearchEngines, c.Site,
-		c.SiteMembership, c.User, c.UserSession,
+		c.APIKey, c.Funnel, c.FunnelStep, c.Goal, c.SearchEngines, c.ShieldRulesCountry,
+		c.ShieldRulesHostname, c.ShieldRulesIp, c.Site, c.SiteMembership, c.User,
+		c.UserSession,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -258,6 +278,12 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Goal.mutate(ctx, m)
 	case *SearchEnginesMutation:
 		return c.SearchEngines.mutate(ctx, m)
+	case *ShieldRulesCountryMutation:
+		return c.ShieldRulesCountry.mutate(ctx, m)
+	case *ShieldRulesHostnameMutation:
+		return c.ShieldRulesHostname.mutate(ctx, m)
+	case *ShieldRulesIpMutation:
+		return c.ShieldRulesIp.mutate(ctx, m)
 	case *SiteMutation:
 		return c.Site.mutate(ctx, m)
 	case *SiteMembershipMutation:
@@ -1048,6 +1074,453 @@ func (c *SearchEnginesClient) mutate(ctx context.Context, m *SearchEnginesMutati
 	}
 }
 
+// ShieldRulesCountryClient is a client for the ShieldRulesCountry schema.
+type ShieldRulesCountryClient struct {
+	config
+}
+
+// NewShieldRulesCountryClient returns a client for the ShieldRulesCountry from the given config.
+func NewShieldRulesCountryClient(c config) *ShieldRulesCountryClient {
+	return &ShieldRulesCountryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `shieldrulescountry.Hooks(f(g(h())))`.
+func (c *ShieldRulesCountryClient) Use(hooks ...Hook) {
+	c.hooks.ShieldRulesCountry = append(c.hooks.ShieldRulesCountry, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `shieldrulescountry.Intercept(f(g(h())))`.
+func (c *ShieldRulesCountryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ShieldRulesCountry = append(c.inters.ShieldRulesCountry, interceptors...)
+}
+
+// Create returns a builder for creating a ShieldRulesCountry entity.
+func (c *ShieldRulesCountryClient) Create() *ShieldRulesCountryCreate {
+	mutation := newShieldRulesCountryMutation(c.config, OpCreate)
+	return &ShieldRulesCountryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ShieldRulesCountry entities.
+func (c *ShieldRulesCountryClient) CreateBulk(builders ...*ShieldRulesCountryCreate) *ShieldRulesCountryCreateBulk {
+	return &ShieldRulesCountryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ShieldRulesCountryClient) MapCreateBulk(slice any, setFunc func(*ShieldRulesCountryCreate, int)) *ShieldRulesCountryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ShieldRulesCountryCreateBulk{err: fmt.Errorf("calling to ShieldRulesCountryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ShieldRulesCountryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ShieldRulesCountryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ShieldRulesCountry.
+func (c *ShieldRulesCountryClient) Update() *ShieldRulesCountryUpdate {
+	mutation := newShieldRulesCountryMutation(c.config, OpUpdate)
+	return &ShieldRulesCountryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ShieldRulesCountryClient) UpdateOne(src *ShieldRulesCountry) *ShieldRulesCountryUpdateOne {
+	mutation := newShieldRulesCountryMutation(c.config, OpUpdateOne, withShieldRulesCountry(src))
+	return &ShieldRulesCountryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ShieldRulesCountryClient) UpdateOneID(id int64) *ShieldRulesCountryUpdateOne {
+	mutation := newShieldRulesCountryMutation(c.config, OpUpdateOne, withShieldRulesCountryID(id))
+	return &ShieldRulesCountryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ShieldRulesCountry.
+func (c *ShieldRulesCountryClient) Delete() *ShieldRulesCountryDelete {
+	mutation := newShieldRulesCountryMutation(c.config, OpDelete)
+	return &ShieldRulesCountryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ShieldRulesCountryClient) DeleteOne(src *ShieldRulesCountry) *ShieldRulesCountryDeleteOne {
+	return c.DeleteOneID(src.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ShieldRulesCountryClient) DeleteOneID(id int64) *ShieldRulesCountryDeleteOne {
+	builder := c.Delete().Where(shieldrulescountry.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ShieldRulesCountryDeleteOne{builder}
+}
+
+// Query returns a query builder for ShieldRulesCountry.
+func (c *ShieldRulesCountryClient) Query() *ShieldRulesCountryQuery {
+	return &ShieldRulesCountryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeShieldRulesCountry},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ShieldRulesCountry entity by its id.
+func (c *ShieldRulesCountryClient) Get(ctx context.Context, id int64) (*ShieldRulesCountry, error) {
+	return c.Query().Where(shieldrulescountry.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ShieldRulesCountryClient) GetX(ctx context.Context, id int64) *ShieldRulesCountry {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySite queries the site edge of a ShieldRulesCountry.
+func (c *ShieldRulesCountryClient) QuerySite(src *ShieldRulesCountry) *SiteQuery {
+	query := (&SiteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := src.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(shieldrulescountry.Table, shieldrulescountry.FieldID, id),
+			sqlgraph.To(site.Table, site.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, shieldrulescountry.SiteTable, shieldrulescountry.SiteColumn),
+		)
+		fromV = sqlgraph.Neighbors(src.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ShieldRulesCountryClient) Hooks() []Hook {
+	return c.hooks.ShieldRulesCountry
+}
+
+// Interceptors returns the client interceptors.
+func (c *ShieldRulesCountryClient) Interceptors() []Interceptor {
+	return c.inters.ShieldRulesCountry
+}
+
+func (c *ShieldRulesCountryClient) mutate(ctx context.Context, m *ShieldRulesCountryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ShieldRulesCountryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ShieldRulesCountryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ShieldRulesCountryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ShieldRulesCountryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ShieldRulesCountry mutation op: %q", m.Op())
+	}
+}
+
+// ShieldRulesHostnameClient is a client for the ShieldRulesHostname schema.
+type ShieldRulesHostnameClient struct {
+	config
+}
+
+// NewShieldRulesHostnameClient returns a client for the ShieldRulesHostname from the given config.
+func NewShieldRulesHostnameClient(c config) *ShieldRulesHostnameClient {
+	return &ShieldRulesHostnameClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `shieldruleshostname.Hooks(f(g(h())))`.
+func (c *ShieldRulesHostnameClient) Use(hooks ...Hook) {
+	c.hooks.ShieldRulesHostname = append(c.hooks.ShieldRulesHostname, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `shieldruleshostname.Intercept(f(g(h())))`.
+func (c *ShieldRulesHostnameClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ShieldRulesHostname = append(c.inters.ShieldRulesHostname, interceptors...)
+}
+
+// Create returns a builder for creating a ShieldRulesHostname entity.
+func (c *ShieldRulesHostnameClient) Create() *ShieldRulesHostnameCreate {
+	mutation := newShieldRulesHostnameMutation(c.config, OpCreate)
+	return &ShieldRulesHostnameCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ShieldRulesHostname entities.
+func (c *ShieldRulesHostnameClient) CreateBulk(builders ...*ShieldRulesHostnameCreate) *ShieldRulesHostnameCreateBulk {
+	return &ShieldRulesHostnameCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ShieldRulesHostnameClient) MapCreateBulk(slice any, setFunc func(*ShieldRulesHostnameCreate, int)) *ShieldRulesHostnameCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ShieldRulesHostnameCreateBulk{err: fmt.Errorf("calling to ShieldRulesHostnameClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ShieldRulesHostnameCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ShieldRulesHostnameCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ShieldRulesHostname.
+func (c *ShieldRulesHostnameClient) Update() *ShieldRulesHostnameUpdate {
+	mutation := newShieldRulesHostnameMutation(c.config, OpUpdate)
+	return &ShieldRulesHostnameUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ShieldRulesHostnameClient) UpdateOne(srh *ShieldRulesHostname) *ShieldRulesHostnameUpdateOne {
+	mutation := newShieldRulesHostnameMutation(c.config, OpUpdateOne, withShieldRulesHostname(srh))
+	return &ShieldRulesHostnameUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ShieldRulesHostnameClient) UpdateOneID(id int64) *ShieldRulesHostnameUpdateOne {
+	mutation := newShieldRulesHostnameMutation(c.config, OpUpdateOne, withShieldRulesHostnameID(id))
+	return &ShieldRulesHostnameUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ShieldRulesHostname.
+func (c *ShieldRulesHostnameClient) Delete() *ShieldRulesHostnameDelete {
+	mutation := newShieldRulesHostnameMutation(c.config, OpDelete)
+	return &ShieldRulesHostnameDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ShieldRulesHostnameClient) DeleteOne(srh *ShieldRulesHostname) *ShieldRulesHostnameDeleteOne {
+	return c.DeleteOneID(srh.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ShieldRulesHostnameClient) DeleteOneID(id int64) *ShieldRulesHostnameDeleteOne {
+	builder := c.Delete().Where(shieldruleshostname.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ShieldRulesHostnameDeleteOne{builder}
+}
+
+// Query returns a query builder for ShieldRulesHostname.
+func (c *ShieldRulesHostnameClient) Query() *ShieldRulesHostnameQuery {
+	return &ShieldRulesHostnameQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeShieldRulesHostname},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ShieldRulesHostname entity by its id.
+func (c *ShieldRulesHostnameClient) Get(ctx context.Context, id int64) (*ShieldRulesHostname, error) {
+	return c.Query().Where(shieldruleshostname.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ShieldRulesHostnameClient) GetX(ctx context.Context, id int64) *ShieldRulesHostname {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySite queries the site edge of a ShieldRulesHostname.
+func (c *ShieldRulesHostnameClient) QuerySite(srh *ShieldRulesHostname) *SiteQuery {
+	query := (&SiteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := srh.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(shieldruleshostname.Table, shieldruleshostname.FieldID, id),
+			sqlgraph.To(site.Table, site.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, shieldruleshostname.SiteTable, shieldruleshostname.SiteColumn),
+		)
+		fromV = sqlgraph.Neighbors(srh.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ShieldRulesHostnameClient) Hooks() []Hook {
+	return c.hooks.ShieldRulesHostname
+}
+
+// Interceptors returns the client interceptors.
+func (c *ShieldRulesHostnameClient) Interceptors() []Interceptor {
+	return c.inters.ShieldRulesHostname
+}
+
+func (c *ShieldRulesHostnameClient) mutate(ctx context.Context, m *ShieldRulesHostnameMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ShieldRulesHostnameCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ShieldRulesHostnameUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ShieldRulesHostnameUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ShieldRulesHostnameDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ShieldRulesHostname mutation op: %q", m.Op())
+	}
+}
+
+// ShieldRulesIpClient is a client for the ShieldRulesIp schema.
+type ShieldRulesIpClient struct {
+	config
+}
+
+// NewShieldRulesIpClient returns a client for the ShieldRulesIp from the given config.
+func NewShieldRulesIpClient(c config) *ShieldRulesIpClient {
+	return &ShieldRulesIpClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `shieldrulesip.Hooks(f(g(h())))`.
+func (c *ShieldRulesIpClient) Use(hooks ...Hook) {
+	c.hooks.ShieldRulesIp = append(c.hooks.ShieldRulesIp, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `shieldrulesip.Intercept(f(g(h())))`.
+func (c *ShieldRulesIpClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ShieldRulesIp = append(c.inters.ShieldRulesIp, interceptors...)
+}
+
+// Create returns a builder for creating a ShieldRulesIp entity.
+func (c *ShieldRulesIpClient) Create() *ShieldRulesIpCreate {
+	mutation := newShieldRulesIpMutation(c.config, OpCreate)
+	return &ShieldRulesIpCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ShieldRulesIp entities.
+func (c *ShieldRulesIpClient) CreateBulk(builders ...*ShieldRulesIpCreate) *ShieldRulesIpCreateBulk {
+	return &ShieldRulesIpCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ShieldRulesIpClient) MapCreateBulk(slice any, setFunc func(*ShieldRulesIpCreate, int)) *ShieldRulesIpCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ShieldRulesIpCreateBulk{err: fmt.Errorf("calling to ShieldRulesIpClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ShieldRulesIpCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ShieldRulesIpCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ShieldRulesIp.
+func (c *ShieldRulesIpClient) Update() *ShieldRulesIpUpdate {
+	mutation := newShieldRulesIpMutation(c.config, OpUpdate)
+	return &ShieldRulesIpUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ShieldRulesIpClient) UpdateOne(sri *ShieldRulesIp) *ShieldRulesIpUpdateOne {
+	mutation := newShieldRulesIpMutation(c.config, OpUpdateOne, withShieldRulesIp(sri))
+	return &ShieldRulesIpUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ShieldRulesIpClient) UpdateOneID(id int64) *ShieldRulesIpUpdateOne {
+	mutation := newShieldRulesIpMutation(c.config, OpUpdateOne, withShieldRulesIpID(id))
+	return &ShieldRulesIpUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ShieldRulesIp.
+func (c *ShieldRulesIpClient) Delete() *ShieldRulesIpDelete {
+	mutation := newShieldRulesIpMutation(c.config, OpDelete)
+	return &ShieldRulesIpDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ShieldRulesIpClient) DeleteOne(sri *ShieldRulesIp) *ShieldRulesIpDeleteOne {
+	return c.DeleteOneID(sri.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ShieldRulesIpClient) DeleteOneID(id int64) *ShieldRulesIpDeleteOne {
+	builder := c.Delete().Where(shieldrulesip.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ShieldRulesIpDeleteOne{builder}
+}
+
+// Query returns a query builder for ShieldRulesIp.
+func (c *ShieldRulesIpClient) Query() *ShieldRulesIpQuery {
+	return &ShieldRulesIpQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeShieldRulesIp},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ShieldRulesIp entity by its id.
+func (c *ShieldRulesIpClient) Get(ctx context.Context, id int64) (*ShieldRulesIp, error) {
+	return c.Query().Where(shieldrulesip.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ShieldRulesIpClient) GetX(ctx context.Context, id int64) *ShieldRulesIp {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySite queries the site edge of a ShieldRulesIp.
+func (c *ShieldRulesIpClient) QuerySite(sri *ShieldRulesIp) *SiteQuery {
+	query := (&SiteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := sri.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(shieldrulesip.Table, shieldrulesip.FieldID, id),
+			sqlgraph.To(site.Table, site.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, shieldrulesip.SiteTable, shieldrulesip.SiteColumn),
+		)
+		fromV = sqlgraph.Neighbors(sri.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ShieldRulesIpClient) Hooks() []Hook {
+	return c.hooks.ShieldRulesIp
+}
+
+// Interceptors returns the client interceptors.
+func (c *ShieldRulesIpClient) Interceptors() []Interceptor {
+	return c.inters.ShieldRulesIp
+}
+
+func (c *ShieldRulesIpClient) mutate(ctx context.Context, m *ShieldRulesIpMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ShieldRulesIpCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ShieldRulesIpUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ShieldRulesIpUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ShieldRulesIpDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ShieldRulesIp mutation op: %q", m.Op())
+	}
+}
+
 // SiteClient is a client for the Site schema.
 type SiteClient struct {
 	config
@@ -1213,6 +1686,54 @@ func (c *SiteClient) QuerySiteMemberships(s *Site) *SiteMembershipQuery {
 			sqlgraph.From(site.Table, site.FieldID, id),
 			sqlgraph.To(sitemembership.Table, sitemembership.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, site.SiteMembershipsTable, site.SiteMembershipsColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryShieldRulesIP queries the shield_rules_ip edge of a Site.
+func (c *SiteClient) QueryShieldRulesIP(s *Site) *ShieldRulesIpQuery {
+	query := (&ShieldRulesIpClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, id),
+			sqlgraph.To(shieldrulesip.Table, shieldrulesip.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesIPTable, site.ShieldRulesIPColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryShieldRulesHostname queries the shield_rules_hostname edge of a Site.
+func (c *SiteClient) QueryShieldRulesHostname(s *Site) *ShieldRulesHostnameQuery {
+	query := (&ShieldRulesHostnameClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, id),
+			sqlgraph.To(shieldruleshostname.Table, shieldruleshostname.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesHostnameTable, site.ShieldRulesHostnameColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryShieldRulesCountry queries the shield_rules_country edge of a Site.
+func (c *SiteClient) QueryShieldRulesCountry(s *Site) *ShieldRulesCountryQuery {
+	query := (&ShieldRulesCountryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, id),
+			sqlgraph.To(shieldrulescountry.Table, shieldrulescountry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesCountryTable, site.ShieldRulesCountryColumn),
 		)
 		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
 		return fromV, nil
@@ -1711,11 +2232,13 @@ func (c *UserSessionClient) mutate(ctx context.Context, m *UserSessionMutation) 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, Funnel, FunnelStep, Goal, SearchEngines, Site, SiteMembership, User,
+		APIKey, Funnel, FunnelStep, Goal, SearchEngines, ShieldRulesCountry,
+		ShieldRulesHostname, ShieldRulesIp, Site, SiteMembership, User,
 		UserSession []ent.Hook
 	}
 	inters struct {
-		APIKey, Funnel, FunnelStep, Goal, SearchEngines, Site, SiteMembership, User,
+		APIKey, Funnel, FunnelStep, Goal, SearchEngines, ShieldRulesCountry,
+		ShieldRulesHostname, ShieldRulesIp, Site, SiteMembership, User,
 		UserSession []ent.Interceptor
 	}
 )

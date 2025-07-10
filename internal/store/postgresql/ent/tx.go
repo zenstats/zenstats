@@ -22,6 +22,12 @@ type Tx struct {
 	Goal *GoalClient
 	// SearchEngines is the client for interacting with the SearchEngines builders.
 	SearchEngines *SearchEnginesClient
+	// ShieldRulesCountry is the client for interacting with the ShieldRulesCountry builders.
+	ShieldRulesCountry *ShieldRulesCountryClient
+	// ShieldRulesHostname is the client for interacting with the ShieldRulesHostname builders.
+	ShieldRulesHostname *ShieldRulesHostnameClient
+	// ShieldRulesIp is the client for interacting with the ShieldRulesIp builders.
+	ShieldRulesIp *ShieldRulesIpClient
 	// Site is the client for interacting with the Site builders.
 	Site *SiteClient
 	// SiteMembership is the client for interacting with the SiteMembership builders.
@@ -166,6 +172,9 @@ func (tx *Tx) init() {
 	tx.FunnelStep = NewFunnelStepClient(tx.config)
 	tx.Goal = NewGoalClient(tx.config)
 	tx.SearchEngines = NewSearchEnginesClient(tx.config)
+	tx.ShieldRulesCountry = NewShieldRulesCountryClient(tx.config)
+	tx.ShieldRulesHostname = NewShieldRulesHostnameClient(tx.config)
+	tx.ShieldRulesIp = NewShieldRulesIpClient(tx.config)
 	tx.Site = NewSiteClient(tx.config)
 	tx.SiteMembership = NewSiteMembershipClient(tx.config)
 	tx.User = NewUserClient(tx.config)

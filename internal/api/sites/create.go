@@ -10,6 +10,19 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
+// Create 创建新站点
+//
+//	@Summary		创建新站点
+//	@Description	根据提供的参数创建一个新站点
+//	@Tags			站点管理
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		types.CreateSiteRequest									true	"创建站点请求参数"
+//	@Success		200		{object}	response.SuccessResponse{data=map[string]interface{}}	"成功响应，返回创建的站点信息"
+//	@Failure		400		{object}	response.ErrorResponse									"请求参数错误"
+//	@Failure		500		{object}	response.ErrorResponse									"服务器内部错误"
+//	@Router			/sites [post]
 func (h *SitesHandler) Create() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req types.CreateSiteRequest

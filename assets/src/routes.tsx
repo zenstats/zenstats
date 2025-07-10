@@ -7,7 +7,8 @@ import NewSite from "@/pages/sites/new";
 import State from "@/pages/sites/stats/stats";
 import Setup from '@/pages/login/setup';
 import NotFoundPage from '@/pages/404';
-
+import SettingsLayout from './pages/sites/settings/layout';
+import {SettingsGeneralForm} from './pages/sites/settings/general-form';
 const routes: RouteObject[] = [
   {
     path: "/login",
@@ -32,6 +33,21 @@ const routes: RouteObject[] = [
         path: ":domain/stats",
         element: <State />
       },
+      {
+        path: ":domain/settings",
+        children: [
+          {
+            index: true,
+            element: <Navigate to="general" replace />
+          },
+          {
+            path: "general",
+            element: <SettingsLayout>
+              <SettingsGeneralForm />
+            </SettingsLayout>,
+          },
+        ]
+      }
     ]
   },
   {

@@ -11,6 +11,18 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
+// @Summary		用户登录
+// @Description	通过邮箱和密码登录系统并获取访问令牌
+// @Tags			auth
+// @Accept			json
+// @Produce		json
+// @Param			request	body		types.LoginRequest		true	"登录请求参数"
+// @Success		200		{object}	types.LoginResponse		"登录成功返回令牌和用户信息"
+// @Failure		400		{object}	response.ErrorResponse	"请求参数错误"
+// @Failure		401		{object}	response.ErrorResponse	"密码错误"
+// @Failure		404		{object}	response.ErrorResponse	"用户不存在"
+// @Failure		500		{object}	response.ErrorResponse	"服务器内部错误"
+// @Router			/auth/login [post]
 func (h *AuthHandler) Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req types.LoginRequest

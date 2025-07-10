@@ -67,5 +67,8 @@ func (Site) Edges() []ent.Edge {
 		edge.To("members", User.Type),
 		edge.To("goals", Goal.Type),
 		edge.To("site_memberships", SiteMembership.Type),
+		edge.To("shield_rules_ip", ShieldRulesIp.Type),
+		edge.To("shield_rules_hostname", ShieldRulesHostname.Type),
+		edge.To("shield_rules_country", ShieldRulesCountry.Type),
 	}
 }

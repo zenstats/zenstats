@@ -1,0 +1,1041 @@
+basePath: /api
+definitions:
+  response.ErrorResponse:
+    description: 接口返回的错误响应信息
+    properties:
+      code:
+        description: 错误码
+        type: integer
+      detail:
+        description: 错误详情
+        type: string
+      message:
+        description: 错误信息
+        type: string
+    type: object
+  response.SuccessResponse:
+    description: 接口返回的成功响应信息
+    properties:
+      code:
+        description: 状态码
+        type: integer
+      data:
+        description: 响应数据
+      message:
+        description: 响应信息
+        type: string
+    type: object
+  types.AddShieldRuleCountryRequest:
+    properties:
+      action:
+        enum:
+        - allow
+        - deny
+        type: string
+      country_code:
+        type: string
+    required:
+    - action
+    - country_code
+    type: object
+  types.AddShieldRuleHostnameRequest:
+    properties:
+      action:
+        enum:
+        - allow
+        - deny
+        type: string
+      hostname:
+        type: string
+      hostname_pattern:
+        type: string
+    required:
+    - action
+    - hostname
+    - hostname_pattern
+    type: object
+  types.AddShieldRuleIPRequest:
+    properties:
+      action:
+        enum:
+        - allow
+        - deny
+        type: string
+      description:
+        type: string
+      ip:
+        type: string
+    required:
+    - action
+    - ip
+    type: object
+  types.CreateSiteRequest:
+    properties:
+      domain:
+        maxLength: 255
+        type: string
+      limit_minute:
+        maximum: 10000000
+        minimum: 1
+        type: integer
+      rate_seconds:
+        maximum: 3600
+        minimum: 1
+        type: integer
+      remark:
+        maxLength: 255
+        type: string
+      timezone:
+        maxLength: 255
+        type: string
+    required:
+    - domain
+    type: object
+  types.InitializeRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  types.InitializeResponse:
+    properties:
+      refresh_token:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/types.User'
+    type: object
+  types.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  types.LoginResponse:
+    properties:
+      refresh_token:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/types.User'
+    type: object
+  types.SiteWithRemark:
+    properties:
+      domain:
+        type: string
+      id:
+        type: integer
+      limit_minute:
+        type: integer
+      rate_seconds:
+        type: integer
+      remark:
+        type: string
+      timezone:
+        type: string
+    type: object
+  types.TopStatsRequest:
+    properties:
+      date:
+        type: string
+      from:
+        type: string
+      interval:
+        type: string
+      limit:
+        type: integer
+      page:
+        type: integer
+      period:
+        type: string
+      to:
+        type: string
+    required:
+    - period
+    type: object
+  types.UpdateSiteRequest:
+    properties:
+      limit_minute:
+        maximum: 10000000
+        minimum: 1
+        type: integer
+      public:
+        type: boolean
+      rate_seconds:
+        maximum: 3600
+        minimum: 1
+        type: integer
+      remark:
+        maxLength: 255
+        type: string
+      stats_start_date:
+        type: string
+      timezone:
+        type: string
+    type: object
+  types.User:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+    type: object
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+host: localhost:8080
+info:
+  contact:
+    email: wrpota@gmail.com
+    name: Zenstats
+    url: https://github.com/zesntats/zenstats
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://your-terms.url
+  title: Zenstats API
+  version: "1.0"
+paths:
+  /auth/init:
+    post:
+      consumes:
+      - application/json
+      - application/json
+      description: |-
+        创建初始管理员用户并完成系统初始化
+        创建初始管理员用户并完成系统初始化
+      parameters:
+      - description: 初始化请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.InitializeRequest'
+      - description: 初始化请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.InitializeRequest'
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: 初始化成功返回令牌和用户信息
+          schema:
+            $ref: '#/definitions/types.InitializeResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: 初始化系统
+      tags:
+      - auth
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 通过邮箱和密码登录系统并获取访问令牌
+      parameters:
+      - description: 登录请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功返回令牌和用户信息
+          schema:
+            $ref: '#/definitions/types.LoginResponse'
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: 密码错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: 用户不存在
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: 用户登录
+      tags:
+      - auth
+  /auth/refresh:
+    get:
+      consumes:
+      - application/json
+      description: 使用刷新令牌获取新的访问令牌
+      parameters:
+      - description: 刷新令牌
+        in: query
+        name: refreshToken
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 新的访问令牌
+          schema:
+            type: string
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: 无效的刷新令牌
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "431":
+          description: 刷新令牌已过期
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: 刷新访问令牌
+      tags:
+      - auth
+  /auth/state:
+    get:
+      consumes:
+      - application/json
+      description: 查询系统是否已初始化，返回'initialized'表示已初始化，'not_initialized'表示未初始化
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 系统状态
+          schema:
+            type: string
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: 检查系统初始化状态
+      tags:
+      - auth
+  /sites:
+    get:
+      consumes:
+      - application/json
+      description: 根据域名查询用户站点列表
+      parameters:
+      - description: 站点域名（模糊查询）
+        in: query
+        name: domain
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回站点列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  items: {}
+                  type: array
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取站点列表
+      tags:
+      - 站点管理
+    post:
+      consumes:
+      - application/json
+      description: 根据提供的参数创建一个新站点
+      parameters:
+      - description: 创建站点请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.CreateSiteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回创建的站点信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 创建新站点
+      tags:
+      - 站点管理
+  /sites/:domain:
+    put:
+      consumes:
+      - application/json
+      description: 根据ID更新站点域名和名称
+      parameters:
+      - description: 更新站点请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateSiteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回更新后的站点信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 更新站点信息
+      tags:
+      - 站点管理
+  /sites/{domain}:
+    get:
+      consumes:
+      - application/json
+      description: 根据域名获取站点详细信息
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回站点信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/types.SiteWithRemark'
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取站点信息
+      tags:
+      - 站点管理
+  /sites/{domain}/shield/country:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定域名的Country屏蔽规则列表
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回Country屏蔽规则列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  items: {}
+                  type: array
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取Country屏蔽规则列表
+      tags:
+      - 站点管理
+    post:
+      consumes:
+      - application/json
+      description: 为指定域名添加Country屏蔽规则
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 添加Country屏蔽规则请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.AddShieldRuleCountryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回添加的Country屏蔽规则
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 添加Country屏蔽规则
+      tags:
+      - 站点管理
+  /sites/{domain}/shield/hostname:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定域名的Hostname屏蔽规则列表
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回Hostname屏蔽规则列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  items: {}
+                  type: array
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取Hostname屏蔽规则列表
+      tags:
+      - 站点管理
+    post:
+      consumes:
+      - application/json
+      description: 为指定域名添加Hostname屏蔽规则
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 添加Hostname屏蔽规则请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.AddShieldRuleHostnameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 添加Hostname屏蔽规则
+      tags:
+      - 站点管理
+  /sites/{domain}/shield/hostname/{ruleId}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定域名的Hostname屏蔽规则
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 规则ID
+        in: path
+        name: ruleId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除Hostname屏蔽规则
+      tags:
+      - 站点管理
+  /sites/{domain}/shield/ip:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定域名的IP屏蔽规则列表
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回IP屏蔽规则列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  items: {}
+                  type: array
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取IP屏蔽规则列表
+      tags:
+      - 站点管理
+    post:
+      consumes:
+      - application/json
+      description: 为指定域名添加IP屏蔽规则
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 添加IP屏蔽规则请求参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.AddShieldRuleIPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回添加的IP屏蔽规则
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 添加IP屏蔽规则
+      tags:
+      - 站点管理
+  /sites/{domain}/shield/ip/{ruleId}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定域名的IP屏蔽规则
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 规则ID
+        in: path
+        name: ruleId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除IP屏蔽规则
+      tags:
+      - 站点管理
+  /sites/{id}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: 站点ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+  /sites/{id}/shield/country/{ruleId}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定站点的Country屏蔽规则
+      parameters:
+      - description: 站点ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 规则ID
+        in: path
+        name: ruleId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  type: object
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除Country屏蔽规则
+      tags:
+      - 站点管理
+  /stats/{domain}/curve:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定域名的统计曲线数据
+      parameters:
+      - description: 参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.TopStatsRequest'
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回统计曲线数据
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取统计曲线数据
+      tags:
+      - 统计分析
+  /stats/{domain}/device_rank:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定域名的设备排名统计数据
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回设备排名统计数据
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取设备排名统计
+      tags:
+      - 统计分析
+  /stats/{domain}/page_rank:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定域名的页面排名统计数据
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回页面排名统计数据
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取页面排名统计
+      tags:
+      - 统计分析
+  /stats/{domain}/source_rank:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定域名的来源排名统计数据
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回来源排名统计数据
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取来源排名统计
+      tags:
+      - 统计分析
+  /stats/{domain}/top_stats:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定域名的顶级统计数据
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回顶级统计数据
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取顶级统计数据
+      tags:
+      - 统计分析
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
