@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/golang-lru/v2/expirable"
+	"github.com/zenstats/zenstats/internal/api/types"
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
@@ -448,21 +449,46 @@ func (s *SiteService) RemoveShieldRuleCountry(ctx *gin.Context, siteID int64, ru
 }
 
 // UpdateSite 更新站点信息
-func (s *SiteService) UpdateSite(ctx *gin.Context, domain string, name string) (*ent.Site, error) {
+func (s *SiteService) UpdateSite(ctx *gin.Context, domain string, req types.UpdateSiteRequest) (*ent.Site, error) {
 	tx, err := s.db.Client.Tx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("starting a transaction: %w", err)
 	}
-	site, err := tx.Site.Query().Where(site.Domain(domain)).First(ctx)
+	siteEntity, err := tx.Site.Query().Where(site.Domain(domain)).First(ctx)
 	if err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("query site failed: %w", err)
 	}
 
-	site, err = tx.Site.UpdateOne(site).
-		SetRemark(name).
-		Save(ctx)
+	updateQuery := tx.Site.UpdateOne(siteEntity)
 
+	// 更新 remark 字段，仅当 remark 不为空字符串时更新
+	if req.Remark != "" {
+		updateQuery = updateQuery.SetRemark(req.Remark)
+	}
+
+	// 更新 timezone 字段
+	if req.Timezone != nil {
+		updateQuery = updateQuery.SetTimezone(*req.Timezone)
+	}
+
+	// 更新 public 字段
+	if req.Public != nil {
+		updateQuery = updateQuery.SetPublic(*req.Public)
+	}
+
+	// 更新 stats_start_date 字段
+	if !req.StatsStartDate.IsZero() {
+		updateQuery = updateQuery.SetStatsStartDate(req.StatsStartDate)
+	}
+
+	// 更新 ingest_rate_limit_scale_seconds 字段
+	updateQuery = updateQuery.SetIngestRateLimitScaleSeconds(req.IngestRateLimitScaleSeconds)
+
+	// 更新 ingest_limit_per_minute 字段
+	updateQuery = updateQuery.SetIngestLimitPerMinute(req.IngestLimitPerMinute)
+
+	siteEntity, err = updateQuery.Save(ctx)
 	if err != nil {
 		tx.Rollback()
 		if ent.IsConstraintError(err) {
@@ -476,13 +502,13 @@ func (s *SiteService) UpdateSite(ctx *gin.Context, domain string, name string) (
 	}
 
 	// 更新缓存
-	cacheKey := fmt.Sprintf("site:%d", site.ID)
-	s.cache.Store(cacheKey, site)
-	s.domainCache.Add(domain, site)
+	cacheKey := fmt.Sprintf("site:%d", siteEntity.ID)
+	s.cache.Store(cacheKey, siteEntity)
+	s.domainCache.Add(domain, siteEntity)
 	// 清除用户站点列表缓存
 	s.cache.Delete(s.allSitesCacheKey)
 
-	return site, nil
+	return siteEntity, nil
 }
 
 // DeleteSite 删除站点

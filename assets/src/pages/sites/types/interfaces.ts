@@ -4,6 +4,8 @@ export interface Site {
   remark: string;
   role: string;
   timezone?: string;
+  limit_minute?: number;
+  rate_seconds?: number;
 }
 
 

@@ -11,7 +11,7 @@ import (
 // Update 更新站点信息
 //
 //	@Summary		更新站点信息
-//	@Description	根据ID更新站点域名和名称
+//	@Description	根据域名更新站点信息
 //	@Tags			站点管理
 //	@Security		BearerAuth
 //	@Accept			json
@@ -37,7 +37,8 @@ func (h *SitesHandler) Update() gin.HandlerFunc {
 			return
 		}
 
-		site, err := h.service.UpdateSite(c, domain, req.Remark)
+		// 传递整个 req 结构体到服务层
+		site, err := h.service.UpdateSite(c, domain, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return

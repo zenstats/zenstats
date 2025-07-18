@@ -13,8 +13,8 @@ type CreateSiteRequest struct {
 type UpdateSiteRequest struct {
 	Timezone                    *string   `json:"timezone" binding:"omitempty,timezone"`
 	Public                      *bool     `json:"public" binding:"omitempty,boolean"`
-	Remark                      string    `json:"remark" maxLength:"255"`
-	StatsStartDate              time.Time `json:"stats_start_date" binding:"omitempty,date"`
+	Remark                      string    `json:"remark" binding:"omitempty,max=255"`
+	StatsStartDate              time.Time `json:"stats_start_date" binding:"omitempty,datetime"`
 	IngestRateLimitScaleSeconds int       `json:"rate_seconds" binding:"omitempty,min=1,max=3600"`
 	IngestLimitPerMinute        int       `json:"limit_minute" binding:"omitempty,min=1,max=10000000"`
 }
