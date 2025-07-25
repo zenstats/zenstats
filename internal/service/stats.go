@@ -220,6 +220,41 @@ func (s *StateService) GetCurve(ctx *gin.Context, domain string, req *types.Stat
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
+	var startDate, endDate string
+	if req.Period == "realtime" {
+		startDate = carbon.Now(site.Timezone).SubMinutes(30).Format("Y-m-d H:i:s")
+		endDate = carbon.Now(site.Timezone).Format("Y-m-d H:i:s")
+	} else {
+		startDate, endDate = s.getDateRange(req, site.Timezone, 0)
+		if startDate != "" && endDate != "" {
+			startDate = carbon.Parse(startDate).StartOfDay().Format("Y-m-d H:i:s")
+			endDate = carbon.Parse(endDate).EndOfDay().Format("Y-m-d H:i:s")
+		}
+	}
+	slot, err := s.GenerateTimeIntervals(startDate, endDate, interval, site.Timezone)
+	if err != nil {
+		fmt.Println("error:", err.Error())
+		return nil, err
+	}
+
+	// 将 timeRangeUVs 转换为 map，方便查找
+	uvMap := make(map[string]uint64)
+	for _, truv := range timeRangeUVs {
+		uvMap[truv.Time] = truv.UV
+	}
+
+	// 重新填充 timeRangeUVs
+	timeRangeUVs = make([]TimeRangeUV, 0, len(slot))
+	for _, time := range slot {
+		uv, exists := uvMap[time]
+		if !exists {
+			uv = 0
+		}
+		timeRangeUVs = append(timeRangeUVs, TimeRangeUV{
+			Time: time,
+			UV:   uv,
+		})
+	}
 
 	return timeRangeUVs, nil
 }
@@ -284,6 +319,57 @@ func (s *StateService) getFormat(interval string) string {
 	default:
 		return "%Y-%m-%d %H:%i"
 	}
+}
+
+// GenerateTimeIntervals 生成指定时间范围内按间隔划分的时间节点列表
+func (s *StateService) GenerateTimeIntervals(startTimeStr, endTimeStr, interval, timezone string) ([]string, error) {
+	// 解析开始时间
+	start := carbon.Parse(startTimeStr)
+	if start == nil {
+		return nil, fmt.Errorf("解析开始时间失败")
+	}
+	// 解析结束时间
+	end := carbon.Parse(endTimeStr)
+	if end == nil {
+		return nil, fmt.Errorf("解析结束时间失败")
+	}
+
+	// 获取间隔秒数
+	intervalSeconds := getIntervalSeconds(interval)
+	if intervalSeconds <= 0 {
+		return nil, fmt.Errorf("不支持的时间间隔: %s", interval)
+	}
+
+	// 调整开始时间到间隔起始点
+	adjustedStart := adjustStartTimeToInterval(start, interval, intervalSeconds)
+	if adjustedStart == nil {
+		return nil, fmt.Errorf("调整开始时间失败")
+	}
+	start = adjustedStart
+
+	// 生成时间节点
+	var timePoints []string
+	current := start.Copy()
+	if current == nil {
+		return nil, fmt.Errorf("无法复制当前时间")
+	}
+	endCopy := end.Copy()
+	if endCopy == nil {
+		return nil, fmt.Errorf("无法复制结束时间")
+	}
+
+	for current.Lte(endCopy) {
+		// 根据间隔类型格式化时间
+		format := getTimeFormatByInterval(interval)
+		timePoints = append(timePoints, current.Format(format))
+		next := current.AddSeconds(intervalSeconds)
+		if next == nil || next.Gt(endCopy) {
+			break
+		}
+		current = next
+	}
+
+	return timePoints, nil
 }
 
 func (s *StateService) GetDeviceRank(ctx *gin.Context, domain string, req *types.StatsRequest) ([]RankItem, error) {
@@ -533,7 +619,7 @@ func (s *StateService) getTimestampWhere(site *ent.Site, req *types.StatsRequest
 	case "custom":
 		startDate, endDate := s.getDateRange(req, site.Timezone, 0)
 		where += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, startDate, endDate)
-		// 计算上一个周期的时间范围
+		// 计算上一个周期的日期范围
 		days := carbon.Parse(endDate, site.Timezone).AddDays(1).DiffInDays(carbon.Parse(startDate, site.Timezone))
 		// 计算上一个周期的偏移天数
 		prevOffsetDays := -int(math.Abs(float64(days)))
