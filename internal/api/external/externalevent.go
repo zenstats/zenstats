@@ -42,6 +42,7 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, "bad")
 			return
 		}
+		slog.Debug("request body", "body", string(body))
 
 		err = json.Unmarshal(body, &tempReq)
 		if err != nil {
@@ -66,7 +67,7 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			Timestamp:      tempReq.Timestamp,
 			Hash:           tempReq.Hash,
 			EventName:      tempReq.EventName,
-			JSVersion:      "v1",
+			JSVersion:      tempReq.JSVersion,
 			URL:            tempReq.URL,
 			Domain:         tempReq.Domain,
 			Referrer:       tempReq.Referrer,

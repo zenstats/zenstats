@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/zenstats/zenstats/internal/session"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
 	"github.com/zenstats/zenstats/pkg/generic"
 	"github.com/zenstats/zenstats/pkg/geoip"
 	"github.com/zenstats/zenstats/pkg/pool"
@@ -37,6 +39,8 @@ type EventWork struct {
 	uaparser       *uaparser.UAParser
 	sessionManager *session.SessionManager
 	siteService    *service.SiteService
+
+	hostPatternCache sync.Map // 缓存hostname正则表达式
 }
 
 func NewEventWork(q *generic.DynamicQueue[*common.EventRequest], batchSize int) (*EventWork, error) {
@@ -139,7 +143,6 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 	// 将eventRequest 转换为eventResult
 	eventResult.Name = eventRequest.EventName
 	eventResult.URL = eventRequest.URL
-	eventResult.HostName = eventRequest.Domain
 	eventResult.Props = eventRequest.Props
 	eventResult.EngagementTime = eventRequest.EngagementTime
 	eventResult.ScrollDepth = eventRequest.ScrollDepth
@@ -160,26 +163,35 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 	if err != nil {
 		userId = 0
 	}
-	var pathname string
-	parsedURL, err := url.Parse(eventRequest.URL)
+	var pathname, hostname, urlstring string
+	if !strings.Contains(eventRequest.URL, "://") {
+		urlstring = "http://" + eventRequest.URL
+	} else {
+		urlstring = eventRequest.URL
+	}
+	parsedURL, err := url.Parse(urlstring)
 	if err == nil {
 		pathname = parsedURL.Path
+		hostname = parsedURL.Host
 	}
+
 	eventResult.UserId = userId
 	eventResult.PathName = pathname
+	eventResult.HostName = hostname
+
 	// parse props
 	for key, value := range eventRequest.Props {
 		eventResult.MetaKey = append(eventResult.MetaKey, key)
 		eventResult.MetaValue = append(eventResult.MetaValue, fmt.Sprintf("%v", value))
 	}
-	//TODO 部分逻辑过滤
+
 	/*
 		1. 对用户UA进行验证 屏蔽非法请求  drop_verification_agent ->done
 		2. 对IP进行验证 删除数据中心IP   drop_datacenter_ip  -> not now
-		3. 对hostname 进行验证 仅允许白名单  drop_shield_rule_hostname
-		4. 对pathname 进行验证 删除需要排除的路径 drop_shield_rule_page
-		5. 对IP进行验证 删除需要排除的ip drop_shield_rule_ip
-		6. 对IP的地理位置进行验证 屏蔽国家  drop_shield_rule_country  -- 这个放在PutGeolocation后执行
+		3. 对hostname 进行验证 仅允许白名单  drop_shield_rule_hostname ->done
+		4. 对pathname 进行验证 删除需要排除的路径 drop_shield_rule_page ->done
+		5. 对IP进行验证 删除需要排除的ip drop_shield_rule_ip ->done
+		6. 对IP的地理位置进行验证 屏蔽国家  drop_shield_rule_country  -- 这个放在PutGeolocation后执行 ->done
 	*/
 
 	// parse UA
@@ -189,8 +201,23 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 		slog.Debug("drop verification agent", "isbot", client.Screen.Bot)
 		return nil
 	}
+	// 3. 对hostname进行验证 仅允许白名单
+	if e.dropShieldRuleHostname(site, eventResult.HostName) {
+		slog.Debug("hostname blocked by shield rule", "hostname", eventResult.HostName)
+		return nil
+	}
 	// parse IP
 	e.PutGeolocation(&eventResult)
+	// 5. 对IP进行验证 删除需要排除的ip
+	if e.dropShieldRuleIP(site, eventResult.IP) {
+		slog.Debug("IP blocked by shield rule", "ip", eventResult.IP)
+		return nil
+	}
+	// 6. 对IP的地理位置进行验证 屏蔽国家
+	if e.dropShieldRuleCountry(site, eventResult.CountryCode) {
+		slog.Debug("country blocked by shield rule", "country", eventResult.CountryCode)
+		return nil
+	}
 	// parse source
 	e.PutSourceInfo(&eventResult, eventRequest)
 
@@ -332,4 +359,90 @@ func (e *EventWork) formatReferrer(referrer string) string {
 
 func (e *EventWork) dropVerificationAgent(client *uaparser.Client) bool {
 	return client.Screen.IsBot()
+}
+
+func (e *EventWork) dropShieldRuleHostname(site *ent.Site, hostname string) bool {
+	rules, err := e.siteService.ListShieldRuleHostname(e.shutdownCtx, site.Domain)
+	if err != nil || len(rules) == 0 {
+		return false
+	}
+
+	// 分离精确匹配和模式匹配的允许规则（白名单）
+	exactHosts := make(map[string]struct{})
+	var patternRules []*ent.ShieldRulesHostname
+
+	for _, rule := range rules {
+		if rule.Action != "allow" {
+			continue
+		}
+		if rule.Hostname != "" {
+			exactHosts[rule.Hostname] = struct{}{}
+		}
+		if rule.HostnamePattern != "" {
+			patternRules = append(patternRules, rule)
+		}
+	}
+
+	// 如果没有允许规则，阻止所有请求
+	if len(exactHosts) == 0 && len(patternRules) == 0 {
+		return true
+	}
+
+	// 检查精确匹配白名单
+	if _, ok := exactHosts[hostname]; ok {
+		return false
+	}
+
+	// 检查模式匹配白名单
+	for _, rule := range patternRules {
+		patternVal, ok := e.hostPatternCache.Load(rule.HostnamePattern)
+		if !ok {
+			unescapedPattern := strings.ReplaceAll(rule.HostnamePattern, `\\`, `\`)
+			pattern, err := regexp.Compile(unescapedPattern)
+			if err != nil {
+				slog.Error("Failed to compile hostname pattern", "pattern", rule.HostnamePattern, "error", err)
+				continue
+			}
+			patternVal, _ = e.hostPatternCache.LoadOrStore(rule.HostnamePattern, pattern)
+		}
+		pattern := patternVal.(*regexp.Regexp)
+		if pattern.MatchString(hostname) {
+			return false // 在白名单中，允许请求
+		}
+	}
+
+	// 未匹配到任何白名单规则，阻止请求
+	return true
+}
+
+func (e *EventWork) dropShieldRuleIP(site *ent.Site, ip net.IP) bool {
+	rules, err := e.siteService.ListShieldRuleIP(e.shutdownCtx, site.Domain)
+	if err != nil || len(rules) == 0 {
+		return false
+	}
+
+	for _, rule := range rules {
+		if rule.Inet.Contains(ip) {
+			return rule.Action == "deny"
+		}
+	}
+	return false
+}
+
+func (e *EventWork) dropShieldRuleCountry(site *ent.Site, countryCode string) bool {
+	rules, err := e.siteService.ListShieldRuleCountry(e.shutdownCtx, site.Domain)
+	if err != nil || len(rules) == 0 {
+		return false
+	}
+
+	// 构建国家代码到action的map
+	countryMap := make(map[string]string)
+	for _, rule := range rules {
+		countryMap[rule.CountryCode] = rule.Action
+	}
+
+	if action, ok := countryMap[countryCode]; ok {
+		return action == "deny"
+	}
+	return false
 }

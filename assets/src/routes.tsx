@@ -8,7 +8,11 @@ import State from "@/pages/sites/stats/stats";
 import Setup from '@/pages/login/setup';
 import NotFoundPage from '@/pages/404';
 import SettingsLayout from './pages/sites/settings/layout';
-import {SettingsGeneralForm} from './pages/sites/settings/general-form';
+import { SettingsGeneralForm } from './pages/sites/settings/general-form';
+import SettingShieldsIpAddress from './pages/sites/settings/shields/ip_address';
+import SettingShieldsHostname from './pages/sites/settings/shields/hostname';
+import SettingShieldsCountries from './pages/sites/settings/shields/countries';
+
 const routes: RouteObject[] = [
   {
     path: "/login",
@@ -45,6 +49,30 @@ const routes: RouteObject[] = [
             element: <SettingsLayout>
               <SettingsGeneralForm />
             </SettingsLayout>,
+          },
+
+          {
+            path: "shields",
+            children: [
+              {
+                path: "ip_address",
+                element: <SettingsLayout>
+                  <SettingShieldsIpAddress />
+                </SettingsLayout>,
+              },
+              {
+                path: "hostname",
+                element: <SettingsLayout>
+                  <SettingShieldsHostname />
+                </SettingsLayout>,
+              },
+              {
+                path: "countries",
+                element: <SettingsLayout>
+                  <SettingShieldsCountries />
+                </SettingsLayout>,
+              },
+            ]
           },
         ]
       }

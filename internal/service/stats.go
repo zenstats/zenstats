@@ -71,7 +71,7 @@ func GetStateService() *StateService {
 }
 
 // 顶部指标数据
-func (s *StateService) GetTopStats(ctx *gin.Context, domain string, req *types.TopStatsRequest) (*TopStats, error) {
+func (s *StateService) GetTopStats(ctx *gin.Context, domain string, req *types.StatsRequest) (*TopStats, error) {
 	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
@@ -170,65 +170,19 @@ func (s *StateService) GetTopStats(ctx *gin.Context, domain string, req *types.T
 	return &stats, nil
 }
 
-func (s *StateService) getTimestampWhere(site *ent.Site, req *types.TopStatsRequest) (string, string) {
-
-	// time range
-	// where := fmt.Sprintf(" site_id = %d", site.ID)
-	// prevWhere := fmt.Sprintf(" site_id = %d", site.ID)
-
-	where := " 1 "
-	prevWhere := " 1 "
-	switch req.Period {
-	case "realtime":
-		// 实时数据
-		where += fmt.Sprintf(" AND toTimeZone(timestamp, '%s') >= now() - INTERVAL 30 MINUTE ", site.Timezone)
-		prevWhere = fmt.Sprintf(" site_id = %d AND toTimeZone(timestamp, '%s') BETWEEN now() - INTERVAL 60 MINUTE AND now() - INTERVAL 30 MINUTE ", 0, site.Timezone)
-	case "day":
-		where += fmt.Sprintf(" AND toDate(timestamp, '%s') = '%s' ", site.Timezone, req.Date)
-		prevDate := carbon.Parse(req.Date, site.Timezone).SubDays(1).Format("Y-m-d")
-		prevWhere = fmt.Sprintf(" site_id = %d AND toDate(timestamp, '%s') = '%s' ", 0, site.Timezone, prevDate)
-	case "p7":
-		startDate := carbon.Parse(req.Date, site.Timezone).SubDays(6).Format("Y-m-d")
-		endDate := carbon.Parse(req.Date, site.Timezone).Format("Y-m-d")
-		where += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, startDate, endDate)
-
-		prevStartDate := carbon.Parse(req.Date, site.Timezone).SubDays(13).Format("Y-m-d")
-		prevEndDate := carbon.Parse(req.Date, site.Timezone).SubDays(7).Format("Y-m-d")
-		prevWhere = fmt.Sprintf(" site_id = %d AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", 0, site.Timezone, prevStartDate, prevEndDate)
-	case "p14":
-		startDate := carbon.Parse(req.Date, site.Timezone).SubDays(13).Format("Y-m-d")
-		endDate := carbon.Parse(req.Date, site.Timezone).Format("Y-m-d")
-		where += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, startDate, endDate)
-
-		prevStartDate := carbon.Parse(req.Date, site.Timezone).SubDays(27).Format("Y-m-d")
-		prevEndDate := carbon.Parse(req.Date, site.Timezone).SubDays(14).Format("Y-m-d")
-		prevWhere = fmt.Sprintf(" site_id = %d AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", 0, site.Timezone, prevStartDate, prevEndDate)
-	case "p30":
-		startDate := carbon.Parse(req.Date, site.Timezone).SubDays(29).Format("Y-m-d")
-		endDate := carbon.Parse(req.Date, site.Timezone).Format("Y-m-d")
-		where += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, startDate, endDate)
-
-		prevStartDate := carbon.Parse(req.Date, site.Timezone).SubDays(59).Format("Y-m-d")
-		prevEndDate := carbon.Parse(req.Date, site.Timezone).SubDays(30).Format("Y-m-d")
-		prevWhere = fmt.Sprintf(" site_id = %d AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", 0, site.Timezone, prevStartDate, prevEndDate)
-	case "custom": // custom range
-		startDate := carbon.Parse(req.From, site.Timezone).Format("Y-m-d")
-		endDate := carbon.Parse(req.To, site.Timezone).Format("Y-m-d")
-		where += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, startDate, endDate)
-		// 计算上一个周期的时间范围
-		days := carbon.Parse(endDate, site.Timezone).DiffInDays(carbon.Parse(startDate, site.Timezone))
-		prevStartDate := carbon.Parse(startDate, site.Timezone).SubDays(int(days)).Format("Y-m-d")
-		prevEndDate := carbon.Parse(startDate, site.Timezone).SubDays(1).Format("Y-m-d")
-		prevWhere = fmt.Sprintf(" site_id = %d AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", 0, site.Timezone, prevStartDate, prevEndDate)
-	default:
-		return "", ""
+// GetMetaStats 获取带meta筛选条件的统计数据
+func (s *StateService) GetMetaStats(ctx *gin.Context, domain string, req *types.StatsRequest, meta map[string]string) (*TopStats, error) {
+	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
+	if err != nil {
+		return nil, fmt.Errorf("site not found")
 	}
+	s.getWhereWithMeta(site, req)
 
-	return where, prevWhere
+	return nil, nil
 }
 
 // GetCurve 获取各个时间段的 UV 数量
-func (s *StateService) GetCurve(ctx *gin.Context, domain string, req *types.TopStatsRequest) ([]TimeRangeUV, error) {
+func (s *StateService) GetCurve(ctx *gin.Context, domain string, req *types.StatsRequest) ([]TimeRangeUV, error) {
 	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
@@ -271,7 +225,7 @@ func (s *StateService) GetCurve(ctx *gin.Context, domain string, req *types.TopS
 }
 
 // getInterval 根据时间段长短确定时间间隔
-func (s *StateService) getInterval(req *types.TopStatsRequest) string {
+func (s *StateService) getInterval(req *types.StatsRequest) string {
 
 	if req.Interval != "" {
 		return req.Interval
@@ -332,7 +286,7 @@ func (s *StateService) getFormat(interval string) string {
 	}
 }
 
-func (s *StateService) GetDeviceRank(ctx *gin.Context, domain string, req *types.TopStatsRequest) ([]RankItem, error) {
+func (s *StateService) GetDeviceRank(ctx *gin.Context, domain string, req *types.StatsRequest) ([]RankItem, error) {
 	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
@@ -379,7 +333,7 @@ func (s *StateService) GetDeviceRank(ctx *gin.Context, domain string, req *types
 	return deviceRanks, nil
 }
 
-func (s *StateService) GetPageRank(ctx *gin.Context, domain string, req *types.TopStatsRequest) ([]RankItem, error) {
+func (s *StateService) GetPageRank(ctx *gin.Context, domain string, req *types.StatsRequest) ([]RankItem, error) {
 	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
@@ -427,7 +381,7 @@ func (s *StateService) GetPageRank(ctx *gin.Context, domain string, req *types.T
 }
 
 // GetTrafficSourceRank 查询流量来源分布数据
-func (s *StateService) GetSourceRank(ctx *gin.Context, domain string, req *types.TopStatsRequest) ([]RankItem, error) {
+func (s *StateService) GetSourceRank(ctx *gin.Context, domain string, req *types.StatsRequest) ([]RankItem, error) {
 	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
@@ -462,7 +416,7 @@ func (s *StateService) GetSourceRank(ctx *gin.Context, domain string, req *types
 		GROUP BY source
 		ORDER BY visits DESC
 		LIMIT 10
-	`, searchEngineCondition, buildSearchEngineCase(searchEngines), where)
+	`, searchEngineCondition, s.buildSearchEngineCase(searchEngines), where)
 	var trafficSourceRanks []RankItem
 	rows, err := s.cl.Query(context.Background(), query)
 	if err != nil {
@@ -489,6 +443,7 @@ func (s *StateService) GetSourceRank(ctx *gin.Context, domain string, req *types
 	return trafficSourceRanks, nil
 }
 
+// GetVisits 查询符合条件的独立访客数量
 func (s *StateService) GetVisits(ctx *gin.Context, where string) (uint64, error) {
 	var visits uint64
 	query := fmt.Sprintf(`
@@ -508,8 +463,100 @@ func (s *StateService) GetVisits(ctx *gin.Context, where string) (uint64, error)
 	return visits, nil
 }
 
+// getDateRange 根据请求周期计算开始和结束日期
+// getDateRange 根据请求周期和偏移天数计算开始和结束日期
+// offsetDays: 日期偏移天数，正数为未来日期，负数为过去日期
+func (s *StateService) getDateRange(req *types.StatsRequest, timezone string, offsetDays int) (startDate, endDate string) {
+	switch req.Period {
+	case "day":
+		date := carbon.Parse(req.Date, timezone).AddDays(offsetDays)
+		startDate = date.Format("Y-m-d")
+		endDate = startDate
+	case "p7":
+		baseDate := carbon.Parse(req.Date, timezone).AddDays(offsetDays)
+		endDate = baseDate.Format("Y-m-d")
+		startDate = baseDate.SubDays(6).Format("Y-m-d")
+	case "p14":
+		baseDate := carbon.Parse(req.Date, timezone).AddDays(offsetDays)
+		endDate = baseDate.Format("Y-m-d")
+		startDate = baseDate.SubDays(13).Format("Y-m-d")
+	case "p30":
+		baseDate := carbon.Parse(req.Date, timezone).AddDays(offsetDays)
+		endDate = baseDate.Format("Y-m-d")
+		startDate = baseDate.SubDays(29).Format("Y-m-d")
+	case "custom":
+		startDate = carbon.Parse(req.From, timezone).AddDays(offsetDays).Format("Y-m-d")
+		endDate = carbon.Parse(req.To, timezone).AddDays(offsetDays).Format("Y-m-d")
+	default:
+		startDate = ""
+		endDate = ""
+	}
+
+	return
+}
+
+func (s *StateService) getTimestampWhere(site *ent.Site, req *types.StatsRequest) (string, string) {
+
+	// time range
+	// where := fmt.Sprintf(" site_id = %d", site.ID)
+	// prevWhere := fmt.Sprintf(" site_id = %d", site.ID)
+	where, prevWhere := " 1 ", " 1 "
+
+	switch req.Period {
+	case "realtime":
+		// 实时数据
+		where += fmt.Sprintf(" AND toTimeZone(timestamp, '%s') >= now() - INTERVAL 30 MINUTE ", site.Timezone)
+		prevWhere += fmt.Sprintf(" AND toTimeZone(timestamp, '%s') BETWEEN now() - INTERVAL 60 MINUTE AND now() - INTERVAL 30 MINUTE ", site.Timezone)
+	case "day":
+		startDate, _ := s.getDateRange(req, site.Timezone, 0)
+		where += fmt.Sprintf(" AND toDate(timestamp, '%s') = '%s' ", site.Timezone, startDate)
+		prevStartDate, _ := s.getDateRange(req, site.Timezone, -1)
+		prevWhere += fmt.Sprintf(" AND toDate(timestamp, '%s') = '%s' ", site.Timezone, prevStartDate)
+	case "p7":
+		startDate, endDate := s.getDateRange(req, site.Timezone, 0)
+		where += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, startDate, endDate)
+
+		prevStartDate, prevEndDate := s.getDateRange(req, site.Timezone, -7)
+		prevWhere += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, prevStartDate, prevEndDate)
+	case "p14":
+		startDate, endDate := s.getDateRange(req, site.Timezone, 0)
+		where += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, startDate, endDate)
+
+		prevStartDate, prevEndDate := s.getDateRange(req, site.Timezone, -14)
+		prevWhere += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, prevStartDate, prevEndDate)
+	case "p30":
+		startDate, endDate := s.getDateRange(req, site.Timezone, 0)
+		where += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, startDate, endDate)
+
+		prevStartDate, prevEndDate := s.getDateRange(req, site.Timezone, -30)
+		prevWhere += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, prevStartDate, prevEndDate)
+	case "custom":
+		startDate, endDate := s.getDateRange(req, site.Timezone, 0)
+		where += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, startDate, endDate)
+		// 计算上一个周期的时间范围
+		days := carbon.Parse(endDate, site.Timezone).AddDays(1).DiffInDays(carbon.Parse(startDate, site.Timezone))
+		// 计算上一个周期的偏移天数
+		prevOffsetDays := -int(math.Abs(float64(days)))
+		prevStartDate, prevEndDate := s.getDateRange(req, site.Timezone, prevOffsetDays)
+		prevWhere += fmt.Sprintf(" AND toDate(timestamp, '%s') BETWEEN '%s' AND '%s' ", site.Timezone, prevStartDate, prevEndDate)
+	default:
+		return "", ""
+	}
+
+	return where, prevWhere
+}
+
+// getWhereWithMeta 获取带meta条件的查询条件
+func (s *StateService) getWhereWithMeta(site *ent.Site, req *types.StatsRequest) string {
+	where, _ := s.getTimestampWhere(site, req)
+	// 添加meta过滤条件
+	metaWhere := fmt.Sprintf("arrayExists(pair -> pair.1 = '%s' AND pair.2 = '%s', arrayZip(meta.key, meta.value))", req.MetaKey, req.MetaValue)
+
+	return where + " AND " + metaWhere
+}
+
 // buildSearchEngineCase 构建搜索引擎的 CASE 语句
-func buildSearchEngineCase(searchEngines []*ent.SearchEngines) string {
+func (s *StateService) buildSearchEngineCase(searchEngines []*ent.SearchEngines) string {
 	var conditions []string
 	for _, searchEngine := range searchEngines {
 		conditions = append(conditions, fmt.Sprintf("WHEN positionCaseInsensitive(referrer_source, '%s') > 0 THEN '%s'", searchEngine.Domain, searchEngine.Name))

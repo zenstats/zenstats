@@ -1,6 +1,10 @@
 package types
 
-import "time"
+import (
+	"time"
+
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/schema"
+)
 
 type CreateSiteRequest struct {
 	Domain                      string `json:"domain" binding:"required" maxLength:"255"`
@@ -55,4 +59,15 @@ type AddShieldRuleIPRequest struct {
 	IP          string `json:"ip" binding:"required"`
 	Action      string `json:"action" binding:"required,oneof=deny allow"`
 	Description string `json:"description"`
+}
+
+type ShieldRuleIPResponse struct {
+	ID          int64        `json:"id"`
+	SiteID      int64        `json:"site_id"`
+	IP          *schema.Inet `json:"ip"` // 假设 Inet 类型转换为字符串
+	Action      string       `json:"action"`
+	Description string       `json:"description"`
+	AddedBy     string       `json:"added_by"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
 }

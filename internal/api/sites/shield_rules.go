@@ -20,7 +20,7 @@ import (
 //	@Accept			json
 //	@Produce		json
 //	@Param			domain	path		string											true	"站点域名"
-//	@Success		200		{object}	response.SuccessResponse{data=[]interface{}}	"成功响应，返回IP屏蔽规则列表"
+//	@Success		200		{object}	response.SuccessResponse{data=[]types.ShieldRuleIPResponse}	"成功响应，返回IP屏蔽规则列表"
 //	@Failure		400		{object}	response.ErrorResponse							"请求参数错误"
 //	@Failure		500		{object}	response.ErrorResponse							"服务器内部错误"
 //	@Router			/sites/{domain}/shield/ip [get]
@@ -40,7 +40,23 @@ func (h *SitesHandler) ListShieldRuleIP() gin.HandlerFunc {
 			return
 		}
 
-		response.Success(c, rules)
+		// 转换为响应数据结构
+		var respRules []types.ShieldRuleIPResponse
+		for _, rule := range rules {
+			respRule := types.ShieldRuleIPResponse{
+				ID:          rule.ID,
+				SiteID:      rule.SiteID,
+				IP:          rule.Inet, // 假设 Inet 类型有 String 方法
+				Action:      rule.Action,
+				Description: rule.Description,
+				AddedBy:     rule.AddedBy,
+				CreatedAt:   rule.CreatedAt,
+				UpdatedAt:   rule.UpdatedAt,
+			}
+			respRules = append(respRules, respRule)
+		}
+
+		response.Success(c, respRules)
 	}
 }
 
@@ -327,10 +343,9 @@ func (h *SitesHandler) AddShieldRuleCountry() gin.HandlerFunc {
 //	@Router			/sites/{id}/shield/country/{ruleId} [delete]
 func (h *SitesHandler) RemoveShieldRuleCountry() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取site ID
-		siteID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, err)
+		domain := c.Param("domain")
+		if domain == "" {
+			response.Error(c, http.StatusBadRequest, errors.New("domain is required"))
 			return
 		}
 
@@ -342,7 +357,7 @@ func (h *SitesHandler) RemoveShieldRuleCountry() gin.HandlerFunc {
 		}
 
 		// 调用服务层删除Country规则
-		if err := h.service.RemoveShieldRuleCountry(c, siteID, ruleID); err != nil {
+		if err := h.service.RemoveShieldRuleCountry(c, domain, ruleID); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}

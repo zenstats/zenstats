@@ -50,3 +50,9 @@ func (i Inet) String() string {
 	}
 	return ipnet.String()
 }
+
+// Contains 判断 IP 是否在 CIDR 中
+func (i Inet) Contains(ip net.IP) bool {
+	ipnet := net.IPNet(i)
+	return ipnet.Contains(ip)
+}

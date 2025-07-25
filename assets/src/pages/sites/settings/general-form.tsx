@@ -11,13 +11,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@components/ui/select";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCallback, useEffect, useState } from "react";
 import axios, { type BaseResponse } from "@utils/axios";
@@ -55,10 +49,7 @@ type RateLimitFormValues = z.infer<typeof rateLimitFormSchema>;
 export function SettingsGeneralForm() {
   const [isTimeZoneLoading, setIsTimeZoneLoading] = useState(false)
   const [isRateLimitLoading, setIsRateLimitLoading] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("");
-  const filteredTimeZones = timeZones.filter((timeZone) =>
-    timeZone.label.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+
   const { domain } = useParams();
   const [site, setSite] = useState<Site | null>(null);
   const timeZoneForm = useForm<TimeZoneFormValues>({
@@ -173,30 +164,18 @@ export function SettingsGeneralForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>报告时区</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="选择时区" />
-                      </SelectTrigger>
-                      <SelectContent className="relative">
-                        <Input
-                          value={searchQuery}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            setSearchQuery(e.target.value);
-                          }}
-                          placeholder="搜索时区"
-                          className="sticky top-0 z-10 bg-white mb-2"
-                        />
-                        {filteredTimeZones.map((timeZone) => (
-                          <SelectItem key={timeZone.value} value={timeZone.value}>
-                            {timeZone.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <select
+              value={field.value}
+              onChange={field.onChange}
+              className="w-full rounded-md border border-gray-300 px-3 py-2"
+            >
+              <option value="" disabled>选择时区</option>
+              {timeZones.map((timeZone) => (
+                <option key={timeZone.value} value={timeZone.value}>
+                  {timeZone.label}
+                </option>
+              ))}
+            </select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -236,19 +215,15 @@ export function SettingsGeneralForm() {
                         }}
                         className={rateLimitForm.formState.errors.limit_minute ? "border-red-500" : ""}
                       />
-                      <Select
-                        onValueChange={(value) => rateLimitForm.setValue('rateLimitUnit', value)}
-                        value={rateLimitForm.watch('rateLimitUnit')}
-                      >
-                        <SelectTrigger className="w-[150px]">
-                          <SelectValue placeholder="单位" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="second">每秒</SelectItem>
-                          <SelectItem value="minute">每分钟</SelectItem>
-                          <SelectItem value="hour">每小时</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <select
+              value={rateLimitForm.watch('rateLimitUnit')}
+              onChange={(e) => rateLimitForm.setValue('rateLimitUnit', e.target.value)}
+              className="w-[150px] rounded-md border border-gray-300 px-3 py-2"
+            >
+              <option value="second">每秒</option>
+              <option value="minute">每分钟</option>
+              <option value="hour">每小时</option>
+            </select>
                     </div>
                     <FormMessage />
                   </FormItem>

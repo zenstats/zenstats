@@ -2,8 +2,10 @@ package event
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
@@ -11,10 +13,14 @@ import (
 )
 
 type WriteBuffer struct {
-	mu            sync.Mutex
+	mu            sync.RWMutex
 	wg            sync.WaitGroup
-	batchSize     int
+	batchSize     int32          // 改为原子操作安全的int32类型
 	flushInterval time.Duration
+	minBatchSize  int
+	maxBatchSize  int
+	eventCounter  int64
+	writeTimes    []time.Duration // 记录最近写入时间，用于动态调整
 
 	buffer    []*models.Events
 	flushChan chan []*models.Events
@@ -29,17 +35,30 @@ type WriteBuffer struct {
 func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Duration) *WriteBuffer {
 	ctx, cancel := context.WithCancel(ctx)
 
+	// 设置批处理大小范围 (默认50-500)
+	minBatchSize := batchSize / 2
+	if minBatchSize < 50 {
+		minBatchSize = 50
+	}
+	maxBatchSize := batchSize * 2
+	if maxBatchSize > 500 {
+		maxBatchSize = 500
+	}
+
 	wb := &WriteBuffer{
-		batchSize:     batchSize,
+		batchSize:     int32(batchSize),
+		minBatchSize:  minBatchSize,
+		maxBatchSize:  maxBatchSize,
 		flushInterval: flushInterval,
 		buffer:        make([]*models.Events, 0, batchSize),
 		flushChan:     make(chan []*models.Events, 10),
 		shutdownChan:  make(chan struct{}),
 		ctx:           ctx,
 		cancel:        cancel,
+		writeTimes:    make([]time.Duration, 0, 5), // 最多记录5次写入时间
 	}
 	wb.batchPool.New = func() any {
-		s := make([]*models.Events, 0, wb.batchSize)
+		s := make([]*models.Events, 0, int(wb.batchSize))
 		return &s
 	}
 
@@ -49,8 +68,12 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 func (wb *WriteBuffer) Add(event *models.Events) {
 	wb.mu.Lock()
 	wb.buffer = append(wb.buffer, event)
-	shouldFlush := len(wb.buffer) >= wb.batchSize
+	shouldFlush := len(wb.buffer) >= int(wb.batchSize)
 	wb.mu.Unlock()
+	// 动态调整批处理大小 (每1000个事件调整一次)
+	if atomic.AddInt64(&wb.eventCounter, 1) % 1000 == 0 {
+		go wb.adjustBatchSize()
+	}
 	slog.Debug("add event to buffer", "event", event)
 	if shouldFlush {
 		wb.flush()
@@ -112,21 +135,38 @@ func (wb *WriteBuffer) flushWorker() {
 }
 
 func (wb *WriteBuffer) writeBatch(batch []*models.Events) error {
-	retries := 3
+	retries := 5
 	var err error
+	backoff := []time.Duration{100*time.Millisecond, 300*time.Millisecond, 1*time.Second, 3*time.Second, 5*time.Second}
 
-	for i := range retries {
+	// 记录写入时间用于动态调整批处理大小
+	startTime := time.Now()
+	for i := 0; i < retries; i++ {
 		if err = repository.GetEventsRepository().BatchInsert(wb.ctx, batch); err == nil {
+			duration := time.Since(startTime)
+			wb.recordWriteTime(duration)
 			return nil
 		}
-		slog.Debug("failed to flush batch after retries")
+		slog.Debug("failed to flush batch, retrying...", "retry", i+1, "error", err)
 		select {
-		case <-time.After(time.Second * time.Duration(i+1)):
+		case <-time.After(backoff[i]):
 		case <-wb.ctx.Done():
 			return wb.ctx.Err()
 		}
 	}
-	return err
+	return fmt.Errorf("failed after %d retries: %w", retries, err)
+}
+
+// 记录写入时间，最多保留最近5次
+func (wb *WriteBuffer) recordWriteTime(duration time.Duration) {
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
+
+	wb.writeTimes = append(wb.writeTimes, duration)
+	// 只保留最近5次写入时间
+	if len(wb.writeTimes) > 5 {
+		wb.writeTimes = wb.writeTimes[len(wb.writeTimes)-5:]
+	}
 }
 
 func (wb *WriteBuffer) drainBuffer() {
@@ -161,4 +201,46 @@ func (wb *WriteBuffer) Shutdown() {
 	close(wb.shutdownChan)
 	wb.wg.Wait()
 	wb.cancel()
+}
+
+// adjustBatchSize 根据最近写入性能动态调整批处理大小
+func (wb *WriteBuffer) adjustBatchSize() {
+	wb.mu.RLock()
+	writeTimes := make([]time.Duration, len(wb.writeTimes))
+	copy(writeTimes, wb.writeTimes)
+	wb.mu.RUnlock()
+
+	if len(writeTimes) == 0 {
+		return
+	}
+
+	// 计算平均写入时间
+	avgDuration := time.Duration(0)
+	for _, t := range writeTimes {
+		avgDuration += t
+	}
+	avgDuration /= time.Duration(len(writeTimes))
+
+	currentSize := atomic.LoadInt32(&wb.batchSize)
+	newSize := currentSize
+
+	// 根据平均写入时间调整批处理大小
+	// 写入快则增加批处理大小，写入慢则减小
+	if avgDuration < 100*time.Millisecond && currentSize < int32(wb.maxBatchSize) {
+		newSize = int32(float64(currentSize) * 1.1) // 增加10%
+	} else if avgDuration > 500*time.Millisecond && currentSize > int32(wb.minBatchSize) {
+		newSize = int32(float64(currentSize) * 0.9) // 减少10%
+	}
+
+	// 限制在min和max之间
+	if newSize < int32(wb.minBatchSize) {
+		newSize = int32(wb.minBatchSize)
+	} else if newSize > int32(wb.maxBatchSize) {
+		newSize = int32(wb.maxBatchSize)
+	}
+
+	if newSize != currentSize {
+		atomic.StoreInt32(&wb.batchSize, newSize)
+		slog.Debug("Adjusted batch size", "old", currentSize, "new", newSize, "avgDuration", avgDuration)
+	}
 }

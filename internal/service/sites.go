@@ -36,7 +36,10 @@ type SiteService struct {
 	cache            sync.Map
 	allSitesCacheKey string
 
-	domainCache *expirable.LRU[string, *ent.Site]
+	domainCache             *expirable.LRU[string, *ent.Site]
+	shieldRuleIPCache       *expirable.LRU[string, []*ent.ShieldRulesIp]
+	shieldRuleHostnameCache *expirable.LRU[string, []*ent.ShieldRulesHostname]
+	shieldRuleCountryCache  *expirable.LRU[string, []*ent.ShieldRulesCountry]
 }
 
 func GetSiteService() *SiteService {
@@ -46,11 +49,17 @@ func GetSiteService() *SiteService {
 			panic("DB is not initialized")
 		}
 		l := expirable.NewLRU[string, *ent.Site](1000, nil, 30*time.Minute)
+		ipCache := expirable.NewLRU[string, []*ent.ShieldRulesIp](1000, nil, 30*time.Minute)
+		hostnameCache := expirable.NewLRU[string, []*ent.ShieldRulesHostname](1000, nil, 30*time.Minute)
+		countryCache := expirable.NewLRU[string, []*ent.ShieldRulesCountry](1000, nil, 30*time.Minute)
 		siteServiceInstance = &SiteService{
-			db:               db,
-			domainCache:      l,
-			cache:            sync.Map{},
-			allSitesCacheKey: "all_sites",
+			db:                      db,
+			domainCache:             l,
+			shieldRuleIPCache:       ipCache,
+			shieldRuleHostnameCache: hostnameCache,
+			shieldRuleCountryCache:  countryCache,
+			cache:                   sync.Map{},
+			allSitesCacheKey:        "all_sites",
 		}
 	})
 	return siteServiceInstance
@@ -256,11 +265,18 @@ func (s *SiteService) AddShieldRuleIP(ctx *gin.Context, domain string, ip string
 		return nil, fmt.Errorf("create shield rule ip failed: %w", err)
 	}
 
+	// 添加成功后清除缓存
+	s.shieldRuleIPCache.Remove(domain)
 	return rule, nil
 }
 
 // ListShieldRuleIP 获取IP屏蔽规则列表
-func (s *SiteService) ListShieldRuleIP(ctx *gin.Context, domain string) ([]*ent.ShieldRulesIp, error) {
+func (s *SiteService) ListShieldRuleIP(ctx context.Context, domain string) ([]*ent.ShieldRulesIp, error) {
+	// 尝试从缓存获取
+	if rules, ok := s.shieldRuleIPCache.Get(domain); ok {
+		return rules, nil
+	}
+
 	// 通过domain获取站点信息
 	site, err := s.GetSiteByDomain(ctx, domain)
 	if err != nil {
@@ -276,11 +292,14 @@ func (s *SiteService) ListShieldRuleIP(ctx *gin.Context, domain string) ([]*ent.
 		return nil, fmt.Errorf("query shield rule ip failed: %w", err)
 	}
 
+	// 存入缓存
+	s.shieldRuleIPCache.Add(domain, rules)
+
 	return rules, nil
 }
 
 // RemoveShieldRuleIP 删除IP屏蔽规则
-func (s *SiteService) RemoveShieldRuleIP(ctx *gin.Context, domain string, ruleID int64) error {
+func (s *SiteService) RemoveShieldRuleIP(ctx context.Context, domain string, ruleID int64) error {
 	// 通过domain获取站点信息
 	site, err := s.GetSiteByDomain(ctx, domain)
 	if err != nil {
@@ -306,11 +325,13 @@ func (s *SiteService) RemoveShieldRuleIP(ctx *gin.Context, domain string, ruleID
 		return fmt.Errorf("delete shield rule ip failed: %w", err)
 	}
 
+	// 删除成功后清除缓存
+	s.shieldRuleHostnameCache.Remove(domain)
 	return nil
 }
 
 // AddShieldRuleHostname 添加Hostname屏蔽规则
-func (s *SiteService) AddShieldRuleHostname(ctx *gin.Context, domain string, hostname string, hostnamePattern string, action string) (*ent.ShieldRulesHostname, error) {
+func (s *SiteService) AddShieldRuleHostname(ctx context.Context, domain string, hostname string, hostnamePattern string, action string) (*ent.ShieldRulesHostname, error) {
 	// 验证站点是否存在
 	site, err := s.db.Client.Site.Query().Where(site.Domain(domain)).Only(ctx)
 	if err != nil {
@@ -329,11 +350,19 @@ func (s *SiteService) AddShieldRuleHostname(ctx *gin.Context, domain string, hos
 		return nil, fmt.Errorf("create shield rule hostname failed: %w", err)
 	}
 
+	// 添加成功后清除缓存
+	s.shieldRuleHostnameCache.Remove(domain)
+
 	return rule, nil
 }
 
 // ListShieldRuleHostname 获取Hostname屏蔽规则列表
-func (s *SiteService) ListShieldRuleHostname(ctx *gin.Context, domain string) ([]*ent.ShieldRulesHostname, error) {
+func (s *SiteService) ListShieldRuleHostname(ctx context.Context, domain string) ([]*ent.ShieldRulesHostname, error) {
+	// 尝试从缓存获取
+	if rules, ok := s.shieldRuleHostnameCache.Get(domain); ok {
+		return rules, nil
+	}
+
 	// 通过domain获取站点信息
 	site, err := s.GetSiteByDomain(ctx, domain)
 	if err != nil {
@@ -348,6 +377,9 @@ func (s *SiteService) ListShieldRuleHostname(ctx *gin.Context, domain string) ([
 	if err != nil {
 		return nil, fmt.Errorf("query shield rule hostname failed: %w", err)
 	}
+
+	// 存入缓存
+	s.shieldRuleHostnameCache.Add(domain, rules)
 
 	return rules, nil
 }
@@ -377,6 +409,8 @@ func (s *SiteService) RemoveShieldRuleHostname(ctx *gin.Context, domain string, 
 	if err := s.db.Client.ShieldRulesHostname.DeleteOneID(ruleID).Exec(ctx); err != nil {
 		return fmt.Errorf("delete shield rule hostname failed: %w", err)
 	}
+	// 删除成功后清除缓存
+	s.shieldRuleHostnameCache.Remove(domain)
 
 	return nil
 }
@@ -401,11 +435,19 @@ func (s *SiteService) AddShieldRuleCountry(ctx *gin.Context, domain string, coun
 		return nil, fmt.Errorf("create shield rule country failed: %w", err)
 	}
 
+	// 添加成功后清除缓存
+	s.shieldRuleCountryCache.Remove(domain)
+
 	return rule, nil
 }
 
 // ListShieldRuleCountry 获取Country屏蔽规则列表
-func (s *SiteService) ListShieldRuleCountry(ctx *gin.Context, domain string) ([]*ent.ShieldRulesCountry, error) {
+func (s *SiteService) ListShieldRuleCountry(ctx context.Context, domain string) ([]*ent.ShieldRulesCountry, error) {
+	// 尝试从缓存获取
+	if rules, ok := s.shieldRuleCountryCache.Get(domain); ok {
+		return rules, nil
+	}
+
 	// 通过domain获取站点信息
 	site, err := s.GetSiteByDomain(ctx, domain)
 	if err != nil {
@@ -421,16 +463,24 @@ func (s *SiteService) ListShieldRuleCountry(ctx *gin.Context, domain string) ([]
 		return nil, fmt.Errorf("query shield rule country failed: %w", err)
 	}
 
+	// 存入缓存
+	s.shieldRuleCountryCache.Add(domain, rules)
+
 	return rules, nil
 }
 
 // RemoveShieldRuleCountry 删除Country屏蔽规则
-func (s *SiteService) RemoveShieldRuleCountry(ctx *gin.Context, siteID int64, ruleID int64) error {
+func (s *SiteService) RemoveShieldRuleCountry(ctx *gin.Context, domain string, ruleID int64) error {
+	site, err := s.GetSiteByDomain(ctx, domain)
+	if err != nil {
+		return fmt.Errorf("site not found: %w", err)
+	}
+
 	// 验证规则是否属于该站点
 	count, err := s.db.Client.ShieldRulesCountry.Query().
 		Where(
 			shieldrulescountry.ID(ruleID),
-			shieldrulescountry.SiteID(siteID),
+			shieldrulescountry.SiteID(site.ID),
 		).
 		Count(ctx)
 	if err != nil {
@@ -444,6 +494,8 @@ func (s *SiteService) RemoveShieldRuleCountry(ctx *gin.Context, siteID int64, ru
 	if err := s.db.Client.ShieldRulesCountry.DeleteOneID(ruleID).Exec(ctx); err != nil {
 		return fmt.Errorf("delete shield rule country failed: %w", err)
 	}
+	// 删除成功后清除缓存
+	s.shieldRuleCountryCache.Remove(domain)
 
 	return nil
 }

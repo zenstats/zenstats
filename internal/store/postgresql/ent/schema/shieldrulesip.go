@@ -6,6 +6,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 )
 
 // ShieldRulesIp holds the schema definition for the ShieldRulesIp entity.
@@ -44,5 +45,12 @@ func (ShieldRulesIp) Edges() []ent.Edge {
 			Field("site_id").
 			Unique().
 			Required(),
+	}
+}
+
+// Indexes of the ShieldRulesIp.
+func (ShieldRulesIp) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("site_id", "inet").Unique(),
 	}
 }

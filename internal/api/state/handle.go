@@ -19,8 +19,8 @@ func NewStateHandle() *StateHandle {
 	}
 }
 
-func (s *StateHandle) validate(c *gin.Context) (*types.TopStatsRequest, error) {
-	var req types.TopStatsRequest
+func (s *StateHandle) validate(c *gin.Context) (*types.StatsRequest, error) {
+	var req types.StatsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		return nil, err
 	}

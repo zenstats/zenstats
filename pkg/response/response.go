@@ -15,7 +15,7 @@ type ErrorResponse struct {
 	// 错误信息
 	Message string `json:"message"`
 	// 错误详情
-	Error string `json:"detail,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 // SuccessResponse 成功响应结构体

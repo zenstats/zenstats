@@ -22,10 +22,10 @@ type EventRequest struct {
 }
 
 type TempEventRequest struct {
-	Timestamp time.Time `json:"t"`
-	Hash      int8      `form:"h" json:"h"` // 哈希
-	EventName string    `form:"n" json:"n"` // 事件名称
-	// JSVersion      string           `form:"v" json:"v"`   // JS版本
+	Timestamp      time.Time        `json:"t"`
+	Hash           int8             `form:"h" json:"h"`   // 哈希
+	EventName      string           `form:"n" json:"n"`   // 事件名称
+	JSVersion      string           `form:"v" json:"v"`   // JS版本
 	URL            string           `form:"u" json:"u"`   // URL
 	Domain         string           `form:"d" json:"d"`   // 域名
 	Referrer       string           `form:"r" json:"r"`   // 来源
@@ -38,10 +38,10 @@ type TempEventRequest struct {
 }
 
 // {
-//   "n": "engagement",
-//   "sd": 67,
-//   "d": "potawang.cn",
-//   "u": "http://192.168.5.15:5174/sites/potawang.cn/stats",
-//   "e": 0,
-//   "v": 3
+//     "n": "pageview",
+//     "v": "1",
+//     "u": "example.com/zenstats/index.html",
+//     "d": "example.com",
+//     "r": null,
+//     "p": {}
 // }
