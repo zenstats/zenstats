@@ -171,7 +171,9 @@ func (s *StateService) GetTopStats(ctx *gin.Context, domain string, req *types.S
 }
 
 // GetMetaStats 获取带meta筛选条件的统计数据
-func (s *StateService) GetMetaStats(ctx *gin.Context, domain string, req *types.StatsRequest, meta map[string]string) (*TopStats, error) {
+// 修改参数类型，让 meta 接收 map[string][]string 类型
+func (s *StateService) GetMetaStats(ctx *gin.Context, domain string, req *types.StatsRequest, meta *types.MetaRequest) (*TopStats, error) {
+	// 方法实现
 	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
@@ -633,10 +635,23 @@ func (s *StateService) getTimestampWhere(site *ent.Site, req *types.StatsRequest
 }
 
 // getWhereWithMeta 获取带meta条件的查询条件
-func (s *StateService) getWhereWithMeta(site *ent.Site, req *types.StatsRequest) string {
+func (s *StateService) getWhereWithMeta(site *ent.Site, req *types.StatsRequest, meta *types.MetaRequest) string {
 	where, _ := s.getTimestampWhere(site, req)
-	// 添加meta过滤条件
-	metaWhere := fmt.Sprintf("arrayExists(pair -> pair.1 = '%s' AND pair.2 = '%s', arrayZip(meta.key, meta.value))", req.MetaKey, req.MetaValue)
+
+	// 检查 meta 是否为 nil
+	if meta == nil || len(meta.Meta) == 0 {
+		return where
+	}
+
+	var metaConditions []string
+	// 遍历 Meta 字段的键值对
+	for key, value := range meta.Meta {
+		metaCondition := fmt.Sprintf("arrayExists(pair -> pair.1 = '%s' AND pair.2 = '%s', arrayZip(meta.key, meta.value))", key, value)
+		metaConditions = append(metaConditions, metaCondition)
+	}
+
+	// 使用 AND 连接所有 meta 条件
+	metaWhere := strings.Join(metaConditions, " AND ")
 
 	return where + " AND " + metaWhere
 }

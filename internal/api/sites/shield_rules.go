@@ -46,7 +46,7 @@ func (h *SitesHandler) ListShieldRuleIP() gin.HandlerFunc {
 			respRule := types.ShieldRuleIPResponse{
 				ID:          rule.ID,
 				SiteID:      rule.SiteID,
-				IP:          rule.Inet, // 假设 Inet 类型有 String 方法
+				IP:          rule.Inet.IP.String(), // 假设 Inet 类型有 String 方法
 				Action:      rule.Action,
 				Description: rule.Description,
 				AddedBy:     rule.AddedBy,

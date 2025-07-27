@@ -15,10 +15,7 @@ import { toast } from "sonner";
 interface ShieldIPRule {
   id: number;
   site_id: number;
-  ip: {
-    IP: string;
-    Mask: string;
-  };
+  ip: string;
   action: string;
   description: string;
   added_by: string;
@@ -190,7 +187,7 @@ export default function SettingShieldsIpAddress() {
               {ipList.map((ip) => (
                 <div key={ip.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div>
-                    <p className="font-medium">{ip.ip.IP}</p>
+                    <p className="font-medium">{ip.ip}</p>
                     {ip.description && (
                       <p className="text-sm text-gray-500 mt-1">{ip.description}</p>
                     )}

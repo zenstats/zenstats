@@ -16,4 +16,5 @@ func RegisterStatsRouter(router *gin.RouterGroup) {
 	router.GET("/:domain/device_rank", handle.GetDeviceRank())
 	router.GET("/:domain/source_rank", handle.GetSourceRank())
 	router.GET("/:domain/page_rank", handle.GetPageRank())
+	router.GET("/:domain/meta", handle.MetaStats())
 }

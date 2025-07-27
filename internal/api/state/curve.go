@@ -16,7 +16,7 @@ import (
 //	@Accept			json
 //
 //	@Produce		json
-//	@Param			request	body		types.TopStatsRequest						true	"参数"
+//	@Param			request	body		types.StatsRequest						true	"参数"
 //	@Param			domain	path		string										true	"站点域名"
 //	@Success		200		{object}	response.SuccessResponse{data=interface{}}	"成功响应，返回统计曲线数据"
 //	@Failure		400		{object}	response.ErrorResponse						"请求参数错误"

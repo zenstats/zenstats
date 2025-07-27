@@ -228,6 +228,13 @@ var (
 				OnDelete:   schema.NoAction,
 			},
 		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "shieldrulesip_site_id_inet",
+				Unique:  true,
+				Columns: []*schema.Column{ShieldRulesIpsColumns[7], ShieldRulesIpsColumns[1]},
+			},
+		},
 	}
 	// SitesColumns holds the columns for the "sites" table.
 	SitesColumns = []*schema.Column{

@@ -6,7 +6,7 @@ definitions:
       code:
         description: 错误码
         type: integer
-      detail:
+      error:
         description: 错误详情
         type: string
       message:
@@ -58,8 +58,8 @@ definitions:
     properties:
       action:
         enum:
-        - allow
         - deny
+        - allow
         type: string
       description:
         type: string
@@ -132,6 +132,32 @@ definitions:
       user:
         $ref: '#/definitions/types.User'
     type: object
+  types.MetaRequest:
+    properties:
+      meta:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  types.ShieldRuleIPResponse:
+    properties:
+      action:
+        type: string
+      added_by:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      ip:
+        type: string
+      site_id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
   types.SiteWithRemark:
     properties:
       domain:
@@ -147,7 +173,7 @@ definitions:
       timezone:
         type: string
     type: object
-  types.TopStatsRequest:
+  types.StatsRequest:
     properties:
       date:
         type: string
@@ -417,7 +443,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: 根据ID更新站点域名和名称
+      description: 根据域名更新站点信息
       parameters:
       - description: 更新站点请求参数
         in: body
@@ -630,10 +656,6 @@ paths:
           description: 请求参数错误
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-        "500":
-          description: 服务器内部错误
-          schema:
-            $ref: '#/definitions/response.ErrorResponse'
       security:
       - BearerAuth: []
       summary: 添加Hostname屏蔽规则
@@ -701,7 +723,8 @@ paths:
             - $ref: '#/definitions/response.SuccessResponse'
             - properties:
                 data:
-                  items: {}
+                  items:
+                    $ref: '#/definitions/types.ShieldRuleIPResponse'
                   type: array
               type: object
         "400":
@@ -882,7 +905,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/types.TopStatsRequest'
+          $ref: '#/definitions/types.StatsRequest'
       - description: 站点域名
         in: path
         name: domain
@@ -937,6 +960,43 @@ paths:
       security:
       - BearerAuth: []
       summary: 获取设备排名统计
+      tags:
+      - 统计分析
+  /stats/{domain}/meta:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定域名的带meta筛选条件的统计数据
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: Meta 参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.MetaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功响应，返回带meta筛选条件的统计数据
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: 请求参数错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取带meta筛选条件的统计数据
       tags:
       - 统计分析
   /stats/{domain}/page_rank:

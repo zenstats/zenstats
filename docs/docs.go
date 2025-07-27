@@ -349,7 +349,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "根据ID更新站点域名和名称",
+                "description": "根据域名更新站点信息",
                 "consumes": [
                     "application/json"
                 ],
@@ -710,12 +710,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
-                    },
-                    "500": {
-                        "description": "服务器内部错误",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
                     }
                 }
             }
@@ -828,7 +822,9 @@ const docTemplate = `{
                                     "properties": {
                                         "data": {
                                             "type": "array",
-                                            "items": {}
+                                            "items": {
+                                                "$ref": "#/definitions/types.ShieldRuleIPResponse"
+                                            }
                                         }
                                     }
                                 }
@@ -1133,7 +1129,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/types.TopStatsRequest"
+                            "$ref": "#/definitions/types.StatsRequest"
                         }
                     },
                     {
@@ -1200,6 +1196,68 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "成功响应，返回设备排名统计数据",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {}
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/{domain}/meta": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取指定域名的带meta筛选条件的统计数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "统计分析"
+                ],
+                "summary": "获取带meta筛选条件的统计数据",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Meta 参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.MetaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功响应，返回带meta筛选条件的统计数据",
                         "schema": {
                             "allOf": [
                                 {
@@ -1392,7 +1450,7 @@ const docTemplate = `{
                     "description": "错误码",
                     "type": "integer"
                 },
-                "detail": {
+                "error": {
                     "description": "错误详情",
                     "type": "string"
                 },
@@ -1471,8 +1529,8 @@ const docTemplate = `{
                 "action": {
                     "type": "string",
                     "enum": [
-                        "allow",
-                        "deny"
+                        "deny",
+                        "allow"
                     ]
                 },
                 "description": {
@@ -1575,6 +1633,46 @@ const docTemplate = `{
                 }
             }
         },
+        "types.MetaRequest": {
+            "type": "object",
+            "properties": {
+                "meta": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "types.ShieldRuleIPResponse": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "added_by": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "site_id": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "types.SiteWithRemark": {
             "type": "object",
             "properties": {
@@ -1598,7 +1696,7 @@ const docTemplate = `{
                 }
             }
         },
-        "types.TopStatsRequest": {
+        "types.StatsRequest": {
             "type": "object",
             "required": [
                 "period"
