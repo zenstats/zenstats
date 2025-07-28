@@ -171,14 +171,13 @@ func (s *StateService) GetTopStats(ctx *gin.Context, domain string, req *types.S
 }
 
 // GetMetaStats 获取带meta筛选条件的统计数据
-// 修改参数类型，让 meta 接收 map[string][]string 类型
 func (s *StateService) GetMetaStats(ctx *gin.Context, domain string, req *types.StatsRequest, meta *types.MetaRequest) (*TopStats, error) {
 	// 方法实现
 	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
 	}
-	s.getWhereWithMeta(site, req)
+	s.getWhereWithMeta(site, req, meta)
 
 	return nil, nil
 }

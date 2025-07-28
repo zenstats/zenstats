@@ -34,7 +34,7 @@ func (s *StateHandle) MetaStats() gin.HandlerFunc {
 
 		// 绑定meta参数到结构体
 		var metaReq types.MetaRequest
-		if err := c.ShouldBindQuery(&metaReq); err != nil {
+		if err = c.ShouldBindQuery(&metaReq); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}

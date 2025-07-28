@@ -91,7 +91,6 @@ export default function StatePage() {
     const request: StatsRequest = {
       period: period,
     };
-    // 如果date不为空
     request.date = dayjs(date).format("YYYY-MM-DD");
     if (from) {
       request.from = dayjs(from).format("YYYY-MM-DD");
@@ -202,16 +201,47 @@ export default function StatePage() {
 
   const handleSelectdOptionName = () => {
     const query = qs.parse(window.location.search, { ignoreQueryPrefix: true });
-    const period = query.period
-    const date = query.date as string
-    if (period === 'day') {
-      if (dayjs(date).isSame(dayjs(), 'day')) {
-        setSelectdOptionName("Today")
-      } else {
-        setSelectdOptionName(dayjs(date).format('MMM DD, YYYY'))
-      }
+    const period = query.period as string;
+    const date = query.date as string;
+    const from = query.from as string;
+    const to = query.to as string;
+
+    switch (period) {
+      case 'day':
+        if (dayjs(date).isSame(dayjs(), 'day')) {
+          setSelectdOptionName("Today");
+        } else {
+          setSelectdOptionName(dayjs(date).format('MMM DD, YYYY'));
+        }
+        break;
+      case 'yesterday':
+        setSelectdOptionName("Yesterday");
+        break;
+      case 'realtime':
+        setSelectdOptionName("Realtime");
+        break;
+      case 'w':
+        setSelectdOptionName("This Week");
+        break;
+      case 'm':
+        setSelectdOptionName("This Month");
+        break;
+      case 'p7':
+        setSelectdOptionName("Last 7 Days");
+        break;
+      case 'p14':
+        setSelectdOptionName("Last 14 Days");
+        break;
+      case 'p30':
+        setSelectdOptionName("Last 30 Days");
+        break;
+      case 'custom':
+        setSelectdOptionName(`${dayjs(from).format('MMM DD')} - ${dayjs(to).format('MMM DD')}`);
+        break;
+      default:
+        setSelectdOptionName("Today");
     }
-  }
+  };
 
   const refreshData = () => {
     setQueryTime(new Date());
