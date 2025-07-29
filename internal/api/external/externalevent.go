@@ -51,6 +51,12 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			return
 		}
 
+		// Set default value for Interactive if not provided
+		if tempReq.Interactive == nil {
+			trueVal := json.RawMessage("true")
+			tempReq.Interactive = &trueVal
+		}
+
 		can, err := siteService.IsDomainInList(c, tempReq.Domain)
 		if err != nil {
 			slog.Error("failed to check domain", "error", err)

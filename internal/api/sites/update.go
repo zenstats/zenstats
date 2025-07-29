@@ -32,7 +32,7 @@ func (h *SitesHandler) Update() gin.HandlerFunc {
 
 		var req types.UpdateSiteRequest
 
-		if err := c.ShouldBindJSON(&req); err != nil {
+		if err = c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}

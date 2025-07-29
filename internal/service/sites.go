@@ -326,7 +326,7 @@ func (s *SiteService) RemoveShieldRuleIP(ctx context.Context, domain string, rul
 	}
 
 	// 删除成功后清除缓存
-	s.shieldRuleHostnameCache.Remove(domain)
+	s.shieldRuleIPCache.Remove(domain)
 	return nil
 }
 

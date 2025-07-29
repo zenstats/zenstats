@@ -83,9 +83,9 @@ export default function SettingShieldsCountries() {
   const [newCountryCode, setNewCountryCode] = useState('');
   const [newCountryDescription, setNewCountryDescription] = useState('');
   const countryOptions = useMemo(() => COUNTRY_LIST.map(country => ({
-      value: country.code,
-      label: <><span className={`fi fi-${country.code.toLowerCase()} mr-2`}></span>{country.name} ({country.code})</>,
-      searchLabel: `${country.name} (${country.code})`
+      value: country.code.toUpperCase(),
+      label: <><span className={`fi fi-${country.code.toLowerCase()} mr-2`}></span>{country.name} ({country.code.toUpperCase()})</>,
+      searchLabel: `${country.name} (${country.code.toUpperCase()})`
     })), []);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);

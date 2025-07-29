@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, memo } from "react";
 import { Search } from "lucide-react";
 
 import { Input } from "./ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "./ui/select";
 
 interface SelectOption<TValue extends string = string> {
   value: TValue;
@@ -32,6 +32,11 @@ const SearchSelect = memo(function SearchSelect<TValue extends string = string>(
   const [searchQuery, setSearchQuery] = React.useState<string>("");
   const [isOpen, setIsOpen] = React.useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  const selectedOption = useMemo(() => {
+    if (!value) return undefined;
+    return options.find(option => option.value === value);
+  }, [options, value]);
 
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
@@ -67,8 +72,8 @@ const SearchSelect = memo(function SearchSelect<TValue extends string = string>(
         onOpenChange={setIsOpen}
       >
         <SelectTrigger className="w-full">
-          {value ? (
-            <SelectValue placeholder={placeholder} />
+          {selectedOption ? (
+            <div className="flex items-center">{selectedOption.label}</div>
           ) : (
             <div className="flex items-center text-muted-foreground">
               <Search className="mr-2 h-4 w-4" />
