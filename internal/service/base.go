@@ -2,7 +2,6 @@ package service
 
 import "github.com/dromara/carbon/v2"
 
-// 调整开始时间到间隔起始点
 func adjustStartTimeToInterval(start *carbon.Carbon, interval string, intervalSeconds int) *carbon.Carbon {
 	if start == nil {
 		return nil

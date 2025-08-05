@@ -207,7 +207,6 @@ CREATE TABLE IF NOT EXISTS zenstats_events_db.events
     `referrer` String CODEC(ZSTD(3)),
     `referrer_source` String CODEC(ZSTD(3)),
     `operating_system` LowCardinality(String),
-    `device` LowCardinality(String),
     `utm_medium` String CODEC(ZSTD(3)),
     `utm_source` String CODEC(ZSTD(3)),
     `utm_content` String CODEC(ZSTD(3)),
@@ -292,10 +291,10 @@ CREATE TABLE IF NOT EXISTS zenstats_events_db.sessions
 
     `ipv6` IPv6,
     `channel` LowCardinality(String),
-
     `city` String ALIAS city_geoname_id,
     `continent` String ALIAS continent_geoname_id,
     `country` LowCardinality(FixedString(2)) ALIAS country_code,
+    `entry_page_hostname` String ALIAS hostname,
     `os` LowCardinality(String) ALIAS operating_system,
     `os_version` LowCardinality(String) ALIAS operating_system_version,
     `device` LowCardinality(String) ALIAS screen_size,

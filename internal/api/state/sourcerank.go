@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
@@ -29,8 +30,51 @@ func (s *StateHandle) GetSourceRank() gin.HandlerFunc {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
+		service := service.GetStatsService()
 
-		stats, err := s.service.GetSourceRank(c, domain, req)
+		stats, err := service.GetSourceRank(c, domain, req)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, err)
+			return
+		}
+
+		response.Success(c, stats)
+	}
+}
+
+func (s *StateHandle) GetAggregate() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		domain := c.Param("domain")
+
+		req, err := s.validate(c)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, err)
+			return
+		}
+
+		service := service.GetStatsService()
+		stats, err := service.GetAggregate(c, domain, req)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, err)
+			return
+		}
+
+		response.Success(c, stats)
+	}
+}
+
+func (s *StateHandle) GetTimeSeries() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		domain := c.Param("domain")
+
+		req, err := s.validate(c)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, err)
+			return
+		}
+
+		service := service.GetStatsService()
+		stats, err := service.GetTimeSeries(c, domain, req)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return

@@ -8,8 +8,8 @@ type StatsRequest struct {
 	Interval string `form:"interval" binding:"omitempty"`
 	Limit    int    `form:"limit" binding:"omitempty"`
 	Page     int    `form:"page" binding:"omitempty"`
+	Filters  []any  `json:"filters" binding:"omitempty"`
 }
 
-type MetaRequest struct {
-	Meta map[string]string `form:"meta"`
-}
+// [["is", "visit:country_name", ["Germany", "Poland"]]]
+// ["and", [["is", "visit:country_name", ["Germany"]], ["is", "visit:city_name", ["Berlin"]]]]

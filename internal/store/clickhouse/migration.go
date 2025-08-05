@@ -394,6 +394,7 @@ func (m *Migration) ensureEventsTable(ctx context.Context) error {
     {{backtick}}city{{backtick}} String ALIAS city_geoname_id,
     {{backtick}}continent{{backtick}} String ALIAS continent_geoname_id,
     {{backtick}}country{{backtick}} LowCardinality(FixedString(2)) ALIAS country_code,
+    {{backtick}}entry_page_hostname{{backtick}} String ALIAS hostname,
     {{backtick}}os{{backtick}} LowCardinality(String) ALIAS operating_system,
     {{backtick}}os_version{{backtick}} LowCardinality(String) ALIAS operating_system_version,
     {{backtick}}device{{backtick}} LowCardinality(String) ALIAS screen_size,

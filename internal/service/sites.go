@@ -514,30 +514,24 @@ func (s *SiteService) UpdateSite(ctx *gin.Context, domain string, req types.Upda
 
 	updateQuery := tx.Site.UpdateOne(siteEntity)
 
-	// 更新 remark 字段，仅当 remark 不为空字符串时更新
 	if req.Remark != "" {
 		updateQuery = updateQuery.SetRemark(req.Remark)
 	}
 
-	// 更新 timezone 字段
 	if req.Timezone != nil {
 		updateQuery = updateQuery.SetTimezone(*req.Timezone)
 	}
 
-	// 更新 public 字段
 	if req.Public != nil {
 		updateQuery = updateQuery.SetPublic(*req.Public)
 	}
 
-	// 更新 stats_start_date 字段
 	if !req.StatsStartDate.IsZero() {
 		updateQuery = updateQuery.SetStatsStartDate(req.StatsStartDate)
 	}
 
-	// 更新 ingest_rate_limit_scale_seconds 字段
 	updateQuery = updateQuery.SetIngestRateLimitScaleSeconds(req.IngestRateLimitScaleSeconds)
 
-	// 更新 ingest_limit_per_minute 字段
 	updateQuery = updateQuery.SetIngestLimitPerMinute(req.IngestLimitPerMinute)
 
 	siteEntity, err = updateQuery.Save(ctx)

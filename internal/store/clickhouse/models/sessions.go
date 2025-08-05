@@ -41,6 +41,7 @@ type Sessions struct {
 	ScreenSize             string            `json:"screen_size" ch:"screen_size"`
 	OperatingSystem        string            `json:"operating_system" ch:"operating_system"`
 	OperatingSystemVersion string            `json:"operating_system_version" ch:"operating_system_version"`
+	ExitPageHostname       string            `json:"exit_page_hostname" ch:"exit_page_hostname"`
 	Browser                string            `json:"browser" ch:"browser"`
 	BrowserVersion         string            `json:"browser_version" ch:"browser_version"`
 	CityGeonameId          string            `json:"city_geoname_id" ch:"city_geoname_id"`

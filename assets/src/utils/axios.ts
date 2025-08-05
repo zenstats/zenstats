@@ -17,10 +17,9 @@ const ignoreMsgs = [
 let requestList: Array<() => void> = []
 let isRefreshToken = false
 // 请求白名单，无须token的接口
-const whiteList: string[] = ['/api/v1/token', '/login', '/v1/publicKey']
 const api = axios.create({
-    // baseURL: 'http://localhost:8080/api',
-    baseURL: 'https://analysis.yzhyai.com/api',
+    baseURL: 'http://localhost:8080/api',
+    // baseURL: 'https://analysis.yzhyai.com/api',
 }) as AxiosInstance & {
     <T = unknown>(config: AxiosRequestConfig): Promise<BaseResponse<T>>;
     <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<BaseResponse<T>>;
@@ -29,13 +28,7 @@ const api = axios.create({
 // request拦截器
 api.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        let isToken = true
-        whiteList.some((v) => {
-            if (config.url && config.url.startsWith(v)) {
-                return isToken = false
-            }
-        })
-        if (localStorage.getItem('token') && isToken) {
+        if (localStorage.getItem('token')) {
             config.headers.Authorization = 'Bearer ' + localStorage.getItem('token') // 让每个请求携带自定义token
         }
 

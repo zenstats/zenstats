@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 )
 
 var MigrateCmd = &cobra.Command{
@@ -31,7 +32,8 @@ var MigrateCmd = &cobra.Command{
 			fmt.Printf("failed counting SearchEngines records: %v", err)
 			os.Exit(1)
 		}
-
+		engines := client.Client.SearchEngines.Query().Where(searchengines.NameEQ("360")).AllX(context.Background())
+		fmt.Printf("engines: %v\n", engines)
 		if count == 0 {
 			fmt.Println("No data in SearchEngines table. Inserting default data...")
 			// 定义要插入的数据
@@ -42,6 +44,7 @@ var MigrateCmd = &cobra.Command{
 				"baidu.com":  "Baidu",
 				"yandex.com": "Yandex",
 				"yahoo.com":  "Yahoo",
+				"github.com": "Github",
 			}
 
 			// 批量插入数据
