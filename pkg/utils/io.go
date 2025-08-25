@@ -206,7 +206,7 @@ func Max[T constraints.Ordered](a, b T) T {
 }
 
 var IoBuffPool = &sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return make([]byte, 32*1024*2) // Two times of size in io package
 	},
 }

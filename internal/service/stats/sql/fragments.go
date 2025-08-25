@@ -8,7 +8,7 @@ import (
 // SQLFragment 表示带参数的SQL片段
 type SQLFragment struct {
 	SQL  string
-	Args []interface{}
+	Args []any
 }
 
 func (f *SQLFragment) ToSql() string {
@@ -41,7 +41,7 @@ func (g *SQLFragmentGenerator) ScaleSample(fragment SQLFragment) SQLFragment {
 func (g *SQLFragmentGenerator) Uniq(userID string) SQLFragment {
 	return g.ScaleSample(SQLFragment{
 		SQL:  "uniq(?)",
-		Args: []interface{}{userID},
+		Args: []any{userID},
 	})
 }
 
@@ -103,7 +103,7 @@ func (g *SQLFragmentGenerator) VisitDuration() SQLFragment {
 func (g *SQLFragmentGenerator) CoalesceString(fieldA, fieldB string) SQLFragment {
 	return SQLFragment{
 		SQL:  "if(empty(?), ?, ?)",
-		Args: []interface{}{fieldA, fieldB, fieldA},
+		Args: []any{fieldA, fieldB, fieldA},
 	}
 }
 
@@ -112,7 +112,7 @@ func (g *SQLFragmentGenerator) CoalesceString(fieldA, fieldB string) SQLFragment
 func (g *SQLFragmentGenerator) ToTimezone(date, timezone string) SQLFragment {
 	return SQLFragment{
 		SQL:  "toTimeZone(?, ?)",
-		Args: []interface{}{date, timezone},
+		Args: []any{date, timezone},
 	}
 }
 
@@ -120,7 +120,7 @@ func (g *SQLFragmentGenerator) ToTimezone(date, timezone string) SQLFragment {
 func (g *SQLFragmentGenerator) WeekstartNotBefore(date, notBefore string) SQLFragment {
 	return SQLFragment{
 		SQL:  "if(toMonday(?) < toDate(?), toDate(?), toMonday(?))",
-		Args: []interface{}{date, notBefore, notBefore, date},
+		Args: []any{date, notBefore, notBefore, date},
 	}
 }
 
@@ -129,7 +129,7 @@ func (g *SQLFragmentGenerator) HasKey(table, metaColumn, key string) SQLFragment
 	metaKeyColumn := metaKeyColumnName(metaColumn)
 	return SQLFragment{
 		SQL:  fmt.Sprintf("has(%s.%s, ?)", table, metaKeyColumn),
-		Args: []interface{}{key},
+		Args: []any{key},
 	}
 }
 

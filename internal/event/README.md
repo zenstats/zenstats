@@ -18,8 +18,8 @@
 type EventContext struct {
     Request       *Request
     Site         *Site
-    EventAttrs   map[string]interface{}
-    SessionAttrs map[string]interface{}
+    EventAttrs   map[string]any
+    SessionAttrs map[string]any
     Dropped      bool
     DropReason   string
     // 其他字段...
@@ -30,8 +30,8 @@ func NewEventContext(req *Request, site *Site) *EventContext {
     return &EventContext{
         Request:       req,
         Site:         site,
-        EventAttrs:   make(map[string]interface{}),
-        SessionAttrs: make(map[string]interface{}),
+        EventAttrs:   make(map[string]any),
+        SessionAttrs: make(map[string]any),
     }
 }
 ```

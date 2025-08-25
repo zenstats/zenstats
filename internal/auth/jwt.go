@@ -41,7 +41,7 @@ func GenerateToken(userID int64) (string, error) {
 }
 
 func ParseToken(tokenString string) (*CustomClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
 		return JWTSecret, nil
 	})
 	if err != nil {

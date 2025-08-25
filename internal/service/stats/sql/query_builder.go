@@ -24,7 +24,7 @@ func NewQueryBuilder() *QueryBuilder {
 }
 
 // Build constructs the complete SQL query based on the input query and site
-func (qb *QueryBuilder) Build(query *types.Query, site *types.Site) (string, []interface{}, error) {
+func (qb *QueryBuilder) Build(query *types.Query, site *types.Site) (string, []any, error) {
 	// Split query into event and session components using QueryOptimizer
 	qo := &QueryOptimizer{}
 	query = qo.Optimize(query)
@@ -60,7 +60,7 @@ func (qb *QueryBuilder) Build(query *types.Query, site *types.Site) (string, []i
 }
 
 // buildEventsQuery constructs the SQL for event-based metrics
-func (qb *QueryBuilder) buildEventsQuery(site *types.Site, eventQuery *types.Query) (string, []interface{}, error) {
+func (qb *QueryBuilder) buildEventsQuery(site *types.Site, eventQuery *types.Query) (string, []any, error) {
 	if len(eventQuery.Metrics) == 0 {
 		return "", nil, nil
 	}
@@ -224,7 +224,7 @@ func (qb *QueryBuilder) addSpecialMetrics(sql string, site *types.Site, query *t
 }
 
 // buildSessionsQuery constructs the SQL for session-based metrics
-func (qb *QueryBuilder) buildSessionsQuery(site *types.Site, sessionsQuery *types.Query) (string, []interface{}, error) {
+func (qb *QueryBuilder) buildSessionsQuery(site *types.Site, sessionsQuery *types.Query) (string, []any, error) {
 	if len(sessionsQuery.Metrics) == 0 {
 		return "", nil, nil
 	}
@@ -279,7 +279,7 @@ func (qb *QueryBuilder) buildSessionsQuery(site *types.Site, sessionsQuery *type
 }
 
 // buildSessionSubquery creates a subquery for session joins in event queries
-func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []interface{}, error) {
+func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []any, error) {
 	whereBuilder := NewWhereBuilder(query.SiteID)
 	whereBuilder.FilterSiteTimeRange("sessions", query.UTCTimeRange.Start, query.UTCTimeRange.End)
 
@@ -299,7 +299,7 @@ func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []inte
 }
 
 // buildEventSubquery creates a subquery for event joins in session queries
-func (qb *QueryBuilder) buildEventSubquery(query *types.Query) (string, []interface{}, error) {
+func (qb *QueryBuilder) buildEventSubquery(query *types.Query) (string, []any, error) {
 	whereBuilder := NewWhereBuilder(query.SiteID)
 	whereBuilder.FilterSiteTimeRange("events", query.UTCTimeRange.Start, query.UTCTimeRange.End)
 
@@ -319,7 +319,7 @@ func (qb *QueryBuilder) buildEventSubquery(query *types.Query) (string, []interf
 }
 
 // joinQueryResults combines event and session query results
-func (qb *QueryBuilder) joinQueryResults(eventSQL string, eventQuery *types.Query, sessionSQL string, sessionQuery *types.Query) (string, []interface{}, error) {
+func (qb *QueryBuilder) joinQueryResults(eventSQL string, eventQuery *types.Query, sessionSQL string, sessionQuery *types.Query) (string, []any, error) {
 	// Handle cases where one of the queries is nil
 	if eventSQL == "" && sessionSQL == "" {
 		return "", nil, nil

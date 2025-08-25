@@ -17,7 +17,7 @@ import (
 //
 //	@Produce		json
 //	@Param			domain	path		string										true	"站点域名"
-//	@Success		200		{object}	response.SuccessResponse{data=interface{}}	"成功响应，返回顶级统计数据"
+//	@Success		200		{object}	response.SuccessResponse{data=any}	"成功响应，返回顶级统计数据"
 //	@Failure		400		{object}	response.ErrorResponse						"请求参数错误"
 //	@Router			/stats/{domain}/top_stats [get]
 func (s *StateHandle) GetTopStats() gin.HandlerFunc {

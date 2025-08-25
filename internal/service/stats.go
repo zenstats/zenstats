@@ -813,10 +813,10 @@ func (s *StateService) parseFilter(ctx context.Context, filter any) (string, err
 	}
 
 	clauses := filterArr[2]
-	clausesArr, isArray := clauses.([]interface{})
+	clausesArr, isArray := clauses.([]any)
 	if !isArray {
 		// 如果不是数组，包装成单元素数组
-		clausesArr = []interface{}{clauses}
+		clausesArr = []any{clauses}
 	}
 
 	// 转义数组中的每个值

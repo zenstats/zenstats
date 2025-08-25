@@ -18,7 +18,7 @@ import (
 //
 //
 //	@Param			domain	query		string											false	"站点域名（模糊查询）"
-//	@Success		200		{object}	response.SuccessResponse{data=[]interface{}}	"成功响应，返回站点列表"
+//	@Success		200		{object}	response.SuccessResponse{data=[]any}	"成功响应，返回站点列表"
 //	@Failure		400		{object}	response.ErrorResponse							"请求参数错误"
 //	@Router			/sites [get]
 func (h *SitesHandler) List() gin.HandlerFunc {

@@ -18,7 +18,7 @@ func (i Inet) Value() (driver.Value, error) {
 }
 
 // Scan 实现 sql.Scanner 接口
-func (i *Inet) Scan(src interface{}) error {
+func (i *Inet) Scan(src any) error {
 	if src == nil {
 		return nil
 	}

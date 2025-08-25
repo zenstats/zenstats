@@ -238,8 +238,8 @@ type Pagination struct {
 
 // QueryResult 封装查询结果
 type QueryResult struct {
-	Columns []string                 `json:"columns"`
-	Data    []map[string]interface{} `json:"data"`
+	Columns []string         `json:"columns"`
+	Data    []map[string]any `json:"data"`
 }
 
 // ToJSON 将结果转换为JSON

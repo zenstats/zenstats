@@ -18,7 +18,7 @@ import (
 //
 //	@Produce		json
 //	@Param			domain	path		string										true	"站点域名"
-//	@Success		200		{object}	response.SuccessResponse{data=interface{}}	"成功响应，返回来源排名统计数据"
+//	@Success		200		{object}	response.SuccessResponse{data=any}	"成功响应，返回来源排名统计数据"
 //	@Failure		400		{object}	response.ErrorResponse						"请求参数错误"
 //	@Router			/stats/{domain}/source_rank [get]
 func (s *StateHandle) GetSourceRank() gin.HandlerFunc {

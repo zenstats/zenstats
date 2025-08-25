@@ -27,13 +27,13 @@ type SuccessResponse struct {
 	// 响应信息
 	Message string `json:"message"`
 	// 响应数据
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 }
 
 // JSON 响应
 //
 //	@Description	接口返回的响应信息
-func JSON(c *gin.Context, code int, data interface{}) {
+func JSON(c *gin.Context, code int, data any) {
 	c.JSON(http.StatusOK, SuccessResponse{
 		Code:    code,
 		Message: getStatusMessage(code),
@@ -44,7 +44,7 @@ func JSON(c *gin.Context, code int, data interface{}) {
 // Success 成功响应
 //
 //	@Description	接口返回的响应信息
-func Success(c *gin.Context, data interface{}) {
+func Success(c *gin.Context, data any) {
 	JSON(c, http.StatusOK, data)
 }
 

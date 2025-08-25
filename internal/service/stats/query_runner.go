@@ -66,18 +66,18 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 	}
 
 	// 准备结果容器
-	var results []map[string]interface{}
+	var results []map[string]any
 
 	// 遍历行
 	for rows.Next() {
 		// 创建行数据容器
-		row := make(map[string]interface{})
+		row := make(map[string]any)
 		// 获取列类型信息
 		columnTypes := rows.ColumnTypes()
 
 		// 为每一列创建适当类型的指针
-		values := make([]interface{}, len(originalColumns))
-		pointers := make([]interface{}, len(originalColumns))
+		values := make([]any, len(originalColumns))
+		pointers := make([]any, len(originalColumns))
 		for i, colType := range columnTypes {
 			switch colType.DatabaseTypeName() {
 			case "UInt8":
@@ -109,7 +109,7 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 				values[i] = &val
 				pointers[i] = &val
 			default:
-				var val interface{}
+				var val any
 				values[i] = &val
 				pointers[i] = &val
 			}
@@ -122,7 +122,7 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 
 		// 处理每一列数据
 		for i, col := range newColumns {
-			var val interface{}
+			var val any
 			switch columnTypes[i].DatabaseTypeName() {
 			case "UInt8":
 				val = *values[i].(*uint8)
@@ -139,7 +139,7 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 			case "String", "LowCardinality(String)":
 				val = *values[i].(*string)
 			default:
-				val = *values[i].(*interface{})
+				val = *values[i].(*any)
 			}
 			row[col] = convertValue(val)
 		}
@@ -159,12 +159,12 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 }
 
 // convertValue 转换ClickHouse特定类型为通用类型
-func convertValue(val interface{}) interface{} {
+func convertValue(val any) any {
 	// 处理不同类型的值
 	switch v := val.(type) {
 	case []byte:
 		// 尝试解析JSON
-		var jsonVal interface{}
+		var jsonVal any
 		if err := json.Unmarshal(v, &jsonVal); err == nil {
 			return jsonVal
 		}

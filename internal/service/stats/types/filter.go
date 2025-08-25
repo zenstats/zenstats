@@ -8,7 +8,7 @@ import (
 type Filter struct {
 	Operator   string            `json:"operator"`  // 基础比较: is, is_not 模式匹配: matches, matches_wildcard 包含关系: contains, contains_not
 	Dimension  string            `json:"dimension"` //
-	Values     []interface{}     `json:"values"`
+	Values     []any             `json:"values"`
 	Modifiers  map[string]string `json:"modifiers"`
 	SubFilters []*Filter         `json:"sub_filters"`
 }
@@ -27,7 +27,7 @@ type Filter struct {
 //   ]]
 // ]]
 
-func ParseRawFilter(raw []interface{}) (*Filter, error) {
+func ParseRawFilter(raw []any) (*Filter, error) {
 
 	if len(raw) == 0 {
 		return nil, nil
@@ -44,7 +44,7 @@ func ParseRawFilter(raw []interface{}) (*Filter, error) {
 		if len(raw) < 2 {
 			return nil, errors.New("compound filter missing subfilters")
 		}
-		subArr, ok := raw[1].([][]interface{})
+		subArr, ok := raw[1].([][]any)
 		if !ok {
 			return nil, errors.New("subfilters must be array")
 		}
@@ -66,7 +66,7 @@ func ParseRawFilter(raw []interface{}) (*Filter, error) {
 			return nil, errors.New("basic filter missing fields")
 		}
 		dim, _ := raw[1].(string)
-		vals, _ := raw[2].([]interface{})
+		vals, _ := raw[2].([]any)
 		var mods map[string]string
 		if len(raw) > 3 {
 			mods, _ = raw[3].(map[string]string)

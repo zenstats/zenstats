@@ -85,7 +85,7 @@ func (s *CurrentVisitorsService) GetCurrentVisitors(ctx context.Context, siteID 
 }
 
 // GetCurrentVisitorsByPage 获取按页面分组的当前访客
-func (s *CurrentVisitorsService) GetCurrentVisitorsByPage(ctx context.Context, siteID string, since time.Duration, limit int) ([]map[string]interface{}, error) {
+func (s *CurrentVisitorsService) GetCurrentVisitorsByPage(ctx context.Context, siteID string, since time.Duration, limit int) ([]map[string]any, error) {
 	// 计算时间范围
 	if since == 0 {
 		since = 5 * time.Minute
@@ -118,7 +118,7 @@ func (s *CurrentVisitorsService) GetCurrentVisitorsByPage(ctx context.Context, s
 	defer rows.Close()
 
 	// 处理结果
-	results := []map[string]interface{}{}
+	results := []map[string]any{}
 
 	for rows.Next() {
 		var page string
@@ -128,7 +128,7 @@ func (s *CurrentVisitorsService) GetCurrentVisitorsByPage(ctx context.Context, s
 			return nil, err
 		}
 
-		results = append(results, map[string]interface{}{
+		results = append(results, map[string]any{
 			"page":     page,
 			"visitors": visitors,
 			"sessions": sessions,

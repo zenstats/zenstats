@@ -38,7 +38,7 @@ func TestCreateQuery(t *testing.T) {
 				// 		&types.Filter{
 				// 			Operator:  "contains",
 				// 			Dimension: "visit:country",
-				// 			Values:    []interface{}{"CN"},
+				// 			Values:    []any{"CN"},
 				// 		},
 				// 	},
 				// }},

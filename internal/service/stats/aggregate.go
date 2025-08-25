@@ -18,19 +18,19 @@ var metricsToRound = map[string]bool{
 
 // AggregateResult 聚合结果
 type TimeSeriesPoint struct {
-	Timestamp string                 `json:"timestamp"`
-	Metrics   map[string]interface{} `json:"metrics"`
+	Timestamp string         `json:"timestamp"`
+	Metrics   map[string]any `json:"metrics"`
 }
 
 type AggregateResult struct {
 	Results map[string]MetricResult `json:"results"`
-	Meta    interface{}             `json:"meta"`
+	Meta    any                     `json:"meta"`
 }
 
 type MetricResult struct {
-	Value           interface{} `json:"value"`
-	ComparisonValue interface{} `json:"comparison_value,omitempty"`
-	Change          interface{} `json:"change,omitempty"`
+	Value           any `json:"value"`
+	ComparisonValue any `json:"comparison_value,omitempty"`
+	Change          any `json:"change,omitempty"`
 }
 
 // AggregateService 处理数据聚合
@@ -74,7 +74,7 @@ func (as *AggregateService) GetAggregate(ctx context.Context, params *types.Para
 
 	results := make(map[string]MetricResult)
 	// 处理结果
-	metrics := make(map[string]interface{})
+	metrics := make(map[string]any)
 
 	// 如果没有结果，返回空指标
 	if len(result.Data) == 0 {
@@ -113,7 +113,7 @@ func (as *AggregateService) GetAggregate(ctx context.Context, params *types.Para
 	}, nil
 }
 
-func buildMetricResult(entry []map[string]interface{}, index int, metric string) MetricResult {
+func buildMetricResult(entry []map[string]any, index int, metric string) MetricResult {
 	if len(entry) == 0 {
 		return MetricResult{
 			Value: 0,
@@ -131,7 +131,7 @@ func buildMetricResult(entry []map[string]interface{}, index int, metric string)
 	}
 }
 
-func maybeRoundValue(val interface{}, metric string) interface{} {
+func maybeRoundValue(val any, metric string) any {
 	if val == nil {
 		return nil
 	}
@@ -209,7 +209,7 @@ func (as *AggregateService) GetTimeSeries(ctx context.Context, params *types.Par
 		if val, ok := row[key]; ok {
 			timestamp = fmt.Sprintf("%v", val)
 		}
-		metrics := make(map[string]interface{})
+		metrics := make(map[string]any)
 		for _, metric := range params.Metrics {
 			if v, ok := row[metric]; ok {
 				metrics[metric] = v
@@ -258,7 +258,7 @@ func (as *AggregateService) fillMissingTimePoints(points []TimeSeriesPoint, inte
 		if pt, exists := pointMap[utcTimestamp]; exists {
 			p = pt
 		} else {
-			emptyMetrics := make(map[string]interface{})
+			emptyMetrics := make(map[string]any)
 			for _, m := range params.Metrics {
 				emptyMetrics[m] = 0
 			}

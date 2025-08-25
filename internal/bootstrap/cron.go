@@ -10,7 +10,7 @@ func InitCron() {
 	cron.Start()
 
 	// 每天1点更新 GeoIP 数据库
-	cron.AddJob("0 0 1 */7 * *", func(params interface{}) {
+	cron.AddJob("0 0 1 */7 * *", func(params any) {
 		geoip.GetGeoIP().UpdateGeoIPDB("")
 	}, nil)
 }

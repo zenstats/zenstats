@@ -19,7 +19,7 @@ import (
 //	@Produce		json
 //	@Security		BearerAuth
 //	@Param			body	body		types.CreateSiteRequest									true	"创建站点请求参数"
-//	@Success		200		{object}	response.SuccessResponse{data=map[string]interface{}}	"成功响应，返回创建的站点信息"
+//	@Success		200		{object}	response.SuccessResponse{data=map[string]any}	"成功响应，返回创建的站点信息"
 //	@Failure		400		{object}	response.ErrorResponse									"请求参数错误"
 //	@Failure		500		{object}	response.ErrorResponse									"服务器内部错误"
 //	@Router			/sites [post]

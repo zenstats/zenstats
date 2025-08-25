@@ -70,7 +70,7 @@ func (h *SitesHandler) ListShieldRuleIP() gin.HandlerFunc {
 //	@Produce		json
 //	@Param			domain	path		string										true	"站点域名"
 //	@Param			body	body		types.AddShieldRuleIPRequest				true	"添加IP屏蔽规则请求参数"
-//	@Success		200		{object}	response.SuccessResponse{data=interface{}}	"成功响应，返回添加的IP屏蔽规则"
+//	@Success		200		{object}	response.SuccessResponse{data=any}	"成功响应，返回添加的IP屏蔽规则"
 //	@Failure		400		{object}	response.ErrorResponse						"请求参数错误"
 //	@Failure		500		{object}	response.ErrorResponse						"服务器内部错误"
 //	@Router			/sites/{domain}/shield/ip [post]
@@ -151,7 +151,7 @@ func (h *SitesHandler) RemoveShieldRuleIP() gin.HandlerFunc {
 //	@Accept			json
 //	@Produce		json
 //	@Param			domain	path		string											true	"站点域名"
-//	@Success		200		{object}	response.SuccessResponse{data=[]interface{}}	"成功响应，返回Hostname屏蔽规则列表"
+//	@Success		200		{object}	response.SuccessResponse{data=[]any}	"成功响应，返回Hostname屏蔽规则列表"
 //	@Failure		400		{object}	response.ErrorResponse							"请求参数错误"
 //	@Failure		500		{object}	response.ErrorResponse							"服务器内部错误"
 //	@Router			/sites/{domain}/shield/hostname [get]
@@ -184,7 +184,7 @@ func (h *SitesHandler) ListShieldRuleHostname() gin.HandlerFunc {
 //	@Produce		json
 //	@Param			domain	path		string										true	"站点域名"
 //	@Param			body	body		types.AddShieldRuleHostnameRequest			true	"添加Hostname屏蔽规则请求参数"
-//	@Success		200		{object}	response.SuccessResponse{data=interface{}}	"成功响应"
+//	@Success		200		{object}	response.SuccessResponse{data=any}	"成功响应"
 //	@Failure		400		{object}	response.ErrorResponse						"请求参数错误"
 //	@Router			/sites/{domain}/shield/hostname [post]
 func (h *SitesHandler) AddShieldRuleHostname() gin.HandlerFunc {
@@ -264,7 +264,7 @@ func (h *SitesHandler) RemoveShieldRuleHostname() gin.HandlerFunc {
 //	@Accept			json
 //	@Produce		json
 //	@Param			domain	path		string											true	"站点域名"
-//	@Success		200		{object}	response.SuccessResponse{data=[]interface{}}	"成功响应，返回Country屏蔽规则列表"
+//	@Success		200		{object}	response.SuccessResponse{data=[]any}	"成功响应，返回Country屏蔽规则列表"
 //	@Failure		400		{object}	response.ErrorResponse							"请求参数错误"
 //	@Failure		500		{object}	response.ErrorResponse							"服务器内部错误"
 //	@Router			/sites/{domain}/shield/country [get]
@@ -296,7 +296,7 @@ func (h *SitesHandler) ListShieldRuleCountry() gin.HandlerFunc {
 //	@Produce		json
 //	@Param			domain	path		string										true	"站点域名"
 //	@Param			body	body		types.AddShieldRuleCountryRequest			true	"添加Country屏蔽规则请求参数"
-//	@Success		200		{object}	response.SuccessResponse{data=interface{}}	"成功响应，返回添加的Country屏蔽规则"
+//	@Success		200		{object}	response.SuccessResponse{data=any}	"成功响应，返回添加的Country屏蔽规则"
 //	@Failure		400		{object}	response.ErrorResponse						"请求参数错误"
 //	@Failure		500		{object}	response.ErrorResponse						"服务器内部错误"
 //	@Router			/sites/{domain}/shield/country [post]

@@ -11,15 +11,15 @@ import (
 
 // BreakdownResult 细分结果
 type BreakdownResult struct {
-	Dimension string                 `json:"dimension"`
-	Values    []BreakdownValue       `json:"values"`
-	Total     map[string]interface{} `json:"total,omitempty"`
+	Dimension string           `json:"dimension"`
+	Values    []BreakdownValue `json:"values"`
+	Total     map[string]any   `json:"total,omitempty"`
 }
 
 // BreakdownValue 单个细分值
 type BreakdownValue struct {
-	Value interface{}            `json:"value"`
-	Stats map[string]interface{} `json:"stats"`
+	Value any            `json:"value"`
+	Stats map[string]any `json:"stats"`
 }
 
 // BreakdownService 处理数据细分
@@ -92,7 +92,7 @@ func (bs *BreakdownService) GetMultiBreakdown(ctx context.Context, params *types
 }
 
 // processBreakdownResult 处理细分查询结果
-func (bs *BreakdownService) processBreakdownResult(result *types.QueryResult, dimension string, limit int) ([]BreakdownValue, map[string]interface{}, error) {
+func (bs *BreakdownService) processBreakdownResult(result *types.QueryResult, dimension string, limit int) ([]BreakdownValue, map[string]any, error) {
 	// 提取维度列名
 	dimensionCol := getDimensionColumnName(dimension)
 
@@ -110,7 +110,7 @@ func (bs *BreakdownService) processBreakdownResult(result *types.QueryResult, di
 	}
 
 	// 聚合结果
-	valueMap := make(map[interface{}]map[string]interface{})
+	valueMap := make(map[any]map[string]any)
 	metrics := make([]string, 0)
 
 	// 初始化指标列表
@@ -127,7 +127,7 @@ func (bs *BreakdownService) processBreakdownResult(result *types.QueryResult, di
 
 		// 初始化指标值
 		if _, exists := valueMap[val]; !exists {
-			valueMap[val] = make(map[string]interface{})
+			valueMap[val] = make(map[string]any)
 		}
 
 		// 聚合指标
@@ -191,8 +191,8 @@ func getDimensionColumnName(dimension string) string {
 }
 
 // calculateTotal 计算所有细分值的总计
-func calculateTotal(values []BreakdownValue, metrics []string) map[string]interface{} {
-	total := make(map[string]interface{})
+func calculateTotal(values []BreakdownValue, metrics []string) map[string]any {
+	total := make(map[string]any)
 
 	for _, metric := range metrics {
 		var sum float64

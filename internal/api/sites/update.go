@@ -17,7 +17,7 @@ import (
 //	@Accept			json
 //	@Produce		json
 //	@Param			body	body		types.UpdateSiteRequest						true	"更新站点请求参数"
-//	@Success		200		{object}	response.SuccessResponse{data=interface{}}	"成功响应，返回更新后的站点信息"
+//	@Success		200		{object}	response.SuccessResponse{data=any}	"成功响应，返回更新后的站点信息"
 //	@Failure		400		{object}	response.ErrorResponse						"请求参数错误"
 //	@Failure		500		{object}	response.ErrorResponse						"服务器内部错误"
 //	@Router			/sites/:domain [put]

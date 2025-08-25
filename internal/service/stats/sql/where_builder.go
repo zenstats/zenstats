@@ -12,7 +12,7 @@ import (
 // WhereBuilder 构建查询的WHERE子句
 type WhereBuilder struct {
 	conditions []string
-	params     []interface{}
+	params     []any
 	siteID     string // 添加siteID字段
 }
 
@@ -22,7 +22,7 @@ func NewWhereBuilder(siteID string) *WhereBuilder {
 }
 
 // Build 构建完整的WHERE子句
-func (wb *WhereBuilder) Build() (string, []interface{}) {
+func (wb *WhereBuilder) Build() (string, []any) {
 	if len(wb.conditions) == 0 {
 		return "", nil
 	}
@@ -30,7 +30,7 @@ func (wb *WhereBuilder) Build() (string, []interface{}) {
 }
 
 // AddCondition 添加条件到WHERE子句
-func (wb *WhereBuilder) AddCondition(condition string, params ...interface{}) {
+func (wb *WhereBuilder) AddCondition(condition string, params ...any) {
 	wb.conditions = append(wb.conditions, condition)
 	wb.params = append(wb.params, params...)
 }
@@ -48,7 +48,7 @@ func (wb *WhereBuilder) FilterSiteTimeRange(table string, firstDatetime, lastDat
 		// 会话表时间范围过滤，添加-7天偏移（模仿Elixir实现）
 		sevenDaysBefore := firstDatetime.AddDate(0, 0, -7)
 		condition := "site_id = ? AND start >= ? AND start <= ? AND timestamp >= ?"
-		params := []interface{}{wb.siteID, sevenDaysBefore, lastDatetime, firstDatetime}
+		params := []any{wb.siteID, sevenDaysBefore, lastDatetime, firstDatetime}
 
 		// 会话特有字段过滤
 		if len(wb.conditions) > 0 {
@@ -136,7 +136,7 @@ func (wb *WhereBuilder) addCustomPropFilter(filter *types.Filter) error {
 	wb.AddCondition(fmt.Sprintf("hasKey(%s, ?)", column), propName)
 
 	// 处理(none)特殊值
-	values, ok := any(filter.Values).([]interface{})
+	values, ok := any(filter.Values).([]any)
 	if ok && len(values) > 0 {
 		if values[0] == "(none)" {
 			// 仅保留属性不存在条件
@@ -213,7 +213,7 @@ func (wb *WhereBuilder) addAndFilter(table string, filter *types.Filter) error {
 
 func (wb *WhereBuilder) addOrFilter(table string, filter *types.Filter) error {
 	conditions := []string{}
-	allParams := []interface{}{}
+	allParams := []any{}
 
 	for _, subFilter := range filter.SubFilters {
 		subBuilder := NewWhereBuilder(wb.siteID)
@@ -246,7 +246,7 @@ func (wb *WhereBuilder) addHasDoneFilter(table string, filter *types.Filter) err
 		return nil
 	}
 	subQuery := fmt.Sprintf("SELECT session_id FROM events WHERE %s", condition)
-	params = append([]interface{}{wb.siteID}, params...)
+	params = append([]any{wb.siteID}, params...)
 	wb.AddCondition(fmt.Sprintf("session_id IN (%s)", subQuery), params...)
 	return nil
 }
@@ -262,7 +262,7 @@ func (wb *WhereBuilder) addHasNotDoneFilter(table string, filter *types.Filter) 
 		return nil
 	}
 	subQuery := fmt.Sprintf("SELECT session_id FROM events WHERE %s", condition)
-	params = append([]interface{}{wb.siteID}, params...)
+	params = append([]any{wb.siteID}, params...)
 	wb.AddCondition(fmt.Sprintf("session_id NOT IN (%s)", subQuery), params...)
 	return nil
 }
@@ -358,7 +358,7 @@ func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
 	}
 }
 
-func (wb *WhereBuilder) dbFieldVal(field string, val interface{}) interface{} {
+func (wb *WhereBuilder) dbFieldVal(field string, val any) any {
 	strVal, ok := val.(string)
 	if !ok {
 		return val
@@ -382,7 +382,7 @@ func (wb *WhereBuilder) dbFieldVal(field string, val interface{}) interface{} {
 }
 
 // 目标事件过滤专用方法
-func (wb *WhereBuilder) addGoalFilter(goalValue interface{}) error {
+func (wb *WhereBuilder) addGoalFilter(goalValue any) error {
 	goalName, ok := goalValue.(string)
 	if !ok {
 		return fmt.Errorf("invalid goal value type: %T", goalValue)
@@ -398,14 +398,14 @@ func (wb *WhereBuilder) addGoalFilter(goalValue interface{}) error {
 }
 
 // 各种过滤条件的具体实现
-func (wb *WhereBuilder) addIsFilter(field string, values interface{}, modifiers map[string]string) error {
-	list, ok := values.([]interface{})
+func (wb *WhereBuilder) addIsFilter(field string, values any, modifiers map[string]string) error {
+	list, ok := values.([]any)
 	if !ok {
 		return fmt.Errorf("invalid values type for 'is' filter: %T", values)
 	}
 
 	placeholders := make([]string, len(list))
-	params := make([]interface{}, len(list))
+	params := make([]any, len(list))
 
 	for i, v := range list {
 		placeholders[i] = "?"
@@ -430,14 +430,14 @@ func (wb *WhereBuilder) addIsFilter(field string, values interface{}, modifiers 
 	return nil
 }
 
-func (wb *WhereBuilder) addIsNotFilter(field string, values interface{}, modifiers map[string]string) error {
-	list, ok := values.([]interface{})
+func (wb *WhereBuilder) addIsNotFilter(field string, values any, modifiers map[string]string) error {
+	list, ok := values.([]any)
 	if !ok {
 		return fmt.Errorf("invalid values type for 'is_not' filter: %T", values)
 	}
 
 	placeholders := make([]string, len(list))
-	params := make([]interface{}, len(list))
+	params := make([]any, len(list))
 
 	for i, v := range list {
 		placeholders[i] = "?"
@@ -463,7 +463,7 @@ func (wb *WhereBuilder) addIsNotFilter(field string, values interface{}, modifie
 			column = "entry_meta"
 		}
 		condition := fmt.Sprintf("(not hasKey(%s, ?) OR %s NOT IN (%s))", column, fieldExpr, strings.Join(placeholders, ","))
-		allParams := append([]interface{}{propName}, params...)
+		allParams := append([]any{propName}, params...)
 		wb.AddCondition(condition, allParams...)
 	} else {
 		wb.AddCondition(fmt.Sprintf("%s NOT IN (%s)", fieldExpr, strings.Join(placeholders, ",")), params...)
@@ -471,12 +471,12 @@ func (wb *WhereBuilder) addIsNotFilter(field string, values interface{}, modifie
 	return nil
 }
 
-func (wb *WhereBuilder) addContainsFilter(field string, value interface{}, modifiers map[string]string) error {
+func (wb *WhereBuilder) addContainsFilter(field string, value any, modifiers map[string]string) error {
 	var strVals []string
 
-	// 检查value是否为[]interface{}类型
-	if interfaceSlice, ok := value.([]interface{}); ok {
-		// 将[]interface{}转换为[]string
+	// 检查value是否为[]any类型
+	if interfaceSlice, ok := value.([]any); ok {
+		// 将[]any转换为[]string
 		strVals = make([]string, len(interfaceSlice))
 		for i, v := range interfaceSlice {
 			// 尝试将每个元素转换为string
@@ -508,12 +508,12 @@ func (wb *WhereBuilder) addContainsFilter(field string, value interface{}, modif
 	return nil
 }
 
-func (wb *WhereBuilder) addContainsNotFilter(field string, value interface{}, modifiers map[string]string) error {
+func (wb *WhereBuilder) addContainsNotFilter(field string, value any, modifiers map[string]string) error {
 	var strVals []string
 
-	// 检查value是否为[]interface{}类型
-	if interfaceSlice, ok := value.([]interface{}); ok {
-		// 将[]interface{}转换为[]string
+	// 检查value是否为[]any类型
+	if interfaceSlice, ok := value.([]any); ok {
+		// 将[]any转换为[]string
 		strVals = make([]string, len(interfaceSlice))
 		for i, v := range interfaceSlice {
 			// 尝试将每个元素转换为string
@@ -547,7 +547,7 @@ func (wb *WhereBuilder) addContainsNotFilter(field string, value interface{}, mo
 }
 
 // 添加多匹配条件处理
-func (wb *WhereBuilder) addMatchesFilter(fieldExpr string, patterns interface{}, modifiers map[string]string) error {
+func (wb *WhereBuilder) addMatchesFilter(fieldExpr string, patterns any, modifiers map[string]string) error {
 	patternList, ok := patterns.([]string)
 	if !ok {
 		return fmt.Errorf("invalid patterns type for 'matches' filter: %T", patterns)
@@ -566,7 +566,7 @@ func (wb *WhereBuilder) addMatchesFilter(fieldExpr string, patterns interface{},
 	return nil
 }
 
-func (wb *WhereBuilder) addMatchesNotFilter(field string, patterns interface{}, modifiers map[string]string) error {
+func (wb *WhereBuilder) addMatchesNotFilter(field string, patterns any, modifiers map[string]string) error {
 	patternList, ok := patterns.([]string)
 	if !ok {
 		return fmt.Errorf("invalid patterns type for 'matches_not' filter: %T", patterns)
@@ -584,7 +584,7 @@ func (wb *WhereBuilder) addMatchesNotFilter(field string, patterns interface{}, 
 	return nil
 }
 
-func (wb *WhereBuilder) addMatchesWildcardFilter(field string, patterns interface{}, modifiers map[string]string) error {
+func (wb *WhereBuilder) addMatchesWildcardFilter(field string, patterns any, modifiers map[string]string) error {
 	patternList, ok := patterns.([]string)
 	if !ok {
 		return fmt.Errorf("invalid patterns type for 'matches_wildcard' filter: %T", patterns)
@@ -604,7 +604,7 @@ func (wb *WhereBuilder) addMatchesWildcardFilter(field string, patterns interfac
 	return nil
 }
 
-func (wb *WhereBuilder) addMatchesWildcardNotFilter(field string, patterns interface{}, modifiers map[string]string) error {
+func (wb *WhereBuilder) addMatchesWildcardNotFilter(field string, patterns any, modifiers map[string]string) error {
 	patternList, ok := patterns.([]string)
 	if !ok {
 		return fmt.Errorf("invalid patterns type for 'matches_wildcard_not' filter: %T", patterns)

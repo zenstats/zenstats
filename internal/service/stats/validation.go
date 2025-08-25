@@ -246,7 +246,7 @@ func ensureCustomPropsAccess(site *types.Site, params *types.Params) error {
 }
 
 // Helper function to validate goal filter
-func validateGoalFilter(site *types.Site, goalsInFilter []interface{}) error {
+func validateGoalFilter(site *types.Site, goalsInFilter []any) error {
 	configuredGoals := GetGoalsForSite(site)
 
 	for _, goal := range goalsInFilter {
@@ -501,19 +501,19 @@ func GetGoalsForSite(site *types.Site) []string {
 	return []string{}
 }
 
-func GetAllowedProps(site *types.Site, bypassSetup bool) interface{} {
+func GetAllowedProps(site *types.Site, bypassSetup bool) any {
 	// Implementation would retrieve allowed properties for the site
 	// This is a placeholder implementation
 	return "all"
 }
 
-func isPropAllowed(allowedProps interface{}, prop string) bool {
+func isPropAllowed(allowedProps any, prop string) bool {
 	// Implementation would check if property is allowed
 	// This is a placeholder implementation
 	return true
 }
 
-func GetToplevelFilter(params *types.Params, prefix string) []interface{} {
+func GetToplevelFilter(params *types.Params, prefix string) []any {
 	// Implementation would retrieve top-level filter with given prefix
 	// This is a placeholder implementation
 	return nil
