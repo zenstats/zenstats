@@ -34,15 +34,22 @@ git clone https://git.potawang.cn/zenstats/zenstats.git
 cd zenstats
 ```
 
-### 2. 设置环境变量
+### 2. 配置环境变量
 
 ```bash
-# 必须设置：MaxMind License Key
-export ZENSTATS_MAXMIND_LICENSE_KEY=your_license_key_here
+# 复制环境变量模板
+cp deploy/.env.example deploy/.env
 
-# 可选：自定义密钥
-export ZENSTATS_SECRET_KEY=your_secret_key
+# 编辑 .env 文件
+vi deploy/.env
 ```
+
+必须配置的变量：
+- `ZENSTATS_MAXMIND_LICENSE_KEY` — MaxMind GeoIP License Key
+- `ZENSTATS_DOMAIN` — 你的域名（如 `stats.example.com`）
+
+Caddy 会自动为你的域名申请 Let's Encrypt SSL 证书，无需手动配置证书。
+如果 `ZENSTATS_DOMAIN` 未设置，默认使用 `localhost`（自签名证书）。
 
 ### 3. 启动全部服务
 
@@ -54,9 +61,12 @@ make docker-up
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| zenstats | 8080 | ZenStats 应用服务 |
-| zenstats_db | 5432 | PostgreSQL 数据库 |
-| zenstats_events_db | 8123/9000 | ClickHouse 事件存储 |
+| caddy | 80, 443 | Caddy 反向代理（自动 SSL） |
+| zenstats | 内部 8080 | ZenStats 应用服务 |
+| zenstats_db | 内部 5432 | PostgreSQL 数据库 |
+| zenstats_events_db | 内部 8123/9000 | ClickHouse 事件存储 |
+
+如果设置了 `ZENSTATS_DOMAIN`，服务将通过 `https://your.domain.com` 访问，SSL 证书全自动管理。
 
 ### 4. 执行数据库迁移
 
@@ -71,8 +81,11 @@ make docker-migrate
 
 ### 5. 访问服务
 
-- API 服务：http://localhost:8080
+- 如果设置了域名：`https://your.domain.com`（自动 SSL）
+- 本地测试：`http://localhost`（通过 Caddy 代理到 zenstats:8080）
 - 默认账户：参见 `config/config_prod.yaml`
+
+> **SSL 说明**：Caddy 会自动为你的域名申请和续期 Let's Encrypt 证书。只需确保域名 DNS 已解析到服务器 IP，且 80/443 端口可从外网访问。
 
 ### 6. 查看日志
 

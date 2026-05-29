@@ -1,4 +1,4 @@
-.PHONY: swagger build run test clean lint
+.PHONY: swagger build run test clean lint docker-build docker-up docker-down docker-logs docker-migrate ent-generate fmt
 
 # 构建项目
 build:
