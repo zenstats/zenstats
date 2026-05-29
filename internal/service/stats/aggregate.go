@@ -11,22 +11,22 @@ import (
 )
 
 var metricsToRound = map[string]bool{
-	"bounce_rate":    true,
-	"visit_duration": true,
 	"sample_percent": true,
 }
 
-// AggregateResult 聚合结果
+// TimeSeriesPoint 时序数据点，包含时间戳和对应指标值。
 type TimeSeriesPoint struct {
 	Timestamp string         `json:"timestamp"`
 	Metrics   map[string]any `json:"metrics"`
 }
 
+// AggregateResult 聚合统计结果，包含各指标的值、对比值和变化率。
 type AggregateResult struct {
 	Results map[string]MetricResult `json:"results"`
-	Meta    any                     `json:"meta"`
+	Meta    any                     `json:"meta,omitempty"`
 }
 
+// MetricResult 单个指标的聚合结果，包含当前值、对比值和变化百分比。
 type MetricResult struct {
 	Value           any `json:"value"`
 	ComparisonValue any `json:"comparison_value,omitempty"`
@@ -45,7 +45,7 @@ func NewAggregateService(qs *QueryService) *AggregateService {
 	}
 }
 
-// GetAggregate 计算聚合指标
+// GetAggregate 计算聚合指标（含对比数据）
 func (as *AggregateService) GetAggregate(ctx context.Context, params *types.Params) (*AggregateResult, error) {
 	// 创建无维度的查询参数
 	aggParams := &types.Params{
@@ -66,54 +66,110 @@ func (as *AggregateService) GetAggregate(ctx context.Context, params *types.Para
 		return nil, err
 	}
 	site := &types.Site{ID: query.SiteID, Timezone: query.Timezone}
-	// 执行查询
+	// 执行主查询
 	result, err := as.qs.runner.RunQuery(ctx, query, site)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run aggregate query: %v", err)
 	}
 
 	results := make(map[string]MetricResult)
-	// 处理结果
-	metrics := make(map[string]any)
 
-	// 如果没有结果，返回空指标
-	if len(result.Data) == 0 {
-		for _, metric := range params.Metrics {
-			metrics[metric] = 0
+	// 如果有对比时间范围，执行对比查询
+	var comparisonData []map[string]any
+	if params.ComparisonUTCTimeRange != nil {
+		compParams := &types.Params{
+			SiteID:       params.SiteID,
+			Period:       params.Period,
+			Date:         params.Date,
+			From:         params.From,
+			To:           params.To,
+			Timezone:     params.Timezone,
+			UTCTimeRange: *params.ComparisonUTCTimeRange,
+			Metrics:      params.Metrics,
+			Dimensions:   []string{},
+			Filters:      params.Filters,
+			Interval:     "",
 		}
-		return &AggregateResult{Results: results, Meta: nil}, nil
-	}
-
-	// 提取第一行的指标值
-	firstRow := result.Data[0]
-	for _, metric := range params.Metrics {
-		// 查找指标对应的列名
-		found := false
-		for col, val := range firstRow {
-			if col == metric {
-				metrics[metric] = val
-				found = true
-				break
+		compQuery, err := as.qs.CreateQuery(compParams)
+		if err == nil {
+			compResult, err := as.qs.runner.RunQuery(ctx, compQuery, site)
+			if err == nil {
+				comparisonData = compResult.Data
 			}
 		}
-
-		// 如果指标未找到，设置为0
-		if !found {
-			metrics[metric] = 0
-		}
 	}
 
-	for idx, metric := range params.Metrics {
-		results[metric] = buildMetricResult(result.Data, idx, metric)
+	for _, metric := range params.Metrics {
+		mr := buildMetricResult(result.Data, metric)
+		if comparisonData != nil && len(comparisonData) > 0 {
+			compValue := getMetricValue(comparisonData, metric)
+			mr.ComparisonValue = compValue
+			mr.Change = calculateChange(mr.Value, compValue)
+		}
+		results[metric] = mr
 	}
 
 	return &AggregateResult{
 		Results: results,
-		Meta:    nil,
 	}, nil
 }
 
-func buildMetricResult(entry []map[string]any, index int, metric string) MetricResult {
+// getMetricValue 从查询结果数据中获取指定指标的值。
+func getMetricValue(data []map[string]any, metric string) any {
+	if len(data) == 0 {
+		return 0
+	}
+	if val, ok := data[0][metric]; ok {
+		return val
+	}
+	if val, ok := data[0]["cur_"+metric]; ok {
+		return val
+	}
+	return 0
+}
+
+// calculateChange 计算变化百分比
+func calculateChange(current, previous any) *float64 {
+	cur := toFloat64(current)
+	prev := toFloat64(previous)
+	if prev == 0 {
+		if cur == 0 {
+			change := 0.0
+			return &change
+		}
+		return nil // 无法计算变化率
+	}
+	change := (cur - prev) / prev * 100
+	change = math.Round(change*100) / 100
+	return &change
+}
+
+// toFloat64 将任意数值类型转换为 float64。
+func toFloat64(val any) float64 {
+	if val == nil {
+		return 0
+	}
+	switch v := val.(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case uint32:
+		return float64(v)
+	case uint64:
+		return float64(v)
+	default:
+		return 0
+	}
+}
+
+func buildMetricResult(entry []map[string]any, metric string) MetricResult {
 	if len(entry) == 0 {
 		return MetricResult{
 			Value: 0,
@@ -121,6 +177,12 @@ func buildMetricResult(entry []map[string]any, index int, metric string) MetricR
 	}
 
 	if val, ok := entry[0][metric]; ok {
+		return MetricResult{
+			Value: maybeRoundValue(val, metric),
+		}
+	}
+	// fix nested aggregation function when views_per_visit and pageviews are obtained simultaneously
+	if val, ok := entry[0]["cur_"+metric]; ok {
 		return MetricResult{
 			Value: maybeRoundValue(val, metric),
 		}

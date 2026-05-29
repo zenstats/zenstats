@@ -26,6 +26,10 @@ type APIKey struct {
 	KeyHash string `json:"key_hash,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
+	// LastUsedAt holds the value of the "last_used_at" field.
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	// ExpiresAt holds the value of the "expires_at" field.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the APIKeyQuery when eager-loading is set.
 	Edges        APIKeyEdges `json:"edges"`
@@ -61,7 +65,7 @@ func (*APIKey) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case apikey.FieldName, apikey.FieldKeyHash:
 			values[i] = new(sql.NullString)
-		case apikey.FieldCreatedAt:
+		case apikey.FieldCreatedAt, apikey.FieldLastUsedAt, apikey.FieldExpiresAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -107,6 +111,20 @@ func (ak *APIKey) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
 			} else if value.Valid {
 				ak.CreatedAt = value.Time
+			}
+		case apikey.FieldLastUsedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field last_used_at", values[i])
+			} else if value.Valid {
+				ak.LastUsedAt = new(time.Time)
+				*ak.LastUsedAt = value.Time
+			}
+		case apikey.FieldExpiresAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field expires_at", values[i])
+			} else if value.Valid {
+				ak.ExpiresAt = new(time.Time)
+				*ak.ExpiresAt = value.Time
 			}
 		default:
 			ak.selectValues.Set(columns[i], values[i])
@@ -160,6 +178,16 @@ func (ak *APIKey) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(ak.CreatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := ak.LastUsedAt; v != nil {
+		builder.WriteString("last_used_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := ak.ExpiresAt; v != nil {
+		builder.WriteString("expires_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

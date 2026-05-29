@@ -4,7 +4,7 @@ import (
 	"errors"
 )
 
-// Filter represents a single filter in the query
+// Filter 表示查询中的一个过滤条件，支持基础比较和复合逻辑运算。
 type Filter struct {
 	Operator   string            `json:"operator"`  // 基础比较: is, is_not 模式匹配: matches, matches_wildcard 包含关系: contains, contains_not
 	Dimension  string            `json:"dimension"` //
@@ -27,6 +27,7 @@ type Filter struct {
 //   ]]
 // ]]
 
+// ParseRawFilter 从原始 JSON 数组解析过滤条件，支持 and/or 复合条件嵌套。
 func ParseRawFilter(raw []any) (*Filter, error) {
 
 	if len(raw) == 0 {

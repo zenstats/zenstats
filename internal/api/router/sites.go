@@ -6,23 +6,21 @@ import (
 	"github.com/zenstats/zenstats/internal/middleware"
 )
 
+// RegisterSitesRouter 注册站点管理相关路由。
+// 包括站点的增删改查以及 IP、Hostname、Country 屏蔽规则的管理接口。
+// 所有接口均需要 JWT 认证。
 func RegisterSitesRouter(router *gin.RouterGroup) {
 	siteHandle := sites.NewSitesHandler()
 
 	site := router.Use(middleware.JWTAuth())
-	// 域名列表
 	site.GET("/sites", siteHandle.List())
-	// 域名详情
 	site.GET("/sites/:domain", siteHandle.Info())
-	// 新增域名
 	site.POST("/sites", siteHandle.Create())
-	// 编辑域名
 	site.PUT("/sites/:domain", siteHandle.Update())
-	// 删除域名
 	site.DELETE("/sites/:domain", siteHandle.Delete())
 
 	// Shield Rules Management
-	shieldRules := router.Group("sites/:domain/shield")
+	shieldRules := router.Group("sites/:domain/shield", middleware.JWTAuth())
 
 	// IP Rules
 	shieldRules.GET("/ip", siteHandle.ListShieldRuleIP())

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -70,25 +69,6 @@ the address is defined in config file`,
 			}
 		}()
 
-		var unixSrv *http.Server
-		if config.Conf.Scheme.UnixFile != "" {
-			slog.Info("start unix server", "file", config.Conf.Scheme.UnixFile)
-			unixSrv = &http.Server{Handler: r}
-			go func() {
-				listener, err := net.Listen("unix", config.Conf.Scheme.UnixFile)
-				if err != nil {
-					slog.Error("failed to listen unix", "error", err)
-					os.Exit(1)
-				}
-
-				err = unixSrv.Serve(listener)
-				if err != nil && !errors.Is(err, http.ErrServerClosed) {
-					slog.Error("failed to start unix", "error", err)
-					os.Exit(1)
-				}
-			}()
-		}
-
 		// Wait for interrupt signal to gracefully shutdown the server with
 		// a timeout of 1 second.
 		quit := make(chan os.Signal, 1)
@@ -118,16 +98,6 @@ the address is defined in config file`,
 			event.Shutdown()
 		}()
 
-		// Shutdown Unix Server
-		if config.Conf.Scheme.UnixFile != "" {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if err := unixSrv.Shutdown(ctx); err != nil {
-					slog.Error("Unix server shutdown ", "error", err)
-				}
-			}()
-		}
 		wg.Wait()
 		slog.Info("Server exit")
 	},

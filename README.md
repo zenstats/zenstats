@@ -1,8 +1,8 @@
 ## TODO
 
 - [X] 添加session聚合层
-- [ ] 添加event 接口限流器
-- [ ] 切换ua验证为github.com/robicode/device-detector  fork 地址 github.com/wrpota/device-detector
+- [X] 添加event 接口限流器
+- [X] 切换ua验证为github.com/robicode/device-detector  fork 地址 github.com/wrpota/device-detector
 
 ## GeoIP 数据库配置
 

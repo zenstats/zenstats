@@ -1,4 +1,26 @@
 services:
+  zenstats:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=prod
+      - GIN_MODE=release
+      - ZENSTATS_DB_HOST=zenstats_db
+      - ZENSTATS_DB_PASSWORD=postgres
+      - ZENSTATS_CLICKHOUSE_ADDR=zenstats_events_db:9000
+      - ZENSTATS_MAXMIND_LICENSE_KEY=${ZENSTATS_MAXMIND_LICENSE_KEY}
+    volumes:
+      - zenstats-data:/app/data
+    depends_on:
+      zenstats_db:
+        condition: service_healthy
+      zenstats_events_db:
+        condition: service_healthy
+
   zenstats_db:
     image: postgres:16-alpine
     restart: always
@@ -8,6 +30,7 @@ services:
       - "5432:5432"
     environment:
       - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=zenstats
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       start_period: 1m

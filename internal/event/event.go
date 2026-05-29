@@ -80,8 +80,6 @@ func (e *EventWork) Run() {
 func (e *EventWork) processWorker() {
 	defer e.wg.Done()
 
-	lock := sync.Mutex{}
-
 	for {
 		select {
 		case item, ok := <-e.taskChan:
@@ -97,10 +95,8 @@ func (e *EventWork) processWorker() {
 				if processed == nil {
 					return
 				}
-				lock.Lock()
-				defer lock.Unlock()
 				slog.Debug("process worker done", "request", item, "processed", processed)
-
+				// WriteBuffer.Add 内部已有自己的 mutex 保护，无需外部额外加锁
 				e.writeBuffer.Add(processed)
 			})
 
@@ -220,6 +216,9 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 	}
 	// parse source
 	e.PutSourceInfo(&eventResult, eventRequest)
+
+	// compute acquisition channel based on referrer and UTM parameters
+	e.PutChannel(&eventResult)
 
 	// register_session
 	session, err := e.sessionManager.OnEvent(&eventResult)
@@ -343,6 +342,71 @@ func (e *EventWork) PutSourceInfo(event *models.Events, eventRequest *common.Eve
 		event.UtmTerm = querys.Get("utm_term")
 		event.UtmCampaign = querys.Get("utm_campaign")
 	}
+}
+
+// PutChannel computes the acquisition channel based on referrer source and UTM parameters.
+func (e *EventWork) PutChannel(event *models.Events) {
+	// If UTM medium is set, classify by medium
+	if event.UtmMedium != "" {
+		medium := strings.ToLower(event.UtmMedium)
+		switch {
+		case medium == "paid" || medium == "cpc" || medium == "ppc":
+			event.Channel = "Paid Search"
+		case medium == "social" || medium == "social-network":
+			event.Channel = "Social"
+		case medium == "email":
+			event.Channel = "Email"
+		case medium == "affiliate":
+			event.Channel = "Affiliate"
+		case medium == "display" || medium == "banner" || medium == "cpm":
+			event.Channel = "Display"
+		case medium == "video":
+			event.Channel = "Video"
+		case medium == "audio":
+			event.Channel = "Audio"
+		case medium == "sms":
+			event.Channel = "SMS"
+		case medium == "push":
+			event.Channel = "Push Notifications"
+		default:
+			event.Channel = "Other Campaign"
+		}
+		return
+	}
+
+	// If UTM source or campaign is set but no medium, classify as "Other Campaign"
+	if event.UtmSource != "" || event.UtmCampaign != "" {
+		event.Channel = "Other Campaign"
+		return
+	}
+
+	// No UTM parameters, classify by referrer source
+	if event.ReferrerSource == "" {
+		event.Channel = "Direct"
+		return
+	}
+
+	// Check if referrer source matches known search engines
+	source := strings.ToLower(event.ReferrerSource)
+	searchEngines := []string{"google", "bing", "baidu", "duckduckgo", "yahoo", "yandex", "ecosia", "qwant", "startpage", "brave"}
+	for _, engine := range searchEngines {
+		if strings.Contains(source, engine) {
+			event.Channel = "Organic Search"
+			return
+		}
+	}
+
+	// Check social media
+	socialNetworks := []string{"facebook", "twitter", "instagram", "linkedin", "pinterest", "tiktok", "reddit", "youtube", "weibo", "wechat", "douyin", "xiaohongshu"}
+	for _, social := range socialNetworks {
+		if strings.Contains(source, social) {
+			event.Channel = "Social"
+			return
+		}
+	}
+
+	// Default: referral
+	event.Channel = "Referral"
 }
 
 func (e *EventWork) formatReferrer(referrer string) string {

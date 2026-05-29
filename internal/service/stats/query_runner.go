@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/zenstats/zenstats/internal/service/stats/sql"
@@ -32,11 +33,12 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 	}
 	// 执行查询
 	rows, err := qr.conn.Query(ctx, sqlStr, args...)
+	slog.Debug("query sql", sqlStr, args)
+
 	if err != nil {
 		return nil, fmt.Errorf("query execution failed: %v", err)
 	}
 	defer rows.Close()
-	fmt.Printf("sqlStr: %s, args: %v\n", sqlStr, args)
 	// 处理结果
 	result, err := qr.processResults(rows, query.Dimensions, builder)
 	if err != nil {
@@ -104,6 +106,10 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 				var val int64
 				values[i] = &val
 				pointers[i] = &val
+			case "Float64", "Decimal":
+				var val float64
+				values[i] = &val
+				pointers[i] = &val
 			case "String", "LowCardinality(String)":
 				var val string
 				values[i] = &val
@@ -136,6 +142,8 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 				val = *values[i].(*int32)
 			case "Int64":
 				val = *values[i].(*int64)
+			case "Float64", "Decimal":
+				val = *values[i].(*float64)
 			case "String", "LowCardinality(String)":
 				val = *values[i].(*string)
 			default:

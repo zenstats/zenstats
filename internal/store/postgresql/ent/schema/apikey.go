@@ -23,6 +23,8 @@ func (APIKey) Fields() []ent.Field {
 		field.String("name").MaxLen(255),
 		field.String("key_hash").Unique(),
 		field.Time("created_at").Default(time.Now),
+		field.Time("last_used_at").Optional().Nillable(),
+		field.Time("expires_at").Optional().Nillable(),
 	}
 }
 

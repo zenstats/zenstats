@@ -6,21 +6,23 @@ import (
 	"github.com/dromara/carbon/v2"
 )
 
+// Params 统计查询参数，包含站点信息、时间范围、指标、维度、过滤器等配置。
 type Params struct {
-	SiteID       string      `json:"site_id"`              // 站点ID
-	UTCTimeRange TimeRange   `json:"utc_time_range"`       // UTC时间范围
-	Interval     string      `json:"interval,omitempty"`   // 时间间隔
-	Period       string      `json:"period,omitempty"`     // 周期类型
-	Date         string      `json:"date,omitempty"`       // 日期
-	From         string      `json:"from,omitempty"`       // 开始时间
-	To           string      `json:"to,omitempty"`         // 结束时间
-	Timezone     string      `json:"timezone,omitempty"`   // 时区
-	Property     string      `json:"property,omitempty"`   // 属性ID
-	Dimensions   []string    `json:"dimensions,omitempty"` // 维度列表 如["visit:country", "event:page"] //group
-	Metrics      []string    `json:"metrics,omitempty"`    // 查询的指标列表，如["visitors", "pageviews", "bounce_rate"]
-	Filters      []*Filter   `json:"filters,omitempty"`    // 过滤器列表
-	Pagination   *Pagination `json:"pagination,omitempty"` // 分页配置
-	OrderBy      []*OrderBy  `json:"order_by,omitempty"`   // 排序配置
+	SiteID                 string      `json:"site_id"`                             // 站点ID
+	UTCTimeRange           TimeRange   `json:"utc_time_range"`                      // UTC时间范围
+	ComparisonUTCTimeRange *TimeRange  `json:"comparison_utc_time_range,omitempty"` // 对比时间范围
+	Interval               string      `json:"interval,omitempty"`                  // 时间间隔
+	Period                 string      `json:"period,omitempty"`                    // 周期类型
+	Date                   string      `json:"date,omitempty"`                      // 日期
+	From                   string      `json:"from,omitempty"`                      // 开始时间
+	To                     string      `json:"to,omitempty"`                        // 结束时间
+	Timezone               string      `json:"timezone,omitempty"`                  // 时区
+	Property               string      `json:"property,omitempty"`                  // 属性ID
+	Dimensions             []string    `json:"dimensions,omitempty"`                // 维度列表
+	Metrics                []string    `json:"metrics,omitempty"`                   // 查询的指标列表
+	Filters                []*Filter   `json:"filters,omitempty"`                   // 过滤器列表
+	Pagination             *Pagination `json:"pagination,omitempty"`                // 分页配置
+	OrderBy                []*OrderBy  `json:"order_by,omitempty"`                  // 排序配置
 }
 
 // ParsePeriodToUTCTimeRange 根据Period参数解析UTC时间范围

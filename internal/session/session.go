@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
@@ -17,6 +18,7 @@ type SessionManager struct {
 	writeBuffer    *WriteBuffer
 	shutdownCtx    context.Context
 	shutdownCancel context.CancelFunc
+	versionCounter uint64 // 单调递增的版本号计数器
 
 	cache *expirable.LRU[string, *models.Sessions]
 }
@@ -118,6 +120,7 @@ func (s *SessionManager) newSession(event *models.Events) *models.Sessions {
 	sessionId := (uint64(time.Now().UnixNano()) << 24) | (s.machineID << 16) | uint64(rand.Uint32()&0xFFFF)
 
 	session := &models.Sessions{
+		Version:        s.nextVersion(),
 		Sign:           1,
 		Duration:       0,
 		PageViews:      pageviews,
@@ -226,12 +229,18 @@ func (s *SessionManager) Shutdown() {
 	s.writeBuffer.Shutdown()
 }
 
+// nextVersion returns the next monotonically increasing version number
+func (s *SessionManager) nextVersion() uint64 {
+	return atomic.AddUint64(&s.versionCounter, 1)
+}
+
 func (s *SessionManager) CopySession(session *models.Sessions) *models.Sessions {
 	if session == nil {
 		return nil
 	}
 
 	copied := &models.Sessions{
+		Version:                s.nextVersion(),
 		Sign:                   session.Sign,
 		Duration:               session.Duration,
 		PageViews:              session.PageViews,

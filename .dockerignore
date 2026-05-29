@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+bin/
+coverage.out
+coverage.html
+
+# Development files
+data/*.mmdb
+data/*.tar.gz
+log/
+tracker/node_modules
+docs/
+
+# Non-essential files
+README.md
+1.md
+zenstats.js

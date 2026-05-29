@@ -22,9 +22,6 @@ func NewQueryService(runner *QueryRunner) *QueryService {
 // CreateQuery 创建新查询
 func (qs *QueryService) CreateQuery(params *types.Params) (*types.Query, error) {
 	// 验证参数
-	// if err := params.Validate(); err != nil {
-	// 	return nil, err
-	// }
 	if err := validateDate(params); err != nil {
 		return nil, err
 	}
@@ -58,18 +55,18 @@ func (qs *QueryService) CreateQuery(params *types.Params) (*types.Query, error) 
 
 	// 创建查询副本，避免修改原始参数
 	query := &types.Query{
-		SiteID:       params.SiteID,
-		UTCTimeRange: params.UTCTimeRange,
-		// ComparisonUTCTimeRange: params.ComparisonUTCTimeRange,
-		Interval:   params.Interval,
-		Period:     params.Period,
-		Date:       params.Date,
-		From:       params.From,
-		To:         params.To,
-		Timezone:   params.Timezone,
-		Dimensions: params.Dimensions,
-		Metrics:    metrics,
-		Filters:    params.Filters,
+		SiteID:                 params.SiteID,
+		UTCTimeRange:           params.UTCTimeRange,
+		ComparisonUTCTimeRange: params.ComparisonUTCTimeRange,
+		Interval:               params.Interval,
+		Period:                 params.Period,
+		Date:                   params.Date,
+		From:                   params.From,
+		To:                     params.To,
+		Timezone:               params.Timezone,
+		Dimensions:             params.Dimensions,
+		Metrics:                metrics,
+		Filters:                params.Filters,
 		// TimeOnPageData:         params.TimeOnPageData,
 		// SampleThreshold:        params.SampleThreshold,
 		// Now:                    params.Now,

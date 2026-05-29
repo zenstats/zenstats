@@ -4,28 +4,31 @@ server_host: 0.0.0.0
 pool_size: 100
 app_debug: false
 log_level: info
-secret_key: 'KKfc8Y5Zpn5CE/0P+ce3ptJRRAZJBhbcOHSqoessJ4kLxkEi+S4nNsl6ekj0AxKF'
-data_path: './data'
-maxmind_license_key: ''
+secret_key: "KKfc8Y5Zpn5CE/0P+ce3ptJRRAZJBhbcOHSqoessJ4kLxkEi+S4nNsl6ekj0AxKF"
+data_path: "./data"
+maxmind_license_key: ""
+
+default_user:
+  username: "wrpota"
+  password: "zenstats"
+  email: "wrpota@gmail.com"
 
 scheme:
   address: 0.0.0.0
-  unix_file:
-  # unix_file: /tmp/clickhouse.sock
   http_port: 8080
 
 clickhouse:
   #  This configuration can be overridden using the environment variable ZENSTAT_SLICKHOUSEOADDR
   addr:
-    - zenstats_events_db:9000  # docker compose service name
+    - zenstats_events_db:9000 # docker compose service name
   database: zenstats_events_db
   username: default
-  password: ''
+  password: ""
   ssl: false
 
 db:
   host: 127.0.0.1
   port: 5432
   username: postgres
-  password: 'postgres'
-  database: 'zenstats'
+  password: "postgres"
+  database: "zenstats"

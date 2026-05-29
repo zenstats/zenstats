@@ -1,5 +1,6 @@
 package types
 
+// StatsRequest 统计查询请求参数，支持多种时间周期和过滤条件。
 type StatsRequest struct {
 	Period   string `form:"period" binding:"required"`
 	Date     string `form:"date" binding:"omitempty"`

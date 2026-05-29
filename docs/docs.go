@@ -24,32 +24,191 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/auth/init": {
-            "post": {
-                "description": "创建初始管理员用户并完成系统初始化\n创建初始管理员用户并完成系统初始化",
+        "/apikeys": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取当前用户的所有 API Key（不包含明文 key）",
                 "consumes": [
-                    "application/json",
                     "application/json"
                 ],
                 "produces": [
-                    "application/json",
                     "application/json"
                 ],
                 "tags": [
-                    "auth",
+                    "API Key 管理"
+                ],
+                "summary": "获取 API Key 列表",
+                "responses": {
+                    "200": {
+                        "description": "成功响应",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/service.APIKeyInfo"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "为当前用户创建一个新的 API Key，明文 key 仅此一次返回",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API Key 管理"
+                ],
+                "summary": "创建 API Key",
+                "parameters": [
+                    {
+                        "description": "API Key 参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/apikeys.CreateAPIKeyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/apikeys.CreateAPIKeyResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/apikeys/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除当前用户的指定 API Key",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "API Key 管理"
+                ],
+                "summary": "删除 API Key",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "API Key ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/init": {
+            "post": {
+                "description": "创建初始管理员用户并完成系统初始化",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
                     "auth"
                 ],
                 "summary": "初始化系统",
                 "parameters": [
-                    {
-                        "description": "初始化请求参数",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/types.InitializeRequest"
-                        }
-                    },
                     {
                         "description": "初始化请求参数",
                         "name": "request",
@@ -220,6 +379,52 @@ const docTemplate = `{
                         "description": "服务器内部错误",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/event": {
+            "post": {
+                "description": "接收前端 SDK 上报的事件数据，验证域名后入队处理",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "事件采集"
+                ],
+                "summary": "上报埋点事件",
+                "parameters": [
+                    {
+                        "description": "事件数据",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/common.EventRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "事件已接受",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误或域名不允许",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "请求频率超限",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -443,6 +648,65 @@ const docTemplate = `{
                                     "properties": {
                                         "data": {
                                             "$ref": "#/definitions/types.SiteWithRemark"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "根据域名删除指定站点",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "站点管理"
+                ],
+                "summary": "删除站点",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功响应",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object"
                                         }
                                     }
                                 }
@@ -980,62 +1244,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/sites/{id}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "站点ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功响应",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.SuccessResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "object"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "服务器内部错误",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/sites/{id}/shield/country/{ruleId}": {
             "delete": {
                 "security": [
@@ -1104,14 +1312,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/stats/{domain}/curve": {
+        "/stats/{domain}/aggregate": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取指定域名的统计曲线数据",
+                "description": "获取指定域名的来源聚合统计数据",
                 "consumes": [
                     "application/json"
                 ],
@@ -1121,17 +1329,8 @@ const docTemplate = `{
                 "tags": [
                     "统计分析"
                 ],
-                "summary": "获取统计曲线数据",
+                "summary": "获取来源聚合统计",
                 "parameters": [
-                    {
-                        "description": "参数",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/types.StatsRequest"
-                        }
-                    },
                     {
                         "type": "string",
                         "description": "站点域名",
@@ -1142,7 +1341,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "成功响应，返回统计曲线数据",
+                        "description": "成功响应，返回来源聚合统计数据",
                         "schema": {
                             "allOf": [
                                 {
@@ -1166,14 +1365,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/stats/{domain}/device_rank": {
+        "/stats/{domain}/breakdown": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取指定域名的设备排名统计数据",
+                "description": "按指定维度获取细分统计数据，支持 visit:source, visit:country, visit:browser, visit:os, visit:device, visit:entry_page, visit:exit_page, event:page 等维度",
                 "consumes": [
                     "application/json"
                 ],
@@ -1183,7 +1382,7 @@ const docTemplate = `{
                 "tags": [
                     "统计分析"
                 ],
-                "summary": "获取设备排名统计",
+                "summary": "获取维度细分数据",
                 "parameters": [
                     {
                         "type": "string",
@@ -1191,11 +1390,91 @@ const docTemplate = `{
                         "name": "domain",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "enum": [
+                            "day",
+                            "p7",
+                            "p14",
+                            "p30",
+                            "custom"
+                        ],
+                        "type": "string",
+                        "description": "时间周期 (day|p7|p14|p30|custom)",
+                        "name": "period",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "日期 (YYYY-MM-DD)",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "自定义开始日期",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "自定义结束日期",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "visit:source",
+                            "visit:country",
+                            "visit:region",
+                            "visit:city",
+                            "visit:browser",
+                            "visit:os",
+                            "visit:device",
+                            "visit:screen_size",
+                            "visit:entry_page",
+                            "visit:exit_page",
+                            "event:page",
+                            "event:name"
+                        ],
+                        "type": "string",
+                        "description": "细分维度",
+                        "name": "property",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "visitors",
+                        "description": "指标列表，逗号分隔",
+                        "name": "metrics",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 9,
+                        "description": "返回条数限制",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "过滤条件 (JSON)",
+                        "name": "filters",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "成功响应，返回设备排名统计数据",
+                        "description": "成功响应",
                         "schema": {
                             "allOf": [
                                 {
@@ -1219,14 +1498,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/stats/{domain}/meta": {
+        "/stats/{domain}/current-visitors": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取指定域名的带meta筛选条件的统计数据",
+                "description": "获取当前站点最近5分钟内的实时在线访客和会话数",
                 "consumes": [
                     "application/json"
                 ],
@@ -1236,7 +1515,7 @@ const docTemplate = `{
                 "tags": [
                     "统计分析"
                 ],
-                "summary": "获取带meta筛选条件的统计数据",
+                "summary": "获取实时在线访客数",
                 "parameters": [
                     {
                         "type": "string",
@@ -1244,20 +1523,11 @@ const docTemplate = `{
                         "name": "domain",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Meta 参数",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/types.MetaRequest"
-                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "成功响应，返回带meta筛选条件的统计数据",
+                        "description": "成功响应",
                         "schema": {
                             "allOf": [
                                 {
@@ -1281,14 +1551,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/stats/{domain}/page_rank": {
+        "/stats/{domain}/main-graph": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取指定域名的页面排名统计数据",
+                "description": "获取指定域名的主图表时序统计数据，支持多个指标",
                 "consumes": [
                     "application/json"
                 ],
@@ -1298,7 +1568,7 @@ const docTemplate = `{
                 "tags": [
                     "统计分析"
                 ],
-                "summary": "获取页面排名统计",
+                "summary": "获取主图表时序数据",
                 "parameters": [
                     {
                         "type": "string",
@@ -1306,11 +1576,70 @@ const docTemplate = `{
                         "name": "domain",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "enum": [
+                            "realtime",
+                            "day",
+                            "p7",
+                            "p14",
+                            "p30",
+                            "custom"
+                        ],
+                        "type": "string",
+                        "description": "时间周期",
+                        "name": "period",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "日期 (YYYY-MM-DD)",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "自定义开始日期",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "自定义结束日期",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "minute",
+                            "hourly",
+                            "daily",
+                            "weekly",
+                            "monthly"
+                        ],
+                        "type": "string",
+                        "description": "时间间隔",
+                        "name": "interval",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "visitors,pageviews",
+                        "description": "指标列表，逗号分隔",
+                        "name": "metrics",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "过滤条件 (JSON)",
+                        "name": "filters",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "成功响应，返回页面排名统计数据",
+                        "description": "成功响应",
                         "schema": {
                             "allOf": [
                                 {
@@ -1334,14 +1663,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/stats/{domain}/source_rank": {
+        "/stats/{domain}/time_series": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "获取指定域名的来源排名统计数据",
+                "description": "获取指定域名的来源时间序列统计数据",
                 "consumes": [
                     "application/json"
                 ],
@@ -1351,7 +1680,7 @@ const docTemplate = `{
                 "tags": [
                     "统计分析"
                 ],
-                "summary": "获取来源排名统计",
+                "summary": "获取来源时间序列统计",
                 "parameters": [
                     {
                         "type": "string",
@@ -1363,60 +1692,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "成功响应，返回来源排名统计数据",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.SuccessResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {}
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "$ref": "#/definitions/response.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/stats/{domain}/top_stats": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "获取指定域名的顶级统计数据",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "统计分析"
-                ],
-                "summary": "获取顶级统计数据",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "站点域名",
-                        "name": "domain",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功响应，返回顶级统计数据",
+                        "description": "成功响应，返回来源时间序列统计数据",
                         "schema": {
                             "allOf": [
                                 {
@@ -1442,6 +1718,97 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "apikeys.CreateAPIKeyRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "expires_at": {
+                    "description": "过期时间，格式：2006-01-02 15:04:05，为空则永不过期",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
+        "apikeys.CreateAPIKeyResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "common.EventRequest": {
+            "type": "object",
+            "properties": {
+                "d": {
+                    "description": "域名",
+                    "type": "string"
+                },
+                "e": {
+                    "description": "页面访问时间",
+                    "type": "integer"
+                },
+                "h": {
+                    "description": "哈希",
+                    "type": "integer"
+                },
+                "i": {
+                    "description": "是否交互",
+                    "type": "boolean"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "n": {
+                    "description": "事件名称",
+                    "type": "string"
+                },
+                "p": {
+                    "description": "属性",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "r": {
+                    "description": "来源",
+                    "type": "string"
+                },
+                "sd": {
+                    "description": "滚动深度",
+                    "type": "integer"
+                },
+                "t": {
+                    "type": "string"
+                },
+                "u": {
+                    "description": "URL",
+                    "type": "string"
+                },
+                "userAgent": {
+                    "type": "string"
+                },
+                "v": {
+                    "description": "JS版本",
+                    "type": "string"
+                }
+            }
+        },
         "response.ErrorResponse": {
             "description": "接口返回的错误响应信息",
             "type": "object",
@@ -1473,6 +1840,30 @@ const docTemplate = `{
                 },
                 "message": {
                     "description": "响应信息",
+                    "type": "string"
+                }
+            }
+        },
+        "service.APIKeyInfo": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "key": {
+                    "description": "仅创建时返回明文 key",
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -1633,17 +2024,6 @@ const docTemplate = `{
                 }
             }
         },
-        "types.MetaRequest": {
-            "type": "object",
-            "properties": {
-                "meta": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
         "types.ShieldRuleIPResponse": {
             "type": "object",
             "properties": {
@@ -1692,35 +2072,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "timezone": {
-                    "type": "string"
-                }
-            }
-        },
-        "types.StatsRequest": {
-            "type": "object",
-            "required": [
-                "period"
-            ],
-            "properties": {
-                "date": {
-                    "type": "string"
-                },
-                "from": {
-                    "type": "string"
-                },
-                "interval": {
-                    "type": "string"
-                },
-                "limit": {
-                    "type": "integer"
-                },
-                "page": {
-                    "type": "integer"
-                },
-                "period": {
-                    "type": "string"
-                },
-                "to": {
                     "type": "string"
                 }
             }

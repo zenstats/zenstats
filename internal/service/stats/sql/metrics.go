@@ -31,9 +31,9 @@ var AvailableMetrics = Metrics{
 		Valid:       true,
 	},
 	"pageviews": {
-		Name:        "pageviews",
+		Name:        "pageview",
 		Description: "Total page views",
-		SQLExpr:     fmt.Sprintf("%s as pageviews", total.ToSql()),
+		SQLExpr:     fmt.Sprintf("%s as cur_pageviews", total.ToSql()),
 		Valid:       true,
 	},
 	"views_per_visit": {
@@ -61,18 +61,6 @@ var AvailableMetrics = Metrics{
 		Valid:       true,
 	},
 }
-
-// for _, metric := range query.Metrics {
-// 	switch metric {
-// 	case "conversions":
-// 		metrics = append(metrics, "sum(if(goal_id IS NOT NULL, 1, 0)) as conversions")
-// 	case "revenue":
-// 		metrics = append(metrics, "sum(if(goal_id IS NOT NULL, revenue, 0)) as revenue")
-// 	default:
-// 		// Handle custom event metrics
-// 		metrics = append(metrics, fmt.Sprintf("count(*) as %s", metric))
-// 	}
-// }
 
 // ValidateMetrics 验证指标是否有效
 func ValidateMetrics(metrics []string) error {

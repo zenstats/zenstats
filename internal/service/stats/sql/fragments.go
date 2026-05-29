@@ -48,7 +48,7 @@ func (g *SQLFragmentGenerator) Uniq(userID string) SQLFragment {
 // Total 计算总数，带采样缩放
 func (g *SQLFragmentGenerator) Total() SQLFragment {
 	return g.ScaleSample(SQLFragment{
-		SQL:  "count()",
+		SQL:  "sum(pageviews * sign)",
 		Args: nil,
 	})
 }
@@ -60,6 +60,7 @@ func (g *SQLFragmentGenerator) EventsForEvent() SQLFragment {
 	})
 }
 
+// EventsForSession events总数
 func (g *SQLFragmentGenerator) EventsForSession() SQLFragment {
 	return g.ScaleSample(SQLFragment{
 		SQL:  "sum(sign * events)",
@@ -78,7 +79,7 @@ func (g *SQLFragmentGenerator) SamplePercent() SQLFragment {
 // BounceRate 计算跳出率
 func (g *SQLFragmentGenerator) BounceRate() SQLFragment {
 	return SQLFragment{
-		SQL:  "toUInt32(greatest(ifNotFinite(round(sum(is_bounce * sign) / sum(sign) * 100), 0), 0))",
+		SQL:  "toFloat64(ifNotFinite(round(sum(is_bounce * sign) / sum(sign) * 100, 2), 0))",
 		Args: nil,
 	}
 }

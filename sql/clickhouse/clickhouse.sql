@@ -217,7 +217,7 @@ CREATE TABLE IF NOT EXISTS zenstats_events_db.events
     `screen_size` LowCardinality(String),
     `browser` LowCardinality(String),
     `browser_version` LowCardinality(String),
-    `user_agent` LowCardinality(String),
+    `user_agent` String CODEC(ZSTD(3)),
     `operating_system_version` LowCardinality(String),
     `engagement_time` UInt32,
     `scroll_depth` UInt8,
@@ -254,6 +254,7 @@ CREATE TABLE IF NOT EXISTS zenstats_events_db.sessions
     `start` DateTime CODEC(Delta(4), LZ4),
     `timestamp` DateTime CODEC(Delta(4), LZ4),
     `session_id` UInt64,
+    `version` UInt64,
     `sign` Int8,
     `is_bounce` UInt8,
     `entry_page` String CODEC(ZSTD(3)),
@@ -280,7 +281,7 @@ CREATE TABLE IF NOT EXISTS zenstats_events_db.sessions
     `screen_size` LowCardinality(String),
     `browser` LowCardinality(String),
     `browser_version` LowCardinality(String),
-    `user_agent` LowCardinality(String),
+    `user_agent` String CODEC(ZSTD(3)),
     `operating_system_version` LowCardinality(String),
 
     `ipv4` IPv4,
@@ -304,7 +305,7 @@ CREATE TABLE IF NOT EXISTS zenstats_events_db.sessions
     `continent_name` String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('continent', continent_geoname_id)),
     INDEX minmax_timestamp timestamp TYPE minmax GRANULARITY 1
 )
-ENGINE = VersionedCollapsingMergeTree(sign, events)
+ENGINE = VersionedCollapsingMergeTree(sign, version)
 PARTITION BY toYYYYMM(start)
 PRIMARY KEY (site_id, toDate(start), user_id, session_id)
 ORDER BY (site_id, toDate(start), user_id, session_id)

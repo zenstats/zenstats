@@ -85,6 +85,46 @@ func (aku *APIKeyUpdate) SetNillableCreatedAt(t *time.Time) *APIKeyUpdate {
 	return aku
 }
 
+// SetLastUsedAt sets the "last_used_at" field.
+func (aku *APIKeyUpdate) SetLastUsedAt(t time.Time) *APIKeyUpdate {
+	aku.mutation.SetLastUsedAt(t)
+	return aku
+}
+
+// SetNillableLastUsedAt sets the "last_used_at" field if the given value is not nil.
+func (aku *APIKeyUpdate) SetNillableLastUsedAt(t *time.Time) *APIKeyUpdate {
+	if t != nil {
+		aku.SetLastUsedAt(*t)
+	}
+	return aku
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (aku *APIKeyUpdate) ClearLastUsedAt() *APIKeyUpdate {
+	aku.mutation.ClearLastUsedAt()
+	return aku
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (aku *APIKeyUpdate) SetExpiresAt(t time.Time) *APIKeyUpdate {
+	aku.mutation.SetExpiresAt(t)
+	return aku
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (aku *APIKeyUpdate) SetNillableExpiresAt(t *time.Time) *APIKeyUpdate {
+	if t != nil {
+		aku.SetExpiresAt(*t)
+	}
+	return aku
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (aku *APIKeyUpdate) ClearExpiresAt() *APIKeyUpdate {
+	aku.mutation.ClearExpiresAt()
+	return aku
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (aku *APIKeyUpdate) SetUser(u *User) *APIKeyUpdate {
 	return aku.SetUserID(u.ID)
@@ -161,6 +201,18 @@ func (aku *APIKeyUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := aku.mutation.CreatedAt(); ok {
 		_spec.SetField(apikey.FieldCreatedAt, field.TypeTime, value)
+	}
+	if value, ok := aku.mutation.LastUsedAt(); ok {
+		_spec.SetField(apikey.FieldLastUsedAt, field.TypeTime, value)
+	}
+	if aku.mutation.LastUsedAtCleared() {
+		_spec.ClearField(apikey.FieldLastUsedAt, field.TypeTime)
+	}
+	if value, ok := aku.mutation.ExpiresAt(); ok {
+		_spec.SetField(apikey.FieldExpiresAt, field.TypeTime, value)
+	}
+	if aku.mutation.ExpiresAtCleared() {
+		_spec.ClearField(apikey.FieldExpiresAt, field.TypeTime)
 	}
 	if aku.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -264,6 +316,46 @@ func (akuo *APIKeyUpdateOne) SetNillableCreatedAt(t *time.Time) *APIKeyUpdateOne
 	if t != nil {
 		akuo.SetCreatedAt(*t)
 	}
+	return akuo
+}
+
+// SetLastUsedAt sets the "last_used_at" field.
+func (akuo *APIKeyUpdateOne) SetLastUsedAt(t time.Time) *APIKeyUpdateOne {
+	akuo.mutation.SetLastUsedAt(t)
+	return akuo
+}
+
+// SetNillableLastUsedAt sets the "last_used_at" field if the given value is not nil.
+func (akuo *APIKeyUpdateOne) SetNillableLastUsedAt(t *time.Time) *APIKeyUpdateOne {
+	if t != nil {
+		akuo.SetLastUsedAt(*t)
+	}
+	return akuo
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (akuo *APIKeyUpdateOne) ClearLastUsedAt() *APIKeyUpdateOne {
+	akuo.mutation.ClearLastUsedAt()
+	return akuo
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (akuo *APIKeyUpdateOne) SetExpiresAt(t time.Time) *APIKeyUpdateOne {
+	akuo.mutation.SetExpiresAt(t)
+	return akuo
+}
+
+// SetNillableExpiresAt sets the "expires_at" field if the given value is not nil.
+func (akuo *APIKeyUpdateOne) SetNillableExpiresAt(t *time.Time) *APIKeyUpdateOne {
+	if t != nil {
+		akuo.SetExpiresAt(*t)
+	}
+	return akuo
+}
+
+// ClearExpiresAt clears the value of the "expires_at" field.
+func (akuo *APIKeyUpdateOne) ClearExpiresAt() *APIKeyUpdateOne {
+	akuo.mutation.ClearExpiresAt()
 	return akuo
 }
 
@@ -373,6 +465,18 @@ func (akuo *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err er
 	}
 	if value, ok := akuo.mutation.CreatedAt(); ok {
 		_spec.SetField(apikey.FieldCreatedAt, field.TypeTime, value)
+	}
+	if value, ok := akuo.mutation.LastUsedAt(); ok {
+		_spec.SetField(apikey.FieldLastUsedAt, field.TypeTime, value)
+	}
+	if akuo.mutation.LastUsedAtCleared() {
+		_spec.ClearField(apikey.FieldLastUsedAt, field.TypeTime)
+	}
+	if value, ok := akuo.mutation.ExpiresAt(); ok {
+		_spec.SetField(apikey.FieldExpiresAt, field.TypeTime, value)
+	}
+	if akuo.mutation.ExpiresAtCleared() {
+		_spec.ClearField(apikey.FieldExpiresAt, field.TypeTime)
 	}
 	if akuo.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{

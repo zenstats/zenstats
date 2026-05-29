@@ -31,6 +31,7 @@ type allSitesCacheItem struct {
 	sites []*ent.Site
 }
 
+// SiteService 站点服务，提供站点的 CRUD 操作及屏蔽规则管理，内置多级缓存。
 type SiteService struct {
 	db               *postgresql.Client
 	cache            sync.Map
@@ -42,6 +43,7 @@ type SiteService struct {
 	shieldRuleCountryCache  *expirable.LRU[string, []*ent.ShieldRulesCountry]
 }
 
+// GetSiteService 获取 SiteService 单例实例。
 func GetSiteService() *SiteService {
 	siteOnce.Do(func() {
 		db := globals.GetDB()
@@ -65,6 +67,7 @@ func GetSiteService() *SiteService {
 	return siteServiceInstance
 }
 
+// CreateSiteParams 创建站点时的参数。
 type CreateSiteParams struct {
 	Domain       string
 	Timezone     string
@@ -72,11 +75,13 @@ type CreateSiteParams struct {
 	IngestConfig IngestConfig
 }
 
+// IngestConfig 事件采集限流配置。
 type IngestConfig struct {
 	RateLimitScaleSeconds int
 	LimitPerMinute        int
 }
 
+// CreateSite 创建新站点并为当前用户分配 Owner 角色，使用事务保证原子性。
 func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*ent.Site, error) {
 	tx, err := s.db.Client.Tx(ctx)
 	if err != nil {
@@ -120,6 +125,7 @@ func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*en
 	return site, nil
 }
 
+// GetSiteByDomain 根据域名查询站点，优先从 LRU 缓存中获取。
 func (s *SiteService) GetSiteByDomain(ctx context.Context, domain string) (*ent.Site, error) {
 	if site, ok := s.domainCache.Get(domain); ok {
 		return site, nil
@@ -134,6 +140,7 @@ func (s *SiteService) GetSiteByDomain(ctx context.Context, domain string) (*ent.
 	return site, nil
 }
 
+// SiteWithRemark 包含角色信息的站点响应结构（service 层）。
 type SiteWithRemark struct {
 	ID                          int64  `json:"id"`
 	Domain                      string `json:"domain"`
@@ -144,6 +151,7 @@ type SiteWithRemark struct {
 	Role                        string `json:"role"`
 }
 
+// GetUserSiteList 获取当前用户的站点列表。
 func (s *SiteService) GetUserSiteList(ctx *gin.Context) ([]*SiteWithRemark, error) {
 	userID := ctx.GetInt64("user_id")
 
@@ -170,6 +178,7 @@ func (s *SiteService) GetUserSiteList(ctx *gin.Context) ([]*SiteWithRemark, erro
 	return sites, nil
 }
 
+// GetUserSiteByDomain 根据域名模糊查询当前用户的站点列表。
 func (s *SiteService) GetUserSiteByDomain(ctx *gin.Context, domain string) ([]*SiteWithRemark, error) {
 	siteMemberships, err := s.db.Client.SiteMembership.Query().
 		Where(sitemembership.UserID(ctx.GetInt64("user_id"))).
@@ -203,7 +212,7 @@ func (s *SiteService) GetUserSiteByDomain(ctx *gin.Context, domain string) ([]*S
 	return sites, nil
 }
 
-// 新增：完成 GetSiteList 方法，使用缓存
+// GetSiteList 获取所有站点列表，使用缓存加速。
 func (s *SiteService) GetSiteList(ctx *gin.Context) ([]*ent.Site, error) {
 	// 尝试从缓存中获取全站列表数据
 	if cached, ok := s.cache.Load(s.allSitesCacheKey); ok {
@@ -596,7 +605,7 @@ func (s *SiteService) DeleteSite(ctx *gin.Context, id int) error {
 	return nil
 }
 
-// IsDomainInList
+// IsDomainInList 检查指定域名是否已注册到系统中。
 func (s *SiteService) IsDomainInList(ctx *gin.Context, domain string) (bool, error) {
 	_, err := s.GetSiteByDomain(ctx, domain)
 	if err != nil {

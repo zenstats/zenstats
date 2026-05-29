@@ -1,2 +1,34 @@
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
 tracker/node_modules
 data/*.mmdb
+data/*.tar.gz
+zenstats.js
+
+# Environment
+.env
+.env.local
+.env.production

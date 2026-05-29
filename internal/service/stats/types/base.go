@@ -18,7 +18,7 @@ func NewTimeRange(start, end time.Time) TimeRange {
 	}
 }
 
-// VisitProps contains all possible visit properties for filtering
+// VisitProps 访问属性，包含来源、设备、浏览器、地理位置等所有可过滤的访问维度。
 type VisitProps struct {
 	Source            string `json:"source"`
 	Channel           string `json:"channel"`
@@ -46,7 +46,7 @@ type VisitProps struct {
 	ExitPageHostname  string `json:"exit_page_hostname"`
 }
 
-// EventProps contains event properties for filtering
+// EventProps 事件属性，包含事件名称、页面、目标等可过滤的事件维度。
 type EventProps struct {
 	Name     string `json:"name"`
 	Page     string `json:"page"`
@@ -54,6 +54,7 @@ type EventProps struct {
 	Hostname string `json:"hostname"`
 }
 
+// FilterOperators 定义所有支持的过滤操作符常量。
 var FilterOperators = struct {
 	Is                 string
 	IsNot              string
@@ -84,7 +85,7 @@ var FilterOperators = struct {
 	HasNotDone:         "has_not_done",
 }
 
-// DimensionPrefix defines dimension prefixes
+// DimensionPrefix 定义维度前缀常量（visit: 和 event:）。
 var DimensionPrefix = struct {
 	Visit string
 	Event string

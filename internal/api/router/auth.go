@@ -6,6 +6,8 @@ import (
 	"github.com/zenstats/zenstats/internal/middleware"
 )
 
+// RegisterAuthRouter 注册认证相关路由。
+// 包括用户登录、令牌刷新、系统状态检查和系统初始化接口。
 func RegisterAuthRouter(router *gin.RouterGroup) {
 	authHandle := auth.NewAuthHandler()
 

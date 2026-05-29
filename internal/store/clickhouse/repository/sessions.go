@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
-	"os"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	cl "github.com/zenstats/zenstats/internal/store/clickhouse"
@@ -30,10 +30,10 @@ func GetSessionsRepository() *Sessions {
 }
 
 func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions) error {
-	batchInsert, err := s.conn.PrepareBatch(context.Background(), "INSERT INTO sessions")
+	batchInsert, err := s.conn.PrepareBatch(ctx, "INSERT INTO sessions")
 	if err != nil {
 		slog.Error("prepare batch", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("prepare batch: %w", err)
 	}
 	for _, session := range sessions {
 		slog.Debug("insert session", "session", session)
@@ -43,6 +43,7 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 			session.Start,
 			session.Timestamp,
 			session.SessionId,
+			session.Version,
 			session.Sign,
 			session.IsBounce,
 			session.EntryPage,

@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
-	"os"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	cl "github.com/zenstats/zenstats/internal/store/clickhouse"
@@ -30,10 +30,10 @@ func GetEventsRepository() *Events {
 }
 
 func (e *Events) BatchInsert(ctx context.Context, events []*models.Events) error {
-	batchInsert, err := e.conn.PrepareBatch(context.Background(), "INSERT INTO events")
+	batchInsert, err := e.conn.PrepareBatch(ctx, "INSERT INTO events")
 	if err != nil {
 		slog.Error("prepare batch", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("prepare batch: %w", err)
 	}
 	for _, event := range events {
 		slog.Debug("insert event", "event", event)

@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Query 表示一个完整的统计查询，包含站点、时间范围、指标、维度、过滤器等所有查询参数。
 type Query struct {
 	SiteID                 string         `json:"site_id"`                              // 站点ID
 	UTCTimeRange           TimeRange      `json:"utc_time_range"`                       // UTC时间范围
@@ -202,7 +203,7 @@ func (q *Query) Validate() error {
 	return nil
 }
 
-// Metric represents a statistical metric
+// Metric 表示一个统计指标，包含名称、描述和 SQL 表达式。
 type Metric struct {
 	Name        string
 	Description string
@@ -210,12 +211,13 @@ type Metric struct {
 	Valid       bool
 }
 
+// ComparisonConfig 对比查询配置，定义对比模式和周期。
 type ComparisonConfig struct {
 	Mode   string // 对比模式，如"previous_period", "same_period_last_year"
 	Period string // 对比周期类型
 }
 
-// TimeOnPageData represents time on page configuration
+// TimeOnPageData 页面停留时间数据配置。
 type TimeOnPageData struct {
 	CutoffDate       time.Time
 	NewMetricVisible bool
@@ -223,14 +225,14 @@ type TimeOnPageData struct {
 	Cutoff           time.Time
 }
 
-// Site represents a website
+// Site 表示查询上下文中的站点信息。
 type Site struct {
 	ID                 string    `json:"id"`
 	Timezone           string    `json:"timezone"`
 	NativeStatsStartAt time.Time `json:"native_stats_start_at"`
 }
 
-// Pagination represents pagination options
+// Pagination 分页查询配置。
 type Pagination struct {
 	Limit  int
 	Offset int
@@ -247,7 +249,7 @@ func (qr *QueryResult) ToJSON() ([]byte, error) {
 	return json.Marshal(qr)
 }
 
-// OrderBy represents ordering configuration
+// OrderBy 排序配置，指定排序维度和方向（asc/desc）。
 type OrderBy struct {
 	Dimension string
 	Direction string // "asc" or "desc"

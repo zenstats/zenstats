@@ -25,7 +25,6 @@ var (
 type Config struct {
 	Scheme struct {
 		Address  string `mapstructure:"address"`
-		UnixFile string `mapstructure:"unix_file"`
 		HttpPort int    `mapstructure:"http_port"`
 	} `mapstructure:"scheme"`
 
@@ -36,6 +35,12 @@ type Config struct {
 	AppDebug          bool   `mapstructure:"app_debug"`
 	DataPath          string `mapstructure:"data_path"`
 	MaxmindLicenseKey string `mapstructure:"maxmind_license_key"`
+
+	DefaultUser struct {
+		Username string `mapstructure:"username"`
+		Email    string `mapstructure:"email"`
+		Password string `mapstructure:"password"`
+	} `mapstructure:"default_user"`
 
 	Clickhouse struct {
 		Addr     []string `mapstructure:"addr"`

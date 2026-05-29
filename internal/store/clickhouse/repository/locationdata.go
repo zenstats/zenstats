@@ -42,7 +42,7 @@ type LocationRepository struct {
 func GetLocationRepository() *LocationRepository {
 	locationOnce.Do(func() {
 		conn := cl.GetConnection()
-		l := expirable.NewLRU[string, *models.LocationData](1000, nil, 30*time.Minute)
+		l := expirable.NewLRU[string, *models.LocationData](10000, nil, 30*time.Minute)
 
 		locationInstance = &LocationRepository{
 			conn:  conn,

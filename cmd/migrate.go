@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/zenstats/zenstats/config"
+	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
@@ -25,6 +27,22 @@ var MigrateCmd = &cobra.Command{
 		}
 
 		fmt.Println("Migrated")
+
+		// 创建默认用户
+		userService := service.GetUserService()
+
+		defaultUser, err := userService.GetUserByEmail(context.Background(), config.Conf.DefaultUser.Email)
+		if err != nil && !ent.IsNotFound(err) {
+			fmt.Printf("failed to obtain the default user: %v", err)
+			os.Exit(1)
+		}
+		if defaultUser == nil {
+			_, err = userService.CreateUser(context.Background(), config.Conf.DefaultUser.Username, config.Conf.DefaultUser.Email, config.Conf.DefaultUser.Password)
+			if err != nil {
+				fmt.Printf("failed to create default user: %v", err)
+				os.Exit(1)
+			}
+		}
 
 		// 检查 SearchEngines 表是否有数据
 		count, err := client.Client.SearchEngines.Query().Count(context.Background())

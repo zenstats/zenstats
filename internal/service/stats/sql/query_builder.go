@@ -5,10 +5,20 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/zenstats/zenstats/internal/service/stats/types"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
 	"github.com/zenstats/zenstats/pkg/globals"
+)
+
+// searchEngineCache caches the search engine list from PostgreSQL
+var (
+	searchEngineCache     []*ent.SearchEngines
+	searchEngineCacheTime time.Time
+	searchEngineCacheMu   sync.RWMutex
+	searchEngineCacheTTL  = 5 * time.Minute
 )
 
 // QueryBuilder builds SQL queries based on the analytics query specification
@@ -49,8 +59,8 @@ func (qb *QueryBuilder) Build(query *types.Query, site *types.Site) (string, []a
 	// Apply pagination
 	paginatedSQL := qb.paginate(joinedSQL, query)
 
-	// Add total rows selection if needed
-	finalSQL := qb.selectTotalRows(paginatedSQL)
+	// Add total rows selection only when pagination is requested
+	finalSQL := qb.selectTotalRows(paginatedSQL, query)
 
 	// Combine parameters from all parts of the query
 	allParams := append(eventParams, sessionParams...)
@@ -206,20 +216,9 @@ func (qb *QueryBuilder) buildGroupBy(tableType string, query *types.Query) strin
 }
 
 // addSpecialMetrics includes special metrics in the query
+// Note: bounce_rate is handled by the metric SQL expression using sessions table (is_bounce * sign),
+// so no special subquery transformation is needed here.
 func (qb *QueryBuilder) addSpecialMetrics(sql string, site *types.Site, query *types.Query) string {
-	// Add bounce rate calculation
-	for _, metric := range query.Metrics {
-		if metric == "bounce_rate" {
-			// Add bounce rate subquery
-			return strings.Replace(sql, "FROM events e", `FROM (
-				SELECT
-					e.*,
-					COUNT(DISTINCT e2.event_id) OVER (PARTITION BY e.session_id) as session_event_count
-				FROM events e
-				LEFT JOIN events e2 ON e.session_id = e2.session_id
-			) e WHERE session_event_count = 1`, 1)
-		}
-	}
 	return sql
 }
 
@@ -379,9 +378,14 @@ func (qb *QueryBuilder) paginate(sql string, query *types.Query) string {
 	return sql
 }
 
-// selectTotalRows adds total row count selection
-func (qb *QueryBuilder) selectTotalRows(sql string) string {
+// selectTotalRows adds total row count selection only when pagination is requested
+func (qb *QueryBuilder) selectTotalRows(sql string, query *types.Query) string {
 	if !strings.Contains(sql, "SELECT") {
+		return sql
+	}
+
+	// Only add total_rows window function when pagination is active
+	if query.Pagination == nil || query.Pagination.Limit <= 0 {
 		return sql
 	}
 
@@ -618,17 +622,39 @@ func (qb *QueryBuilder) buildJoinSelectClause(eventFields, sessionFields []strin
 	return strings.Join(uniqueFields, ", ")
 }
 
-// getSourceClause generates the CASE statement for source classification
-func (qs *QueryBuilder) getSourceClause() (string, error) {
+// getSearchEngines returns the cached search engine list, refreshing if TTL expired
+func getSearchEngines() []*ent.SearchEngines {
+	searchEngineCacheMu.RLock()
+	if searchEngineCache != nil && time.Since(searchEngineCacheTime) < searchEngineCacheTTL {
+		defer searchEngineCacheMu.RUnlock()
+		return searchEngineCache
+	}
+	searchEngineCacheMu.RUnlock()
+
+	searchEngineCacheMu.Lock()
+	defer searchEngineCacheMu.Unlock()
+
+	// Double-check after acquiring write lock
+	if searchEngineCache != nil && time.Since(searchEngineCacheTime) < searchEngineCacheTTL {
+		return searchEngineCache
+	}
+
 	db := globals.GetDB()
 	if db == nil {
-		panic("DB is not initialized")
+		return searchEngineCache
 	}
-	searchEngines := db.Client.SearchEngines.Query().AllX(context.Background())
+	searchEngineCache = db.Client.SearchEngines.Query().AllX(context.Background())
+	searchEngineCacheTime = time.Now()
+	return searchEngineCache
+}
+
+// getSourceClause generates the CASE statement for source classification
+func (qs *QueryBuilder) getSourceClause() (string, error) {
+	searchEngines := getSearchEngines()
 
 	clause := fmt.Sprintf(`
 			CASE
-				WHEN referrer_source = '' THEN 'Direct'
+				WHEN referrer_source = '' THEN 'Direct / None'
 				%s
 				ELSE referrer_source
 			END as referrer_source
