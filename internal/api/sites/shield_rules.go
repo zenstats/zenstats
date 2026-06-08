@@ -330,17 +330,17 @@ func (h *SitesHandler) AddShieldRuleCountry() gin.HandlerFunc {
 // RemoveShieldRuleCountry 删除Country屏蔽规则
 //
 //	@Summary		删除Country屏蔽规则
-//	@Description	删除指定站点的Country屏蔽规则
+//	@Description	删除指定域名的Country屏蔽规则
 //	@Tags			站点管理
 //	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path		int									true	"站点ID"
+//	@Param			domain	path		string								true	"站点域名"
 //	@Param			ruleId	path		int									true	"规则ID"
 //	@Success		200		{object}	response.SuccessResponse{data=nil}	"成功响应"
 //	@Failure		400		{object}	response.ErrorResponse				"请求参数错误"
 //	@Failure		500		{object}	response.ErrorResponse				"服务器内部错误"
-//	@Router			/sites/{id}/shield/country/{ruleId} [delete]
+//	@Router			/sites/{domain}/shield/country/{ruleId} [delete]
 func (h *SitesHandler) RemoveShieldRuleCountry() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		domain := c.Param("domain")

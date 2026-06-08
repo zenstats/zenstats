@@ -12,12 +12,12 @@ import (
 )
 
 // @Summary		用户登录
-// @Description	通过邮箱和密码登录系统并获取访问令牌
-// @Tags			auth
+// @Description	通过邮箱和密码登录系统并获取访问令牌和刷新令牌。
+// @Tags			认证
 // @Accept			json
 // @Produce		json
-// @Param			request	body		types.LoginRequest		true	"登录请求参数"
-// @Success		200		{object}	types.LoginResponse		"登录成功返回令牌和用户信息"
+// @Param			request	body		types.LoginRequest					true	"登录请求参数"
+// @Success		200		{object}	response.SuccessResponse{data=types.LoginResponse}	"登录成功返回令牌和用户信息"
 // @Failure		400		{object}	response.ErrorResponse	"请求参数错误"
 // @Failure		401		{object}	response.ErrorResponse	"密码错误"
 // @Failure		404		{object}	response.ErrorResponse	"用户不存在"

@@ -84,6 +84,12 @@ func (wb *WhereBuilder) AddFilter(table string, filter *types.Filter) error {
 		}
 	}
 
+	// 检查是否为事件维度且当前表为sessions，跳过事件专属过滤器
+	// 事件维度过滤器仅应用于events表，sessions表中这些列不存在
+	if table == "sessions" && isEventOnlyFilterDimension(filter.Dimension) {
+		return nil
+	}
+
 	// 特殊维度处理
 	switch filter.Dimension {
 	case "event:name":
@@ -115,6 +121,15 @@ func (wb *WhereBuilder) AddFilter(table string, filter *types.Filter) error {
 	default:
 		return wb.addSimpleFilter(table, filter)
 	}
+}
+
+// isEventOnlyFilterDimension 判断维度是否为事件专属过滤器（仅在events表中有效）
+func isEventOnlyFilterDimension(dimension string) bool {
+	return dimension == "event:name" ||
+		dimension == "event:page" ||
+		dimension == "event:hostname" ||
+		dimension == "event:goal" ||
+		strings.HasPrefix(dimension, "event:props:")
 }
 
 // 添加自定义属性过滤
@@ -345,6 +360,10 @@ func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
 		return "exit_page", nil
 	case "visit:country":
 		return "country_code", nil
+	case "event:region", "visit:region":
+		return "continent_geoname_id", nil
+	case "event:city", "visit:city":
+		return "city_geoname_id", nil
 	default:
 		if strings.HasPrefix(name, "event:props:") {
 			propName := strings.TrimPrefix(name, "event:props:")
@@ -383,15 +402,27 @@ func (wb *WhereBuilder) dbFieldVal(field string, val any) any {
 
 // 目标事件过滤专用方法
 func (wb *WhereBuilder) addGoalFilter(goalValue any) error {
-	goalName, ok := goalValue.(string)
-	if !ok {
+	var goalName string
+	switch value := goalValue.(type) {
+	case string:
+		goalName = value
+	case []any:
+		if len(value) == 0 {
+			return fmt.Errorf("goal value cannot be empty")
+		}
+		v, ok := value[0].(string)
+		if !ok {
+			return fmt.Errorf("invalid goal value type: %T", value[0])
+		}
+		goalName = v
+	default:
 		return fmt.Errorf("invalid goal value type: %T", goalValue)
 	}
 
 	// 查询目标ID的子查询
 	goalIDSubQuery := "SELECT id FROM goals WHERE site_id = ? AND name = ?"
 	wb.AddCondition(
-		"goal_id IN (", goalIDSubQuery, ")",
+		fmt.Sprintf("goal_id IN (%s)", goalIDSubQuery),
 		wb.siteID, goalName,
 	)
 	return nil
@@ -548,7 +579,7 @@ func (wb *WhereBuilder) addContainsNotFilter(field string, value any, modifiers 
 
 // 添加多匹配条件处理
 func (wb *WhereBuilder) addMatchesFilter(fieldExpr string, patterns any, modifiers map[string]string) error {
-	patternList, ok := patterns.([]string)
+	patternList, ok := toStringSlice(patterns)
 	if !ok {
 		return fmt.Errorf("invalid patterns type for 'matches' filter: %T", patterns)
 	}
@@ -567,7 +598,7 @@ func (wb *WhereBuilder) addMatchesFilter(fieldExpr string, patterns any, modifie
 }
 
 func (wb *WhereBuilder) addMatchesNotFilter(field string, patterns any, modifiers map[string]string) error {
-	patternList, ok := patterns.([]string)
+	patternList, ok := toStringSlice(patterns)
 	if !ok {
 		return fmt.Errorf("invalid patterns type for 'matches_not' filter: %T", patterns)
 	}
@@ -585,7 +616,7 @@ func (wb *WhereBuilder) addMatchesNotFilter(field string, patterns any, modifier
 }
 
 func (wb *WhereBuilder) addMatchesWildcardFilter(field string, patterns any, modifiers map[string]string) error {
-	patternList, ok := patterns.([]string)
+	patternList, ok := toStringSlice(patterns)
 	if !ok {
 		return fmt.Errorf("invalid patterns type for 'matches_wildcard' filter: %T", patterns)
 	}
@@ -605,7 +636,7 @@ func (wb *WhereBuilder) addMatchesWildcardFilter(field string, patterns any, mod
 }
 
 func (wb *WhereBuilder) addMatchesWildcardNotFilter(field string, patterns any, modifiers map[string]string) error {
-	patternList, ok := patterns.([]string)
+	patternList, ok := toStringSlice(patterns)
 	if !ok {
 		return fmt.Errorf("invalid patterns type for 'matches_wildcard_not' filter: %T", patterns)
 	}
@@ -622,6 +653,27 @@ func (wb *WhereBuilder) addMatchesWildcardNotFilter(field string, patterns any, 
 
 	wb.AddCondition(fmt.Sprintf("NOT multiMatchAny(%s, ?)", fieldExpr), strings.Join(regexPatterns, ","))
 	return nil
+}
+
+func toStringSlice(value any) ([]string, bool) {
+	switch v := value.(type) {
+	case []string:
+		return v, true
+	case []any:
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				return nil, false
+			}
+			result = append(result, str)
+		}
+		return result, true
+	case string:
+		return []string{v}, true
+	default:
+		return nil, false
+	}
 }
 
 // wildcardToRegex converts a wildcard pattern to a regex pattern

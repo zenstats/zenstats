@@ -6,6 +6,9 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 WORKDIR /build
 
+# 配置 Go 模块代理（加速依赖下载）
+ENV GOPROXY=https://goproxy.cn,direct
+
 # Cache dependencies
 COPY go.mod go.sum ./
 RUN go mod download

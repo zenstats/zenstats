@@ -7,57 +7,46 @@ import (
 	"github.com/zenstats/zenstats/internal/service/stats/types"
 )
 
-var (
-	queryOptimizer = NewFragmentGenerator()
-	uniq           = queryOptimizer.Uniq("user_id")
-	total          = queryOptimizer.Total()
-	bounceRate     = queryOptimizer.BounceRate()
-	visitDuration  = queryOptimizer.VisitDuration()
-	viewsPerVisit  = queryOptimizer.ViewsPerVisit()
-	events         = queryOptimizer.EventsForEvent()
-)
-
 // Metric 定义统计指标元数据
 
 // 所有支持的指标
 type Metrics map[string]types.Metric
 
-// 全局指标定义
+// 全局指标定义（不含采样表达式，SQLExpr 由 GetMetricSQL 动态生成）
 var AvailableMetrics = Metrics{
 	"visitors": {
 		Name:        "visitors",
 		Description: "Unique visitors to the site",
-		SQLExpr:     fmt.Sprintf("%s as visitors", uniq.ToSql()),
 		Valid:       true,
 	},
 	"pageviews": {
-		Name:        "pageview",
+		Name:        "pageviews",
 		Description: "Total page views",
-		SQLExpr:     fmt.Sprintf("%s as cur_pageviews", total.ToSql()),
+		Valid:       true,
+	},
+	"visits": {
+		Name:        "visits",
+		Description: "Total number of visits (sessions)",
 		Valid:       true,
 	},
 	"views_per_visit": {
 		Name:        "views_per_visit",
 		Description: "The number of pageviews divided by the number of visits.",
-		SQLExpr:     fmt.Sprintf("%s as views_per_visit", viewsPerVisit.ToSql()),
 		Valid:       true,
 	},
 	"events": {
 		Name:        "events",
 		Description: "Total number of events",
-		SQLExpr:     fmt.Sprintf("%s as events", events.ToSql()),
 		Valid:       true,
 	},
 	"bounce_rate": {
 		Name:        "bounce_rate",
 		Description: "Bounce rate percentage",
-		SQLExpr:     fmt.Sprintf("%s as bounce_rate", bounceRate.ToSql()),
 		Valid:       true,
 	},
 	"visit_duration": {
 		Name:        "visit_duration",
 		Description: "Visit duration in seconds",
-		SQLExpr:     fmt.Sprintf("%s as visit_duration", visitDuration.ToSql()),
 		Valid:       true,
 	},
 }
@@ -81,12 +70,38 @@ func ValidateMetrics(metrics []string) error {
 	return nil
 }
 
-// GetMetricSQL 获取指标对应的SQL表达式
-func (m Metrics) GetMetricSQL(metric string) (string, error) {
-	if metricDef, exists := m[metric]; exists && metricDef.Valid {
-		return metricDef.SQLExpr, nil
+// GetMetricSQL 根据指标名称和采样配置返回 SQL 表达式。
+// samplingEnabled 控制是否使用 _sample_factor 进行采样缩放。
+func (m Metrics) GetMetricSQL(metric string, samplingEnabled bool) (string, error) {
+	gen := NewFragmentGenerator()
+	if _, exists := m[metric]; !exists {
+		return "", fmt.Errorf("metric %s is not available", metric)
 	}
-	return "", fmt.Errorf("metric %s is not available", metric)
+
+	switch metric {
+	case "visitors":
+		frag := gen.Uniq("user_id", samplingEnabled)
+		return fmt.Sprintf("%s as visitors", frag.ToSql()), nil
+	case "pageviews":
+		frag := gen.Total(samplingEnabled)
+		return fmt.Sprintf("%s as pageviews", frag.ToSql()), nil
+	case "visits":
+		return "sum(sign) as visits", nil
+	case "events":
+		frag := gen.EventsForEvent(samplingEnabled)
+		return fmt.Sprintf("%s as events", frag.ToSql()), nil
+	case "bounce_rate":
+		frag := gen.BounceRate()
+		return fmt.Sprintf("%s as bounce_rate", frag.ToSql()), nil
+	case "visit_duration":
+		frag := gen.VisitDuration()
+		return fmt.Sprintf("%s as visit_duration", frag.ToSql()), nil
+	case "views_per_visit":
+		frag := gen.ViewsPerVisit()
+		return fmt.Sprintf("%s as views_per_visit", frag.ToSql()), nil
+	default:
+		return "", fmt.Errorf("metric %s is not available", metric)
+	}
 }
 
 // Names 返回所有可用指标名称
@@ -99,10 +114,13 @@ func (m Metrics) Names() []string {
 }
 
 // Descriptions 返回所有指标的描述信息
-func (m Metrics) Descriptions() map[string]string {
-	descs := make(map[string]string)
+func (m Metrics) Descriptions() map[string]map[string]string {
+	descs := make(map[string]map[string]string)
 	for name, metric := range m {
-		descs[name] = metric.Description
+		descs[name] = map[string]string{
+			"name":        metric.Name,
+			"description": metric.Description,
+		}
 	}
 	return descs
 }

@@ -12,12 +12,12 @@ import (
 // Initialize 初始化系统，创建初始管理员用户并颁发访问令牌。
 //
 //	@Summary		初始化系统
-//	@Description	创建初始管理员用户并完成系统初始化
-//	@Tags			auth
+//	@Description	创建初始管理员用户并完成系统初始化。该接口仅在系统未初始化时可用。
+//	@Tags			认证
 //	@Accept			json
 //	@Produce		json
-//	@Param			request	body		types.InitializeRequest		true	"初始化请求参数"
-//	@Success		200		{object}	types.InitializeResponse	"初始化成功返回令牌和用户信息"
+//	@Param			request	body		types.InitializeRequest					true	"初始化请求参数"
+//	@Success		200		{object}	response.SuccessResponse{data=types.InitializeResponse}	"初始化成功返回令牌和用户信息"
 //	@Failure		400		{object}	response.ErrorResponse		"请求参数错误"
 //	@Failure		500		{object}	response.ErrorResponse		"服务器内部错误"
 //	@Router			/auth/init [post]

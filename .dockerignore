@@ -22,9 +22,8 @@ data/*.mmdb
 data/*.tar.gz
 log/
 tracker/node_modules
-docs/
+web/node_modules
+web/.git
 
 # Non-essential files
 README.md
-1.md
-zenstats.js

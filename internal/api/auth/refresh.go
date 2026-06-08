@@ -12,12 +12,12 @@ import (
 )
 
 // @Summary		刷新访问令牌
-// @Description	使用刷新令牌获取新的访问令牌
-// @Tags			auth
+// @Description	使用刷新令牌获取新的访问令牌。refreshToken 通过查询参数传递。
+// @Tags			认证
 // @Accept			json
 // @Produce		json
 // @Param			refreshToken	query		string					true	"刷新令牌"
-// @Success		200				{string}	string					"新的访问令牌"
+// @Success		200				{object}	response.SuccessResponse{data=string}	"成功响应，data 为新的访问令牌"
 // @Failure		400				{object}	response.ErrorResponse	"请求参数错误"
 // @Failure		401				{object}	response.ErrorResponse	"无效的刷新令牌"
 // @Failure		431				{object}	response.ErrorResponse	"刷新令牌已过期"

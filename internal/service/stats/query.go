@@ -45,8 +45,10 @@ func (qs *QueryService) CreateQuery(params *types.Params) (*types.Query, error) 
 	if err != nil {
 		return nil, err
 	}
-	if err := params.ParsePeriodToUTCTimeRange(params.Timezone); err != nil {
-		return nil, err
+	if params.UTCTimeRange.Start.IsZero() {
+		if err := params.ParsePeriodToUTCTimeRange(params.Timezone); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := ensureCustomPropsAccess(nil, params); err != nil {
@@ -67,20 +69,14 @@ func (qs *QueryService) CreateQuery(params *types.Params) (*types.Query, error) 
 		Dimensions:             params.Dimensions,
 		Metrics:                metrics,
 		Filters:                params.Filters,
-		// TimeOnPageData:         params.TimeOnPageData,
-		// SampleThreshold:        params.SampleThreshold,
-		// Now:                    params.Now,
-		// SiteNativeStatsStartAt: params.SiteNativeStatsStartAt,
-		Pagination: params.Pagination,
-		OrderBy:    params.OrderBy,
+		Pagination:             params.Pagination,
+		OrderBy:                params.OrderBy,
+		SampleThreshold:        params.SampleThreshold,
 	}
 
 	// 设置默认值
 	if query.Now.IsZero() {
 		query.Now = time.Now()
-	}
-	if query.SampleThreshold == 0 {
-		query.SampleThreshold = 10000 // 默认采样阈值
 	}
 
 	return query, nil

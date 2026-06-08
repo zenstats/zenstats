@@ -14,7 +14,7 @@
 
   function onIgnoredEvent(eventName, reason, options) {
     if (reason) console.warn('Ignoring Event: ' + reason);
-    options && options.callback && options.callback()
+    options && options.callback && options.callback({ status: 0, ignored: true })
 
     if (eventName === 'pageview') {
       currentEngagementIgnored = true
@@ -37,6 +37,12 @@
 
   // When page is hidden, this 'engaged' time is saved to this variable
   var currentEngagementTime = 0
+
+  // Event batching configuration
+  var BATCH_INTERVAL = 2000  // Flush every 2 seconds
+  var MAX_BATCH_SIZE = 10    // Max events per batch
+  var eventQueue = []
+  var batchTimer = null
 
   function getDocumentHeight() {
     var body = document.body || {}
@@ -71,6 +77,23 @@
   var currentDocumentHeight = getDocumentHeight()
   var maxScrollDepthPx = getCurrentScrollDepthPx()
 
+  // Scroll handler with requestAnimationFrame throttle
+  var scrollTicking = false
+  function onScroll() {
+    if (!scrollTicking) {
+      window.requestAnimationFrame(function() {
+        currentDocumentHeight = getDocumentHeight()
+        var currentScrollDepthPx = getCurrentScrollDepthPx()
+
+        if (currentScrollDepthPx > maxScrollDepthPx) {
+          maxScrollDepthPx = currentScrollDepthPx
+        }
+        scrollTicking = false
+      })
+      scrollTicking = true
+    }
+  }
+
   window.addEventListener('load', function () {
     currentDocumentHeight = getDocumentHeight()
 
@@ -85,14 +108,7 @@
 
   })
 
-  document.addEventListener('scroll', function() {
-    currentDocumentHeight = getDocumentHeight()
-    var currentScrollDepthPx = getCurrentScrollDepthPx()
-
-    if (currentScrollDepthPx > maxScrollDepthPx) {
-      maxScrollDepthPx = currentScrollDepthPx
-    }
-  })
+  document.addEventListener('scroll', onScroll)
 
   function triggerEngagement() {
     var engagementTime = getEngagementTime()
@@ -161,7 +177,7 @@
       // has been sent by the current script (i.e. it's most likely a SPA).
       // Trigger an engagement marking the "exit from the previous page".
       triggerEngagement()
-      currentDocumentHeight = getDocumentaddEventListenerHeight()
+      currentDocumentHeight = getDocumentHeight()
       maxScrollDepthPx = getCurrentScrollDepthPx()
     }
 
@@ -224,8 +240,64 @@
       registerEngagementListener()
     }
 
-    sendRequest(endpoint, payload, options)
+    addToQueue(payload, options)
   }
+
+  // Event batching: queue events and flush periodically
+  function addToQueue(payload, options) {
+    eventQueue.push({ payload: payload, options: options })
+
+    if (eventQueue.length >= MAX_BATCH_SIZE) {
+      flushQueue()
+    } else if (!batchTimer) {
+      batchTimer = setTimeout(flushQueue, BATCH_INTERVAL)
+    }
+  }
+
+  function flushQueue() {
+    if (batchTimer) {
+      clearTimeout(batchTimer)
+      batchTimer = null
+    }
+
+    if (eventQueue.length === 0) return
+
+    var eventsToSend = eventQueue.splice(0, MAX_BATCH_SIZE)
+    var callbacks = []
+
+    // Collect all callbacks
+    for (var i = 0; i < eventsToSend.length; i++) {
+      if (eventsToSend[i].options && eventsToSend[i].options.callback) {
+        callbacks.push(eventsToSend[i].options.callback)
+      }
+    }
+
+    // Send batch if multiple events, otherwise send single
+    if (eventsToSend.length === 1) {
+      sendRequest(endpoint, eventsToSend[0].payload, eventsToSend[0].options)
+    } else {
+      var batchPayload = {
+        n: 'batch',
+        e: eventsToSend.map(function(item) { return item.payload }),
+        v: '{{TRACKER_SCRIPT_VERSION}}'
+      }
+      sendRequest(endpoint, batchPayload, callbacks.length > 0 ? { callback: function(result) {
+        for (var j = 0; j < callbacks.length; j++) {
+          callbacks[j](result)
+        }
+      }} : null)
+    }
+
+    // If there are more events in queue, schedule another flush
+    if (eventQueue.length > 0) {
+      batchTimer = setTimeout(flushQueue, BATCH_INTERVAL)
+    }
+  }
+
+  // Flush remaining events on page unload
+  window.addEventListener('beforeunload', function() {
+    flushQueue()
+  })
 
   function sendRequest(endpoint, payload, options) {
     if (window.fetch) {
@@ -237,8 +309,31 @@
         keepalive: true,
         body: JSON.stringify(payload)
       }).then(function(response) {
-        options && options.callback && options.callback({status: response.status})
-      }).catch(function() {})
+        options && options.callback && options.callback({ status: response.status })
+      }).catch(function(error) {
+        options && options.callback && options.callback({ status: 0, error: error })
+      })
+    } else if (window.XMLHttpRequest) {
+      // Fallback to XMLHttpRequest for older browsers
+      try {
+        var xhr = new XMLHttpRequest()
+        xhr.open('POST', endpoint, true)
+        xhr.setRequestHeader('Content-Type', 'text/plain')
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === 4) {
+            options && options.callback && options.callback({ status: xhr.status })
+          }
+        }
+        xhr.onerror = function() {
+          options && options.callback && options.callback({ status: 0, error: 'Network error' })
+        }
+        xhr.send(JSON.stringify(payload))
+      } catch (e) {
+        options && options.callback && options.callback({ status: 0, error: e })
+      }
+    } else {
+      // Last resort: image pixel (limited payload, no response)
+      options && options.callback && options.callback({ status: 0, error: 'No transport available' })
     }
   }
 

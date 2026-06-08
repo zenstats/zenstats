@@ -539,9 +539,13 @@ func (s *SiteService) UpdateSite(ctx *gin.Context, domain string, req types.Upda
 		updateQuery = updateQuery.SetStatsStartDate(req.StatsStartDate)
 	}
 
-	updateQuery = updateQuery.SetIngestRateLimitScaleSeconds(req.IngestRateLimitScaleSeconds)
+	if req.IngestRateLimitScaleSeconds != nil {
+		updateQuery = updateQuery.SetIngestRateLimitScaleSeconds(*req.IngestRateLimitScaleSeconds)
+	}
 
-	updateQuery = updateQuery.SetIngestLimitPerMinute(req.IngestLimitPerMinute)
+	if req.IngestLimitPerMinute != nil {
+		updateQuery = updateQuery.SetIngestLimitPerMinute(*req.IngestLimitPerMinute)
+	}
 
 	siteEntity, err = updateQuery.Save(ctx)
 	if err != nil {

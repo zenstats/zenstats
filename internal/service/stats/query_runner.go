@@ -31,6 +31,17 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 	if err != nil {
 		return nil, fmt.Errorf("failed to build query: %v", err)
 	}
+
+	// 当需要分页时，先执行 COUNT 查询获取总行数
+	var totalRows int
+	if builder.NeedsTotalRows(query) {
+		totalRows, err = qr.runCountQuery(ctx, sqlStr, args)
+		if err != nil {
+			slog.Warn("failed to count total rows", "error", err)
+			totalRows = 0
+		}
+	}
+
 	// 执行查询
 	rows, err := qr.conn.Query(ctx, sqlStr, args...)
 	slog.Debug("query sql", sqlStr, args)
@@ -45,7 +56,25 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 		return nil, fmt.Errorf("failed to process results: %v", err)
 	}
 
+	// 设置分页元数据
+	if builder.NeedsTotalRows(query) {
+		result.TotalRows = totalRows
+	}
+
 	return result, nil
+}
+
+// runCountQuery 执行 COUNT 查询获取分页总行数
+func (qr *QueryRunner) runCountQuery(ctx context.Context, originalSQL string, args []any) (int, error) {
+	// 用 COUNT(*) 包裹原始查询获取总行数
+	countSQL := fmt.Sprintf("SELECT count(*) FROM (%s)", originalSQL)
+
+	var totalRows uint64
+	err := qr.conn.QueryRow(ctx, countSQL, args...).Scan(&totalRows)
+	if err != nil {
+		return 0, err
+	}
+	return int(totalRows), nil
 }
 
 // processResults 处理查询结果
@@ -58,9 +87,9 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 	// 如果只有一个维度，将对应列名改为"name"
 	if len(dimensions) == 1 {
 		targetDimension := dimensions[0]
-		convertedColumn := builder.DimensionToColumn(targetDimension, "events", "select")
+		alias := builder.DimensionAlias(targetDimension)
 		for i, col := range originalColumns {
-			if col == convertedColumn {
+			if col == alias {
 				newColumns[i] = "name"
 				break
 			}

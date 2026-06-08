@@ -13,11 +13,13 @@ import (
 //	@Description	获取当前站点最近5分钟内的实时在线访客和会话数
 //	@Tags			统计分析
 //	@Security		BearerAuth
+//	@Security		APIKeyAuth
 //	@Accept			json
 //	@Produce		json
-//	@Param			domain	path		string	true	"站点域名"
-//	@Success		200		{object}	response.SuccessResponse{data=any}	"成功响应"
-//	@Failure		400		{object}	response.ErrorResponse	"请求参数错误"
+//	@Param			domain	path		string	true	"站点域名，例如 example.com"
+//	@Success		200		{object}	response.SuccessResponse{data=any}	"成功响应，data 为实时访客数和会话数"
+//	@Failure		401		{object}	response.ErrorResponse	"未认证或认证失败"
+//	@Failure		500		{object}	response.ErrorResponse	"服务器内部错误"
 //	@Router			/stats/{domain}/current-visitors [get]
 func (s *StatsHandle) GetCurrentVisitors() gin.HandlerFunc {
 	return func(c *gin.Context) {

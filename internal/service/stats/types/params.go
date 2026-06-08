@@ -23,6 +23,7 @@ type Params struct {
 	Filters                []*Filter   `json:"filters,omitempty"`                   // 过滤器列表
 	Pagination             *Pagination `json:"pagination,omitempty"`                // 分页配置
 	OrderBy                []*OrderBy  `json:"order_by,omitempty"`                  // 排序配置
+	SampleThreshold        int64       `json:"sample_threshold,omitempty"`          // 采样阈值，0 表示不采样
 }
 
 // ParsePeriodToUTCTimeRange 根据Period参数解析UTC时间范围
@@ -34,7 +35,7 @@ func (p *Params) ParsePeriodToUTCTimeRange(siteTimezone string) error {
 	case "realtime":
 		start = now.SubMinutes(30)
 		end = now
-	case "day":
+	case "day", "yesterday":
 		// 解析日期并转换为UTC
 		localDate := carbon.Parse(p.Date, siteTimezone)
 		if localDate.Error != nil {

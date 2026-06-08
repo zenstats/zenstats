@@ -27,6 +27,13 @@ type Query struct {
 	SiteNativeStatsStartAt time.Time      `json:"site_native_stats_start_at,omitempty"` // 站点本地统计开始时间
 	Pagination             *Pagination    `json:"pagination,omitempty"`                 // 分页配置
 	OrderBy                []*OrderBy     `json:"order_by,omitempty"`                   // 排序配置
+
+	// Pipeline-only fields. These are derived internally from the Plausible-style
+	// query pipeline and are intentionally omitted from the public API contract.
+	SQLJoinType          string    `json:"-"`
+	SmearSessionMetrics  bool      `json:"-"`
+	DropTimeOnPageMetric bool      `json:"-"`
+	InputUTCTimeRange    TimeRange `json:"-"`
 }
 
 // Validate 验证查询参数合法性
@@ -240,8 +247,9 @@ type Pagination struct {
 
 // QueryResult 封装查询结果
 type QueryResult struct {
-	Columns []string         `json:"columns"`
-	Data    []map[string]any `json:"data"`
+	Columns   []string         `json:"columns"`
+	Data      []map[string]any `json:"data"`
+	TotalRows int              `json:"total_rows,omitempty"`
 }
 
 // ToJSON 将结果转换为JSON

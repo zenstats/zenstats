@@ -71,8 +71,12 @@ make docker-up
 ### 4. 执行数据库迁移
 
 ```bash
+# 等待服务完全启动后执行
+sleep 5
 make docker-migrate
 ```
+
+> **注意**：首次部署时，需要先设置环境变量（`export ZENSTATS_MAXMIND_LICENSE_KEY=xxx`）再执行迁移。
 
 此命令会：
 - 创建数据库表结构

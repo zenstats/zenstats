@@ -15,7 +15,6 @@ func Init() {
 	bootstrap.InitLog()
 	bootstrap.InitWorkQueue()
 	bootstrap.InitClickhouseTable()
-
 	bootstrap.InitGeoIP()
 	bootstrap.InitPostgres()
 }

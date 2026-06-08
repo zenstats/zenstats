@@ -43,7 +43,7 @@ func (s *CurrentVisitorsService) GetCurrentVisitors(ctx context.Context, siteID 
 		FROM events
 		WHERE
 			site_id = ?
-			AND name != "engagement"
+			AND name != 'engagement'
 			AND timestamp >= ?
 	`
 
@@ -55,7 +55,7 @@ func (s *CurrentVisitorsService) GetCurrentVisitors(ctx context.Context, siteID 
 	defer rows.Close()
 
 	// 处理结果
-	var visitors, sessions int
+	var visitors, sessions uint64
 	found := false
 
 	for rows.Next() {
@@ -76,9 +76,9 @@ func (s *CurrentVisitorsService) GetCurrentVisitors(ctx context.Context, siteID 
 	}
 
 	return &CurrentVisitors{
-			Total:       visitors,
-			Visitors:    visitors,
-			Sessions:    sessions,
+			Total:       int(visitors),
+			Visitors:    int(visitors),
+			Sessions:    int(sessions),
 			LastUpdated: time.Now(),
 		},
 		nil
@@ -96,16 +96,16 @@ func (s *CurrentVisitorsService) GetCurrentVisitorsByPage(ctx context.Context, s
 	// 构建查询
 	sql := `
 		SELECT
-			page,
+			pathname as page,
 			count(distinct user_id) as visitors,
 			count(distinct session_id) as sessions
 		FROM events
 		WHERE
 			site_id = ?
-			AND name != "engagement"
+			AND name != 'engagement'
 			AND timestamp >= ?
-			AND page != ''
-		GROUP BY page
+			AND pathname != ''
+		GROUP BY pathname
 		ORDER BY visitors DESC
 		LIMIT ?
 	`
@@ -122,7 +122,7 @@ func (s *CurrentVisitorsService) GetCurrentVisitorsByPage(ctx context.Context, s
 
 	for rows.Next() {
 		var page string
-		var visitors, sessions int
+		var visitors, sessions uint64
 
 		if err := rows.Scan(&page, &visitors, &sessions); err != nil {
 			return nil, err
@@ -130,8 +130,8 @@ func (s *CurrentVisitorsService) GetCurrentVisitorsByPage(ctx context.Context, s
 
 		results = append(results, map[string]any{
 			"page":     page,
-			"visitors": visitors,
-			"sessions": sessions,
+			"visitors": int(visitors),
+			"sessions": int(sessions),
 		})
 	}
 

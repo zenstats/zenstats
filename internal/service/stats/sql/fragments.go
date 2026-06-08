@@ -28,8 +28,12 @@ func NewFragmentGenerator() *SQLFragmentGenerator {
 	return &SQLFragmentGenerator{}
 }
 
-// ScaleSample 对采样数据进行缩放
-func (g *SQLFragmentGenerator) ScaleSample(fragment SQLFragment) SQLFragment {
+// ScaleSample 对采样数据进行缩放。
+// 当采样启用时用 _sample_factor 还原真实值；未启用时直接返回原始表达式。
+func (g *SQLFragmentGenerator) ScaleSample(fragment SQLFragment, samplingEnabled bool) SQLFragment {
+	if !samplingEnabled {
+		return fragment
+	}
 	sql := fmt.Sprintf("toUInt64(round(%s * any(_sample_factor)))", fragment.SQL)
 	return SQLFragment{
 		SQL:  sql,
@@ -38,38 +42,42 @@ func (g *SQLFragmentGenerator) ScaleSample(fragment SQLFragment) SQLFragment {
 }
 
 // Uniq 计算唯一用户数，带采样缩放
-func (g *SQLFragmentGenerator) Uniq(userID string) SQLFragment {
+func (g *SQLFragmentGenerator) Uniq(userID string, samplingEnabled bool) SQLFragment {
 	return g.ScaleSample(SQLFragment{
 		SQL:  "uniq(?)",
 		Args: []any{userID},
-	})
+	}, samplingEnabled)
 }
 
 // Total 计算总数，带采样缩放
-func (g *SQLFragmentGenerator) Total() SQLFragment {
+func (g *SQLFragmentGenerator) Total(samplingEnabled bool) SQLFragment {
 	return g.ScaleSample(SQLFragment{
 		SQL:  "sum(pageviews * sign)",
 		Args: nil,
-	})
+	}, samplingEnabled)
 }
 
-func (g *SQLFragmentGenerator) EventsForEvent() SQLFragment {
+func (g *SQLFragmentGenerator) EventsForEvent(samplingEnabled bool) SQLFragment {
 	return g.ScaleSample(SQLFragment{
 		SQL:  "countIf(name != 'engagement')",
 		Args: nil,
-	})
+	}, samplingEnabled)
 }
 
 // EventsForSession events总数
-func (g *SQLFragmentGenerator) EventsForSession() SQLFragment {
+func (g *SQLFragmentGenerator) EventsForSession(samplingEnabled bool) SQLFragment {
 	return g.ScaleSample(SQLFragment{
 		SQL:  "sum(sign * events)",
 		Args: nil,
-	})
+	}, samplingEnabled)
 }
 
-// SamplePercent 计算采样百分比
-func (g *SQLFragmentGenerator) SamplePercent() SQLFragment {
+// SamplePercent 计算采样百分比。
+// 当采样启用时返回实际采样率，否则返回 100。
+func (g *SQLFragmentGenerator) SamplePercent(samplingEnabled bool) SQLFragment {
+	if !samplingEnabled {
+		return SQLFragment{SQL: "100"}
+	}
 	return SQLFragment{
 		SQL:  "if(any(_sample_factor) > 1, round(100 / any(_sample_factor)), 100)",
 		Args: nil,
@@ -87,7 +95,7 @@ func (g *SQLFragmentGenerator) BounceRate() SQLFragment {
 // ViewsPerVisit 页面浏览量除以访问量。
 func (g *SQLFragmentGenerator) ViewsPerVisit() SQLFragment {
 	return SQLFragment{
-		SQL:  "ifNotFinite(round(sum(pageviews * sign) / sum(sign), 2), 0)",
+		SQL:  "ifNotFinite(round(sum(pageviews * sign) / nullIf(sum(sign), 0), 2), 0)",
 		Args: nil,
 	}
 }

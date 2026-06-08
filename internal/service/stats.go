@@ -50,6 +50,10 @@ func (s *StatsService) GetAggregate(ctx *gin.Context, domain string, req *atypes
 		return nil, fmt.Errorf("site not found")
 	}
 	start, end := s.getDateRange(req, site.Timezone, 0)
+	filters, err := parseRequestFilters(req.Filters)
+	if err != nil {
+		return nil, err
+	}
 
 	// 计算对比时间范围（上一同期）
 	comparisonStart, comparisonEnd := s.getComparisonDateRange(req, site.Timezone)
@@ -65,13 +69,15 @@ func (s *StatsService) GetAggregate(ctx *gin.Context, domain string, req *atypes
 			Start: comparisonStart,
 			End:   comparisonEnd,
 		},
-		Period:     req.Period,
-		Date:       req.Date,
-		From:       req.From,
-		To:         req.To,
-		Timezone:   site.Timezone,
-		Metrics:    []string{"visitors", "pageviews", "bounce_rate", "visit_duration", "views_per_visit"},
-		Dimensions: []string{},
+		Period:          req.Period,
+		Date:            req.Date,
+		From:            req.From,
+		To:              req.To,
+		Timezone:        site.Timezone,
+		Metrics:         parseMetricsWithDefault(req.Metrics, []string{"visitors", "pageviews", "bounce_rate", "visit_duration", "views_per_visit"}),
+		Dimensions:      []string{},
+		Filters:         filters,
+		SampleThreshold: req.SampleThreshold,
 	}
 	qs := s.getQueryService()
 
@@ -87,21 +93,33 @@ func (s *StatsService) GetTimeSeries(ctx *gin.Context, domain string, req *atype
 		return nil, fmt.Errorf("site not found")
 	}
 	start, end := s.getDateRange(req, site.Timezone, 0)
+	filters, err := parseRequestFilters(req.Filters)
+	if err != nil {
+		return nil, err
+	}
+
+	// 当未指定 interval 时，根据周期类型选择默认值
+	interval := req.Interval
+	if interval == "" {
+		interval = stats.DefaultIntervalForPeriod(req.Period)
+	}
 
 	params := &types.Params{
-		Interval: req.Interval,
+		Interval: interval,
 		SiteID:   fmt.Sprintf("%d", site.ID),
 		UTCTimeRange: types.TimeRange{
 			Start: start,
 			End:   end,
 		},
-		Period:     req.Period,
-		Date:       req.Date,
-		From:       req.From,
-		To:         req.To,
-		Timezone:   site.Timezone,
-		Metrics:    []string{"visitors"},
-		Dimensions: []string{},
+		Period:          req.Period,
+		Date:            req.Date,
+		From:            req.From,
+		To:              req.To,
+		Timezone:        site.Timezone,
+		Metrics:         parseMetricsWithDefault(req.Metrics, []string{"visitors"}),
+		Dimensions:      []string{},
+		Filters:         filters,
+		SampleThreshold: req.SampleThreshold,
 	}
 	qs := s.getQueryService()
 
@@ -117,7 +135,7 @@ func (s *StatsService) GetBreakdown(ctx *gin.Context, domain string, req *atypes
 		return nil, fmt.Errorf("site not found")
 	}
 	start, end := s.getDateRange(req, site.Timezone, 0)
-	filter, err := types.ParseRawFilter(req.Filters)
+	filters, err := parseRequestFilters(req.Filters)
 	if err != nil {
 		return nil, err
 	}
@@ -125,11 +143,6 @@ func (s *StatsService) GetBreakdown(ctx *gin.Context, domain string, req *atypes
 	if req.Page > 1 {
 		offset = (req.Page - 1) * req.Limit
 	}
-	filters := []*types.Filter{}
-	if filter != nil {
-		filters = append(filters, filter)
-	}
-
 	// 解析 metrics 逗号分隔
 	metricsList := parseMetrics(metricsStr)
 
@@ -144,14 +157,15 @@ func (s *StatsService) GetBreakdown(ctx *gin.Context, domain string, req *atypes
 			Start: start,
 			End:   end,
 		},
-		Period:     req.Period,
-		Date:       req.Date,
-		From:       req.From,
-		To:         req.To,
-		Timezone:   site.Timezone,
-		Metrics:    metricsList,
-		Dimensions: []string{property},
-		Filters:    filters,
+		Period:          req.Period,
+		Date:            req.Date,
+		From:            req.From,
+		To:              req.To,
+		Timezone:        site.Timezone,
+		Metrics:         metricsList,
+		Dimensions:      []string{property},
+		Filters:         filters,
+		SampleThreshold: req.SampleThreshold,
 		Pagination: &types.Pagination{
 			Limit:  req.Limit,
 			Offset: offset,
@@ -176,23 +190,35 @@ func (s *StatsService) GetMainGraph(ctx *gin.Context, domain string, req *atypes
 		return nil, fmt.Errorf("site not found")
 	}
 	start, end := s.getDateRange(req, site.Timezone, 0)
+	filters, err := parseRequestFilters(req.Filters)
+	if err != nil {
+		return nil, err
+	}
 
 	metricsList := parseMetrics(metricsStr)
 
+	// 当未指定 interval 时，根据周期类型选择默认值
+	interval := req.Interval
+	if interval == "" {
+		interval = stats.DefaultIntervalForPeriod(req.Period)
+	}
+
 	params := &types.Params{
-		Interval: req.Interval,
+		Interval: interval,
 		SiteID:   fmt.Sprintf("%d", site.ID),
 		UTCTimeRange: types.TimeRange{
 			Start: start,
 			End:   end,
 		},
-		Period:     req.Period,
-		Date:       req.Date,
-		From:       req.From,
-		To:         req.To,
-		Timezone:   site.Timezone,
-		Metrics:    metricsList,
-		Dimensions: []string{},
+		Period:          req.Period,
+		Date:            req.Date,
+		From:            req.From,
+		To:              req.To,
+		Timezone:        site.Timezone,
+		Metrics:         metricsList,
+		Dimensions:      []string{},
+		Filters:         filters,
+		SampleThreshold: req.SampleThreshold,
 	}
 	qs := s.getQueryService()
 
@@ -216,8 +242,12 @@ func (s *StatsService) GetCurrentVisitors(ctx *gin.Context, domain string) (*sta
 
 // parseMetrics 解析逗号分隔的指标列表
 func parseMetrics(metricsStr string) []string {
+	return parseMetricsWithDefault(metricsStr, []string{"visitors"})
+}
+
+func parseMetricsWithDefault(metricsStr string, defaults []string) []string {
 	if metricsStr == "" {
-		return []string{"visitors"}
+		return defaults
 	}
 	parts := strings.Split(metricsStr, ",")
 	result := make([]string, 0, len(parts))
@@ -228,9 +258,13 @@ func parseMetrics(metricsStr string) []string {
 		}
 	}
 	if len(result) == 0 {
-		return []string{"visitors"}
+		return defaults
 	}
 	return result
+}
+
+func parseRequestFilters(raw string) ([]*types.Filter, error) {
+	return types.ParseRawFiltersJSON(raw)
 }
 
 // getQueryService 创建并返回查询服务实例。
@@ -242,7 +276,7 @@ func (s *StatsService) getQueryService() *stats.QueryService {
 // getComparisonDateRange 计算对比时间范围（上一同期）
 func (s *StatsService) getComparisonDateRange(req *atypes.StatsRequest, timezone string) (time.Time, time.Time) {
 	switch req.Period {
-	case "day":
+	case "day", "yesterday":
 		return s.getDateRange(req, timezone, -1)
 	case "p7":
 		return s.getDateRange(req, timezone, -7)
@@ -260,36 +294,39 @@ func (s *StatsService) getComparisonDateRange(req *atypes.StatsRequest, timezone
 	}
 }
 
-// getDateRange 根据请求参数计算日期范围
+// getDateRange 根据请求参数计算UTC日期范围
 func (s *StatsService) getDateRange(req *atypes.StatsRequest, timezone string, offsetDays int) (startDate, endDate time.Time) {
 	switch req.Period {
-	case "day":
+	case "realtime":
+		endDate = carbon.Now(timezone).SetTimezone(carbon.UTC).StdTime()
+		startDate = carbon.Now(timezone).SubMinutes(30).SetTimezone(carbon.UTC).StdTime()
+	case "day", "yesterday":
 		date := carbon.Parse(req.Date, timezone).AddDays(offsetDays)
-		startDate = date.StartOfDay().StdTime()
-		endDate = date.EndOfDay().StdTime()
+		startDate = date.StartOfDay().SetTimezone(carbon.UTC).StdTime()
+		endDate = date.EndOfDay().SetTimezone(carbon.UTC).StdTime()
 	case "p7":
 		baseDate := carbon.Parse(req.Date, timezone).AddDays(offsetDays)
-		endDate = baseDate.EndOfDay().StdTime()
-		startDate = baseDate.SubDays(6).StartOfDay().StdTime()
+		endDate = baseDate.EndOfDay().SetTimezone(carbon.UTC).StdTime()
+		startDate = baseDate.SubDays(6).StartOfDay().SetTimezone(carbon.UTC).StdTime()
 	case "p14":
 		baseDate := carbon.Parse(req.Date, timezone).AddDays(offsetDays)
-		endDate = baseDate.EndOfDay().StdTime()
-		startDate = baseDate.SubDays(13).StartOfDay().StdTime()
+		endDate = baseDate.EndOfDay().SetTimezone(carbon.UTC).StdTime()
+		startDate = baseDate.SubDays(13).StartOfDay().SetTimezone(carbon.UTC).StdTime()
 	case "p30":
 		baseDate := carbon.Parse(req.Date, timezone).AddDays(offsetDays)
-		endDate = baseDate.EndOfDay().StdTime()
-		startDate = baseDate.SubDays(29).StartOfDay().StdTime()
+		endDate = baseDate.EndOfDay().SetTimezone(carbon.UTC).StdTime()
+		startDate = baseDate.SubDays(29).StartOfDay().SetTimezone(carbon.UTC).StdTime()
 	case "w":
 		baseDate := carbon.Parse(req.Date, timezone).AddDays(offsetDays)
-		startDate = baseDate.StartOfWeek().StartOfDay().StdTime()
-		endDate = baseDate.EndOfWeek().EndOfDay().StdTime()
+		startDate = baseDate.StartOfWeek().StartOfDay().SetTimezone(carbon.UTC).StdTime()
+		endDate = baseDate.EndOfWeek().EndOfDay().SetTimezone(carbon.UTC).StdTime()
 	case "m":
 		baseDate := carbon.Parse(req.Date, timezone).AddDays(offsetDays)
-		startDate = baseDate.StartOfMonth().StartOfDay().StdTime()
-		endDate = baseDate.EndOfMonth().EndOfDay().StdTime()
+		startDate = baseDate.StartOfMonth().StartOfDay().SetTimezone(carbon.UTC).StdTime()
+		endDate = baseDate.EndOfMonth().EndOfDay().SetTimezone(carbon.UTC).StdTime()
 	case "custom":
-		startDate = carbon.Parse(req.From, timezone).StartOfDay().AddDays(offsetDays).StdTime()
-		endDate = carbon.Parse(req.To, timezone).EndOfDay().AddDays(offsetDays).StdTime()
+		startDate = carbon.Parse(req.From, timezone).StartOfDay().AddDays(offsetDays).SetTimezone(carbon.UTC).StdTime()
+		endDate = carbon.Parse(req.To, timezone).EndOfDay().AddDays(offsetDays).SetTimezone(carbon.UTC).StdTime()
 	}
 
 	return

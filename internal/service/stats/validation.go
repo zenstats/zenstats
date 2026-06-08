@@ -61,13 +61,6 @@ func validatePagination(params *types.Params) error {
 func validateDate(params *types.Params) error {
 	// Validate custom period date format
 	if params.Period == "custom" {
-		if params.Date == "" {
-			return &ValidationError{
-				StatusCode: 400,
-				Message:    "The `date` parameter is required when using a custom period.",
-			}
-		}
-
 		fromDate := strings.TrimSpace(params.From)
 		toDate := strings.TrimSpace(params.To)
 
@@ -85,6 +78,9 @@ func validateDate(params *types.Params) error {
 			}
 		}
 
+		return nil
+	}
+	if params.Period == "realtime" {
 		return nil
 	}
 
@@ -188,7 +184,10 @@ func parseAndValidateMetrics(params *types.Params) ([]string, error) {
 	// Validate metrics
 	validatedMetrics, err := validateMetrics(metrics, params)
 	if err != nil {
-		return nil, err
+		return nil, &ValidationError{
+			StatusCode: 400,
+			Message:    err.Error(),
+		}
 	}
 
 	// Convert to Metric objects
@@ -196,7 +195,10 @@ func parseAndValidateMetrics(params *types.Params) ([]string, error) {
 	for i, m := range validatedMetrics {
 		metric, err := MetricFromString(m)
 		if err != nil {
-			return nil, err
+			return nil, &ValidationError{
+				StatusCode: 400,
+				Message:    err.Error(),
+			}
 		}
 		result[i] = metric
 	}
@@ -289,47 +291,51 @@ func validateGoalFilter(site *types.Site, goalsInFilter []any) error {
 // isValidDimension checks if a dimension is valid
 func isValidDimension(dimension string) bool {
 	validDimensions := map[string]bool{
-		"event:name":            true,
-		"event:page":            true,
-		"event:hostname":        true,
-		"event:goal":            true,
-		"event:referrer":        true,
-		"event:referrerdomain":  true,
-		"event:utm_source":      true,
-		"event:utm_medium":      true,
-		"event:utm_campaign":    true,
-		"event:utm_content":     true,
-		"event:utm_term":        true,
-		"event:browser":         true,
-		"event:browser_version": true,
-		"event:os":              true,
-		"event:os_version":      true,
-		"event:device":          true,
-		"event:screen_size":     true,
-		"event:country":         true,
-		"event:region":          true,
-		"event:city":            true,
-		"visit:source":          true,
-		"visit:medium":          true,
-		"visit:referrer":        true,
-		"visit:device":          true,
-		"visit:browser":         true,
-		"visit:browser_version": true,
-		"visit:os":              true,
-		"visit:os_version":      true,
-		"visit:country":         true,
-		"visit:region":          true,
-		"visit:city":            true,
-		"visit:screen_size":     true,
-		"time:minute":           true,
-		"time:hour":             true,
-		"time:day":              true,
-		"time:week":             true,
-		"time:month":            true,
-		"time:quarter":          true,
-		"time:year":             true,
-		"time:day_of_week":      true,
-		"time:day_of_year":      true,
+		"event:name":                true,
+		"event:page":                true,
+		"event:hostname":            true,
+		"event:goal":                true,
+		"event:referrer":            true,
+		"event:referrerdomain":      true,
+		"event:utm_source":          true,
+		"event:utm_medium":          true,
+		"event:utm_campaign":        true,
+		"event:utm_content":         true,
+		"event:utm_term":            true,
+		"event:browser":             true,
+		"event:browser_version":     true,
+		"event:os":                  true,
+		"event:os_version":          true,
+		"event:device":              true,
+		"event:screen_size":         true,
+		"event:country":             true,
+		"event:region":              true,
+		"event:city":                true,
+		"visit:source":              true,
+		"visit:medium":              true,
+		"visit:referrer":            true,
+		"visit:device":              true,
+		"visit:browser":             true,
+		"visit:browser_version":     true,
+		"visit:os":                  true,
+		"visit:os_version":          true,
+		"visit:country":             true,
+		"visit:region":              true,
+		"visit:city":                true,
+		"visit:screen_size":         true,
+		"visit:entry_page":          true,
+		"visit:entry_page_hostname": true,
+		"visit:exit_page":           true,
+		"visit:exit_page_hostname":  true,
+		"time:minute":               true,
+		"time:hour":                 true,
+		"time:day":                  true,
+		"time:week":                 true,
+		"time:month":                true,
+		"time:quarter":              true,
+		"time:year":                 true,
+		"time:day_of_week":          true,
+		"time:day_of_year":          true,
 	}
 
 	return validDimensions[dimension] || strings.HasPrefix(dimension, "event:props:")
@@ -370,11 +376,43 @@ func validateMetrics(metrics []string, params *types.Params) ([]string, error) {
 		validated = append(validated, name)
 	}
 
+	if err := validateBreakdownMetricCompatibility(validated, params); err != nil {
+		return nil, err
+	}
+
 	if len(validated) == 0 {
 		return nil, errors.New("at least one valid metric is required")
 	}
 
 	return validated, nil
+}
+
+func validateBreakdownMetricCompatibility(metrics []string, params *types.Params) error {
+	if len(params.Dimensions) != 1 {
+		return nil
+	}
+
+	dimension := params.Dimensions[0]
+	if !isEventOnlyProperty(dimension) {
+		return nil
+	}
+
+	for _, metric := range metrics {
+		if isSessionOnlyMetric(metric) {
+			return errors.New("session metric `" + metric + "` cannot be queried for breakdown by `" + dimension + "`.")
+		}
+	}
+
+	return nil
+}
+
+func isSessionOnlyMetric(metric string) bool {
+	switch metric {
+	case "pageviews", "bounce_rate", "visit_duration", "views_per_visit":
+		return true
+	default:
+		return false
+	}
 }
 
 // validateMetric validates a single metric
@@ -440,7 +478,7 @@ func validateMetric(metric string, params *types.Params) error {
 	}
 
 	// Basic metrics that don't need special validation
-	if metric == "visitors" || metric == "pageviews" || metric == "events" || metric == "percentage" {
+	if metric == "visitors" || metric == "events" || metric == "percentage" {
 		return nil
 	}
 

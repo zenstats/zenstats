@@ -12,6 +12,12 @@ type TableDecider struct{}
 
 // JoinType 确定事件查询和会话查询之间的连接类型
 func (td *TableDecider) JoinType(eventQuery, sessionQuery *types.Query) string {
+	if eventQuery != nil && eventQuery.SQLJoinType != "" {
+		return eventQuery.SQLJoinType
+	}
+	if sessionQuery != nil && sessionQuery.SQLJoinType != "" {
+		return sessionQuery.SQLJoinType
+	}
 	if len(eventQuery.Dimensions) > 0 && len(sessionQuery.Dimensions) > 0 {
 		// 如果两个查询都有维度，使用内连接
 		return "INNER"
@@ -154,6 +160,9 @@ func (td *TableDecider) SessionFields(query *types.Query) []string {
 
 // shortName 生成维度的短名称
 func (td *TableDecider) shortName(dimension string) string {
+	if dimension == "event:page" || dimension == "visit:entry_page" {
+		return "page"
+	}
 	parts := strings.Split(dimension, ":")
 	if len(parts) > 1 {
 		return parts[len(parts)-1]
@@ -173,6 +182,11 @@ func (td *TableDecider) EventsJoinSessions(query *types.Query) bool {
 			return true
 		}
 	}
+	for _, filter := range query.Filters {
+		if filter.AnyDimension(func(dim string) bool { return isSessionOnlyDimension(dim) }) {
+			return true
+		}
+	}
 	return false
 }
 
@@ -180,6 +194,11 @@ func (td *TableDecider) EventsJoinSessions(query *types.Query) bool {
 func (td *TableDecider) SessionsJoinEvents(query *types.Query) bool {
 	for _, dim := range query.Dimensions {
 		if strings.HasPrefix(dim, "event:") && dim != "event:goal" {
+			return true
+		}
+	}
+	for _, filter := range query.Filters {
+		if filter.AnyDimension(func(dim string) bool { return strings.HasPrefix(dim, "event:") && dim != "event:goal" }) {
 			return true
 		}
 	}

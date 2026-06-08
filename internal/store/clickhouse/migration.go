@@ -347,12 +347,13 @@ SETTINGS index_granularity = 8192, replicated_deduplication_window = 0;`
 	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 
-func (m *Migration) ensureEventsTable(ctx context.Context) error {
+func (m *Migration) ensureSessionsTable(ctx context.Context) error {
 	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.sessions
 (
     {{backtick}}start{{backtick}} DateTime CODEC(Delta(4), LZ4),
     {{backtick}}timestamp{{backtick}} DateTime CODEC(Delta(4), LZ4),
     {{backtick}}session_id{{backtick}} UInt64,
+    {{backtick}}version{{backtick}} UInt64,
     {{backtick}}sign{{backtick}} Int8,
     {{backtick}}is_bounce{{backtick}} UInt8,
     {{backtick}}entry_page{{backtick}} String CODEC(ZSTD(3)),
@@ -404,7 +405,7 @@ func (m *Migration) ensureEventsTable(ctx context.Context) error {
     {{backtick}}continent_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('continent', continent_geoname_id)),
     INDEX minmax_timestamp timestamp TYPE minmax GRANULARITY 1
 )
-ENGINE = VersionedCollapsingMergeTree(sign, events)
+ENGINE = VersionedCollapsingMergeTree(sign, version)
 PARTITION BY toYYYYMM(start)
 PRIMARY KEY (site_id, toDate(start), user_id, session_id)
 ORDER BY (site_id, toDate(start), user_id, session_id)
@@ -414,7 +415,7 @@ SETTINGS index_granularity = 8192;`
 	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 
-func (m *Migration) ensureSessionsTable(ctx context.Context) error {
+func (m *Migration) ensureEventsTable(ctx context.Context) error {
 	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.events
 (
     {{backtick}}timestamp{{backtick}} DateTime CODEC(Delta(4), LZ4),

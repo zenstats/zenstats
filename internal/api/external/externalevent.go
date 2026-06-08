@@ -92,12 +92,12 @@ func parseInteractive(req *common.EventRequest, tempReq *common.TempEventRequest
 // 成功返回 HTTP 202 Accepted，失败返回对应错误码。
 //
 //	@Summary		上报埋点事件
-//	@Description	接收前端 SDK 上报的事件数据，验证域名后入队处理
+//	@Description	接收前端 SDK 上报的事件数据，验证域名后入队处理。字段使用短 key：n=事件名，u=页面 URL，d=站点域名，r=来源，p=自定义属性，e=停留时长，sd=滚动深度，i=是否交互。
 //	@Tags			事件采集
 //	@Accept			json
 //	@Produce		json
 //	@Param			body	body		common.EventRequest	true	"事件数据"
-//	@Success		202		{string}	string				"事件已接受"
+//	@Success		202		{string}	string				"ok"
 //	@Failure		400		{string}	string				"请求参数错误或域名不允许"
 //	@Failure		429		{string}	string				"请求频率超限"
 //	@Router			/event [post]

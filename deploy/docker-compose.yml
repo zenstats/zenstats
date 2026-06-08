@@ -1,13 +1,14 @@
 services:
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: ..
+      dockerfile: Dockerfile.caddy
     restart: always
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"  # HTTP/3 QUIC
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     environment:
@@ -20,6 +21,8 @@ services:
       context: ..
       dockerfile: Dockerfile
     restart: always
+    ports:
+      - "8080:8080"
     expose:
       - "8080"
     environment:

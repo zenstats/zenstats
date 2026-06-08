@@ -35,23 +35,10 @@ func NewQueryBuilder() *QueryBuilder {
 
 // Build constructs the complete SQL query based on the input query and site
 func (qb *QueryBuilder) Build(query *types.Query, site *types.Site) (string, []any, error) {
-	// Split query into event and session components using QueryOptimizer
 	qo := &QueryOptimizer{}
 	query = qo.Optimize(query)
-	eventQuery, sessionQuery := qo.Split(query)
-	// Build individual queries
-	eventSQL, eventParams, err := qb.buildEventsQuery(site, eventQuery)
-	if err != nil {
-		return "", nil, err
-	}
-
-	sessionSQL, sessionParams, err := qb.buildSessionsQuery(site, sessionQuery)
-	if err != nil {
-		return "", nil, err
-	}
-
-	// Join query results
-	joinedSQL, joinParams, err := qb.joinQueryResults(eventSQL, eventQuery, sessionSQL, sessionQuery)
+	splits := qo.Split(query)
+	joinedSQL, params, err := qb.buildSplitQueries(site, query, splits)
 	if err != nil {
 		return "", nil, err
 	}
@@ -62,11 +49,72 @@ func (qb *QueryBuilder) Build(query *types.Query, site *types.Site) (string, []a
 	// Add total rows selection only when pagination is requested
 	finalSQL := qb.selectTotalRows(paginatedSQL, query)
 
-	// Combine parameters from all parts of the query
-	allParams := append(eventParams, sessionParams...)
-	allParams = append(allParams, joinParams...)
+	return finalSQL, params, nil
+}
 
-	return finalSQL, allParams, nil
+func (qb *QueryBuilder) buildSplitQueries(site *types.Site, original *types.Query, splits []*SplitQuery) (string, []any, error) {
+	if len(splits) == 0 {
+		return "", nil, nil
+	}
+
+	sqlParts := make([]string, 0, len(splits))
+	queries := make([]*types.Query, 0, len(splits))
+	params := []any{}
+	aliases := []string{"e", "s", "ss"}
+
+	for _, split := range splits {
+		var (
+			sqlPart    string
+			partParams []any
+			err        error
+		)
+		switch split.TableType {
+		case TableEvents:
+			sqlPart, partParams, err = qb.buildEventsQuery(site, split.Query)
+		case TableSessions:
+			sqlPart, partParams, err = qb.buildSessionsQuery(site, split.Query)
+		case TableSessionsSmeared:
+			sqlPart, partParams, err = qb.buildSessionsSmearedQuery(site, split.Query)
+		default:
+			err = fmt.Errorf("unsupported split table type: %s", split.TableType)
+		}
+		if err != nil {
+			return "", nil, err
+		}
+		if sqlPart == "" {
+			continue
+		}
+		sqlParts = append(sqlParts, sqlPart)
+		queries = append(queries, split.Query)
+		params = append(params, partParams...)
+	}
+
+	if len(sqlParts) == 0 {
+		return "", nil, nil
+	}
+	if len(sqlParts) == 1 {
+		return qb.buildOrderBy(sqlParts[0], original), params, nil
+	}
+
+	joinType := original.SQLJoinType
+	if joinType == "" {
+		joinType = "LEFT"
+	}
+	selectClause := qb.buildMultiJoinSelectClause(aliases[:len(sqlParts)], queries)
+	joined := fmt.Sprintf("(%s) AS %s", sqlParts[0], aliases[0])
+	for i := 1; i < len(sqlParts); i++ {
+		joined = fmt.Sprintf("%s %s JOIN (%s) AS %s ON %s", joined, joinType, sqlParts[i], aliases[i], qb.buildJoinCondition(aliases[0], aliases[i], original))
+	}
+
+	return qb.buildOrderBy(fmt.Sprintf("SELECT %s FROM %s", selectClause, joined), original), params, nil
+}
+
+// sampleClause 返回 SAMPLE 子句，当采样未启用时返回空字符串。
+func (qb *QueryBuilder) sampleClause(query *types.Query) string {
+	if query.SampleThreshold <= 0 {
+		return ""
+	}
+	return fmt.Sprintf(" SAMPLE %d", query.SampleThreshold)
 }
 
 // buildEventsQuery constructs the SQL for event-based metrics
@@ -93,6 +141,7 @@ func (qb *QueryBuilder) buildEventsQuery(site *types.Site, eventQuery *types.Que
 	sqlBuilder.WriteString("SELECT ")
 	sqlBuilder.WriteString(qb.selectEventMetrics(eventQuery))
 	sqlBuilder.WriteString(" FROM events e")
+	sqlBuilder.WriteString(qb.sampleClause(eventQuery))
 
 	// // Add goal join if needed
 	// goalJoinAdded := false
@@ -109,10 +158,6 @@ func (qb *QueryBuilder) buildEventsQuery(site *types.Site, eventQuery *types.Que
 	// 	sqlBuilder.WriteString(" JOIN sites s ON e.site_id = s.id")
 	// }
 
-	if whereClause != "" {
-		sqlBuilder.WriteString(" WHERE " + whereClause)
-	}
-
 	// Add session join if needed
 	if qb.eventsJoinSessions(eventQuery) {
 		sessionSubquery, subqParams, err := qb.buildSessionSubquery(eventQuery)
@@ -120,7 +165,12 @@ func (qb *QueryBuilder) buildEventsQuery(site *types.Site, eventQuery *types.Que
 			return "", nil, err
 		}
 		sqlBuilder.WriteString(" JOIN (" + sessionSubquery + ") AS sq ON e.session_id = sq.session_id")
-		params = append(params, subqParams...)
+		// Session subquery params must come first since the subquery's ? placeholders appear first in SQL
+		params = append(subqParams, params...)
+	}
+
+	if whereClause != "" {
+		sqlBuilder.WriteString(" WHERE " + whereClause)
 	}
 
 	// Add grouping
@@ -142,10 +192,11 @@ func (qb *QueryBuilder) buildEventsQuery(site *types.Site, eventQuery *types.Que
 
 // selectEventMetrics generates the SELECT clause for event metrics
 func (qb *QueryBuilder) selectEventMetrics(query *types.Query) string {
+	samplingEnabled := query.SampleThreshold > 0
 	metrics := make([]string, 0, len(query.Metrics))
 
 	for _, metric := range query.Metrics {
-		sql, err := Metrics.GetMetricSQL(AvailableMetrics, metric)
+		sql, err := AvailableMetrics.GetMetricSQL(metric, samplingEnabled)
 		if err != nil {
 			slog.Error("GetMetricSQL error", "metric", metric, "error", err)
 		}
@@ -171,9 +222,10 @@ func (qb *QueryBuilder) selectSessionMetrics(query *types.Query) string {
 	if len(query.Metrics) == 0 {
 		return "count(*) as visitors"
 	}
+	samplingEnabled := query.SampleThreshold > 0
 	metrics := make([]string, 0, len(query.Metrics))
 	for _, metric := range query.Metrics {
-		sql, err := Metrics.GetMetricSQL(AvailableMetrics, metric)
+		sql, err := qb.getMetricSQLForTable(metric, "sessions", samplingEnabled)
 		if err != nil {
 			slog.Error("GetMetricSQL error", "metric", metric, "error", err)
 		}
@@ -191,6 +243,45 @@ func (qb *QueryBuilder) selectSessionMetrics(query *types.Query) string {
 	metrics = append(dimensions, metrics...)
 
 	return strings.Join(metrics, ", ")
+}
+
+// selectSessionMetricsWithJoinAlias 生成带 JOIN 别名前缀的 session SELECT 子句。
+// 当 session 查询 JOIN events 子查询时，event 维度需要从 eq 别名获取。
+func (qb *QueryBuilder) selectSessionMetricsWithJoinAlias(query *types.Query, joinAlias string) string {
+	if len(query.Metrics) == 0 {
+		return "count(*) as visitors"
+	}
+	samplingEnabled := query.SampleThreshold > 0
+	metrics := make([]string, 0, len(query.Metrics))
+	for _, metric := range query.Metrics {
+		sql, err := qb.getMetricSQLForTable(metric, "sessions", samplingEnabled)
+		if err != nil {
+			slog.Error("GetMetricSQL error", "metric", metric, "error", err)
+		}
+		metrics = append(metrics, sql)
+	}
+	dimensions := make([]string, 0, len(query.Dimensions))
+	for _, dim := range query.Dimensions {
+		column := qb.DimensionToColumn(dim, "sessions", "select")
+		if column != "" {
+			if isEventDimension(dim) {
+				column = fmt.Sprintf("%s.%s AS %s", joinAlias, column, qb.DimensionAlias(dim))
+			}
+			dimensions = append(dimensions, column)
+		}
+	}
+
+	metrics = append(dimensions, metrics...)
+	return strings.Join(metrics, ", ")
+}
+
+func (qb *QueryBuilder) getMetricSQLForTable(metric, tableType string, samplingEnabled bool) (string, error) {
+	if tableType == "sessions" && metric == "events" {
+		fragment := qb.fragmentGenerator.EventsForSession(samplingEnabled)
+		return fmt.Sprintf("%s as events", fragment.ToSql()), nil
+	}
+
+	return AvailableMetrics.GetMetricSQL(metric, samplingEnabled)
 }
 
 // buildGroupBy generates the GROUP BY clause based on dimensions
@@ -213,6 +304,37 @@ func (qb *QueryBuilder) buildGroupBy(tableType string, query *types.Query) strin
 	}
 
 	return " GROUP BY " + strings.Join(groups, ", ")
+}
+
+// buildGroupByWithJoinAlias 生成带 JOIN 别名前缀的 GROUP BY 子句。
+// 当 session 查询 JOIN events 子查询时，event 维度需要从 joinAlias 获取。
+func (qb *QueryBuilder) buildGroupByWithJoinAlias(tableType string, query *types.Query, joinAlias string) string {
+	if len(query.Dimensions) == 0 {
+		return ""
+	}
+
+	groups := make([]string, 0, len(query.Dimensions))
+
+	for _, dim := range query.Dimensions {
+		column := qb.DimensionToColumn(dim, tableType, "group")
+		if column != "" {
+			if isEventDimension(dim) {
+				column = fmt.Sprintf("%s.%s", joinAlias, column)
+			}
+			groups = append(groups, column)
+		}
+	}
+
+	if len(groups) == 0 {
+		return ""
+	}
+
+	return " GROUP BY " + strings.Join(groups, ", ")
+}
+
+// isEventDimension 判断维度是否属于事件表
+func isEventDimension(dim string) bool {
+	return strings.HasPrefix(dim, "event:")
 }
 
 // addSpecialMetrics includes special metrics in the query
@@ -246,24 +368,38 @@ func (qb *QueryBuilder) buildSessionsQuery(site *types.Site, sessionsQuery *type
 	// Base session query
 	sqlBuilder := strings.Builder{}
 	sqlBuilder.WriteString("SELECT ")
-	sqlBuilder.WriteString(qb.selectSessionMetrics(sessionsQuery))
+
+	// Add event join if needed
+	joinWithEvents := qb.sessionsJoinEvents(sessionsQuery)
+	if joinWithEvents {
+		sqlBuilder.WriteString(qb.selectSessionMetricsWithJoinAlias(sessionsQuery, "eq"))
+	} else {
+		sqlBuilder.WriteString(qb.selectSessionMetrics(sessionsQuery))
+	}
 	sqlBuilder.WriteString(" FROM sessions s")
+	sqlBuilder.WriteString(qb.sampleClause(sessionsQuery))
+
+	if joinWithEvents {
+		eventSubquery, subqParams, err := qb.buildEventSubquery(sessionsQuery)
+		if err != nil {
+			return "", nil, err
+		}
+		sqlBuilder.WriteString(" JOIN (" + eventSubquery + ") AS eq ON s.session_id = eq.session_id")
+		// Event subquery params must come first since the subquery's ? placeholders appear first in SQL
+		params = append(subqParams, params...)
+	}
 
 	if whereClause != "" {
 		sqlBuilder.WriteString(" WHERE " + whereClause)
 	}
 
-	// Add event join if needed
-	if qb.sessionsJoinEvents(sessionsQuery) {
-		eventSubquery, _, err := qb.buildEventSubquery(sessionsQuery)
-		if err != nil {
-			return "", nil, err
-		}
-		sqlBuilder.WriteString(" JOIN (" + eventSubquery + ") AS eq ON s.session_id = eq.session_id")
-	}
-
 	// Add grouping
-	groupBy := qb.buildGroupBy("sessions", sessionsQuery)
+	var groupBy string
+	if joinWithEvents {
+		groupBy = qb.buildGroupByWithJoinAlias("sessions", sessionsQuery, "eq")
+	} else {
+		groupBy = qb.buildGroupBy("sessions", sessionsQuery)
+	}
 	if groupBy != "" {
 		sqlBuilder.WriteString(groupBy)
 	}
@@ -275,6 +411,65 @@ func (qb *QueryBuilder) buildSessionsQuery(site *types.Site, sessionsQuery *type
 	sql = qb.addSpecialMetrics(sql, site, sessionsQuery)
 
 	return sql, params, nil
+}
+
+func (qb *QueryBuilder) buildSessionsSmearedQuery(site *types.Site, sessionsQuery *types.Query) (string, []any, error) {
+	if len(sessionsQuery.Metrics) == 0 {
+		return "", nil, nil
+	}
+	whereBuilder := NewWhereBuilder(site.ID)
+	whereBuilder.FilterSiteTimeRange("sessions", sessionsQuery.UTCTimeRange.Start, sessionsQuery.UTCTimeRange.End)
+	for _, filter := range sessionsQuery.Filters {
+		if err := whereBuilder.AddFilter("sessions", filter); err != nil {
+			return "", nil, err
+		}
+	}
+	whereClause, params := whereBuilder.Build()
+
+	joinWithEvents := qb.sessionsJoinEvents(sessionsQuery)
+
+	base := strings.Builder{}
+	base.WriteString("SELECT ")
+	if joinWithEvents {
+		base.WriteString(qb.selectSessionMetricsWithJoinAlias(sessionsQuery, "eq"))
+	} else {
+		base.WriteString(qb.selectSessionMetrics(sessionsQuery))
+	}
+	base.WriteString(" FROM (SELECT s.*, arrayJoin(")
+	base.WriteString(qb.sessionTimeSlotsExpr(sessionsQuery))
+	base.WriteString(") AS timestamp FROM sessions s")
+	base.WriteString(qb.sampleClause(sessionsQuery))
+	if joinWithEvents {
+		eventSubquery, subqParams, err := qb.buildEventSubquery(sessionsQuery)
+		if err != nil {
+			return "", nil, err
+		}
+		base.WriteString(" JOIN (" + eventSubquery + ") AS eq ON s.session_id = eq.session_id")
+		// Event subquery params must come first since the subquery's ? placeholders appear first in SQL
+		params = append(subqParams, params...)
+	}
+	if whereClause != "" {
+		base.WriteString(" WHERE " + whereClause)
+	}
+	base.WriteString(") s")
+	var groupBy string
+	if joinWithEvents {
+		groupBy = qb.buildGroupByWithJoinAlias("sessions", sessionsQuery, "eq")
+	} else {
+		groupBy = qb.buildGroupBy("sessions", sessionsQuery)
+	}
+	if groupBy != "" {
+		base.WriteString(groupBy)
+	}
+	return base.String(), params, nil
+}
+
+func (qb *QueryBuilder) sessionTimeSlotsExpr(query *types.Query) string {
+	step := "3600"
+	if qb.hasDimension(query, "time:minute") {
+		step = "60"
+	}
+	return fmt.Sprintf("arrayMap(x -> toDateTime(x), range(toUInt32(toStartOfInterval(start, INTERVAL %s second)), toUInt32(toStartOfInterval(greatest(timestamp, start), INTERVAL %s second)) + %s, %s))", step, step, step, step)
 }
 
 // buildSessionSubquery creates a subquery for session joins in event queries
@@ -297,11 +492,13 @@ func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []any,
 	return sql, nil, nil
 }
 
-// buildEventSubquery creates a subquery for event joins in session queries
+// buildEventSubquery creates a subquery for event joins in session queries.
+// It selects both session_id and any event dimension columns needed by the outer query.
 func (qb *QueryBuilder) buildEventSubquery(query *types.Query) (string, []any, error) {
 	whereBuilder := NewWhereBuilder(query.SiteID)
 	whereBuilder.FilterSiteTimeRange("events", query.UTCTimeRange.Start, query.UTCTimeRange.End)
 
+	// Only apply event-specific filters (not visit-specific) to the events subquery
 	for _, filter := range query.Filters {
 		if err := whereBuilder.AddFilter("events", filter); err != nil {
 			return "", nil, err
@@ -310,8 +507,20 @@ func (qb *QueryBuilder) buildEventSubquery(query *types.Query) (string, []any, e
 
 	whereClause, params := whereBuilder.Build()
 
+	// Build SELECT clause: always include session_id, plus any event dimension columns
+	selectCols := []string{"session_id"}
+	for _, dim := range query.Dimensions {
+		if isEventDimension(dim) {
+			column := qb.DimensionToColumn(dim, "events", "select")
+			if column != "" {
+				selectCols = append(selectCols, column)
+			}
+		}
+	}
+
 	sql := fmt.Sprintf(
-		"SELECT DISTINCT session_id FROM events WHERE %s",
+		"SELECT DISTINCT %s FROM events WHERE %s",
+		strings.Join(selectCols, ", "),
 		whereClause,
 	)
 	return sql, params, nil
@@ -378,20 +587,15 @@ func (qb *QueryBuilder) paginate(sql string, query *types.Query) string {
 	return sql
 }
 
-// selectTotalRows adds total row count selection only when pagination is requested
+// selectTotalRows wraps the query with a total_rows count column when pagination is active.
+// It returns the original SQL unchanged; total_rows is handled separately in processResults.
 func (qb *QueryBuilder) selectTotalRows(sql string, query *types.Query) string {
-	if !strings.Contains(sql, "SELECT") {
-		return sql
-	}
+	return sql
+}
 
-	// Only add total_rows window function when pagination is active
-	if query.Pagination == nil || query.Pagination.Limit <= 0 {
-		return sql
-	}
-
-	// Add total_rows column using window function
-	selectPos := strings.Index(sql, "SELECT") + 6
-	return sql[:selectPos] + " COUNT(*) OVER () AS total_rows, " + sql[selectPos:]
+// NeedsTotalRows returns true when pagination is active and total_rows metadata should be collected.
+func (qb *QueryBuilder) NeedsTotalRows(query *types.Query) bool {
+	return query.Pagination != nil && query.Pagination.Limit > 0
 }
 
 // buildGroupByJoin creates join conditions based on query dimensions
@@ -410,8 +614,57 @@ func (qb *QueryBuilder) buildGroupByJoin(query *types.Query) string {
 	return strings.Join(conditions, " AND ")
 }
 
+func (qb *QueryBuilder) buildJoinCondition(leftAlias, rightAlias string, query *types.Query) string {
+	if len(query.Dimensions) == 0 {
+		return "1=1"
+	}
+	conditions := make([]string, 0, len(query.Dimensions))
+	for _, dim := range query.Dimensions {
+		shortName := qb.shortName(dim)
+		conditions = append(conditions, fmt.Sprintf("%s.%s = %s.%s", leftAlias, shortName, rightAlias, shortName))
+	}
+	return strings.Join(conditions, " AND ")
+}
+
+func (qb *QueryBuilder) buildMultiJoinSelectClause(aliases []string, queries []*types.Query) string {
+	fields := []string{}
+	seen := map[string]bool{}
+	for i, query := range queries {
+		alias := aliases[i]
+		for _, dim := range query.Dimensions {
+			name := qb.shortName(dim)
+			if seen[name] {
+				continue
+			}
+			seen[name] = true
+			fields = append(fields, fmt.Sprintf("%s.%s AS %s", alias, name, name))
+		}
+		for _, metric := range query.Metrics {
+			name := qb.shortName(metric)
+			if seen[name] {
+				continue
+			}
+			seen[name] = true
+			fields = append(fields, fmt.Sprintf("%s.%s AS %s", alias, name, name))
+		}
+	}
+	return strings.Join(fields, ", ")
+}
+
+func (qb *QueryBuilder) hasDimension(query *types.Query, dimension string) bool {
+	for _, dim := range query.Dimensions {
+		if dim == dimension {
+			return true
+		}
+	}
+	return false
+}
+
 // shortName generates a short alias for metrics/dimensions
 func (qb *QueryBuilder) shortName(dimension string) string {
+	if dimension == "event:page" || dimension == "visit:entry_page" {
+		return "page"
+	}
 	parts := strings.Split(dimension, ":")
 	if len(parts) > 1 {
 		return parts[1]
@@ -441,12 +694,120 @@ func (qb *QueryBuilder) sessionsJoinEvents(query *types.Query) bool {
 	return false
 }
 
+// DimensionAlias returns the ClickHouse result column alias for a dimension.
+// This is the name ClickHouse uses in result metadata, not the full SQL expression.
+func (qb *QueryBuilder) DimensionAlias(dimension string) string {
+	switch dimension {
+	case "event:name":
+		return "name"
+	case "event:page":
+		return "page"
+	case "event:hostname":
+		return "hostname"
+	case "event:goal":
+		return "name"
+	case "event:referrer":
+		return "referrer"
+	case "event:referrer:domain":
+		return "referrer_domain"
+	case "event:utm_source":
+		return "utm_source"
+	case "event:utm_medium":
+		return "utm_medium"
+	case "event:utm_campaign":
+		return "utm_campaign"
+	case "event:utm_content":
+		return "utm_content"
+	case "event:utm_term":
+		return "utm_term"
+	case "event:browser":
+		return "browser"
+	case "event:browser_version":
+		return "browser_version"
+	case "event:os":
+		return "os"
+	case "event:os_version":
+		return "os_version"
+	case "event:device":
+		return "device"
+	case "event:screen_size":
+		return "screen_size"
+	case "event:country":
+		return "country"
+	case "event:region", "visit:region":
+		return "region"
+	case "event:city", "visit:city":
+		return "city"
+	case "visit:source":
+		return "referrer_source"
+	case "visit:medium":
+		return "referrer_medium"
+	case "visit:referrer":
+		return "referrer"
+	case "visit:device":
+		return "device"
+	case "visit:browser":
+		return "browser"
+	case "visit:browser_version":
+		return "browser_version"
+	case "visit:os":
+		return "os"
+	case "visit:os_version":
+		return "os_version"
+	case "visit:country":
+		return "country"
+	case "visit:screen_size":
+		return "screen_size"
+	case "visit:entry_page":
+		return "page"
+	case "visit:entry_page_hostname":
+		return "entry_page_hostname"
+	case "visit:exit_page":
+		return "exit_page"
+	case "visit:exit_page_hostname":
+		return "exit_page_hostname"
+	case "time:minute":
+		return "minute"
+	case "time:hour":
+		return "hour"
+	case "time:day":
+		return "day"
+	case "time:week":
+		return "week"
+	case "time:month":
+		return "month"
+	case "time:quarter":
+		return "quarter"
+	case "time:year":
+		return "year"
+	case "time:day_of_week":
+		return "day_of_week"
+	case "time:day_of_year":
+		return "day_of_year"
+	default:
+		if strings.HasPrefix(dimension, "event:props:") {
+			return strings.TrimPrefix(dimension, "event:props:")
+		}
+		if strings.HasPrefix(dimension, "visit:entry_props:") {
+			return strings.TrimPrefix(dimension, "visit:entry_props:")
+		}
+		parts := strings.Split(dimension, ":")
+		if len(parts) > 1 {
+			return parts[1]
+		}
+		return dimension
+	}
+}
+
 // DimensionToColumn converts dimension names to database column names
 func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string) string {
 	switch dimension {
 	case "event:name":
 		return "name"
 	case "event:page":
+		if purpose == "select" {
+			return "pathname as page"
+		}
 		return "pathname"
 	case "event:hostname":
 		return "hostname"
@@ -475,13 +836,16 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string) 
 	case "event:os_version":
 		return "os_version"
 	case "event:device":
-		return "device_type"
+		return "device"
 	case "event:screen_size":
 		return "screen_size"
 	case "event:country":
 		return "country"
 	case "event:region":
-		return "region"
+		if purpose == "group" {
+			return "continent"
+		}
+		return "continent as region"
 	case "event:city":
 		return "city"
 	case "visit:source":
@@ -498,7 +862,7 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string) 
 	case "visit:referrer":
 		return "referrer"
 	case "visit:device":
-		return "device_type"
+		return "device"
 	case "visit:browser":
 		return "browser"
 	case "visit:browser_version":
@@ -510,11 +874,25 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string) 
 	case "visit:country":
 		return "country"
 	case "visit:region":
-		return "region"
+		if purpose == "group" {
+			return "continent"
+		}
+		return "continent as region"
 	case "visit:city":
 		return "city"
 	case "visit:screen_size":
 		return "screen_size"
+	case "visit:entry_page":
+		if purpose == "select" {
+			return "entry_page as page"
+		}
+		return "entry_page"
+	case "visit:entry_page_hostname":
+		return "entry_page_hostname"
+	case "visit:exit_page":
+		return "exit_page"
+	case "visit:exit_page_hostname":
+		return "exit_page_hostname"
 	case "time:minute":
 		if purpose == "group" {
 			return "minute"
@@ -524,32 +902,32 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string) 
 		if purpose == "group" {
 			return "hour"
 		}
-		return "formatDateTime(toStartOfInterval(timestamp, INTERVAL 1 HOUR), '%Y-%m-%d %H') as hour"
+		return "formatDateTime(toStartOfHour(timestamp), '%Y-%m-%d %H') as hour"
 	case "time:day":
 		if purpose == "group" {
 			return "day"
 		}
-		return "formatDateTime(toStartOfInterval(timestamp, INTERVAL 1 DAY), '%Y-%m-%d') as day"
+		return "formatDateTime(toStartOfDay(timestamp), '%Y-%m-%d') as day"
 	case "time:week":
 		if purpose == "group" {
 			return "week"
 		}
-		return "formatDateTime(toStartOfInterval(timestamp, INTERVAL 1 WEEK), '%Y-%u') as week"
+		return "formatDateTime(toStartOfWeek(timestamp), '%Y-%u') as week"
 	case "time:month":
 		if purpose == "group" {
 			return "month"
 		}
-		return "formatDateTime(toStartOfInterval(timestamp, INTERVAL 1 MONTH), '%Y-%m') as month"
+		return "formatDateTime(toStartOfMonth(timestamp), '%Y-%m') as month"
 	case "time:quarter":
 		if purpose == "group" {
 			return "quarter"
 		}
-		return "formatDateTime(toStartOfInterval(timestamp, INTERVAL 3 MONTH), '%Y-Q%q') as quarter"
+		return "formatDateTime(toStartOfQuarter(timestamp), '%Y-Q%q') as quarter"
 	case "time:year":
 		if purpose == "group" {
 			return "year"
 		}
-		return "formatDateTime(toStartOfInterval(timestamp, INTERVAL 1 YEAR), '%Y') as year"
+		return "formatDateTime(toStartOfYear(timestamp), '%Y') as year"
 	case "time:day_of_week":
 		if purpose == "group" {
 			return "day_of_week"

@@ -34,8 +34,10 @@ func (s *StatsHandle) validate(c *gin.Context) (*types.StatsRequest, error) {
 	if req.Period == "custom" && (req.From == "" || req.To == "") {
 		return nil, fmt.Errorf("start_date and end_date must be provided")
 	}
-	if req.Period != "custom" && req.Period != "realtime" && req.Date == "" {
-		return nil, fmt.Errorf("date must be provided")
+	if req.Period == "yesterday" && req.Date == "" {
+		req.Date = time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	} else if req.Period != "custom" && req.Period != "realtime" && req.Date == "" {
+		req.Date = time.Now().Format("2006-01-02")
 	}
 
 	if req.Date != "" && !s.dateIsValid(req.Date) {
@@ -50,17 +52,26 @@ func (s *StatsHandle) validate(c *gin.Context) (*types.StatsRequest, error) {
 	return &req, nil
 }
 
-// GetAggregate 获取来源聚合统计
+// GetAggregate 获取聚合统计指标。
 //
-//	@Summary		获取来源聚合统计
-//	@Description	获取指定域名的来源聚合统计数据
+//	@Summary		获取聚合统计指标
+//	@Description	获取指定域名在给定时间范围内的总览指标和对比数据。常用指标包括 visitors、pageviews、visits、bounce_rate、visit_duration、events。
 //	@Tags			统计分析
 //	@Security		BearerAuth
+//	@Security		APIKeyAuth
 //	@Accept			json
 //	@Produce		json
-//	@Param			domain	path		string	true	"站点域名"
-//	@Success		200		{object}	response.SuccessResponse{data=any}	"成功响应，返回来源聚合统计数据"
-//	@Failure		400		{object}	response.ErrorResponse	"请求参数错误"
+//	@Param			domain		path		string	true	"站点域名，例如 example.com"
+//	@Param			period		query		string	true	"时间周期" Enums(realtime, day, p7, p14, p30, custom)
+//	@Param			date		query		string	false	"统计日期，格式 YYYY-MM-DD；非 custom/realtime 周期未传时默认今天"
+//	@Param			from		query		string	false	"自定义开始日期，period=custom 时必填，格式 YYYY-MM-DD"
+//	@Param			to			query		string	false	"自定义结束日期，period=custom 时必填，格式 YYYY-MM-DD"
+//	@Param			metrics		query		string	false	"指标列表，逗号分隔；支持 visitors,pageviews,visits,bounce_rate,visit_duration,events" default(visitors,pageviews,visits,bounce_rate,visit_duration)
+//	@Param			filters		query		string	false	"过滤条件 JSON 字符串，例如 [[\"is\",\"visit:country\",[\"CN\"]]]"
+//	@Success		200			{object}	response.SuccessResponse{data=any}	"成功响应，data 为聚合指标对象"
+//	@Failure		400			{object}	response.ErrorResponse	"请求参数错误"
+//	@Failure		401			{object}	response.ErrorResponse	"未认证或认证失败"
+//	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
 //	@Router			/stats/{domain}/aggregate [get]
 func (s *StatsHandle) GetAggregate() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -81,17 +92,27 @@ func (s *StatsHandle) GetAggregate() gin.HandlerFunc {
 	}
 }
 
-// GetTimeSeries 获取来源时间序列统计
+// GetTimeSeries 获取时间序列统计。
 //
-//	@Summary		获取来源时间序列统计
-//	@Description	获取指定域名的来源时间序列统计数据
+//	@Summary		获取时间序列统计
+//	@Description	获取指定域名按时间间隔聚合的统计数据。该接口是 main-graph 的兼容别名。
 //	@Tags			统计分析
 //	@Security		BearerAuth
+//	@Security		APIKeyAuth
 //	@Accept			json
 //	@Produce		json
-//	@Param			domain	path		string	true	"站点域名"
-//	@Success		200		{object}	response.SuccessResponse{data=any}	"成功响应，返回来源时间序列统计数据"
-//	@Failure		400		{object}	response.ErrorResponse	"请求参数错误"
+//	@Param			domain		path		string	true	"站点域名，例如 example.com"
+//	@Param			period		query		string	true	"时间周期" Enums(realtime, day, p7, p14, p30, custom)
+//	@Param			date		query		string	false	"统计日期，格式 YYYY-MM-DD"
+//	@Param			from		query		string	false	"自定义开始日期，period=custom 时必填，格式 YYYY-MM-DD"
+//	@Param			to			query		string	false	"自定义结束日期，period=custom 时必填，格式 YYYY-MM-DD"
+//	@Param			interval	query		string	false	"时间间隔" Enums(minute, hourly, daily, weekly, monthly, yearly)
+//	@Param			metrics		query		string	false	"指标列表，逗号分隔" default(visitors,pageviews)
+//	@Param			filters		query		string	false	"过滤条件 JSON 字符串"
+//	@Success		200			{object}	response.SuccessResponse{data=any}	"成功响应，data 为时间序列数组"
+//	@Failure		400			{object}	response.ErrorResponse	"请求参数错误"
+//	@Failure		401			{object}	response.ErrorResponse	"未认证或认证失败"
+//	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
 //	@Router			/stats/{domain}/time_series [get]
 func (s *StatsHandle) GetTimeSeries() gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -1,4 +1,4 @@
-.PHONY: swagger build run test clean lint docker-build docker-up docker-down docker-logs docker-migrate ent-generate fmt
+.PHONY: swagger build run test clean lint docker-build fmt submodule-init ent-generate dev-up dev-down dev-logs dev-clean prod-up prod-down prod-logs docker-migrate docker-seed
 
 # 构建项目
 build:
@@ -43,27 +43,74 @@ ent-generate:
 	@cd internal/store/postgresql && go generate ./...
 	@echo "Ent code generation complete"
 
-# ---- Docker ----
+# ---- Git Submodule ----
+
+# 初始化/更新 submodule（首次克隆项目或 submodule 变更后执行）
+submodule-init:
+	@git submodule update --init --recursive
+	@echo "Submodule initialized: web"
+
+# ---- Docker 开发环境 ----
+
+# 启动开发环境（暴露数据库端口）
+dev-up:
+	@cd deploy && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+	@echo "Dev environment started."
+	@echo "  ClickHouse: http://localhost:8123"
+	@echo "  PostgreSQL: localhost:5432"
+
+# 停止开发环境
+dev-down:
+	@cd deploy && docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+
+# 查看开发环境日志
+dev-logs:
+	@cd deploy && docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
+
+# 清理开发环境数据
+dev-clean:
+	@cd deploy && docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
+	@echo "Dev data cleaned"
+
+# ---- Docker 生产环境 ----
+
+# 启动生产环境（不暴露端口）
+prod-up:
+	@cd deploy && docker compose up -d
+	@echo "Production environment started"
+
+# 停止生产环境
+prod-down:
+	@cd deploy && docker compose down
+
+# 查看生产环境日志
+prod-logs:
+	@cd deploy && docker compose logs -f
+
+# ---- Docker 通用命令 ----
 
 # 构建 Docker 镜像
 docker-build:
 	@docker build -t zenstats:latest .
 	@echo "Docker image built: zenstats:latest"
 
-# 使用 docker compose 启动全部服务（含数据库）
-docker-up:
-	@cd deploy && docker compose up -d --build
-	@echo "All services started. Run 'make docker-logs' to view logs."
-
-# 停止全部服务
-docker-down:
-	@cd deploy && docker compose down
-
-# 查看服务日志
-docker-logs:
-	@cd deploy && docker compose logs -f
-
-# 数据库迁移（在 docker 环境中执行）
+# 数据库迁移
 docker-migrate:
-	@cd deploy && docker compose exec zenstats /app/zenstats migrate
+	@cd deploy && docker compose run --rm zenstats migrate
 	@echo "Migration complete"
+
+docker-seed:
+	@cd deploy && docker compose run --rm zenstats seed
+	@echo "Seed complete"
+
+# ---- Tracker ----
+
+# 编译 tracker 脚本（本地开发用）
+tracker-build:
+	@cd tracker && npm ci && npm run deploy
+	@echo "Tracker script compiled: zenstats.js"
+
+# 编译 tracker 脚本（开发模式）
+tracker-dev:
+	@cd tracker && npm run deploy
+	@echo "Tracker script compiled (dev): zenstats.js"

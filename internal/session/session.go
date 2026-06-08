@@ -195,7 +195,7 @@ func (s *SessionManager) updateSession(session *models.Sessions, event *models.E
 		}
 	}
 
-	newSession.Duration = uint32(time.Since(session.Start).Seconds())
+	newSession.Duration = uint32(event.Timestamp.Sub(session.Start).Seconds())
 
 	newSession.Events += 1
 

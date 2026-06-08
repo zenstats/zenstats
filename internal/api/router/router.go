@@ -18,4 +18,8 @@ func RegisterRouter(router *gin.RouterGroup) {
 	RegisterSitesRouter(router)
 	// apikey api
 	RegisterAPIKeyRouter(router)
+	// goals api
+	RegisterGoalsRouter(router)
+	// funnels api
+	RegisterFunnelsRouter(router)
 }

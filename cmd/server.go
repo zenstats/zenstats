@@ -47,12 +47,12 @@ the address is defined in config file`,
 		r.Use(
 			gin.Recovery(),
 		)
-		// 解决cors
+
 		cconfig := cors.DefaultConfig()
-		cconfig.AllowOrigins = []string{"*"}                            // 允许的源
-		cconfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE"} // 允许的方法
-		cconfig.AllowHeaders = []string{"*"}                            // 允许的头部
-		cconfig.AllowCredentials = true                                 // 允许携带 cookie 等凭证
+		cconfig.AllowAllOrigins = true
+		cconfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+		cconfig.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"}
+		cconfig.AllowCredentials = false
 		r.Use(cors.New(cconfig))
 
 		api := r.Group("/api")

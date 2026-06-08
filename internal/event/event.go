@@ -426,7 +426,12 @@ func (e *EventWork) dropVerificationAgent(client *uaparser.Client) bool {
 }
 
 func (e *EventWork) dropShieldRuleHostname(site *ent.Site, hostname string) bool {
-	rules, err := e.siteService.ListShieldRuleHostname(e.shutdownCtx, site.Domain)
+	domain := site.Domain
+	cache := GetShieldRulesCache()
+
+	rules, err := cache.GetHostnameRules(domain, func() ([]*ent.ShieldRulesHostname, error) {
+		return e.siteService.ListShieldRuleHostname(e.shutdownCtx, domain)
+	})
 	if err != nil || len(rules) == 0 {
 		return false
 	}
@@ -480,7 +485,12 @@ func (e *EventWork) dropShieldRuleHostname(site *ent.Site, hostname string) bool
 }
 
 func (e *EventWork) dropShieldRuleIP(site *ent.Site, ip net.IP) bool {
-	rules, err := e.siteService.ListShieldRuleIP(e.shutdownCtx, site.Domain)
+	domain := site.Domain
+	cache := GetShieldRulesCache()
+
+	rules, err := cache.GetIPRules(domain, func() ([]*ent.ShieldRulesIp, error) {
+		return e.siteService.ListShieldRuleIP(e.shutdownCtx, domain)
+	})
 	if err != nil || len(rules) == 0 {
 		return false
 	}
@@ -494,7 +504,12 @@ func (e *EventWork) dropShieldRuleIP(site *ent.Site, ip net.IP) bool {
 }
 
 func (e *EventWork) dropShieldRuleCountry(site *ent.Site, countryCode string) bool {
-	rules, err := e.siteService.ListShieldRuleCountry(e.shutdownCtx, site.Domain)
+	domain := site.Domain
+	cache := GetShieldRulesCache()
+
+	rules, err := cache.GetCountryRules(domain, func() ([]*ent.ShieldRulesCountry, error) {
+		return e.siteService.ListShieldRuleCountry(e.shutdownCtx, domain)
+	})
 	if err != nil || len(rules) == 0 {
 		return false
 	}

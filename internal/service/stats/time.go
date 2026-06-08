@@ -35,8 +35,23 @@ func ParseInterval(interval string) (Interval, error) {
 		return IntervalMonthly, nil
 	case string(IntervalYearly):
 		return IntervalYearly, nil
+	case "":
+		return IntervalDaily, nil
 	default:
 		return "", errors.New("invalid interval")
+	}
+}
+
+// DefaultIntervalForPeriod 根据周期类型返回默认的时间间隔。
+// day/yesterday 默认使用 hourly，realtime 默认使用 minute，其他周期默认使用 daily。
+func DefaultIntervalForPeriod(period string) string {
+	switch period {
+	case "day", "yesterday":
+		return "hourly"
+	case "realtime":
+		return "minute"
+	default:
+		return "daily"
 	}
 }
 

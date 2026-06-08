@@ -47,11 +47,15 @@ func GetGeoIP() *GeoIP {
 
 		geoIP, err := newGeoIP(defaultDB, 10000, 1*time.Hour)
 		if err != nil {
-			slog.Error("Failed to initialize GeoIP", "error", err)
-			os.Exit(1)
+			slog.Error("Failed to initialize GeoIP (will retry via cron)", "error", err)
+			// 创建一个空实例，允许服务启动，GeoIP 数据库将通过定时任务下载
+			instance = &GeoIP{
+				cache: expirable.NewLRU[string, GeoData](10000, nil, 1*time.Hour),
+				ttl:   1 * time.Hour,
+			}
+			return
 		}
 		instance = geoIP
-
 	})
 	return instance
 }
@@ -87,6 +91,11 @@ func (g *GeoIP) GetCountryAndRegion(ip string) (GeoData, error) {
 	// Check cache first
 	if val, ok := g.cache.Get(ip); ok {
 		return val, nil
+	}
+
+	// 如果 GeoIP 数据库未初始化，返回空数据
+	if g.geoDB == nil {
+		return GeoData{}, errors.New("GeoIP database not initialized")
 	}
 
 	// Lookup IP in GeoIP database
