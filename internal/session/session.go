@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
+	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
 )
 
 type SessionManager struct {
@@ -68,7 +69,15 @@ func (s *SessionManager) findSession(event *models.Events) *models.Sessions {
 func (s *SessionManager) handleEvent(event *models.Events, findSession *models.Sessions) (*models.Sessions, error) {
 	if event.Name == "engagement" {
 		if findSession == nil {
-			return nil, fmt.Errorf("session not found")
+			// 从 ClickHouse 加载最近的活跃 session
+			loadedSession, err := s.loadSessionFromDB(event.UserId, event.SiteId)
+			if err != nil {
+				slog.Debug("session not found in cache or DB", "user_id", event.UserId, "site_id", event.SiteId)
+				return nil, nil
+			}
+			s.updateSessionCache(loadedSession)
+			s.refreshSessionCache(loadedSession, event.Timestamp)
+			return nil, nil
 		}
 		s.refreshSessionCache(findSession, event.Timestamp)
 		return nil, nil
@@ -218,8 +227,15 @@ func (s *SessionManager) updateSessionCache(session *models.Sessions) *models.Se
 }
 
 func (s *SessionManager) generateSessionCacheKey(userId, siteId uint64) string {
-
 	return fmt.Sprintf("session:%d:%d", userId, siteId)
+}
+
+func (s *SessionManager) loadSessionFromDB(userId, siteId uint64) (*models.Sessions, error) {
+	repo := repository.GetSessionsRepository()
+	if repo == nil {
+		return nil, fmt.Errorf("sessions repository not initialized")
+	}
+	return repo.GetMostRecentActiveSession(context.Background(), userId, siteId)
 }
 
 func (s *SessionManager) WriteSession(session *models.Sessions) {

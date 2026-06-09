@@ -235,7 +235,7 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 	// register_session
 	session, err := e.sessionManager.OnEvent(&eventResult)
 	if err != nil {
-		slog.Error("register session error", "error", err)
+		slog.Debug("register session error", "error", err)
 		return nil
 	}
 	slog.Debug("register session success", "session", session)

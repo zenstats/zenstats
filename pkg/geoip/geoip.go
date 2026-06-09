@@ -68,9 +68,16 @@ func newGeoIP(geoipDBPath string, cacheSize int, ttl time.Duration) (*GeoIP, err
 	}
 
 	if _, err := os.Stat(geoipDBPath); os.IsNotExist(err) {
-		geoipDBPath, err = geoip.DownloadGeoIPDB()
-		if err != nil {
-			return nil, err
+		fallbackPath := filepath.Join(filepath.Dir(geoipDBPath), "GeoLite2-City-fallback.mmdb")
+		if _, fallbackErr := os.Stat(fallbackPath); fallbackErr == nil {
+			geoipDBPath = fallbackPath
+			slog.Info("Using fallback GeoIP database", "path", fallbackPath)
+		} else {
+			var err error
+			geoipDBPath, err = geoip.DownloadGeoIPDB()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

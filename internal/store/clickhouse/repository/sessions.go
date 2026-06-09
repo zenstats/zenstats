@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	cl "github.com/zenstats/zenstats/internal/store/clickhouse"
@@ -99,4 +100,77 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 	}
 
 	return batchInsert.Send()
+}
+
+func (s *Sessions) GetMostRecentActiveSession(ctx context.Context, userId, siteId uint64) (*models.Sessions, error) {
+	oneHourAgo := time.Now().Add(-1 * time.Hour)
+
+	rows, err := s.conn.Query(ctx,
+		`SELECT * FROM sessions 
+		 WHERE site_id = ? AND user_id = ? AND sign = 1 
+		   AND timestamp >= ?
+		 ORDER BY timestamp DESC 
+		 LIMIT 1`,
+		siteId, userId, oneHourAgo,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query session: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, fmt.Errorf("session not found")
+	}
+
+	var session models.Sessions
+	coordinates := []float64{0, 0}
+
+	err = rows.Scan(
+		&session.Start,
+		&session.Timestamp,
+		&session.SessionId,
+		&session.Version,
+		&session.Sign,
+		&session.IsBounce,
+		&session.EntryPage,
+		&session.ExitPage,
+		&session.PageViews,
+		&session.Events,
+		&session.Duration,
+		&session.SiteId,
+		&session.UserId,
+		&session.URL,
+		&session.HostName,
+		&session.PathName,
+		&session.Referrer,
+		&session.ReferrerSource,
+		&session.OperatingSystem,
+		&session.ScreenSize,
+		&session.UtmMedium,
+		&session.UtmSource,
+		&session.UtmContent,
+		&session.UtmTerm,
+		&session.UtmCampaign,
+		&session.EntryMetaKey,
+		&session.EntryMetaValue,
+		&session.Browser,
+		&session.BrowserVersion,
+		&session.UserAgent,
+		&session.OperatingSystemVersion,
+		&session.IP,
+		&session.CountryCode,
+		&session.ContinentGeonameId,
+		&session.CityGeonameId,
+		&coordinates,
+		&session.IPv6,
+		&session.Channel,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("scan session: %w", err)
+	}
+
+	session.Coordinates.Latitude = coordinates[0]
+	session.Coordinates.Longitude = coordinates[1]
+
+	return &session, nil
 }

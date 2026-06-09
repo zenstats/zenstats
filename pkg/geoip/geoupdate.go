@@ -5,18 +5,28 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/dromara/carbon/v2"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/zenstats/zenstats/config"
 	"github.com/zenstats/zenstats/pkg/file"
 )
+
+const (
+	maxMindDownloadURL = "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=%s&suffix=tar.gz"
+	httpTimeout        = 60 * time.Second
+)
+
+var fallbackDownloadURLs = []string{
+	"https://github.com/Loyalsoldier/geoip/raw/release/Country-without-asn.mmdb",
+	"https://cdn.jsdelivr.net/gh/Loyalsoldier/geoip@release/Country-without-asn.mmdb",
+}
 
 func (g *GeoIP) UpdateGeoIPDB(path string) error {
 	// Download the new GeoIP database
@@ -70,7 +80,21 @@ func (g *GeoIP) UpdateGeoIPDB(path string) error {
 }
 
 func (g *GeoIP) DownloadGeoIPDB() (string, error) {
-	url := fmt.Sprintf("https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=%s&suffix=tar.gz", config.Conf.MaxmindLicenseKey)
+	if config.Conf.MaxmindLicenseKey != "" {
+		path, err := g.downloadFromMaxMind()
+		if err == nil {
+			return path, nil
+		}
+		slog.Warn("MaxMind download failed, falling back to Loyalsoldier/geoip", "error", err)
+	} else {
+		slog.Warn("MaxMind license key not configured, using Loyalsoldier/geoip as fallback")
+	}
+
+	return g.downloadFromFallback()
+}
+
+func (g *GeoIP) downloadFromMaxMind() (string, error) {
+	url := fmt.Sprintf(maxMindDownloadURL, config.Conf.MaxmindLicenseKey)
 
 	if _, err := os.Stat(config.Conf.DataPath); os.IsNotExist(err) {
 		if err := os.MkdirAll(config.Conf.DataPath, os.ModePerm); err != nil {
@@ -78,12 +102,16 @@ func (g *GeoIP) DownloadGeoIPDB() (string, error) {
 		}
 	}
 
-	resp, err := http.Get(url)
+	client := &http.Client{Timeout: httpTimeout}
+	resp, err := client.Get(url)
 	if err != nil {
-		log.Printf("failed to download file: %v", err)
-		return "", err
+		return "", fmt.Errorf("failed to download from MaxMind: %v", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("MaxMind download returned status %d", resp.StatusCode)
+	}
 
 	outputPath := filepath.Join(config.Conf.DataPath, "GeoLite2-City.mmdb.tar.gz")
 
@@ -98,13 +126,57 @@ func (g *GeoIP) DownloadGeoIPDB() (string, error) {
 	}
 	outFile.Close()
 
-	file, err := g.extractGzFile(outputPath)
+	mmdbPath, err := g.extractGzFile(outputPath)
 	if err != nil {
 		slog.Error("failed to extract gz file: " + err.Error())
 		return "", err
 	}
 
-	return file, nil
+	return mmdbPath, nil
+}
+
+func (g *GeoIP) downloadFromFallback() (string, error) {
+	if _, err := os.Stat(config.Conf.DataPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(config.Conf.DataPath, os.ModePerm); err != nil {
+			return "", fmt.Errorf("failed to create directory: %v", err)
+		}
+	}
+
+	client := &http.Client{Timeout: httpTimeout}
+
+	var lastErr error
+	for _, url := range fallbackDownloadURLs {
+		slog.Info("Trying fallback GeoIP source", "url", url)
+		resp, err := client.Get(url)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to download from %s: %v", url, err)
+			slog.Warn("Fallback download failed", "url", url, "error", err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("fallback download returned status %d from %s", resp.StatusCode, url)
+			slog.Warn("Fallback download returned non-200", "url", url, "status", resp.StatusCode)
+			continue
+		}
+
+		outputPath := filepath.Join(config.Conf.DataPath, "GeoLite2-City-fallback.mmdb")
+		outFile, err := os.Create(outputPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to create fallback file: %v", err)
+		}
+		if _, err := io.Copy(outFile, resp.Body); err != nil {
+			outFile.Close()
+			return "", fmt.Errorf("failed to write fallback file: %v", err)
+		}
+		outFile.Close()
+
+		slog.Info("Successfully downloaded fallback GeoIP database", "url", url)
+		return outputPath, nil
+	}
+
+	return "", fmt.Errorf("all fallback sources failed, last error: %v", lastErr)
 }
 
 func (g *GeoIP) extractGzFile(gzFilePath string) (string, error) {

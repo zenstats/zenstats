@@ -163,6 +163,15 @@ func (td *TableDecider) shortName(dimension string) string {
 	if dimension == "event:page" || dimension == "visit:entry_page" {
 		return "page"
 	}
+	// Geographic dimensions use name columns for JOIN conditions
+	switch dimension {
+	case "event:country", "visit:country":
+		return "country_name"
+	case "event:region", "visit:region":
+		return "continent_name"
+	case "event:city", "visit:city":
+		return "city_name"
+	}
 	parts := strings.Split(dimension, ":")
 	if len(parts) > 1 {
 		return parts[len(parts)-1]

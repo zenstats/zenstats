@@ -840,14 +840,20 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string) 
 	case "event:screen_size":
 		return "screen_size"
 	case "event:country":
-		return "country"
+		if purpose == "group" {
+			return "country_name"
+		}
+		return "country_name as country"
 	case "event:region":
 		if purpose == "group" {
-			return "continent"
+			return "continent_name"
 		}
-		return "continent as region"
+		return "continent_name as region"
 	case "event:city":
-		return "city"
+		if purpose == "group" {
+			return "city_name"
+		}
+		return "city_name as city"
 	case "visit:source":
 		if purpose == "group" {
 			return "referrer_source"
@@ -872,14 +878,20 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string) 
 	case "visit:os_version":
 		return "os_version"
 	case "visit:country":
-		return "country"
+		if purpose == "group" {
+			return "country_name"
+		}
+		return "country_name as country"
 	case "visit:region":
 		if purpose == "group" {
-			return "continent"
+			return "continent_name"
 		}
-		return "continent as region"
+		return "continent_name as region"
 	case "visit:city":
-		return "city"
+		if purpose == "group" {
+			return "city_name"
+		}
+		return "city_name as city"
 	case "visit:screen_size":
 		return "screen_size"
 	case "visit:entry_page":
