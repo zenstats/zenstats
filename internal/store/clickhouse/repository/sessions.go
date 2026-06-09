@@ -30,7 +30,17 @@ func GetSessionsRepository() *Sessions {
 }
 
 func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions) error {
-	batchInsert, err := s.conn.PrepareBatch(ctx, "INSERT INTO sessions")
+	batchInsert, err := s.conn.PrepareBatch(ctx, `INSERT INTO sessions (
+		"start", timestamp, session_id, version, sign, is_bounce,
+		entry_page, exit_page, pageviews, events, duration,
+		site_id, user_id, url, hostname, pathname,
+		referrer, referrer_source, operating_system, screen_size,
+		utm_medium, utm_source, utm_content, utm_term, utm_campaign,
+		"entry_meta.key", "entry_meta.value",
+		browser, browser_version, user_agent, operating_system_version,
+		ipv4, country_code, continent_geoname_id, city_geoname_id, coordinates,
+		ipv6, channel
+	)`)
 	if err != nil {
 		slog.Error("prepare batch", "error", err)
 		return fmt.Errorf("prepare batch: %w", err)
@@ -60,6 +70,7 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 			session.Referrer,
 			session.ReferrerSource,
 			session.OperatingSystem,
+			session.ScreenSize,
 			session.UtmMedium,
 			session.UtmSource,
 			session.UtmContent,
@@ -67,7 +78,6 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 			session.UtmCampaign,
 			session.EntryMetaKey,
 			session.EntryMetaValue,
-			session.ScreenSize,
 			session.Browser,
 			session.BrowserVersion,
 			session.UserAgent,
