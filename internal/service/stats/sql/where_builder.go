@@ -354,6 +354,12 @@ func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
 		return "pathname", nil
 	case "event:hostname":
 		return "hostname", nil
+	case "visit:source":
+		return "referrer_source", nil
+	case "visit:medium":
+		return "referrer_medium", nil
+	case "visit:referrer":
+		return "referrer", nil
 	case "visit:entry_page":
 		return "entry_page", nil
 	case "visit:exit_page":
@@ -364,6 +370,18 @@ func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
 		return "continent_geoname_id", nil
 	case "event:city", "visit:city":
 		return "city_geoname_id", nil
+	case "visit:browser":
+		return "browser", nil
+	case "visit:browser_version":
+		return "browser_version", nil
+	case "visit:os":
+		return "os", nil
+	case "visit:os_version":
+		return "os_version", nil
+	case "visit:device":
+		return "device", nil
+	case "visit:screen_size":
+		return "screen_size", nil
 	default:
 		if strings.HasPrefix(name, "event:props:") {
 			propName := strings.TrimPrefix(name, "event:props:")

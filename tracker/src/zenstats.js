@@ -122,7 +122,7 @@
 
     Also, we don't send engagements if the current pageview is ignored (onIgnoredEvent)
     */
-    if (!currentEngagementIgnored && (currentEngagementMaxScrollDepth < maxScrollDepthPx || engagementTime >= 3000)) {
+    if (!currentEngagementIgnored && (currentEngagementMaxScrollDepth < maxScrollDepthPx || engagementTime > 2000)) {
       currentEngagementMaxScrollDepth = maxScrollDepthPx
 
       var payload = {
@@ -159,12 +159,23 @@
     }
   }
 
+  var engagementTimer = null
+
+  function startEngagementTimer() {
+    if (engagementTimer) clearInterval(engagementTimer)
+    engagementTimer = setInterval(function() {
+      if (!currentEngagementIgnored && runningEngagementStart !== null) {
+        triggerEngagement()
+      }
+    }, 10000)
+  }
+
   function registerEngagementListener() {
     if (!listeningOnEngagement) {
-      // Only register visibilitychange listener only after initial page load and pageview
       document.addEventListener('visibilitychange', onVisibilityChange)
       window.addEventListener('blur', onVisibilityChange)
       window.addEventListener('focus', onVisibilityChange)
+      startEngagementTimer()
       listeningOnEngagement = true
     }
   }
@@ -236,8 +247,13 @@
       currentEngagementProps = payload.p
       currentEngagementMaxScrollDepth = -1
       currentEngagementTime = 0
-      runningEngagementStart = Date.now()
+      if (document.visibilityState === 'visible') {
+        runningEngagementStart = Date.now()
+      } else {
+        runningEngagementStart = null
+      }
       registerEngagementListener()
+      startEngagementTimer()
     }
 
     addToQueue(payload, options)
@@ -296,6 +312,7 @@
 
   // Flush remaining events on page unload
   window.addEventListener('beforeunload', function() {
+    triggerEngagement()
     flushQueue()
   })
 

@@ -318,7 +318,7 @@ ZenStats collects:
 - **Referrer**: Where visitors came from
 - **Browser**: Browser type and version
 - **OS**: Operating system
-- **Screen Size**: Device screen resolution
+- **Screen Size**: Device type (Desktop, Mobile, Tablet)
 - **Location**: Country, city (from IP address)
 - **UTM Parameters**: Marketing campaign tracking
 

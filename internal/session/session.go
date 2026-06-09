@@ -77,9 +77,23 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 			}
 			s.updateSessionCache(loadedSession)
 			s.refreshSessionCache(loadedSession, event.Timestamp)
+			loadedSession.Duration = uint32(event.Timestamp.Sub(loadedSession.Start).Seconds())
+			loadedSession.Timestamp = event.Timestamp
+			s.writeBuffer.Add(loadedSession)
 			return nil, nil
 		}
-		s.refreshSessionCache(findSession, event.Timestamp)
+		oldSession := s.CopySession(findSession)
+		oldSession.Sign = -1
+		s.writeBuffer.Add(oldSession)
+
+		findSession.Duration = uint32(event.Timestamp.Sub(findSession.Start).Seconds())
+		findSession.Timestamp = event.Timestamp
+		findSession.Events += 1
+
+		newSession := s.CopySession(findSession)
+		newSession.Sign = 1
+		s.writeBuffer.Add(newSession)
+		s.updateSessionCache(newSession)
 		return nil, nil
 	}
 
