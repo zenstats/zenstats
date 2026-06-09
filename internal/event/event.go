@@ -308,7 +308,8 @@ func (e *EventWork) PutUserAgent(event *models.Events) *uaparser.Client {
 func (e *EventWork) PutGeolocation(event *models.Events) {
 	geoData, err := geoip.GetGeoIP().GetCountryAndRegion(event.IP.String())
 	if err != nil {
-		slog.Error("Failed to get geolocation data", "error", err, "ip", event.IP)
+		slog.Debug("GeoIP lookup failed, using defaults", "error", err, "ip", event.IP)
+		event.CountryCode = "UN"
 		return
 	}
 	repository := repository.GetLocationRepository()

@@ -1,9 +1,11 @@
 package response
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zenstats/zenstats/pkg/i18n"
 )
 
 // ErrorResponse 错误响应结构体
@@ -34,9 +36,10 @@ type SuccessResponse struct {
 //
 //	@Description	接口返回的响应信息
 func JSON(c *gin.Context, code int, data any) {
+	locale := getLocale(c)
 	c.JSON(http.StatusOK, SuccessResponse{
 		Code:    code,
-		Message: getStatusMessage(code),
+		Message: getStatusMessage(code, locale),
 		Data:    data,
 	})
 }
@@ -52,30 +55,82 @@ func Success(c *gin.Context, data any) {
 //
 //	@Description	接口返回的响应信息
 func Error(c *gin.Context, code int, err error) {
+	locale := getLocale(c)
 	c.JSON(http.StatusOK, ErrorResponse{
 		Code:    code,
-		Message: getStatusMessage(code),
+		Message: getStatusMessage(code, locale),
 		Error:   err.Error(),
 	})
 }
 
-func getStatusMessage(code int) string {
+// ErrorWithKey 使用 i18n key 的错误响应
+func ErrorWithKey(c *gin.Context, code int, key string, args ...any) {
+	locale := getLocale(c)
+	msg := i18n.T(locale, key)
+	if len(args) > 0 {
+		msg = fmt.Sprintf(msg, args...)
+	}
+	c.JSON(http.StatusOK, ErrorResponse{
+		Code:    code,
+		Message: getStatusMessage(code, locale),
+		Error:   msg,
+	})
+}
+
+// ErrorWithKeyAndMessage 使用 i18n key 的错误响应，同时自定义 message 字段
+func ErrorWithKeyAndMessage(c *gin.Context, code int, messageKey string, errorKey string, args ...any) {
+	locale := getLocale(c)
+	msg := i18n.T(locale, errorKey)
+	if len(args) > 0 {
+		msg = fmt.Sprintf(msg, args...)
+	}
+	c.JSON(http.StatusOK, ErrorResponse{
+		Code:    code,
+		Message: i18n.T(locale, messageKey),
+		Error:   msg,
+	})
+}
+
+func getStatusMessage(code int, locale string) string {
+	var key string
 	switch code {
 	case http.StatusOK:
-		return "success"
+		key = "response.success"
 	case http.StatusBadRequest:
-		return "bad request"
+		key = "response.bad_request"
 	case http.StatusUnauthorized:
-		return "unauthorized"
+		key = "response.unauthorized"
 	case http.StatusForbidden:
-		return "forbidden"
+		key = "response.forbidden"
 	case http.StatusNotFound:
-		return "not found"
+		key = "response.not_found"
 	case http.StatusInternalServerError:
-		return "internal server error"
+		key = "response.internal_error"
 	case http.StatusServiceUnavailable:
-		return "service unavailable"
+		key = "response.service_unavailable"
 	default:
 		return ""
 	}
+	return i18n.T(locale, key)
 }
+
+func getLocale(c *gin.Context) string {
+	if locale, exists := c.Get("locale"); exists {
+		return locale.(string)
+	}
+	return "en"
+}
+
+// Deprecated: Use ErrorWithKey instead
+func Errorf(c *gin.Context, code int, format string, args ...any) {
+	err := fmt.Errorf(format, args...)
+	Error(c, code, err)
+}
+
+// Deprecated: Use ErrorWithKey instead
+func ErrorNew(c *gin.Context, code int, err error) {
+	Error(c, code, err)
+}
+
+// Ensure fmt import is used
+var _ = fmt.Sprintf

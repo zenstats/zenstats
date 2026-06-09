@@ -21,7 +21,7 @@ func JWTAuth() gin.HandlerFunc {
 			tokenString = tokenString[7:]
 		}
 		if tokenString == "" {
-			response.Error(c, http.StatusUnauthorized, errors.New("auth token not provided"))
+			response.ErrorWithKey(c, http.StatusUnauthorized, "auth.token_not_provided")
 			c.Abort()
 			return
 		}
@@ -30,11 +30,11 @@ func JWTAuth() gin.HandlerFunc {
 		claims, err := auth.ParseToken(tokenString)
 		if err != nil {
 			if errors.Is(err, jwt.ErrTokenExpired) {
-				response.Error(c, 430, errors.New("token expired"))
+				response.ErrorWithKey(c, 430, "auth.token_expired")
 				c.Abort()
 				return
 			}
-			response.Error(c, http.StatusUnauthorized, errors.New("invalid token"))
+			response.ErrorWithKey(c, http.StatusUnauthorized, "auth.invalid_token")
 			c.Abort()
 			return
 		}

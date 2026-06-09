@@ -18,6 +18,7 @@ import (
 	"github.com/zenstats/zenstats/config"
 	"github.com/zenstats/zenstats/internal/api/router"
 	"github.com/zenstats/zenstats/internal/event"
+	"github.com/zenstats/zenstats/internal/middleware"
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
@@ -46,6 +47,7 @@ the address is defined in config file`,
 		r := gin.New()
 		r.Use(
 			gin.Recovery(),
+			middleware.LocaleMiddleware(),
 		)
 
 		cconfig := cors.DefaultConfig()

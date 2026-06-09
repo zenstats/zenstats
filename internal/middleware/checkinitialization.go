@@ -19,7 +19,7 @@ func CheckInitialization() gin.HandlerFunc {
 			return
 		}
 		if count > 0 {
-			response.Error(c, http.StatusForbidden, errors.New("system already initialized"))
+			response.ErrorWithKey(c, http.StatusForbidden, "auth.system_initialized")
 			return
 		}
 

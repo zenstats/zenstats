@@ -58,7 +58,7 @@ func runSeed() error {
 
 	for _, site := range sites {
 		fmt.Printf("为站点 %s (ID: %d) 生成数据...\n", site.Domain, site.ID)
-		count, err := generateSiteData(ctx, queue, site.ID, site.Domain, startDate, now)
+		count, err := generateSiteData(queue, site.Domain, startDate, now)
 		if err != nil {
 			fmt.Printf("站点 %s 生成数据失败: %v\n", site.Domain, err)
 			continue
@@ -72,7 +72,7 @@ func runSeed() error {
 		select {
 		case <-timeout:
 			fmt.Println("等待超时，强制关闭")
-		 goto shutdown
+			goto shutdown
 		default:
 			time.Sleep(500 * time.Millisecond)
 			fmt.Printf("  队列剩余: %d\n", queue.Size())
@@ -87,7 +87,7 @@ shutdown:
 	return nil
 }
 
-func generateSiteData(ctx context.Context, queue *generic.DynamicQueue[*common.EventRequest], siteId int64, domain string, start, end time.Time) (int, error) {
+func generateSiteData(queue *generic.DynamicQueue[*common.EventRequest], domain string, start, end time.Time) (int, error) {
 	pages := []string{
 		"/", "/about", "/contact", "/pricing", "/help", "/search", "/sitemap",
 		"/news", "/events", "/careers",

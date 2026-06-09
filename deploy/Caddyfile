@@ -84,4 +84,5 @@
 	encode gzip
 
 	# TLS（localhost 自动使用自签名，真实域名自动申请 Let's Encrypt）
+	tls internal
 }
