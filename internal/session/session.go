@@ -83,6 +83,14 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 		return nil, nil
 	}
 
+	// pageview / 自定义事件：缓存未命中时从 ClickHouse 加载
+	if findSession == nil {
+		loadedSession, err := s.loadSessionFromDB(event.UserId, event.SiteId)
+		if err == nil && loadedSession != nil {
+			findSession = loadedSession
+		}
+	}
+
 	// if session exists and event is not engagement
 	// update session
 	if findSession != nil {

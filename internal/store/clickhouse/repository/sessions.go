@@ -106,10 +106,18 @@ func (s *Sessions) GetMostRecentActiveSession(ctx context.Context, userId, siteI
 	oneHourAgo := time.Now().Add(-1 * time.Hour)
 
 	rows, err := s.conn.Query(ctx,
-		`SELECT * FROM sessions 
-		 WHERE site_id = ? AND user_id = ? AND sign = 1 
-		   AND timestamp >= ?
-		 ORDER BY timestamp DESC 
+		`SELECT start, timestamp, session_id, version, sign, is_bounce,
+				entry_page, exit_page, pageviews, events, duration,
+				site_id, user_id, url, hostname, pathname,
+				referrer, referrer_source, operating_system, screen_size,
+				utm_medium, utm_source, utm_content, utm_term, utm_campaign,
+				entry_meta.key, entry_meta.value,
+				browser, browser_version, user_agent, operating_system_version,
+				ipv4, country_code, continent_geoname_id, city_geoname_id, coordinates,
+				ipv6, channel
+		 FROM sessions 
+		 WHERE site_id = ? AND user_id = ? AND timestamp >= ?
+		 ORDER BY version DESC 
 		 LIMIT 1`,
 		siteId, userId, oneHourAgo,
 	)
