@@ -222,6 +222,10 @@ func (s *SessionManager) generateSessionCacheKey(userId, siteId uint64) string {
 	return fmt.Sprintf("session:%d:%d", userId, siteId)
 }
 
+func (s *SessionManager) WriteSession(session *models.Sessions) {
+	s.writeBuffer.Add(session)
+}
+
 func (s *SessionManager) Shutdown() {
 	slog.Info("Shutdown session manager")
 	s.shutdownCancel()

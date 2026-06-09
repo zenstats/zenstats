@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"net"
 	"net/url"
 	"regexp"
@@ -40,22 +41,25 @@ type EventWork struct {
 	sessionManager *session.SessionManager
 	siteService    *service.SiteService
 
+	historicalThreshold time.Duration // historicalThreshold 表示历史数据阈值，超过此阈值的事件跳过会话管理
+
 	hostPatternCache sync.Map // 缓存hostname正则表达式
 }
 
-func NewEventWork(q *generic.DynamicQueue[*common.EventRequest], batchSize int) (*EventWork, error) {
+func NewEventWork(q *generic.DynamicQueue[*common.EventRequest], batchSize int, historicalThreshold time.Duration) (*EventWork, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	e := &EventWork{
-		queue:          q,
-		batchSize:      batchSize,
-		taskChan:       make(chan *common.EventRequest, 1000),
-		shutdownCtx:    ctx,
-		shutdownCancel: cancel,
-		pool:           pool.NewPool(),
-		uaparser:       uaparser.New(),
-		sessionManager: session.NewSessionManager(ctx, batchSize),
-		siteService:    service.GetSiteService(),
+		queue:               q,
+		batchSize:           batchSize,
+		taskChan:            make(chan *common.EventRequest, 1000),
+		shutdownCtx:         ctx,
+		shutdownCancel:      cancel,
+		pool:                pool.NewPool(),
+		uaparser:            uaparser.New(),
+		sessionManager:      session.NewSessionManager(ctx, batchSize),
+		siteService:         service.GetSiteService(),
+		historicalThreshold: historicalThreshold,
 	}
 	e.writeBuffer = NewWriteBuffer(ctx, batchSize, time.Second*5)
 
@@ -219,6 +223,14 @@ func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Even
 
 	// compute acquisition channel based on referrer and UTM parameters
 	e.PutChannel(&eventResult)
+
+	// 历史数据处理：超过阈值的事件跳过会话管理，直接生成会话记录
+	if e.historicalThreshold > 0 && time.Since(eventRequest.Timestamp) > e.historicalThreshold {
+		eventResult.SessionId = generateSeedSessionId(eventRequest.Timestamp)
+		historicalSession := createHistoricalSession(&eventResult)
+		e.sessionManager.WriteSession(historicalSession)
+		return &eventResult
+	}
 
 	// register_session
 	session, err := e.sessionManager.OnEvent(&eventResult)
@@ -524,4 +536,64 @@ func (e *EventWork) dropShieldRuleCountry(site *ent.Site, countryCode string) bo
 		return action == "deny"
 	}
 	return false
+}
+
+// generateSeedSessionId 为种子数据生成会话ID
+func generateSeedSessionId(t time.Time) uint64 {
+	return (uint64(t.UnixNano()) << 24) | (uint64(rand.Intn(256)) << 16) | uint64(rand.Intn(65536))
+}
+
+// createHistoricalSession 为历史事件创建基础会话记录
+func createHistoricalSession(event *models.Events) *models.Sessions {
+	isBounce := uint8(1)
+	if event.Name == "engagement" {
+		isBounce = uint8(0)
+	}
+
+	pageViews := int32(0)
+	if event.Name == "pageview" {
+		pageViews = 1
+	}
+
+	session := &models.Sessions{
+		Version:                1,
+		Sign:                   1,
+		Duration:               0,
+		PageViews:              pageViews,
+		Events:                 1,
+		SessionId:              event.SessionId,
+		SiteId:                 event.SiteId,
+		UserId:                 event.UserId,
+		Start:                  event.Timestamp,
+		Timestamp:              event.Timestamp,
+		IP:                     event.IP,
+		IPv6:                   event.IPv6,
+		HostName:               event.HostName,
+		EntryPage:              event.PathName,
+		ExitPage:               event.PathName,
+		PathName:               event.PathName,
+		URL:                    event.URL,
+		EntryMetaKey:           event.MetaKey,
+		EntryMetaValue:         event.MetaValue,
+		IsBounce:               isBounce,
+		UtmMedium:              event.UtmMedium,
+		UtmSource:              event.UtmSource,
+		UtmContent:             event.UtmContent,
+		UtmTerm:                event.UtmTerm,
+		UtmCampaign:            event.UtmCampaign,
+		Channel:                event.Channel,
+		ScreenSize:             event.ScreenSize,
+		OperatingSystem:        event.OperatingSystem,
+		OperatingSystemVersion: event.OperatingSystemVersion,
+		Browser:                event.Browser,
+		BrowserVersion:         event.BrowserVersion,
+		CityGeonameId:          event.CityGeonameId,
+		CountryCode:            event.CountryCode,
+		ContinentGeonameId:     event.ContinentGeonameId,
+		Coordinates:            event.Coordinates,
+		Referrer:               event.Referrer,
+		ReferrerSource:         event.ReferrerSource,
+	}
+
+	return session
 }

@@ -31,7 +31,7 @@ the address is defined in config file`,
 
 		queue := globals.GetQueue()
 
-		event, err := event.NewEventWork(queue, 1024)
+		event, err := event.NewEventWork(queue, 1024, 0)
 		if err != nil {
 			slog.Error("Failed to start event worker", "error", err)
 			return

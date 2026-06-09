@@ -60,8 +60,6 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 			session.Referrer,
 			session.ReferrerSource,
 			session.OperatingSystem,
-			session.ScreenSize,
-
 			session.UtmMedium,
 			session.UtmSource,
 			session.UtmContent,
@@ -69,6 +67,7 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 			session.UtmCampaign,
 			session.EntryMetaKey,
 			session.EntryMetaValue,
+			session.ScreenSize,
 			session.Browser,
 			session.BrowserVersion,
 			session.UserAgent,
