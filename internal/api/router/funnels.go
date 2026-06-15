@@ -13,13 +13,13 @@ func RegisterFunnelsRouter(router *gin.RouterGroup) {
 	funnelHandle := funnels.NewFunnelsHandler()
 
 	// 漏斗管理接口（需要 JWT 认证）
-	funnelsGroup := router.Group("/sites/:domain/funnels", middleware.JWTAuth())
+	funnelsGroup := router.Group("/sites/:domain/funnels", middleware.JWTAuth(), middleware.SiteMembershipAuth())
 	funnelsGroup.GET("", funnelHandle.List())
 	funnelsGroup.GET("/:funnelId", funnelHandle.Get())
-	funnelsGroup.POST("", funnelHandle.Create())
-	funnelsGroup.PUT("/:funnelId", funnelHandle.Update())
-	funnelsGroup.DELETE("/:funnelId", funnelHandle.Delete())
+	funnelsGroup.POST("", middleware.SubAccountReadOnly(), funnelHandle.Create())
+	funnelsGroup.PUT("/:funnelId", middleware.SubAccountReadOnly(), funnelHandle.Update())
+	funnelsGroup.DELETE("/:funnelId", middleware.SubAccountReadOnly(), funnelHandle.Delete())
 
 	// 漏斗分析接口（支持 API Key 或 JWT 认证）
-	router.GET("/stats/:domain/funnel/:funnelId", middleware.APIKeyOrJWTAuth(), funnelHandle.Analyze())
+	router.GET("/stats/:domain/funnel/:funnelId", middleware.APIKeyOrJWTAuth(), middleware.SiteMembershipAndVerificationAuth(), funnelHandle.Analyze())
 }

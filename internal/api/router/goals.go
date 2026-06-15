@@ -11,9 +11,9 @@ import (
 func RegisterGoalsRouter(router *gin.RouterGroup) {
 	goalHandle := goals.NewGoalsHandler()
 
-	goalsGroup := router.Group("/sites/:domain/goals", middleware.JWTAuth())
+	goalsGroup := router.Group("/sites/:domain/goals", middleware.JWTAuth(), middleware.SiteMembershipAuth())
 	goalsGroup.GET("", goalHandle.List())
-	goalsGroup.POST("", goalHandle.Create())
-	goalsGroup.PUT("/:goalId", goalHandle.Update())
-	goalsGroup.DELETE("/:goalId", goalHandle.Delete())
+	goalsGroup.POST("", middleware.SubAccountReadOnly(), goalHandle.Create())
+	goalsGroup.PUT("/:goalId", middleware.SubAccountReadOnly(), goalHandle.Update())
+	goalsGroup.DELETE("/:goalId", middleware.SubAccountReadOnly(), goalHandle.Delete())
 }

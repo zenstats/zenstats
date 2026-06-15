@@ -21,6 +21,30 @@ func (f APIKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyMutation", m)
 }
 
+// The CustomSearchEngineFunc type is an adapter to allow the use of ordinary
+// function as CustomSearchEngine mutator.
+type CustomSearchEngineFunc func(context.Context, *ent.CustomSearchEngineMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CustomSearchEngineFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CustomSearchEngineMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CustomSearchEngineMutation", m)
+}
+
+// The EmailVerificationTokenFunc type is an adapter to allow the use of ordinary
+// function as EmailVerificationToken mutator.
+type EmailVerificationTokenFunc func(context.Context, *ent.EmailVerificationTokenMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f EmailVerificationTokenFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.EmailVerificationTokenMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EmailVerificationTokenMutation", m)
+}
+
 // The FunnelFunc type is an adapter to allow the use of ordinary
 // function as Funnel mutator.
 type FunnelFunc func(context.Context, *ent.FunnelMutation) (ent.Value, error)
@@ -55,6 +79,30 @@ func (f GoalFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error)
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GoalMutation", m)
+}
+
+// The MonthlyEventCountFunc type is an adapter to allow the use of ordinary
+// function as MonthlyEventCount mutator.
+type MonthlyEventCountFunc func(context.Context, *ent.MonthlyEventCountMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MonthlyEventCountFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MonthlyEventCountMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MonthlyEventCountMutation", m)
+}
+
+// The PasswordResetTokenFunc type is an adapter to allow the use of ordinary
+// function as PasswordResetToken mutator.
+type PasswordResetTokenFunc func(context.Context, *ent.PasswordResetTokenMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PasswordResetTokenFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PasswordResetTokenMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PasswordResetTokenMutation", m)
 }
 
 // The SearchEnginesFunc type is an adapter to allow the use of ordinary
@@ -129,6 +177,30 @@ func (f SiteMembershipFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SiteMembershipMutation", m)
 }
 
+// The SubAccountFunc type is an adapter to allow the use of ordinary
+// function as SubAccount mutator.
+type SubAccountFunc func(context.Context, *ent.SubAccountMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SubAccountFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SubAccountMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SubAccountMutation", m)
+}
+
+// The SystemConfigFunc type is an adapter to allow the use of ordinary
+// function as SystemConfig mutator.
+type SystemConfigFunc func(context.Context, *ent.SystemConfigMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SystemConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SystemConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SystemConfigMutation", m)
+}
+
 // The UserFunc type is an adapter to allow the use of ordinary
 // function as User mutator.
 type UserFunc func(context.Context, *ent.UserMutation) (ent.Value, error)
@@ -139,6 +211,30 @@ func (f UserFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error)
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserMutation", m)
+}
+
+// The UserConfigFunc type is an adapter to allow the use of ordinary
+// function as UserConfig mutator.
+type UserConfigFunc func(context.Context, *ent.UserConfigMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserConfigMutation", m)
+}
+
+// The UserGroupFunc type is an adapter to allow the use of ordinary
+// function as UserGroup mutator.
+type UserGroupFunc func(context.Context, *ent.UserGroupMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserGroupFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserGroupMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserGroupMutation", m)
 }
 
 // The UserSessionFunc type is an adapter to allow the use of ordinary

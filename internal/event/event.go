@@ -443,7 +443,7 @@ func (e *EventWork) dropShieldRuleHostname(site *ent.Site, hostname string) bool
 	cache := GetShieldRulesCache()
 
 	rules, err := cache.GetHostnameRules(domain, func() ([]*ent.ShieldRulesHostname, error) {
-		return e.siteService.ListShieldRuleHostname(e.shutdownCtx, domain)
+		return e.siteService.ListShieldRuleHostname(e.shutdownCtx, site.ID)
 	})
 	if err != nil || len(rules) == 0 {
 		return false
@@ -502,7 +502,7 @@ func (e *EventWork) dropShieldRuleIP(site *ent.Site, ip net.IP) bool {
 	cache := GetShieldRulesCache()
 
 	rules, err := cache.GetIPRules(domain, func() ([]*ent.ShieldRulesIp, error) {
-		return e.siteService.ListShieldRuleIP(e.shutdownCtx, domain)
+		return e.siteService.ListShieldRuleIP(e.shutdownCtx, site.ID)
 	})
 	if err != nil || len(rules) == 0 {
 		return false
@@ -521,7 +521,7 @@ func (e *EventWork) dropShieldRuleCountry(site *ent.Site, countryCode string) bo
 	cache := GetShieldRulesCache()
 
 	rules, err := cache.GetCountryRules(domain, func() ([]*ent.ShieldRulesCountry, error) {
-		return e.siteService.ListShieldRuleCountry(e.shutdownCtx, domain)
+		return e.siteService.ListShieldRuleCountry(e.shutdownCtx, site.ID)
 	})
 	if err != nil || len(rules) == 0 {
 		return false

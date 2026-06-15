@@ -11,8 +11,14 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emailverificationtoken"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/userconfig"
 )
 
 // UserCreate is the builder for creating a User entity.
@@ -160,6 +166,20 @@ func (uc *UserCreate) SetNillableNotes(s *string) *UserCreate {
 	return uc
 }
 
+// SetIsAdmin sets the "is_admin" field.
+func (uc *UserCreate) SetIsAdmin(b bool) *UserCreate {
+	uc.mutation.SetIsAdmin(b)
+	return uc
+}
+
+// SetNillableIsAdmin sets the "is_admin" field if the given value is not nil.
+func (uc *UserCreate) SetNillableIsAdmin(b *bool) *UserCreate {
+	if b != nil {
+		uc.SetIsAdmin(*b)
+	}
+	return uc
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (uc *UserCreate) SetCreatedAt(t time.Time) *UserCreate {
 	uc.mutation.SetCreatedAt(t)
@@ -224,6 +244,100 @@ func (uc *UserCreate) AddSiteMemberships(s ...*SiteMembership) *UserCreate {
 	return uc.AddSiteMembershipIDs(ids...)
 }
 
+// SetUserConfigID sets the "user_config" edge to the UserConfig entity by ID.
+func (uc *UserCreate) SetUserConfigID(id int64) *UserCreate {
+	uc.mutation.SetUserConfigID(id)
+	return uc
+}
+
+// SetNillableUserConfigID sets the "user_config" edge to the UserConfig entity by ID if the given value is not nil.
+func (uc *UserCreate) SetNillableUserConfigID(id *int64) *UserCreate {
+	if id != nil {
+		uc = uc.SetUserConfigID(*id)
+	}
+	return uc
+}
+
+// SetUserConfig sets the "user_config" edge to the UserConfig entity.
+func (uc *UserCreate) SetUserConfig(u *UserConfig) *UserCreate {
+	return uc.SetUserConfigID(u.ID)
+}
+
+// AddCustomSearchEngineIDs adds the "custom_search_engines" edge to the CustomSearchEngine entity by IDs.
+func (uc *UserCreate) AddCustomSearchEngineIDs(ids ...int64) *UserCreate {
+	uc.mutation.AddCustomSearchEngineIDs(ids...)
+	return uc
+}
+
+// AddCustomSearchEngines adds the "custom_search_engines" edges to the CustomSearchEngine entity.
+func (uc *UserCreate) AddCustomSearchEngines(c ...*CustomSearchEngine) *UserCreate {
+	ids := make([]int64, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return uc.AddCustomSearchEngineIDs(ids...)
+}
+
+// AddSubAccountIDs adds the "sub_accounts" edge to the SubAccount entity by IDs.
+func (uc *UserCreate) AddSubAccountIDs(ids ...int64) *UserCreate {
+	uc.mutation.AddSubAccountIDs(ids...)
+	return uc
+}
+
+// AddSubAccounts adds the "sub_accounts" edges to the SubAccount entity.
+func (uc *UserCreate) AddSubAccounts(s ...*SubAccount) *UserCreate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uc.AddSubAccountIDs(ids...)
+}
+
+// AddPasswordResetTokenIDs adds the "password_reset_tokens" edge to the PasswordResetToken entity by IDs.
+func (uc *UserCreate) AddPasswordResetTokenIDs(ids ...int64) *UserCreate {
+	uc.mutation.AddPasswordResetTokenIDs(ids...)
+	return uc
+}
+
+// AddPasswordResetTokens adds the "password_reset_tokens" edges to the PasswordResetToken entity.
+func (uc *UserCreate) AddPasswordResetTokens(p ...*PasswordResetToken) *UserCreate {
+	ids := make([]int64, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uc.AddPasswordResetTokenIDs(ids...)
+}
+
+// AddEmailVerificationTokenIDs adds the "email_verification_tokens" edge to the EmailVerificationToken entity by IDs.
+func (uc *UserCreate) AddEmailVerificationTokenIDs(ids ...int64) *UserCreate {
+	uc.mutation.AddEmailVerificationTokenIDs(ids...)
+	return uc
+}
+
+// AddEmailVerificationTokens adds the "email_verification_tokens" edges to the EmailVerificationToken entity.
+func (uc *UserCreate) AddEmailVerificationTokens(e ...*EmailVerificationToken) *UserCreate {
+	ids := make([]int64, len(e))
+	for i := range e {
+		ids[i] = e[i].ID
+	}
+	return uc.AddEmailVerificationTokenIDs(ids...)
+}
+
+// AddMonthlyEventCountIDs adds the "monthly_event_counts" edge to the MonthlyEventCount entity by IDs.
+func (uc *UserCreate) AddMonthlyEventCountIDs(ids ...int64) *UserCreate {
+	uc.mutation.AddMonthlyEventCountIDs(ids...)
+	return uc
+}
+
+// AddMonthlyEventCounts adds the "monthly_event_counts" edges to the MonthlyEventCount entity.
+func (uc *UserCreate) AddMonthlyEventCounts(m ...*MonthlyEventCount) *UserCreate {
+	ids := make([]int64, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return uc.AddMonthlyEventCountIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uc *UserCreate) Mutation() *UserMutation {
 	return uc.mutation
@@ -271,6 +385,10 @@ func (uc *UserCreate) defaults() {
 		v := user.DefaultTotpEnabled
 		uc.mutation.SetTotpEnabled(v)
 	}
+	if _, ok := uc.mutation.IsAdmin(); !ok {
+		v := user.DefaultIsAdmin
+		uc.mutation.SetIsAdmin(v)
+	}
 	if _, ok := uc.mutation.CreatedAt(); !ok {
 		v := user.DefaultCreatedAt()
 		uc.mutation.SetCreatedAt(v)
@@ -294,6 +412,9 @@ func (uc *UserCreate) check() error {
 	}
 	if _, ok := uc.mutation.TotpEnabled(); !ok {
 		return &ValidationError{Name: "totp_enabled", err: errors.New(`ent: missing required field "User.totp_enabled"`)}
+	}
+	if _, ok := uc.mutation.IsAdmin(); !ok {
+		return &ValidationError{Name: "is_admin", err: errors.New(`ent: missing required field "User.is_admin"`)}
 	}
 	if _, ok := uc.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "User.created_at"`)}
@@ -377,6 +498,10 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		_spec.SetField(user.FieldNotes, field.TypeString, value)
 		_node.Notes = value
 	}
+	if value, ok := uc.mutation.IsAdmin(); ok {
+		_spec.SetField(user.FieldIsAdmin, field.TypeBool, value)
+		_node.IsAdmin = value
+	}
 	if value, ok := uc.mutation.CreatedAt(); ok {
 		_spec.SetField(user.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
@@ -410,6 +535,102 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sitemembership.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.UserConfigIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.UserConfigTable,
+			Columns: []string{user.UserConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userconfig.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.CustomSearchEnginesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CustomSearchEnginesTable,
+			Columns: []string{user.CustomSearchEnginesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(customsearchengine.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.SubAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubAccountsTable,
+			Columns: []string{user.SubAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subaccount.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.PasswordResetTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PasswordResetTokensTable,
+			Columns: []string{user.PasswordResetTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(passwordresettoken.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.EmailVerificationTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailVerificationTokensTable,
+			Columns: []string{user.EmailVerificationTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(emailverificationtoken.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.MonthlyEventCountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MonthlyEventCountsTable,
+			Columns: []string{user.MonthlyEventCountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(monthlyeventcount.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

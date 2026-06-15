@@ -14,6 +14,6 @@ func RegisterAPIKeyRouter(router *gin.RouterGroup) {
 	apikeyGroup := router.Group("/apikeys", middleware.JWTAuth())
 
 	apikeyGroup.GET("", handler.List())
-	apikeyGroup.POST("", handler.Create())
-	apikeyGroup.DELETE("/:id", handler.Delete())
+	apikeyGroup.POST("", middleware.SubAccountReadOnly(), handler.Create())
+	apikeyGroup.DELETE("/:id", middleware.SubAccountReadOnly(), handler.Delete())
 }

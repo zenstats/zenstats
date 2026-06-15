@@ -10,6 +10,7 @@ import (
 
 	"github.com/zenstats/zenstats/internal/service/stats/types"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
@@ -19,6 +20,14 @@ var (
 	searchEngineCacheTime time.Time
 	searchEngineCacheMu   sync.RWMutex
 	searchEngineCacheTTL  = 5 * time.Minute
+)
+
+// userSearchEngineCache caches user custom search engines
+var (
+	userSearchEngineCache     = make(map[int64][]*ent.CustomSearchEngine)
+	userSearchEngineCacheTime = make(map[int64]time.Time)
+	userSearchEngineCacheMu   sync.RWMutex
+	userSearchEngineCacheTTL  = 5 * time.Minute
 )
 
 // QueryBuilder builds SQL queries based on the analytics query specification
@@ -206,7 +215,7 @@ func (qb *QueryBuilder) selectEventMetrics(query *types.Query) string {
 	// 添加维度字段到SELECT子句
 	dimensions := make([]string, 0, len(query.Dimensions))
 	for _, dim := range query.Dimensions {
-		column := qb.DimensionToColumn(dim, "events", "select")
+		column := qb.DimensionToColumn(dim, "events", "select", query.UserID)
 		if column != "" {
 			dimensions = append(dimensions, column)
 		}
@@ -233,7 +242,7 @@ func (qb *QueryBuilder) selectSessionMetrics(query *types.Query) string {
 	}
 	dimensions := make([]string, 0, len(query.Dimensions))
 	for _, dim := range query.Dimensions {
-		column := qb.DimensionToColumn(dim, "sessions", "select")
+		column := qb.DimensionToColumn(dim, "sessions", "select", query.UserID)
 		if column != "" {
 			dimensions = append(dimensions, column)
 		}
@@ -262,7 +271,7 @@ func (qb *QueryBuilder) selectSessionMetricsWithJoinAlias(query *types.Query, jo
 	}
 	dimensions := make([]string, 0, len(query.Dimensions))
 	for _, dim := range query.Dimensions {
-		column := qb.DimensionToColumn(dim, "sessions", "select")
+		column := qb.DimensionToColumn(dim, "sessions", "select", query.UserID)
 		if column != "" {
 			if isEventDimension(dim) {
 				column = fmt.Sprintf("%s.%s AS %s", joinAlias, column, qb.DimensionAlias(dim))
@@ -293,7 +302,7 @@ func (qb *QueryBuilder) buildGroupBy(tableType string, query *types.Query) strin
 	groups := make([]string, 0, len(query.Dimensions))
 
 	for _, dim := range query.Dimensions {
-		column := qb.DimensionToColumn(dim, tableType, "group")
+		column := qb.DimensionToColumn(dim, tableType, "group", query.UserID)
 		if column != "" {
 			groups = append(groups, column)
 		}
@@ -316,7 +325,7 @@ func (qb *QueryBuilder) buildGroupByWithJoinAlias(tableType string, query *types
 	groups := make([]string, 0, len(query.Dimensions))
 
 	for _, dim := range query.Dimensions {
-		column := qb.DimensionToColumn(dim, tableType, "group")
+		column := qb.DimensionToColumn(dim, tableType, "group", query.UserID)
 		if column != "" {
 			if isEventDimension(dim) {
 				column = fmt.Sprintf("%s.%s", joinAlias, column)
@@ -511,7 +520,7 @@ func (qb *QueryBuilder) buildEventSubquery(query *types.Query) (string, []any, e
 	selectCols := []string{"session_id"}
 	for _, dim := range query.Dimensions {
 		if isEventDimension(dim) {
-			column := qb.DimensionToColumn(dim, "events", "select")
+			column := qb.DimensionToColumn(dim, "events", "select", query.UserID)
 			if column != "" {
 				selectCols = append(selectCols, column)
 			}
@@ -800,7 +809,7 @@ func (qb *QueryBuilder) DimensionAlias(dimension string) string {
 }
 
 // DimensionToColumn converts dimension names to database column names
-func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string) string {
+func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, userID int64) string {
 	switch dimension {
 	case "event:name":
 		return "name"
@@ -858,7 +867,7 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string) 
 		if purpose == "group" {
 			return "referrer_source"
 		}
-		sourceClause, err := qb.getSourceClause()
+		sourceClause, err := qb.getSourceClause(userID)
 		if err != nil {
 			return "referrer_source"
 		}
@@ -1039,9 +1048,26 @@ func getSearchEngines() []*ent.SearchEngines {
 }
 
 // getSourceClause generates the CASE statement for source classification
-func (qs *QueryBuilder) getSourceClause() (string, error) {
+func (qs *QueryBuilder) getSourceClause(userID int64) (string, error) {
 	searchEngines := getSearchEngines()
 
+	if userID > 0 {
+		userEngines := getUserSearchEngines(userID)
+		if len(userEngines) > 0 {
+			// 合并用户自定义搜索引擎和全局搜索引擎，用户自定义优先
+			merged := mergeSearchEngines(searchEngines, userEngines)
+			clause := fmt.Sprintf(`
+					CASE
+						WHEN referrer_source = '' THEN 'Direct / None'
+						%s
+						ELSE referrer_source
+					END as referrer_source
+			`, qs.buildMergedSearchEngineCase(merged))
+			return clause, nil
+		}
+	}
+
+	// 使用全局搜索引擎
 	clause := fmt.Sprintf(`
 			CASE
 				WHEN referrer_source = '' THEN 'Direct / None'
@@ -1052,7 +1078,94 @@ func (qs *QueryBuilder) getSourceClause() (string, error) {
 	return clause, nil
 }
 
+// mergedSearchEngine 合并后的搜索引擎条目
+type mergedSearchEngine struct {
+	Domain string
+	Name   string
+}
+
+// mergeSearchEngines 合并全局搜索引擎和用户自定义搜索引擎
+// 用户自定义搜索引擎优先级更高，同域名时使用用户的名称
+func mergeSearchEngines(globalEngines []*ent.SearchEngines, userEngines []*ent.CustomSearchEngine) []mergedSearchEngine {
+	// 先添加全局引擎
+	merged := make([]mergedSearchEngine, 0, len(globalEngines)+len(userEngines))
+	domainMap := make(map[string]bool)
+
+	for _, e := range globalEngines {
+		merged = append(merged, mergedSearchEngine{Domain: e.Domain, Name: e.Name})
+		domainMap[e.Domain] = true
+	}
+
+	// 用户引擎：如果域名已存在则覆盖，否则追加
+	for _, e := range userEngines {
+		if domainMap[e.Domain] {
+			// 覆盖已有的同域名引擎
+			for i, m := range merged {
+				if m.Domain == e.Domain {
+					merged[i].Name = e.Name
+					break
+				}
+			}
+		} else {
+			merged = append(merged, mergedSearchEngine{Domain: e.Domain, Name: e.Name})
+			domainMap[e.Domain] = true
+		}
+	}
+
+	return merged
+}
+
 func (qs *QueryBuilder) buildSearchEngineCase(searchEngines []*ent.SearchEngines) string {
+	var conditions []string
+	for _, searchEngine := range searchEngines {
+		conditions = append(conditions, fmt.Sprintf("WHEN positionCaseInsensitive(referrer_source, '%s') > 0 THEN '%s'", searchEngine.Domain, searchEngine.Name))
+	}
+	return strings.Join(conditions, "\n")
+}
+
+// buildMergedSearchEngineCase 构建合并后的搜索引擎 CASE 子句
+func (qs *QueryBuilder) buildMergedSearchEngineCase(engines []mergedSearchEngine) string {
+	var conditions []string
+	for _, e := range engines {
+		conditions = append(conditions, fmt.Sprintf("WHEN positionCaseInsensitive(referrer_source, '%s') > 0 THEN '%s'", e.Domain, e.Name))
+	}
+	return strings.Join(conditions, "\n")
+}
+
+// getUserSearchEngines returns the cached user custom search engine list, refreshing if TTL expired
+func getUserSearchEngines(userID int64) []*ent.CustomSearchEngine {
+	userSearchEngineCacheMu.RLock()
+	if cache, ok := userSearchEngineCache[userID]; ok {
+		if time.Since(userSearchEngineCacheTime[userID]) < userSearchEngineCacheTTL {
+			defer userSearchEngineCacheMu.RUnlock()
+			return cache
+		}
+	}
+	userSearchEngineCacheMu.RUnlock()
+
+	userSearchEngineCacheMu.Lock()
+	defer userSearchEngineCacheMu.Unlock()
+
+	// Double-check after acquiring write lock
+	if cache, ok := userSearchEngineCache[userID]; ok {
+		if time.Since(userSearchEngineCacheTime[userID]) < userSearchEngineCacheTTL {
+			return cache
+		}
+	}
+
+	db := globals.GetDB()
+	if db == nil {
+		return userSearchEngineCache[userID]
+	}
+	engines := db.Client.CustomSearchEngine.Query().
+		Where(customsearchengine.UserID(userID)).
+		AllX(context.Background())
+	userSearchEngineCache[userID] = engines
+	userSearchEngineCacheTime[userID] = time.Now()
+	return engines
+}
+
+func (qs *QueryBuilder) buildUserSearchEngineCase(searchEngines []*ent.CustomSearchEngine) string {
 	var conditions []string
 	for _, searchEngine := range searchEngines {
 		conditions = append(conditions, fmt.Sprintf("WHEN positionCaseInsensitive(referrer_source, '%s') > 0 THEN '%s'", searchEngine.Domain, searchEngine.Name))

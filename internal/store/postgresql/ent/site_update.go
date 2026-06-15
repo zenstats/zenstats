@@ -159,9 +159,63 @@ func (su *SiteUpdate) AddIngestLimitPerMinute(i int) *SiteUpdate {
 	return su
 }
 
+// SetAllowedOrigins sets the "allowed_origins" field.
+func (su *SiteUpdate) SetAllowedOrigins(s string) *SiteUpdate {
+	su.mutation.SetAllowedOrigins(s)
+	return su
+}
+
+// SetNillableAllowedOrigins sets the "allowed_origins" field if the given value is not nil.
+func (su *SiteUpdate) SetNillableAllowedOrigins(s *string) *SiteUpdate {
+	if s != nil {
+		su.SetAllowedOrigins(*s)
+	}
+	return su
+}
+
+// ClearAllowedOrigins clears the value of the "allowed_origins" field.
+func (su *SiteUpdate) ClearAllowedOrigins() *SiteUpdate {
+	su.mutation.ClearAllowedOrigins()
+	return su
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (su *SiteUpdate) SetUpdatedAt(t time.Time) *SiteUpdate {
 	su.mutation.SetUpdatedAt(t)
+	return su
+}
+
+// SetIsVerified sets the "is_verified" field.
+func (su *SiteUpdate) SetIsVerified(b bool) *SiteUpdate {
+	su.mutation.SetIsVerified(b)
+	return su
+}
+
+// SetNillableIsVerified sets the "is_verified" field if the given value is not nil.
+func (su *SiteUpdate) SetNillableIsVerified(b *bool) *SiteUpdate {
+	if b != nil {
+		su.SetIsVerified(*b)
+	}
+	return su
+}
+
+// SetVerifiedAt sets the "verified_at" field.
+func (su *SiteUpdate) SetVerifiedAt(t time.Time) *SiteUpdate {
+	su.mutation.SetVerifiedAt(t)
+	return su
+}
+
+// SetNillableVerifiedAt sets the "verified_at" field if the given value is not nil.
+func (su *SiteUpdate) SetNillableVerifiedAt(t *time.Time) *SiteUpdate {
+	if t != nil {
+		su.SetVerifiedAt(*t)
+	}
+	return su
+}
+
+// ClearVerifiedAt clears the value of the "verified_at" field.
+func (su *SiteUpdate) ClearVerifiedAt() *SiteUpdate {
+	su.mutation.ClearVerifiedAt()
 	return su
 }
 
@@ -475,6 +529,11 @@ func (su *SiteUpdate) check() error {
 			return &ValidationError{Name: "timezone", err: fmt.Errorf(`ent: validator failed for field "Site.timezone": %w`, err)}
 		}
 	}
+	if v, ok := su.mutation.AllowedOrigins(); ok {
+		if err := site.AllowedOriginsValidator(v); err != nil {
+			return &ValidationError{Name: "allowed_origins", err: fmt.Errorf(`ent: validator failed for field "Site.allowed_origins": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -523,8 +582,23 @@ func (su *SiteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := su.mutation.AddedIngestLimitPerMinute(); ok {
 		_spec.AddField(site.FieldIngestLimitPerMinute, field.TypeInt, value)
 	}
+	if value, ok := su.mutation.AllowedOrigins(); ok {
+		_spec.SetField(site.FieldAllowedOrigins, field.TypeString, value)
+	}
+	if su.mutation.AllowedOriginsCleared() {
+		_spec.ClearField(site.FieldAllowedOrigins, field.TypeString)
+	}
 	if value, ok := su.mutation.UpdatedAt(); ok {
 		_spec.SetField(site.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := su.mutation.IsVerified(); ok {
+		_spec.SetField(site.FieldIsVerified, field.TypeBool, value)
+	}
+	if value, ok := su.mutation.VerifiedAt(); ok {
+		_spec.SetField(site.FieldVerifiedAt, field.TypeTime, value)
+	}
+	if su.mutation.VerifiedAtCleared() {
+		_spec.ClearField(site.FieldVerifiedAt, field.TypeTime)
 	}
 	if su.mutation.FunnelsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -985,9 +1059,63 @@ func (suo *SiteUpdateOne) AddIngestLimitPerMinute(i int) *SiteUpdateOne {
 	return suo
 }
 
+// SetAllowedOrigins sets the "allowed_origins" field.
+func (suo *SiteUpdateOne) SetAllowedOrigins(s string) *SiteUpdateOne {
+	suo.mutation.SetAllowedOrigins(s)
+	return suo
+}
+
+// SetNillableAllowedOrigins sets the "allowed_origins" field if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableAllowedOrigins(s *string) *SiteUpdateOne {
+	if s != nil {
+		suo.SetAllowedOrigins(*s)
+	}
+	return suo
+}
+
+// ClearAllowedOrigins clears the value of the "allowed_origins" field.
+func (suo *SiteUpdateOne) ClearAllowedOrigins() *SiteUpdateOne {
+	suo.mutation.ClearAllowedOrigins()
+	return suo
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (suo *SiteUpdateOne) SetUpdatedAt(t time.Time) *SiteUpdateOne {
 	suo.mutation.SetUpdatedAt(t)
+	return suo
+}
+
+// SetIsVerified sets the "is_verified" field.
+func (suo *SiteUpdateOne) SetIsVerified(b bool) *SiteUpdateOne {
+	suo.mutation.SetIsVerified(b)
+	return suo
+}
+
+// SetNillableIsVerified sets the "is_verified" field if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableIsVerified(b *bool) *SiteUpdateOne {
+	if b != nil {
+		suo.SetIsVerified(*b)
+	}
+	return suo
+}
+
+// SetVerifiedAt sets the "verified_at" field.
+func (suo *SiteUpdateOne) SetVerifiedAt(t time.Time) *SiteUpdateOne {
+	suo.mutation.SetVerifiedAt(t)
+	return suo
+}
+
+// SetNillableVerifiedAt sets the "verified_at" field if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableVerifiedAt(t *time.Time) *SiteUpdateOne {
+	if t != nil {
+		suo.SetVerifiedAt(*t)
+	}
+	return suo
+}
+
+// ClearVerifiedAt clears the value of the "verified_at" field.
+func (suo *SiteUpdateOne) ClearVerifiedAt() *SiteUpdateOne {
+	suo.mutation.ClearVerifiedAt()
 	return suo
 }
 
@@ -1314,6 +1442,11 @@ func (suo *SiteUpdateOne) check() error {
 			return &ValidationError{Name: "timezone", err: fmt.Errorf(`ent: validator failed for field "Site.timezone": %w`, err)}
 		}
 	}
+	if v, ok := suo.mutation.AllowedOrigins(); ok {
+		if err := site.AllowedOriginsValidator(v); err != nil {
+			return &ValidationError{Name: "allowed_origins", err: fmt.Errorf(`ent: validator failed for field "Site.allowed_origins": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -1379,8 +1512,23 @@ func (suo *SiteUpdateOne) sqlSave(ctx context.Context) (_node *Site, err error) 
 	if value, ok := suo.mutation.AddedIngestLimitPerMinute(); ok {
 		_spec.AddField(site.FieldIngestLimitPerMinute, field.TypeInt, value)
 	}
+	if value, ok := suo.mutation.AllowedOrigins(); ok {
+		_spec.SetField(site.FieldAllowedOrigins, field.TypeString, value)
+	}
+	if suo.mutation.AllowedOriginsCleared() {
+		_spec.ClearField(site.FieldAllowedOrigins, field.TypeString)
+	}
 	if value, ok := suo.mutation.UpdatedAt(); ok {
 		_spec.SetField(site.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := suo.mutation.IsVerified(); ok {
+		_spec.SetField(site.FieldIsVerified, field.TypeBool, value)
+	}
+	if value, ok := suo.mutation.VerifiedAt(); ok {
+		_spec.SetField(site.FieldVerifiedAt, field.TypeTime, value)
+	}
+	if suo.mutation.VerifiedAtCleared() {
+		_spec.ClearField(site.FieldVerifiedAt, field.TypeTime)
 	}
 	if suo.mutation.FunnelsCleared() {
 		edge := &sqlgraph.EdgeSpec{

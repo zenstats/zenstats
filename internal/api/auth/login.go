@@ -20,6 +20,7 @@ import (
 // @Success		200		{object}	response.SuccessResponse{data=types.LoginResponse}	"登录成功返回令牌和用户信息"
 // @Failure		400		{object}	response.ErrorResponse	"请求参数错误"
 // @Failure		401		{object}	response.ErrorResponse	"密码错误"
+// @Failure		403		{object}	response.ErrorResponse	"邮箱未验证"
 // @Failure		404		{object}	response.ErrorResponse	"用户不存在"
 // @Failure		500		{object}	response.ErrorResponse	"服务器内部错误"
 // @Router			/auth/login [post]
@@ -61,8 +62,11 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 			Token:        token,
 			RefreshToken: refreshToken,
 			User: &types.User{
-				Email: user.Email,
-				Name:  user.Name,
+				ID:            user.ID,
+				Email:         user.Email,
+				Name:          user.Name,
+				IsAdmin:       user.IsAdmin,
+				EmailVerified: user.EmailVerified,
 			},
 		}
 

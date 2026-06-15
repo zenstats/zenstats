@@ -35,7 +35,7 @@ import (
 //	@Router			/stats/{domain}/breakdown [get]
 func (s *StatsHandle) GetBreakdown() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
+		siteID := c.GetInt64("site_id")
 
 		req, err := s.validate(c)
 		if err != nil {
@@ -54,7 +54,7 @@ func (s *StatsHandle) GetBreakdown() gin.HandlerFunc {
 			metrics = "visitors"
 		}
 
-		result, err := s.statsService.GetBreakdown(c, domain, req, property, metrics)
+		result, err := s.statsService.GetBreakdown(c, siteID, req, property, metrics)
 		if err != nil {
 			var validationErr *querystats.ValidationError
 			if errors.As(err, &validationErr) {

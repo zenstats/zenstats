@@ -1,11 +1,13 @@
 package apikeys
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
@@ -46,6 +48,28 @@ func (h *APIKeyHandler) Create() gin.HandlerFunc {
 		}
 
 		userID := c.GetInt64("user_id")
+
+		// 检查用户 API Key 配额
+		userService := service.GetUserService()
+		user, err := userService.GetUserWithConfig(c.Request.Context(), userID)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, err)
+			return
+		}
+		if user.Edges.UserConfig != nil && user.Edges.UserConfig.Edges.Group != nil {
+			maxKeys := user.Edges.UserConfig.Edges.Group.MaxAPIKeys
+			if maxKeys != -1 {
+				keyCount, err := h.service.GetUserAPIKeyCount(c.Request.Context(), userID)
+				if err != nil {
+					response.Error(c, http.StatusInternalServerError, err)
+					return
+				}
+				if keyCount >= maxKeys {
+					response.Error(c, http.StatusForbidden, errors.New("API key limit reached for your plan"))
+					return
+				}
+			}
+		}
 
 		var expiresAt *time.Time
 		if req.ExpiresAt != "" {

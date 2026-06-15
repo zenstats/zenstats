@@ -58,6 +58,7 @@ func (qs *QueryService) CreateQuery(params *types.Params) (*types.Query, error) 
 	// 创建查询副本，避免修改原始参数
 	query := &types.Query{
 		SiteID:                 params.SiteID,
+		UserID:                 params.UserID,
 		UTCTimeRange:           params.UTCTimeRange,
 		ComparisonUTCTimeRange: params.ComparisonUTCTimeRange,
 		Interval:               params.Interval,

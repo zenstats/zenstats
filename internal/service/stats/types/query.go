@@ -10,6 +10,7 @@ import (
 // Query 表示一个完整的统计查询，包含站点、时间范围、指标、维度、过滤器等所有查询参数。
 type Query struct {
 	SiteID                 string         `json:"site_id"`                              // 站点ID
+	UserID                 int64          `json:"user_id"`                              // 用户ID
 	UTCTimeRange           TimeRange      `json:"utc_time_range"`                       // UTC时间范围
 	ComparisonUTCTimeRange *TimeRange     `json:"comparison_utc_time_range,omitempty"`  // 对比时间范围
 	Interval               string         `json:"interval,omitempty"`                   // 时间间隔
@@ -235,6 +236,7 @@ type TimeOnPageData struct {
 // Site 表示查询上下文中的站点信息。
 type Site struct {
 	ID                 string    `json:"id"`
+	UserID             int64     `json:"user_id"`
 	Timezone           string    `json:"timezone"`
 	NativeStatsStartAt time.Time `json:"native_stats_start_at"`
 }

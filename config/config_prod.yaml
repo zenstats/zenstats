@@ -7,11 +7,14 @@ log_level: info
 secret_key: "KKfc8Y5Zpn5CE/0P+ce3ptJRRAZJBhbcOHSqoessJ4kLxkEi+S4nNsl6ekj0AxKF"
 data_path: "./data"
 maxmind_license_key: ""
+base_url: ""
 
-default_user:
-  username: "wrpota"
-  password: "zenstats"
-  email: "wrpota@gmail.com"
+smtp:
+  host: ""
+  port: 587
+  username: ""
+  password: ""
+  from: ""
 
 scheme:
   address: 0.0.0.0

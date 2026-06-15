@@ -68,7 +68,7 @@ func (as *AggregateService) GetAggregate(ctx context.Context, params *types.Para
 	if err != nil {
 		return nil, err
 	}
-	site := &types.Site{ID: query.SiteID, Timezone: query.Timezone}
+	site := &types.Site{ID: query.SiteID, UserID: query.UserID, Timezone: query.Timezone}
 	// 执行主查询
 	result, err := as.qs.runner.RunQuery(ctx, query, site)
 	if err != nil {
@@ -288,7 +288,7 @@ func (as *AggregateService) GetTimeSeries(ctx context.Context, params *types.Par
 	if err != nil {
 		return nil, err
 	}
-	site := &types.Site{ID: query.SiteID, Timezone: query.Timezone}
+	site := &types.Site{ID: query.SiteID, UserID: query.UserID, Timezone: query.Timezone}
 	result, err := as.qs.runner.RunQuery(ctx, query, site)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run time series query: %v", err)

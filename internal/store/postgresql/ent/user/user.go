@@ -36,6 +36,8 @@ const (
 	FieldTotpToken = "totp_token"
 	// FieldNotes holds the string denoting the notes field in the database.
 	FieldNotes = "notes"
+	// FieldIsAdmin holds the string denoting the is_admin field in the database.
+	FieldIsAdmin = "is_admin"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -44,6 +46,18 @@ const (
 	EdgeAPIKeys = "api_keys"
 	// EdgeSiteMemberships holds the string denoting the site_memberships edge name in mutations.
 	EdgeSiteMemberships = "site_memberships"
+	// EdgeUserConfig holds the string denoting the user_config edge name in mutations.
+	EdgeUserConfig = "user_config"
+	// EdgeCustomSearchEngines holds the string denoting the custom_search_engines edge name in mutations.
+	EdgeCustomSearchEngines = "custom_search_engines"
+	// EdgeSubAccounts holds the string denoting the sub_accounts edge name in mutations.
+	EdgeSubAccounts = "sub_accounts"
+	// EdgePasswordResetTokens holds the string denoting the password_reset_tokens edge name in mutations.
+	EdgePasswordResetTokens = "password_reset_tokens"
+	// EdgeEmailVerificationTokens holds the string denoting the email_verification_tokens edge name in mutations.
+	EdgeEmailVerificationTokens = "email_verification_tokens"
+	// EdgeMonthlyEventCounts holds the string denoting the monthly_event_counts edge name in mutations.
+	EdgeMonthlyEventCounts = "monthly_event_counts"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// APIKeysTable is the table that holds the api_keys relation/edge.
@@ -60,6 +74,48 @@ const (
 	SiteMembershipsInverseTable = "site_memberships"
 	// SiteMembershipsColumn is the table column denoting the site_memberships relation/edge.
 	SiteMembershipsColumn = "user_id"
+	// UserConfigTable is the table that holds the user_config relation/edge.
+	UserConfigTable = "user_configs"
+	// UserConfigInverseTable is the table name for the UserConfig entity.
+	// It exists in this package in order to avoid circular dependency with the "userconfig" package.
+	UserConfigInverseTable = "user_configs"
+	// UserConfigColumn is the table column denoting the user_config relation/edge.
+	UserConfigColumn = "user_id"
+	// CustomSearchEnginesTable is the table that holds the custom_search_engines relation/edge.
+	CustomSearchEnginesTable = "custom_search_engines"
+	// CustomSearchEnginesInverseTable is the table name for the CustomSearchEngine entity.
+	// It exists in this package in order to avoid circular dependency with the "customsearchengine" package.
+	CustomSearchEnginesInverseTable = "custom_search_engines"
+	// CustomSearchEnginesColumn is the table column denoting the custom_search_engines relation/edge.
+	CustomSearchEnginesColumn = "user_id"
+	// SubAccountsTable is the table that holds the sub_accounts relation/edge.
+	SubAccountsTable = "sub_accounts"
+	// SubAccountsInverseTable is the table name for the SubAccount entity.
+	// It exists in this package in order to avoid circular dependency with the "subaccount" package.
+	SubAccountsInverseTable = "sub_accounts"
+	// SubAccountsColumn is the table column denoting the sub_accounts relation/edge.
+	SubAccountsColumn = "parent_user_id"
+	// PasswordResetTokensTable is the table that holds the password_reset_tokens relation/edge.
+	PasswordResetTokensTable = "password_reset_tokens"
+	// PasswordResetTokensInverseTable is the table name for the PasswordResetToken entity.
+	// It exists in this package in order to avoid circular dependency with the "passwordresettoken" package.
+	PasswordResetTokensInverseTable = "password_reset_tokens"
+	// PasswordResetTokensColumn is the table column denoting the password_reset_tokens relation/edge.
+	PasswordResetTokensColumn = "user_id"
+	// EmailVerificationTokensTable is the table that holds the email_verification_tokens relation/edge.
+	EmailVerificationTokensTable = "email_verification_tokens"
+	// EmailVerificationTokensInverseTable is the table name for the EmailVerificationToken entity.
+	// It exists in this package in order to avoid circular dependency with the "emailverificationtoken" package.
+	EmailVerificationTokensInverseTable = "email_verification_tokens"
+	// EmailVerificationTokensColumn is the table column denoting the email_verification_tokens relation/edge.
+	EmailVerificationTokensColumn = "user_id"
+	// MonthlyEventCountsTable is the table that holds the monthly_event_counts relation/edge.
+	MonthlyEventCountsTable = "monthly_event_counts"
+	// MonthlyEventCountsInverseTable is the table name for the MonthlyEventCount entity.
+	// It exists in this package in order to avoid circular dependency with the "monthlyeventcount" package.
+	MonthlyEventCountsInverseTable = "monthly_event_counts"
+	// MonthlyEventCountsColumn is the table column denoting the monthly_event_counts relation/edge.
+	MonthlyEventCountsColumn = "user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -76,6 +132,7 @@ var Columns = []string{
 	FieldTotpLastUsedAt,
 	FieldTotpToken,
 	FieldNotes,
+	FieldIsAdmin,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -108,6 +165,8 @@ var (
 	DefaultLastSeen func() time.Time
 	// DefaultTotpEnabled holds the default value on creation for the "totp_enabled" field.
 	DefaultTotpEnabled bool
+	// DefaultIsAdmin holds the default value on creation for the "is_admin" field.
+	DefaultIsAdmin bool
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -172,6 +231,11 @@ func ByNotes(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldNotes, opts...).ToFunc()
 }
 
+// ByIsAdmin orders the results by the is_admin field.
+func ByIsAdmin(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsAdmin, opts...).ToFunc()
+}
+
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
@@ -209,6 +273,83 @@ func BySiteMemberships(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newSiteMembershipsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByUserConfigField orders the results by user_config field.
+func ByUserConfigField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newUserConfigStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByCustomSearchEnginesCount orders the results by custom_search_engines count.
+func ByCustomSearchEnginesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCustomSearchEnginesStep(), opts...)
+	}
+}
+
+// ByCustomSearchEngines orders the results by custom_search_engines terms.
+func ByCustomSearchEngines(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCustomSearchEnginesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// BySubAccountsCount orders the results by sub_accounts count.
+func BySubAccountsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSubAccountsStep(), opts...)
+	}
+}
+
+// BySubAccounts orders the results by sub_accounts terms.
+func BySubAccounts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSubAccountsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByPasswordResetTokensCount orders the results by password_reset_tokens count.
+func ByPasswordResetTokensCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPasswordResetTokensStep(), opts...)
+	}
+}
+
+// ByPasswordResetTokens orders the results by password_reset_tokens terms.
+func ByPasswordResetTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPasswordResetTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByEmailVerificationTokensCount orders the results by email_verification_tokens count.
+func ByEmailVerificationTokensCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newEmailVerificationTokensStep(), opts...)
+	}
+}
+
+// ByEmailVerificationTokens orders the results by email_verification_tokens terms.
+func ByEmailVerificationTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newEmailVerificationTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByMonthlyEventCountsCount orders the results by monthly_event_counts count.
+func ByMonthlyEventCountsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMonthlyEventCountsStep(), opts...)
+	}
+}
+
+// ByMonthlyEventCounts orders the results by monthly_event_counts terms.
+func ByMonthlyEventCounts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMonthlyEventCountsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newAPIKeysStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -221,5 +362,47 @@ func newSiteMembershipsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SiteMembershipsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, SiteMembershipsTable, SiteMembershipsColumn),
+	)
+}
+func newUserConfigStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(UserConfigInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, UserConfigTable, UserConfigColumn),
+	)
+}
+func newCustomSearchEnginesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CustomSearchEnginesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CustomSearchEnginesTable, CustomSearchEnginesColumn),
+	)
+}
+func newSubAccountsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SubAccountsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SubAccountsTable, SubAccountsColumn),
+	)
+}
+func newPasswordResetTokensStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PasswordResetTokensInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, PasswordResetTokensTable, PasswordResetTokensColumn),
+	)
+}
+func newEmailVerificationTokensStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(EmailVerificationTokensInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, EmailVerificationTokensTable, EmailVerificationTokensColumn),
+	)
+}
+func newMonthlyEventCountsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MonthlyEventCountsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, MonthlyEventCountsTable, MonthlyEventCountsColumn),
 	)
 }

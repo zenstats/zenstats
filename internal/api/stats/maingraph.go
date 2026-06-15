@@ -31,7 +31,7 @@ import (
 //	@Router			/stats/{domain}/main-graph [get]
 func (s *StatsHandle) GetMainGraph() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
+		siteID := c.GetInt64("site_id")
 
 		req, err := s.validate(c)
 		if err != nil {
@@ -44,7 +44,7 @@ func (s *StatsHandle) GetMainGraph() gin.HandlerFunc {
 			metrics = "visitors,pageviews"
 		}
 
-		result, err := s.statsService.GetMainGraph(c, domain, req, metrics)
+		result, err := s.statsService.GetMainGraph(c, siteID, req, metrics)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return

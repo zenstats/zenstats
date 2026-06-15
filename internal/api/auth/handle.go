@@ -7,11 +7,16 @@ import (
 
 // AuthHandler 认证处理器，封装用户服务以处理认证相关请求。
 type AuthHandler struct {
-	service *service.UserService
+	service           *service.UserService
+	subAccountService *service.SubAccountService
 }
 
 // NewAuthHandler 创建并返回一个新的 AuthHandler 实例。
 func NewAuthHandler() *AuthHandler {
-	service := service.GetUserService()
-	return &AuthHandler{service: service}
+	userService := service.GetUserService()
+	subAccountService := service.GetSubAccountService()
+	return &AuthHandler{
+		service:           userService,
+		subAccountService: subAccountService,
+	}
 }

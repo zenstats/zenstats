@@ -11,7 +11,7 @@ func RegisterStatsRouter(router *gin.RouterGroup) {
 
 	handle := stats.NewStatsHandle()
 
-	statsGroup := router.Group("/stats", middleware.APIKeyOrJWTAuth())
+	statsGroup := router.Group("/stats", middleware.APIKeyOrJWTAuth(), middleware.SiteMembershipAndVerificationAuth())
 
 	// 总览指标（聚合数据，含对比）
 	statsGroup.GET("/:domain/aggregate", handle.GetAggregate())

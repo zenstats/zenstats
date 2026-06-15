@@ -9,6 +9,12 @@ import (
 // APIKey is the predicate function for apikey builders.
 type APIKey func(*sql.Selector)
 
+// CustomSearchEngine is the predicate function for customsearchengine builders.
+type CustomSearchEngine func(*sql.Selector)
+
+// EmailVerificationToken is the predicate function for emailverificationtoken builders.
+type EmailVerificationToken func(*sql.Selector)
+
 // Funnel is the predicate function for funnel builders.
 type Funnel func(*sql.Selector)
 
@@ -17,6 +23,12 @@ type FunnelStep func(*sql.Selector)
 
 // Goal is the predicate function for goal builders.
 type Goal func(*sql.Selector)
+
+// MonthlyEventCount is the predicate function for monthlyeventcount builders.
+type MonthlyEventCount func(*sql.Selector)
+
+// PasswordResetToken is the predicate function for passwordresettoken builders.
+type PasswordResetToken func(*sql.Selector)
 
 // SearchEngines is the predicate function for searchengines builders.
 type SearchEngines func(*sql.Selector)
@@ -36,8 +48,20 @@ type Site func(*sql.Selector)
 // SiteMembership is the predicate function for sitemembership builders.
 type SiteMembership func(*sql.Selector)
 
+// SubAccount is the predicate function for subaccount builders.
+type SubAccount func(*sql.Selector)
+
+// SystemConfig is the predicate function for systemconfig builders.
+type SystemConfig func(*sql.Selector)
+
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
+
+// UserConfig is the predicate function for userconfig builders.
+type UserConfig func(*sql.Selector)
+
+// UserGroup is the predicate function for usergroup builders.
+type UserGroup func(*sql.Selector)
 
 // UserSession is the predicate function for usersession builders.
 type UserSession func(*sql.Selector)

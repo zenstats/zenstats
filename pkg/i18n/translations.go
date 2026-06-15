@@ -19,6 +19,7 @@ var enTranslations = map[string]string{
 	"auth.system_initialized":   "system already initialized",
 	"auth.invalid_refresh_token": "invalid refresh token",
 	"auth.refresh_token_expired": "the refresh token has expired",
+	"auth.admin_required":        "admin access required",
 
 	// Sites
 	"sites.domain_required": "domain is required",
@@ -134,6 +135,7 @@ var zhCNTranslations = map[string]string{
 	"auth.system_initialized":   "系统已初始化",
 	"auth.invalid_refresh_token": "无效的刷新令牌",
 	"auth.refresh_token_expired": "刷新令牌已过期",
+	"auth.admin_required":        "需要管理员权限",
 
 	// Sites
 	"sites.domain_required": "域名不能为空",

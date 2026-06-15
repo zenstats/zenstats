@@ -1,7 +1,6 @@
 package sites
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -26,27 +25,20 @@ import (
 //	@Router			/sites/{domain}/shield/ip [get]
 func (h *SitesHandler) ListShieldRuleIP() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取domain
-		domain := c.Param("domain")
-		if domain == "" {
-			response.Error(c, http.StatusBadRequest, errors.New("domain is required"))
-			return
-		}
+		siteID := c.GetInt64("site_id")
 
-		// 调用服务层获取IP规则列表
-		rules, err := h.service.ListShieldRuleIP(c, domain)
+		rules, err := h.service.ListShieldRuleIP(c, siteID)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
 
-		// 转换为响应数据结构
 		var respRules []types.ShieldRuleIPResponse
 		for _, rule := range rules {
 			respRule := types.ShieldRuleIPResponse{
 				ID:          rule.ID,
 				SiteID:      rule.SiteID,
-				IP:          rule.Inet.IP.String(), // 假设 Inet 类型有 String 方法
+				IP:          rule.Inet.IP.String(),
 				Action:      rule.Action,
 				Description: rule.Description,
 				AddedBy:     rule.AddedBy,
@@ -76,23 +68,15 @@ func (h *SitesHandler) ListShieldRuleIP() gin.HandlerFunc {
 //	@Router			/sites/{domain}/shield/ip [post]
 func (h *SitesHandler) AddShieldRuleIP() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取domain
-		domain := c.Param("domain")
-		if domain == "" {
-			response.Error(c, http.StatusBadRequest, errors.New("domain is required"))
-			return
-		}
+		siteID := c.GetInt64("site_id")
 
-		// 解析请求参数
 		var req types.AddShieldRuleIPRequest
-
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
 
-		// 调用服务层添加IP规则
-		rule, err := h.service.AddShieldRuleIP(c, domain, req.IP, req.Action, req.Description)
+		rule, err := h.service.AddShieldRuleIP(c, siteID, req.IP, req.Action, req.Description)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
@@ -118,22 +102,15 @@ func (h *SitesHandler) AddShieldRuleIP() gin.HandlerFunc {
 //	@Router			/sites/{domain}/shield/ip/{ruleId} [delete]
 func (h *SitesHandler) RemoveShieldRuleIP() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取domain
-		domain := c.Param("domain")
-		if domain == "" {
-			response.Error(c, http.StatusBadRequest, errors.New("domain is required"))
-			return
-		}
+		siteID := c.GetInt64("site_id")
 
-		// 获取规则ID
 		ruleID, err := strconv.ParseInt(c.Param("ruleId"), 10, 64)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
 
-		// 调用服务层删除IP规则
-		if err := h.service.RemoveShieldRuleIP(c, domain, ruleID); err != nil {
+		if err := h.service.RemoveShieldRuleIP(c, siteID, ruleID); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
@@ -157,14 +134,9 @@ func (h *SitesHandler) RemoveShieldRuleIP() gin.HandlerFunc {
 //	@Router			/sites/{domain}/shield/hostname [get]
 func (h *SitesHandler) ListShieldRuleHostname() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取domain
-		domain := c.Param("domain")
-		if domain == "" {
-			response.Error(c, http.StatusBadRequest, errors.New("domain is required"))
-			return
-		}
-		// 调用服务层获取Hostname规则列表
-		rules, err := h.service.ListShieldRuleHostname(c, domain)
+		siteID := c.GetInt64("site_id")
+
+		rules, err := h.service.ListShieldRuleHostname(c, siteID)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
@@ -189,23 +161,15 @@ func (h *SitesHandler) ListShieldRuleHostname() gin.HandlerFunc {
 //	@Router			/sites/{domain}/shield/hostname [post]
 func (h *SitesHandler) AddShieldRuleHostname() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取site ID
-		domain := c.Param("domain")
-		if domain == "" {
-			response.Error(c, http.StatusBadRequest, errors.New("domain is required"))
-			return
-		}
+		siteID := c.GetInt64("site_id")
 
-		// 解析请求参数
 		var req types.AddShieldRuleHostnameRequest
-
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
 
-		// 调用服务层添加Hostname规则
-		rule, err := h.service.AddShieldRuleHostname(c, domain, req.Hostname, req.HostnamePattern, req.Action)
+		rule, err := h.service.AddShieldRuleHostname(c, siteID, req.Hostname, req.HostnamePattern, req.Action)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
@@ -231,22 +195,15 @@ func (h *SitesHandler) AddShieldRuleHostname() gin.HandlerFunc {
 //	@Router			/sites/{domain}/shield/hostname/{ruleId} [delete]
 func (h *SitesHandler) RemoveShieldRuleHostname() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 获取domain
-		domain := c.Param("domain")
-		if domain == "" {
-			response.Error(c, http.StatusBadRequest, errors.New("domain is required"))
-			return
-		}
+		siteID := c.GetInt64("site_id")
 
-		// 获取规则ID
 		ruleID, err := strconv.ParseInt(c.Param("ruleId"), 10, 64)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
 
-		// 调用服务层删除Hostname规则
-		if err := h.service.RemoveShieldRuleHostname(c, domain, ruleID); err != nil {
+		if err := h.service.RemoveShieldRuleHostname(c, siteID, ruleID); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
@@ -270,13 +227,9 @@ func (h *SitesHandler) RemoveShieldRuleHostname() gin.HandlerFunc {
 //	@Router			/sites/{domain}/shield/country [get]
 func (h *SitesHandler) ListShieldRuleCountry() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
-		if domain == "" {
-			response.Error(c, http.StatusBadRequest, errors.New("domain is required"))
-			return
-		}
-		// 调用服务层获取Country规则列表
-		rules, err := h.service.ListShieldRuleCountry(c, domain)
+		siteID := c.GetInt64("site_id")
+
+		rules, err := h.service.ListShieldRuleCountry(c, siteID)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
@@ -302,22 +255,15 @@ func (h *SitesHandler) ListShieldRuleCountry() gin.HandlerFunc {
 //	@Router			/sites/{domain}/shield/country [post]
 func (h *SitesHandler) AddShieldRuleCountry() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
-		if domain == "" {
-			response.Error(c, http.StatusBadRequest, errors.New("domain is required"))
-			return
-		}
+		siteID := c.GetInt64("site_id")
 
-		// 解析请求参数
 		var req types.AddShieldRuleCountryRequest
-
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
 
-		// 添加Country规则
-		rule, err := h.service.AddShieldRuleCountry(c, domain, req.CountryCode, req.Action)
+		rule, err := h.service.AddShieldRuleCountry(c, siteID, req.CountryCode, req.Action)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
@@ -343,21 +289,15 @@ func (h *SitesHandler) AddShieldRuleCountry() gin.HandlerFunc {
 //	@Router			/sites/{domain}/shield/country/{ruleId} [delete]
 func (h *SitesHandler) RemoveShieldRuleCountry() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
-		if domain == "" {
-			response.Error(c, http.StatusBadRequest, errors.New("domain is required"))
-			return
-		}
+		siteID := c.GetInt64("site_id")
 
-		// 获取规则ID
 		ruleID, err := strconv.ParseInt(c.Param("ruleId"), 10, 64)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
 
-		// 调用服务层删除Country规则
-		if err := h.service.RemoveShieldRuleCountry(c, domain, ruleID); err != nil {
+		if err := h.service.RemoveShieldRuleCountry(c, siteID, ruleID); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}

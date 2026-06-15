@@ -44,8 +44,8 @@ func GetStatsService() *StatsService {
 }
 
 // GetAggregate 获取聚合统计（含对比数据）
-func (s *StatsService) GetAggregate(ctx *gin.Context, domain string, req *atypes.StatsRequest) (*stats.AggregateResult, error) {
-	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
+func (s *StatsService) GetAggregate(ctx *gin.Context, siteID int64, req *atypes.StatsRequest) (*stats.AggregateResult, error) {
+	site, err := GetSiteService().GetSiteByID(ctx, int(siteID))
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
 	}
@@ -87,8 +87,8 @@ func (s *StatsService) GetAggregate(ctx *gin.Context, domain string, req *atypes
 }
 
 // GetTimeSeries 获取时间序列统计数据（默认 visitors 指标）。
-func (s *StatsService) GetTimeSeries(ctx *gin.Context, domain string, req *atypes.StatsRequest) ([]stats.TimeSeriesPoint, error) {
-	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
+func (s *StatsService) GetTimeSeries(ctx *gin.Context, siteID int64, req *atypes.StatsRequest) ([]stats.TimeSeriesPoint, error) {
+	site, err := GetSiteService().GetSiteByID(ctx, int(siteID))
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
 	}
@@ -129,8 +129,8 @@ func (s *StatsService) GetTimeSeries(ctx *gin.Context, domain string, req *atype
 }
 
 // GetBreakdown 按指定维度获取细分数据
-func (s *StatsService) GetBreakdown(ctx *gin.Context, domain string, req *atypes.StatsRequest, property, metricsStr string) (*types.QueryResult, error) {
-	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
+func (s *StatsService) GetBreakdown(ctx *gin.Context, siteID int64, req *atypes.StatsRequest, property, metricsStr string) (*types.QueryResult, error) {
+	site, err := GetSiteService().GetSiteByID(ctx, int(siteID))
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
 	}
@@ -184,8 +184,8 @@ func (s *StatsService) GetBreakdown(ctx *gin.Context, domain string, req *atypes
 }
 
 // GetMainGraph 获取主图表时序数据
-func (s *StatsService) GetMainGraph(ctx *gin.Context, domain string, req *atypes.StatsRequest, metricsStr string) ([]stats.TimeSeriesPoint, error) {
-	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
+func (s *StatsService) GetMainGraph(ctx *gin.Context, siteID int64, req *atypes.StatsRequest, metricsStr string) ([]stats.TimeSeriesPoint, error) {
+	site, err := GetSiteService().GetSiteByID(ctx, int(siteID))
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
 	}
@@ -228,8 +228,8 @@ func (s *StatsService) GetMainGraph(ctx *gin.Context, domain string, req *atypes
 }
 
 // GetCurrentVisitors 获取实时在线访客数
-func (s *StatsService) GetCurrentVisitors(ctx *gin.Context, domain string) (*stats.CurrentVisitors, error) {
-	site, err := GetSiteService().GetSiteByDomain(ctx, domain)
+func (s *StatsService) GetCurrentVisitors(ctx *gin.Context, siteID int64) (*stats.CurrentVisitors, error) {
+	_, err := GetSiteService().GetSiteByID(ctx, int(siteID))
 	if err != nil {
 		return nil, fmt.Errorf("site not found")
 	}
@@ -237,7 +237,7 @@ func (s *StatsService) GetCurrentVisitors(ctx *gin.Context, domain string) (*sta
 	runner := stats.NewQueryRunner()
 	cvService := stats.NewCurrentVisitorsService(runner)
 
-	return cvService.GetCurrentVisitors(ctx, fmt.Sprintf("%d", site.ID), 0)
+	return cvService.GetCurrentVisitors(ctx, fmt.Sprintf("%d", siteID), 0)
 }
 
 // parseMetrics 解析逗号分隔的指标列表

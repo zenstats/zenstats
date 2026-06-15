@@ -14,12 +14,20 @@ type Tx struct {
 	config
 	// APIKey is the client for interacting with the APIKey builders.
 	APIKey *APIKeyClient
+	// CustomSearchEngine is the client for interacting with the CustomSearchEngine builders.
+	CustomSearchEngine *CustomSearchEngineClient
+	// EmailVerificationToken is the client for interacting with the EmailVerificationToken builders.
+	EmailVerificationToken *EmailVerificationTokenClient
 	// Funnel is the client for interacting with the Funnel builders.
 	Funnel *FunnelClient
 	// FunnelStep is the client for interacting with the FunnelStep builders.
 	FunnelStep *FunnelStepClient
 	// Goal is the client for interacting with the Goal builders.
 	Goal *GoalClient
+	// MonthlyEventCount is the client for interacting with the MonthlyEventCount builders.
+	MonthlyEventCount *MonthlyEventCountClient
+	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
+	PasswordResetToken *PasswordResetTokenClient
 	// SearchEngines is the client for interacting with the SearchEngines builders.
 	SearchEngines *SearchEnginesClient
 	// ShieldRulesCountry is the client for interacting with the ShieldRulesCountry builders.
@@ -32,8 +40,16 @@ type Tx struct {
 	Site *SiteClient
 	// SiteMembership is the client for interacting with the SiteMembership builders.
 	SiteMembership *SiteMembershipClient
+	// SubAccount is the client for interacting with the SubAccount builders.
+	SubAccount *SubAccountClient
+	// SystemConfig is the client for interacting with the SystemConfig builders.
+	SystemConfig *SystemConfigClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// UserConfig is the client for interacting with the UserConfig builders.
+	UserConfig *UserConfigClient
+	// UserGroup is the client for interacting with the UserGroup builders.
+	UserGroup *UserGroupClient
 	// UserSession is the client for interacting with the UserSession builders.
 	UserSession *UserSessionClient
 
@@ -168,16 +184,24 @@ func (tx *Tx) Client() *Client {
 
 func (tx *Tx) init() {
 	tx.APIKey = NewAPIKeyClient(tx.config)
+	tx.CustomSearchEngine = NewCustomSearchEngineClient(tx.config)
+	tx.EmailVerificationToken = NewEmailVerificationTokenClient(tx.config)
 	tx.Funnel = NewFunnelClient(tx.config)
 	tx.FunnelStep = NewFunnelStepClient(tx.config)
 	tx.Goal = NewGoalClient(tx.config)
+	tx.MonthlyEventCount = NewMonthlyEventCountClient(tx.config)
+	tx.PasswordResetToken = NewPasswordResetTokenClient(tx.config)
 	tx.SearchEngines = NewSearchEnginesClient(tx.config)
 	tx.ShieldRulesCountry = NewShieldRulesCountryClient(tx.config)
 	tx.ShieldRulesHostname = NewShieldRulesHostnameClient(tx.config)
 	tx.ShieldRulesIp = NewShieldRulesIpClient(tx.config)
 	tx.Site = NewSiteClient(tx.config)
 	tx.SiteMembership = NewSiteMembershipClient(tx.config)
+	tx.SubAccount = NewSubAccountClient(tx.config)
+	tx.SystemConfig = NewSystemConfigClient(tx.config)
 	tx.User = NewUserClient(tx.config)
+	tx.UserConfig = NewUserConfigClient(tx.config)
+	tx.UserGroup = NewUserGroupClient(tx.config)
 	tx.UserSession = NewUserSessionClient(tx.config)
 }
 

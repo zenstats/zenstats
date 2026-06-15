@@ -117,6 +117,20 @@ func (sc *SiteCreate) SetNillableIngestLimitPerMinute(i *int) *SiteCreate {
 	return sc
 }
 
+// SetAllowedOrigins sets the "allowed_origins" field.
+func (sc *SiteCreate) SetAllowedOrigins(s string) *SiteCreate {
+	sc.mutation.SetAllowedOrigins(s)
+	return sc
+}
+
+// SetNillableAllowedOrigins sets the "allowed_origins" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableAllowedOrigins(s *string) *SiteCreate {
+	if s != nil {
+		sc.SetAllowedOrigins(*s)
+	}
+	return sc
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (sc *SiteCreate) SetCreatedAt(t time.Time) *SiteCreate {
 	sc.mutation.SetCreatedAt(t)
@@ -141,6 +155,40 @@ func (sc *SiteCreate) SetUpdatedAt(t time.Time) *SiteCreate {
 func (sc *SiteCreate) SetNillableUpdatedAt(t *time.Time) *SiteCreate {
 	if t != nil {
 		sc.SetUpdatedAt(*t)
+	}
+	return sc
+}
+
+// SetVerificationToken sets the "verification_token" field.
+func (sc *SiteCreate) SetVerificationToken(s string) *SiteCreate {
+	sc.mutation.SetVerificationToken(s)
+	return sc
+}
+
+// SetIsVerified sets the "is_verified" field.
+func (sc *SiteCreate) SetIsVerified(b bool) *SiteCreate {
+	sc.mutation.SetIsVerified(b)
+	return sc
+}
+
+// SetNillableIsVerified sets the "is_verified" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableIsVerified(b *bool) *SiteCreate {
+	if b != nil {
+		sc.SetIsVerified(*b)
+	}
+	return sc
+}
+
+// SetVerifiedAt sets the "verified_at" field.
+func (sc *SiteCreate) SetVerifiedAt(t time.Time) *SiteCreate {
+	sc.mutation.SetVerifiedAt(t)
+	return sc
+}
+
+// SetNillableVerifiedAt sets the "verified_at" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableVerifiedAt(t *time.Time) *SiteCreate {
+	if t != nil {
+		sc.SetVerifiedAt(*t)
 	}
 	return sc
 }
@@ -315,6 +363,10 @@ func (sc *SiteCreate) defaults() {
 		v := site.DefaultUpdatedAt()
 		sc.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := sc.mutation.IsVerified(); !ok {
+		v := site.DefaultIsVerified
+		sc.mutation.SetIsVerified(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -349,11 +401,27 @@ func (sc *SiteCreate) check() error {
 	if _, ok := sc.mutation.IngestLimitPerMinute(); !ok {
 		return &ValidationError{Name: "ingest_limit_per_minute", err: errors.New(`ent: missing required field "Site.ingest_limit_per_minute"`)}
 	}
+	if v, ok := sc.mutation.AllowedOrigins(); ok {
+		if err := site.AllowedOriginsValidator(v); err != nil {
+			return &ValidationError{Name: "allowed_origins", err: fmt.Errorf(`ent: validator failed for field "Site.allowed_origins": %w`, err)}
+		}
+	}
 	if _, ok := sc.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Site.created_at"`)}
 	}
 	if _, ok := sc.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "Site.updated_at"`)}
+	}
+	if _, ok := sc.mutation.VerificationToken(); !ok {
+		return &ValidationError{Name: "verification_token", err: errors.New(`ent: missing required field "Site.verification_token"`)}
+	}
+	if v, ok := sc.mutation.VerificationToken(); ok {
+		if err := site.VerificationTokenValidator(v); err != nil {
+			return &ValidationError{Name: "verification_token", err: fmt.Errorf(`ent: validator failed for field "Site.verification_token": %w`, err)}
+		}
+	}
+	if _, ok := sc.mutation.IsVerified(); !ok {
+		return &ValidationError{Name: "is_verified", err: errors.New(`ent: missing required field "Site.is_verified"`)}
 	}
 	return nil
 }
@@ -415,6 +483,10 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 		_spec.SetField(site.FieldIngestLimitPerMinute, field.TypeInt, value)
 		_node.IngestLimitPerMinute = value
 	}
+	if value, ok := sc.mutation.AllowedOrigins(); ok {
+		_spec.SetField(site.FieldAllowedOrigins, field.TypeString, value)
+		_node.AllowedOrigins = value
+	}
 	if value, ok := sc.mutation.CreatedAt(); ok {
 		_spec.SetField(site.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
@@ -422,6 +494,18 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 	if value, ok := sc.mutation.UpdatedAt(); ok {
 		_spec.SetField(site.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if value, ok := sc.mutation.VerificationToken(); ok {
+		_spec.SetField(site.FieldVerificationToken, field.TypeString, value)
+		_node.VerificationToken = value
+	}
+	if value, ok := sc.mutation.IsVerified(); ok {
+		_spec.SetField(site.FieldIsVerified, field.TypeBool, value)
+		_node.IsVerified = value
+	}
+	if value, ok := sc.mutation.VerifiedAt(); ok {
+		_spec.SetField(site.FieldVerifiedAt, field.TypeTime, value)
+		_node.VerifiedAt = &value
 	}
 	if nodes := sc.mutation.FunnelsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

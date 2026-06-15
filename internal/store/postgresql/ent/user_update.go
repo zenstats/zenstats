@@ -12,9 +12,15 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emailverificationtoken"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/userconfig"
 )
 
 // UserUpdate is the builder for updating User entities.
@@ -218,6 +224,20 @@ func (uu *UserUpdate) ClearNotes() *UserUpdate {
 	return uu
 }
 
+// SetIsAdmin sets the "is_admin" field.
+func (uu *UserUpdate) SetIsAdmin(b bool) *UserUpdate {
+	uu.mutation.SetIsAdmin(b)
+	return uu
+}
+
+// SetNillableIsAdmin sets the "is_admin" field if the given value is not nil.
+func (uu *UserUpdate) SetNillableIsAdmin(b *bool) *UserUpdate {
+	if b != nil {
+		uu.SetIsAdmin(*b)
+	}
+	return uu
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (uu *UserUpdate) SetCreatedAt(t time.Time) *UserUpdate {
 	uu.mutation.SetCreatedAt(t)
@@ -276,6 +296,100 @@ func (uu *UserUpdate) AddSiteMemberships(s ...*SiteMembership) *UserUpdate {
 	return uu.AddSiteMembershipIDs(ids...)
 }
 
+// SetUserConfigID sets the "user_config" edge to the UserConfig entity by ID.
+func (uu *UserUpdate) SetUserConfigID(id int64) *UserUpdate {
+	uu.mutation.SetUserConfigID(id)
+	return uu
+}
+
+// SetNillableUserConfigID sets the "user_config" edge to the UserConfig entity by ID if the given value is not nil.
+func (uu *UserUpdate) SetNillableUserConfigID(id *int64) *UserUpdate {
+	if id != nil {
+		uu = uu.SetUserConfigID(*id)
+	}
+	return uu
+}
+
+// SetUserConfig sets the "user_config" edge to the UserConfig entity.
+func (uu *UserUpdate) SetUserConfig(u *UserConfig) *UserUpdate {
+	return uu.SetUserConfigID(u.ID)
+}
+
+// AddCustomSearchEngineIDs adds the "custom_search_engines" edge to the CustomSearchEngine entity by IDs.
+func (uu *UserUpdate) AddCustomSearchEngineIDs(ids ...int64) *UserUpdate {
+	uu.mutation.AddCustomSearchEngineIDs(ids...)
+	return uu
+}
+
+// AddCustomSearchEngines adds the "custom_search_engines" edges to the CustomSearchEngine entity.
+func (uu *UserUpdate) AddCustomSearchEngines(c ...*CustomSearchEngine) *UserUpdate {
+	ids := make([]int64, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return uu.AddCustomSearchEngineIDs(ids...)
+}
+
+// AddSubAccountIDs adds the "sub_accounts" edge to the SubAccount entity by IDs.
+func (uu *UserUpdate) AddSubAccountIDs(ids ...int64) *UserUpdate {
+	uu.mutation.AddSubAccountIDs(ids...)
+	return uu
+}
+
+// AddSubAccounts adds the "sub_accounts" edges to the SubAccount entity.
+func (uu *UserUpdate) AddSubAccounts(s ...*SubAccount) *UserUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uu.AddSubAccountIDs(ids...)
+}
+
+// AddPasswordResetTokenIDs adds the "password_reset_tokens" edge to the PasswordResetToken entity by IDs.
+func (uu *UserUpdate) AddPasswordResetTokenIDs(ids ...int64) *UserUpdate {
+	uu.mutation.AddPasswordResetTokenIDs(ids...)
+	return uu
+}
+
+// AddPasswordResetTokens adds the "password_reset_tokens" edges to the PasswordResetToken entity.
+func (uu *UserUpdate) AddPasswordResetTokens(p ...*PasswordResetToken) *UserUpdate {
+	ids := make([]int64, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uu.AddPasswordResetTokenIDs(ids...)
+}
+
+// AddEmailVerificationTokenIDs adds the "email_verification_tokens" edge to the EmailVerificationToken entity by IDs.
+func (uu *UserUpdate) AddEmailVerificationTokenIDs(ids ...int64) *UserUpdate {
+	uu.mutation.AddEmailVerificationTokenIDs(ids...)
+	return uu
+}
+
+// AddEmailVerificationTokens adds the "email_verification_tokens" edges to the EmailVerificationToken entity.
+func (uu *UserUpdate) AddEmailVerificationTokens(e ...*EmailVerificationToken) *UserUpdate {
+	ids := make([]int64, len(e))
+	for i := range e {
+		ids[i] = e[i].ID
+	}
+	return uu.AddEmailVerificationTokenIDs(ids...)
+}
+
+// AddMonthlyEventCountIDs adds the "monthly_event_counts" edge to the MonthlyEventCount entity by IDs.
+func (uu *UserUpdate) AddMonthlyEventCountIDs(ids ...int64) *UserUpdate {
+	uu.mutation.AddMonthlyEventCountIDs(ids...)
+	return uu
+}
+
+// AddMonthlyEventCounts adds the "monthly_event_counts" edges to the MonthlyEventCount entity.
+func (uu *UserUpdate) AddMonthlyEventCounts(m ...*MonthlyEventCount) *UserUpdate {
+	ids := make([]int64, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return uu.AddMonthlyEventCountIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uu *UserUpdate) Mutation() *UserMutation {
 	return uu.mutation
@@ -321,6 +435,117 @@ func (uu *UserUpdate) RemoveSiteMemberships(s ...*SiteMembership) *UserUpdate {
 		ids[i] = s[i].ID
 	}
 	return uu.RemoveSiteMembershipIDs(ids...)
+}
+
+// ClearUserConfig clears the "user_config" edge to the UserConfig entity.
+func (uu *UserUpdate) ClearUserConfig() *UserUpdate {
+	uu.mutation.ClearUserConfig()
+	return uu
+}
+
+// ClearCustomSearchEngines clears all "custom_search_engines" edges to the CustomSearchEngine entity.
+func (uu *UserUpdate) ClearCustomSearchEngines() *UserUpdate {
+	uu.mutation.ClearCustomSearchEngines()
+	return uu
+}
+
+// RemoveCustomSearchEngineIDs removes the "custom_search_engines" edge to CustomSearchEngine entities by IDs.
+func (uu *UserUpdate) RemoveCustomSearchEngineIDs(ids ...int64) *UserUpdate {
+	uu.mutation.RemoveCustomSearchEngineIDs(ids...)
+	return uu
+}
+
+// RemoveCustomSearchEngines removes "custom_search_engines" edges to CustomSearchEngine entities.
+func (uu *UserUpdate) RemoveCustomSearchEngines(c ...*CustomSearchEngine) *UserUpdate {
+	ids := make([]int64, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return uu.RemoveCustomSearchEngineIDs(ids...)
+}
+
+// ClearSubAccounts clears all "sub_accounts" edges to the SubAccount entity.
+func (uu *UserUpdate) ClearSubAccounts() *UserUpdate {
+	uu.mutation.ClearSubAccounts()
+	return uu
+}
+
+// RemoveSubAccountIDs removes the "sub_accounts" edge to SubAccount entities by IDs.
+func (uu *UserUpdate) RemoveSubAccountIDs(ids ...int64) *UserUpdate {
+	uu.mutation.RemoveSubAccountIDs(ids...)
+	return uu
+}
+
+// RemoveSubAccounts removes "sub_accounts" edges to SubAccount entities.
+func (uu *UserUpdate) RemoveSubAccounts(s ...*SubAccount) *UserUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uu.RemoveSubAccountIDs(ids...)
+}
+
+// ClearPasswordResetTokens clears all "password_reset_tokens" edges to the PasswordResetToken entity.
+func (uu *UserUpdate) ClearPasswordResetTokens() *UserUpdate {
+	uu.mutation.ClearPasswordResetTokens()
+	return uu
+}
+
+// RemovePasswordResetTokenIDs removes the "password_reset_tokens" edge to PasswordResetToken entities by IDs.
+func (uu *UserUpdate) RemovePasswordResetTokenIDs(ids ...int64) *UserUpdate {
+	uu.mutation.RemovePasswordResetTokenIDs(ids...)
+	return uu
+}
+
+// RemovePasswordResetTokens removes "password_reset_tokens" edges to PasswordResetToken entities.
+func (uu *UserUpdate) RemovePasswordResetTokens(p ...*PasswordResetToken) *UserUpdate {
+	ids := make([]int64, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uu.RemovePasswordResetTokenIDs(ids...)
+}
+
+// ClearEmailVerificationTokens clears all "email_verification_tokens" edges to the EmailVerificationToken entity.
+func (uu *UserUpdate) ClearEmailVerificationTokens() *UserUpdate {
+	uu.mutation.ClearEmailVerificationTokens()
+	return uu
+}
+
+// RemoveEmailVerificationTokenIDs removes the "email_verification_tokens" edge to EmailVerificationToken entities by IDs.
+func (uu *UserUpdate) RemoveEmailVerificationTokenIDs(ids ...int64) *UserUpdate {
+	uu.mutation.RemoveEmailVerificationTokenIDs(ids...)
+	return uu
+}
+
+// RemoveEmailVerificationTokens removes "email_verification_tokens" edges to EmailVerificationToken entities.
+func (uu *UserUpdate) RemoveEmailVerificationTokens(e ...*EmailVerificationToken) *UserUpdate {
+	ids := make([]int64, len(e))
+	for i := range e {
+		ids[i] = e[i].ID
+	}
+	return uu.RemoveEmailVerificationTokenIDs(ids...)
+}
+
+// ClearMonthlyEventCounts clears all "monthly_event_counts" edges to the MonthlyEventCount entity.
+func (uu *UserUpdate) ClearMonthlyEventCounts() *UserUpdate {
+	uu.mutation.ClearMonthlyEventCounts()
+	return uu
+}
+
+// RemoveMonthlyEventCountIDs removes the "monthly_event_counts" edge to MonthlyEventCount entities by IDs.
+func (uu *UserUpdate) RemoveMonthlyEventCountIDs(ids ...int64) *UserUpdate {
+	uu.mutation.RemoveMonthlyEventCountIDs(ids...)
+	return uu
+}
+
+// RemoveMonthlyEventCounts removes "monthly_event_counts" edges to MonthlyEventCount entities.
+func (uu *UserUpdate) RemoveMonthlyEventCounts(m ...*MonthlyEventCount) *UserUpdate {
+	ids := make([]int64, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return uu.RemoveMonthlyEventCountIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -413,6 +638,9 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if uu.mutation.NotesCleared() {
 		_spec.ClearField(user.FieldNotes, field.TypeString)
 	}
+	if value, ok := uu.mutation.IsAdmin(); ok {
+		_spec.SetField(user.FieldIsAdmin, field.TypeBool, value)
+	}
 	if value, ok := uu.mutation.CreatedAt(); ok {
 		_spec.SetField(user.FieldCreatedAt, field.TypeTime, value)
 	}
@@ -502,6 +730,260 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sitemembership.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.UserConfigCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.UserConfigTable,
+			Columns: []string{user.UserConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userconfig.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.UserConfigIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.UserConfigTable,
+			Columns: []string{user.UserConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userconfig.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.CustomSearchEnginesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CustomSearchEnginesTable,
+			Columns: []string{user.CustomSearchEnginesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(customsearchengine.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedCustomSearchEnginesIDs(); len(nodes) > 0 && !uu.mutation.CustomSearchEnginesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CustomSearchEnginesTable,
+			Columns: []string{user.CustomSearchEnginesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(customsearchengine.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.CustomSearchEnginesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CustomSearchEnginesTable,
+			Columns: []string{user.CustomSearchEnginesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(customsearchengine.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.SubAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubAccountsTable,
+			Columns: []string{user.SubAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subaccount.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedSubAccountsIDs(); len(nodes) > 0 && !uu.mutation.SubAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubAccountsTable,
+			Columns: []string{user.SubAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subaccount.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.SubAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubAccountsTable,
+			Columns: []string{user.SubAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subaccount.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.PasswordResetTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PasswordResetTokensTable,
+			Columns: []string{user.PasswordResetTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(passwordresettoken.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedPasswordResetTokensIDs(); len(nodes) > 0 && !uu.mutation.PasswordResetTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PasswordResetTokensTable,
+			Columns: []string{user.PasswordResetTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(passwordresettoken.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.PasswordResetTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PasswordResetTokensTable,
+			Columns: []string{user.PasswordResetTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(passwordresettoken.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.EmailVerificationTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailVerificationTokensTable,
+			Columns: []string{user.EmailVerificationTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(emailverificationtoken.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedEmailVerificationTokensIDs(); len(nodes) > 0 && !uu.mutation.EmailVerificationTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailVerificationTokensTable,
+			Columns: []string{user.EmailVerificationTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(emailverificationtoken.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.EmailVerificationTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailVerificationTokensTable,
+			Columns: []string{user.EmailVerificationTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(emailverificationtoken.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.MonthlyEventCountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MonthlyEventCountsTable,
+			Columns: []string{user.MonthlyEventCountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(monthlyeventcount.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedMonthlyEventCountsIDs(); len(nodes) > 0 && !uu.mutation.MonthlyEventCountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MonthlyEventCountsTable,
+			Columns: []string{user.MonthlyEventCountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(monthlyeventcount.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.MonthlyEventCountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MonthlyEventCountsTable,
+			Columns: []string{user.MonthlyEventCountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(monthlyeventcount.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -717,6 +1199,20 @@ func (uuo *UserUpdateOne) ClearNotes() *UserUpdateOne {
 	return uuo
 }
 
+// SetIsAdmin sets the "is_admin" field.
+func (uuo *UserUpdateOne) SetIsAdmin(b bool) *UserUpdateOne {
+	uuo.mutation.SetIsAdmin(b)
+	return uuo
+}
+
+// SetNillableIsAdmin sets the "is_admin" field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableIsAdmin(b *bool) *UserUpdateOne {
+	if b != nil {
+		uuo.SetIsAdmin(*b)
+	}
+	return uuo
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (uuo *UserUpdateOne) SetCreatedAt(t time.Time) *UserUpdateOne {
 	uuo.mutation.SetCreatedAt(t)
@@ -775,6 +1271,100 @@ func (uuo *UserUpdateOne) AddSiteMemberships(s ...*SiteMembership) *UserUpdateOn
 	return uuo.AddSiteMembershipIDs(ids...)
 }
 
+// SetUserConfigID sets the "user_config" edge to the UserConfig entity by ID.
+func (uuo *UserUpdateOne) SetUserConfigID(id int64) *UserUpdateOne {
+	uuo.mutation.SetUserConfigID(id)
+	return uuo
+}
+
+// SetNillableUserConfigID sets the "user_config" edge to the UserConfig entity by ID if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableUserConfigID(id *int64) *UserUpdateOne {
+	if id != nil {
+		uuo = uuo.SetUserConfigID(*id)
+	}
+	return uuo
+}
+
+// SetUserConfig sets the "user_config" edge to the UserConfig entity.
+func (uuo *UserUpdateOne) SetUserConfig(u *UserConfig) *UserUpdateOne {
+	return uuo.SetUserConfigID(u.ID)
+}
+
+// AddCustomSearchEngineIDs adds the "custom_search_engines" edge to the CustomSearchEngine entity by IDs.
+func (uuo *UserUpdateOne) AddCustomSearchEngineIDs(ids ...int64) *UserUpdateOne {
+	uuo.mutation.AddCustomSearchEngineIDs(ids...)
+	return uuo
+}
+
+// AddCustomSearchEngines adds the "custom_search_engines" edges to the CustomSearchEngine entity.
+func (uuo *UserUpdateOne) AddCustomSearchEngines(c ...*CustomSearchEngine) *UserUpdateOne {
+	ids := make([]int64, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return uuo.AddCustomSearchEngineIDs(ids...)
+}
+
+// AddSubAccountIDs adds the "sub_accounts" edge to the SubAccount entity by IDs.
+func (uuo *UserUpdateOne) AddSubAccountIDs(ids ...int64) *UserUpdateOne {
+	uuo.mutation.AddSubAccountIDs(ids...)
+	return uuo
+}
+
+// AddSubAccounts adds the "sub_accounts" edges to the SubAccount entity.
+func (uuo *UserUpdateOne) AddSubAccounts(s ...*SubAccount) *UserUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uuo.AddSubAccountIDs(ids...)
+}
+
+// AddPasswordResetTokenIDs adds the "password_reset_tokens" edge to the PasswordResetToken entity by IDs.
+func (uuo *UserUpdateOne) AddPasswordResetTokenIDs(ids ...int64) *UserUpdateOne {
+	uuo.mutation.AddPasswordResetTokenIDs(ids...)
+	return uuo
+}
+
+// AddPasswordResetTokens adds the "password_reset_tokens" edges to the PasswordResetToken entity.
+func (uuo *UserUpdateOne) AddPasswordResetTokens(p ...*PasswordResetToken) *UserUpdateOne {
+	ids := make([]int64, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uuo.AddPasswordResetTokenIDs(ids...)
+}
+
+// AddEmailVerificationTokenIDs adds the "email_verification_tokens" edge to the EmailVerificationToken entity by IDs.
+func (uuo *UserUpdateOne) AddEmailVerificationTokenIDs(ids ...int64) *UserUpdateOne {
+	uuo.mutation.AddEmailVerificationTokenIDs(ids...)
+	return uuo
+}
+
+// AddEmailVerificationTokens adds the "email_verification_tokens" edges to the EmailVerificationToken entity.
+func (uuo *UserUpdateOne) AddEmailVerificationTokens(e ...*EmailVerificationToken) *UserUpdateOne {
+	ids := make([]int64, len(e))
+	for i := range e {
+		ids[i] = e[i].ID
+	}
+	return uuo.AddEmailVerificationTokenIDs(ids...)
+}
+
+// AddMonthlyEventCountIDs adds the "monthly_event_counts" edge to the MonthlyEventCount entity by IDs.
+func (uuo *UserUpdateOne) AddMonthlyEventCountIDs(ids ...int64) *UserUpdateOne {
+	uuo.mutation.AddMonthlyEventCountIDs(ids...)
+	return uuo
+}
+
+// AddMonthlyEventCounts adds the "monthly_event_counts" edges to the MonthlyEventCount entity.
+func (uuo *UserUpdateOne) AddMonthlyEventCounts(m ...*MonthlyEventCount) *UserUpdateOne {
+	ids := make([]int64, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return uuo.AddMonthlyEventCountIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uuo *UserUpdateOne) Mutation() *UserMutation {
 	return uuo.mutation
@@ -820,6 +1410,117 @@ func (uuo *UserUpdateOne) RemoveSiteMemberships(s ...*SiteMembership) *UserUpdat
 		ids[i] = s[i].ID
 	}
 	return uuo.RemoveSiteMembershipIDs(ids...)
+}
+
+// ClearUserConfig clears the "user_config" edge to the UserConfig entity.
+func (uuo *UserUpdateOne) ClearUserConfig() *UserUpdateOne {
+	uuo.mutation.ClearUserConfig()
+	return uuo
+}
+
+// ClearCustomSearchEngines clears all "custom_search_engines" edges to the CustomSearchEngine entity.
+func (uuo *UserUpdateOne) ClearCustomSearchEngines() *UserUpdateOne {
+	uuo.mutation.ClearCustomSearchEngines()
+	return uuo
+}
+
+// RemoveCustomSearchEngineIDs removes the "custom_search_engines" edge to CustomSearchEngine entities by IDs.
+func (uuo *UserUpdateOne) RemoveCustomSearchEngineIDs(ids ...int64) *UserUpdateOne {
+	uuo.mutation.RemoveCustomSearchEngineIDs(ids...)
+	return uuo
+}
+
+// RemoveCustomSearchEngines removes "custom_search_engines" edges to CustomSearchEngine entities.
+func (uuo *UserUpdateOne) RemoveCustomSearchEngines(c ...*CustomSearchEngine) *UserUpdateOne {
+	ids := make([]int64, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return uuo.RemoveCustomSearchEngineIDs(ids...)
+}
+
+// ClearSubAccounts clears all "sub_accounts" edges to the SubAccount entity.
+func (uuo *UserUpdateOne) ClearSubAccounts() *UserUpdateOne {
+	uuo.mutation.ClearSubAccounts()
+	return uuo
+}
+
+// RemoveSubAccountIDs removes the "sub_accounts" edge to SubAccount entities by IDs.
+func (uuo *UserUpdateOne) RemoveSubAccountIDs(ids ...int64) *UserUpdateOne {
+	uuo.mutation.RemoveSubAccountIDs(ids...)
+	return uuo
+}
+
+// RemoveSubAccounts removes "sub_accounts" edges to SubAccount entities.
+func (uuo *UserUpdateOne) RemoveSubAccounts(s ...*SubAccount) *UserUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return uuo.RemoveSubAccountIDs(ids...)
+}
+
+// ClearPasswordResetTokens clears all "password_reset_tokens" edges to the PasswordResetToken entity.
+func (uuo *UserUpdateOne) ClearPasswordResetTokens() *UserUpdateOne {
+	uuo.mutation.ClearPasswordResetTokens()
+	return uuo
+}
+
+// RemovePasswordResetTokenIDs removes the "password_reset_tokens" edge to PasswordResetToken entities by IDs.
+func (uuo *UserUpdateOne) RemovePasswordResetTokenIDs(ids ...int64) *UserUpdateOne {
+	uuo.mutation.RemovePasswordResetTokenIDs(ids...)
+	return uuo
+}
+
+// RemovePasswordResetTokens removes "password_reset_tokens" edges to PasswordResetToken entities.
+func (uuo *UserUpdateOne) RemovePasswordResetTokens(p ...*PasswordResetToken) *UserUpdateOne {
+	ids := make([]int64, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return uuo.RemovePasswordResetTokenIDs(ids...)
+}
+
+// ClearEmailVerificationTokens clears all "email_verification_tokens" edges to the EmailVerificationToken entity.
+func (uuo *UserUpdateOne) ClearEmailVerificationTokens() *UserUpdateOne {
+	uuo.mutation.ClearEmailVerificationTokens()
+	return uuo
+}
+
+// RemoveEmailVerificationTokenIDs removes the "email_verification_tokens" edge to EmailVerificationToken entities by IDs.
+func (uuo *UserUpdateOne) RemoveEmailVerificationTokenIDs(ids ...int64) *UserUpdateOne {
+	uuo.mutation.RemoveEmailVerificationTokenIDs(ids...)
+	return uuo
+}
+
+// RemoveEmailVerificationTokens removes "email_verification_tokens" edges to EmailVerificationToken entities.
+func (uuo *UserUpdateOne) RemoveEmailVerificationTokens(e ...*EmailVerificationToken) *UserUpdateOne {
+	ids := make([]int64, len(e))
+	for i := range e {
+		ids[i] = e[i].ID
+	}
+	return uuo.RemoveEmailVerificationTokenIDs(ids...)
+}
+
+// ClearMonthlyEventCounts clears all "monthly_event_counts" edges to the MonthlyEventCount entity.
+func (uuo *UserUpdateOne) ClearMonthlyEventCounts() *UserUpdateOne {
+	uuo.mutation.ClearMonthlyEventCounts()
+	return uuo
+}
+
+// RemoveMonthlyEventCountIDs removes the "monthly_event_counts" edge to MonthlyEventCount entities by IDs.
+func (uuo *UserUpdateOne) RemoveMonthlyEventCountIDs(ids ...int64) *UserUpdateOne {
+	uuo.mutation.RemoveMonthlyEventCountIDs(ids...)
+	return uuo
+}
+
+// RemoveMonthlyEventCounts removes "monthly_event_counts" edges to MonthlyEventCount entities.
+func (uuo *UserUpdateOne) RemoveMonthlyEventCounts(m ...*MonthlyEventCount) *UserUpdateOne {
+	ids := make([]int64, len(m))
+	for i := range m {
+		ids[i] = m[i].ID
+	}
+	return uuo.RemoveMonthlyEventCountIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -942,6 +1643,9 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	if uuo.mutation.NotesCleared() {
 		_spec.ClearField(user.FieldNotes, field.TypeString)
 	}
+	if value, ok := uuo.mutation.IsAdmin(); ok {
+		_spec.SetField(user.FieldIsAdmin, field.TypeBool, value)
+	}
 	if value, ok := uuo.mutation.CreatedAt(); ok {
 		_spec.SetField(user.FieldCreatedAt, field.TypeTime, value)
 	}
@@ -1031,6 +1735,260 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(sitemembership.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.UserConfigCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.UserConfigTable,
+			Columns: []string{user.UserConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userconfig.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.UserConfigIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   user.UserConfigTable,
+			Columns: []string{user.UserConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userconfig.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.CustomSearchEnginesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CustomSearchEnginesTable,
+			Columns: []string{user.CustomSearchEnginesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(customsearchengine.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedCustomSearchEnginesIDs(); len(nodes) > 0 && !uuo.mutation.CustomSearchEnginesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CustomSearchEnginesTable,
+			Columns: []string{user.CustomSearchEnginesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(customsearchengine.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.CustomSearchEnginesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.CustomSearchEnginesTable,
+			Columns: []string{user.CustomSearchEnginesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(customsearchengine.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.SubAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubAccountsTable,
+			Columns: []string{user.SubAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subaccount.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedSubAccountsIDs(); len(nodes) > 0 && !uuo.mutation.SubAccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubAccountsTable,
+			Columns: []string{user.SubAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subaccount.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.SubAccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubAccountsTable,
+			Columns: []string{user.SubAccountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subaccount.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.PasswordResetTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PasswordResetTokensTable,
+			Columns: []string{user.PasswordResetTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(passwordresettoken.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedPasswordResetTokensIDs(); len(nodes) > 0 && !uuo.mutation.PasswordResetTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PasswordResetTokensTable,
+			Columns: []string{user.PasswordResetTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(passwordresettoken.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.PasswordResetTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PasswordResetTokensTable,
+			Columns: []string{user.PasswordResetTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(passwordresettoken.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.EmailVerificationTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailVerificationTokensTable,
+			Columns: []string{user.EmailVerificationTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(emailverificationtoken.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedEmailVerificationTokensIDs(); len(nodes) > 0 && !uuo.mutation.EmailVerificationTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailVerificationTokensTable,
+			Columns: []string{user.EmailVerificationTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(emailverificationtoken.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.EmailVerificationTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.EmailVerificationTokensTable,
+			Columns: []string{user.EmailVerificationTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(emailverificationtoken.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.MonthlyEventCountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MonthlyEventCountsTable,
+			Columns: []string{user.MonthlyEventCountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(monthlyeventcount.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedMonthlyEventCountsIDs(); len(nodes) > 0 && !uuo.mutation.MonthlyEventCountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MonthlyEventCountsTable,
+			Columns: []string{user.MonthlyEventCountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(monthlyeventcount.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.MonthlyEventCountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.MonthlyEventCountsTable,
+			Columns: []string{user.MonthlyEventCountsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(monthlyeventcount.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

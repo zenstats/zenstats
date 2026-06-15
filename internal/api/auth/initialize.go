@@ -34,6 +34,23 @@ func (h *AuthHandler) Initialize() gin.HandlerFunc {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
+
+		// 检查是否是第一个用户（第一个用户自动成为管理员）
+		userCount, err := h.service.GetUserCount(c.Request.Context())
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, err)
+			return
+		}
+		if userCount == 1 {
+			// 第一个用户设置为管理员
+			_ = h.service.SetAdmin(c.Request.Context(), user.ID, true)
+			// 管理员默认邮箱已验证
+			_ = h.service.SetEmailVerified(c.Request.Context(), user.ID, true)
+		}
+
+		// 为新用户创建配置（使用默认套餐）
+		_ = h.service.CreateUserConfig(c.Request.Context(), user.ID)
+
 		// 颁发jwt token
 		token, err := auth.GenerateToken(user.ID)
 		if err != nil {

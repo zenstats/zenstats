@@ -10,13 +10,17 @@ import (
 var JWTSecret = []byte(config.Conf.SecretKey) // 替换为你的密钥
 
 type CustomClaims struct {
-	UserID int64 `json:"user_id"`
+	UserID       int64  `json:"user_id"`
+	UserType     string `json:"user_type"`      // "user" or "sub_account"
+	SubAccountID int64  `json:"sub_account_id"` // only set when UserType == "sub_account"
+	Role         string `json:"role"`           // sub-account role: "viewer", "admin", etc.
 	jwt.RegisteredClaims
 }
 
 func GenerateRefreshToken(userID int64) (string, error) {
 	claims := CustomClaims{
-		UserID: userID,
+		UserID:   userID,
+		UserType: "user",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			Issuer:    "zenstats",
@@ -29,11 +33,44 @@ func GenerateRefreshToken(userID int64) (string, error) {
 
 func GenerateToken(userID int64) (string, error) {
 	claims := CustomClaims{
-		UserID: userID,
+		UserID:   userID,
+		UserType: "user",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 			Issuer:    "zenstats",
 			Subject:   "access_token",
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(JWTSecret)
+}
+
+func GenerateSubAccountToken(subAccountID, parentUserID int64, role string) (string, error) {
+	claims := CustomClaims{
+		UserID:       parentUserID,
+		UserType:     "sub_account",
+		SubAccountID: subAccountID,
+		Role:         role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+			Issuer:    "zenstats",
+			Subject:   "access_token",
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(JWTSecret)
+}
+
+func GenerateSubAccountRefreshToken(subAccountID, parentUserID int64, role string) (string, error) {
+	claims := CustomClaims{
+		UserID:       parentUserID,
+		UserType:     "sub_account",
+		SubAccountID: subAccountID,
+		Role:         role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			Issuer:    "zenstats",
+			Subject:   "refresh_token",
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

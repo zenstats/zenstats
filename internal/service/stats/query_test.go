@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/zenstats/zenstats/internal/bootstrap"
 	"github.com/zenstats/zenstats/internal/service/stats/types"
+	"github.com/zenstats/zenstats/internal/store/postgresql"
+	"github.com/zenstats/zenstats/pkg/globals"
 )
 
 func TestCreateQuery(t *testing.T) {
-	bootstrap.InitPostgres()
+	globals.SetDB(postgresql.NewClient())
 
 	tests := []struct {
 		name    string
@@ -69,7 +70,7 @@ func TestCreateQuery(t *testing.T) {
 				t.Error("CreateQuery() did not set Now field")
 			}
 			if !tt.wantErr {
-				site := &types.Site{ID: query.SiteID, Timezone: query.Timezone}
+				site := &types.Site{ID: query.SiteID, UserID: query.UserID, Timezone: query.Timezone}
 				result, err := qs.Execute(context.Background(), query, site)
 				if err != nil {
 					t.Errorf("Execute() error = %v", err)

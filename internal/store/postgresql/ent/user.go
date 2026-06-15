@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/userconfig"
 )
 
 // User is the model entity for the User schema.
@@ -39,6 +40,8 @@ type User struct {
 	TotpToken string `json:"totp_token,omitempty"`
 	// Notes holds the value of the "notes" field.
 	Notes string `json:"notes,omitempty"`
+	// 是否为管理员
+	IsAdmin bool `json:"is_admin,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -56,9 +59,21 @@ type UserEdges struct {
 	APIKeys []*APIKey `json:"api_keys,omitempty"`
 	// SiteMemberships holds the value of the site_memberships edge.
 	SiteMemberships []*SiteMembership `json:"site_memberships,omitempty"`
+	// UserConfig holds the value of the user_config edge.
+	UserConfig *UserConfig `json:"user_config,omitempty"`
+	// CustomSearchEngines holds the value of the custom_search_engines edge.
+	CustomSearchEngines []*CustomSearchEngine `json:"custom_search_engines,omitempty"`
+	// SubAccounts holds the value of the sub_accounts edge.
+	SubAccounts []*SubAccount `json:"sub_accounts,omitempty"`
+	// PasswordResetTokens holds the value of the password_reset_tokens edge.
+	PasswordResetTokens []*PasswordResetToken `json:"password_reset_tokens,omitempty"`
+	// EmailVerificationTokens holds the value of the email_verification_tokens edge.
+	EmailVerificationTokens []*EmailVerificationToken `json:"email_verification_tokens,omitempty"`
+	// MonthlyEventCounts holds the value of the monthly_event_counts edge.
+	MonthlyEventCounts []*MonthlyEventCount `json:"monthly_event_counts,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [8]bool
 }
 
 // APIKeysOrErr returns the APIKeys value or an error if the edge
@@ -79,6 +94,62 @@ func (e UserEdges) SiteMembershipsOrErr() ([]*SiteMembership, error) {
 	return nil, &NotLoadedError{edge: "site_memberships"}
 }
 
+// UserConfigOrErr returns the UserConfig value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e UserEdges) UserConfigOrErr() (*UserConfig, error) {
+	if e.UserConfig != nil {
+		return e.UserConfig, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: userconfig.Label}
+	}
+	return nil, &NotLoadedError{edge: "user_config"}
+}
+
+// CustomSearchEnginesOrErr returns the CustomSearchEngines value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) CustomSearchEnginesOrErr() ([]*CustomSearchEngine, error) {
+	if e.loadedTypes[3] {
+		return e.CustomSearchEngines, nil
+	}
+	return nil, &NotLoadedError{edge: "custom_search_engines"}
+}
+
+// SubAccountsOrErr returns the SubAccounts value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) SubAccountsOrErr() ([]*SubAccount, error) {
+	if e.loadedTypes[4] {
+		return e.SubAccounts, nil
+	}
+	return nil, &NotLoadedError{edge: "sub_accounts"}
+}
+
+// PasswordResetTokensOrErr returns the PasswordResetTokens value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) PasswordResetTokensOrErr() ([]*PasswordResetToken, error) {
+	if e.loadedTypes[5] {
+		return e.PasswordResetTokens, nil
+	}
+	return nil, &NotLoadedError{edge: "password_reset_tokens"}
+}
+
+// EmailVerificationTokensOrErr returns the EmailVerificationTokens value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) EmailVerificationTokensOrErr() ([]*EmailVerificationToken, error) {
+	if e.loadedTypes[6] {
+		return e.EmailVerificationTokens, nil
+	}
+	return nil, &NotLoadedError{edge: "email_verification_tokens"}
+}
+
+// MonthlyEventCountsOrErr returns the MonthlyEventCounts value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) MonthlyEventCountsOrErr() ([]*MonthlyEventCount, error) {
+	if e.loadedTypes[7] {
+		return e.MonthlyEventCounts, nil
+	}
+	return nil, &NotLoadedError{edge: "monthly_event_counts"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*User) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -86,7 +157,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case user.FieldTotpSecret:
 			values[i] = new([]byte)
-		case user.FieldEmailVerified, user.FieldTotpEnabled:
+		case user.FieldEmailVerified, user.FieldTotpEnabled, user.FieldIsAdmin:
 			values[i] = new(sql.NullBool)
 		case user.FieldID:
 			values[i] = new(sql.NullInt64)
@@ -183,6 +254,12 @@ func (u *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				u.Notes = value.String
 			}
+		case user.FieldIsAdmin:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_admin", values[i])
+			} else if value.Valid {
+				u.IsAdmin = value.Bool
+			}
 		case user.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -223,6 +300,36 @@ func (u *User) QueryAPIKeys() *APIKeyQuery {
 // QuerySiteMemberships queries the "site_memberships" edge of the User entity.
 func (u *User) QuerySiteMemberships() *SiteMembershipQuery {
 	return NewUserClient(u.config).QuerySiteMemberships(u)
+}
+
+// QueryUserConfig queries the "user_config" edge of the User entity.
+func (u *User) QueryUserConfig() *UserConfigQuery {
+	return NewUserClient(u.config).QueryUserConfig(u)
+}
+
+// QueryCustomSearchEngines queries the "custom_search_engines" edge of the User entity.
+func (u *User) QueryCustomSearchEngines() *CustomSearchEngineQuery {
+	return NewUserClient(u.config).QueryCustomSearchEngines(u)
+}
+
+// QuerySubAccounts queries the "sub_accounts" edge of the User entity.
+func (u *User) QuerySubAccounts() *SubAccountQuery {
+	return NewUserClient(u.config).QuerySubAccounts(u)
+}
+
+// QueryPasswordResetTokens queries the "password_reset_tokens" edge of the User entity.
+func (u *User) QueryPasswordResetTokens() *PasswordResetTokenQuery {
+	return NewUserClient(u.config).QueryPasswordResetTokens(u)
+}
+
+// QueryEmailVerificationTokens queries the "email_verification_tokens" edge of the User entity.
+func (u *User) QueryEmailVerificationTokens() *EmailVerificationTokenQuery {
+	return NewUserClient(u.config).QueryEmailVerificationTokens(u)
+}
+
+// QueryMonthlyEventCounts queries the "monthly_event_counts" edge of the User entity.
+func (u *User) QueryMonthlyEventCounts() *MonthlyEventCountQuery {
+	return NewUserClient(u.config).QueryMonthlyEventCounts(u)
 }
 
 // Update returns a builder for updating this User.
@@ -280,6 +387,9 @@ func (u *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("notes=")
 	builder.WriteString(u.Notes)
+	builder.WriteString(", ")
+	builder.WriteString("is_admin=")
+	builder.WriteString(fmt.Sprintf("%v", u.IsAdmin))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(u.CreatedAt.Format(time.ANSIC))

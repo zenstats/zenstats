@@ -23,14 +23,9 @@ import (
 //	@Router			/sites/{domain} [delete]
 func (h *SitesHandler) Delete() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
-		site, err := h.service.GetSiteByDomain(c, domain)
-		if err != nil {
-			response.Error(c, http.StatusBadRequest, err)
-			return
-		}
+		siteID := c.GetInt64("site_id")
 
-		if err := h.service.DeleteSite(c, int(site.ID)); err != nil {
+		if err := h.service.DeleteSite(c, int(siteID)); err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return
 		}

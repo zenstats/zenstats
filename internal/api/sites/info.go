@@ -23,8 +23,8 @@ import (
 //	@Router			/sites/{domain} [get]
 func (h *SitesHandler) Info() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
-		site, err := h.service.GetSiteByDomain(c, domain)
+		siteID := c.GetInt64("site_id")
+		site, err := h.service.GetSiteByID(c, int(siteID))
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return
@@ -34,8 +34,11 @@ func (h *SitesHandler) Info() gin.HandlerFunc {
 			ID:                          site.ID,
 			IngestRateLimitScaleSeconds: site.IngestRateLimitScaleSeconds,
 			IngetLimitPerMinute:         site.IngestLimitPerMinute,
+			AllowedOrigins:              site.AllowedOrigins,
 			Remark:                      site.Remark,
 			Timezone:                    site.Timezone,
+			IsVerified:                  site.IsVerified,
+			VerifiedAt:                  site.VerifiedAt,
 		}
 
 		response.Success(c, SiteWithRemark)

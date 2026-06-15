@@ -2,6 +2,7 @@
 package funnels
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -296,15 +297,13 @@ func (h *FunnelsHandler) Analyze() gin.HandlerFunc {
 	}
 }
 
-// getSiteID 从上下文获取站点ID。
+// getSiteID 从上下文获取站点ID（由 SiteMembershipAuth 中间件设置）。
 func (h *FunnelsHandler) getSiteID(c *gin.Context) (int64, error) {
-	domain := c.Param("domain")
-	siteService := service.GetSiteService()
-	site, err := siteService.GetSiteByDomain(c, domain)
-	if err != nil {
-		return 0, err
+	siteID, exists := c.Get("site_id")
+	if !exists {
+		return 0, fmt.Errorf("site not found")
 	}
-	return site.ID, nil
+	return siteID.(int64), nil
 }
 
 // parseTimeRange 解析时间范围参数。
@@ -314,9 +313,9 @@ func (h *FunnelsHandler) parseTimeRange(c *gin.Context) (time.Time, time.Time, e
 	from := c.Query("from")
 	to := c.Query("to")
 
+	siteID := c.GetInt64("site_id")
 	siteService := service.GetSiteService()
-	domain := c.Param("domain")
-	site, err := siteService.GetSiteByDomain(c, domain)
+	site, err := siteService.GetSiteByID(c, int(siteID))
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}

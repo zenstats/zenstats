@@ -160,6 +160,13 @@ func (s *APIKeyService) ValidateAPIKey(ctx context.Context, rawKey string) (int6
 	return apiKeyEntity.UserID, nil
 }
 
+// GetUserAPIKeyCount 获取用户 API Key 数量
+func (s *APIKeyService) GetUserAPIKeyCount(ctx context.Context, userID int64) (int, error) {
+	return s.db.Client.APIKey.Query().
+		Where(apikey.UserID(userID)).
+		Count(ctx)
+}
+
 // GetAPIKeyByHash 通过 key_hash 获取 API Key 及关联的用户信息。
 func (s *APIKeyService) GetAPIKeyByHash(ctx context.Context, keyHash string) (*ent.APIKey, error) {
 	return s.db.Client.APIKey.Query().

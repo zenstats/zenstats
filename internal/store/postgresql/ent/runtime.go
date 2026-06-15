@@ -6,14 +6,22 @@ import (
 	"time"
 
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emailverificationtoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/schema"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/systemconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/userconfig"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/usergroup"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/usersession"
 )
 
@@ -31,12 +39,104 @@ func init() {
 	apikeyDescCreatedAt := apikeyFields[4].Descriptor()
 	// apikey.DefaultCreatedAt holds the default value on creation for the created_at field.
 	apikey.DefaultCreatedAt = apikeyDescCreatedAt.Default.(func() time.Time)
+	customsearchengineFields := schema.CustomSearchEngine{}.Fields()
+	_ = customsearchengineFields
+	// customsearchengineDescDomain is the schema descriptor for domain field.
+	customsearchengineDescDomain := customsearchengineFields[2].Descriptor()
+	// customsearchengine.DomainValidator is a validator for the "domain" field. It is called by the builders before save.
+	customsearchengine.DomainValidator = func() func(string) error {
+		validators := customsearchengineDescDomain.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(domain string) error {
+			for _, fn := range fns {
+				if err := fn(domain); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// customsearchengineDescName is the schema descriptor for name field.
+	customsearchengineDescName := customsearchengineFields[3].Descriptor()
+	// customsearchengine.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	customsearchengine.NameValidator = func() func(string) error {
+		validators := customsearchengineDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// customsearchengineDescCreatedAt is the schema descriptor for created_at field.
+	customsearchengineDescCreatedAt := customsearchengineFields[4].Descriptor()
+	// customsearchengine.DefaultCreatedAt holds the default value on creation for the created_at field.
+	customsearchengine.DefaultCreatedAt = customsearchengineDescCreatedAt.Default.(func() time.Time)
+	// customsearchengineDescUpdatedAt is the schema descriptor for updated_at field.
+	customsearchengineDescUpdatedAt := customsearchengineFields[5].Descriptor()
+	// customsearchengine.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	customsearchengine.DefaultUpdatedAt = customsearchengineDescUpdatedAt.Default.(func() time.Time)
+	// customsearchengine.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	customsearchengine.UpdateDefaultUpdatedAt = customsearchengineDescUpdatedAt.UpdateDefault.(func() time.Time)
+	emailverificationtokenFields := schema.EmailVerificationToken{}.Fields()
+	_ = emailverificationtokenFields
+	// emailverificationtokenDescToken is the schema descriptor for token field.
+	emailverificationtokenDescToken := emailverificationtokenFields[2].Descriptor()
+	// emailverificationtoken.TokenValidator is a validator for the "token" field. It is called by the builders before save.
+	emailverificationtoken.TokenValidator = emailverificationtokenDescToken.Validators[0].(func(string) error)
+	// emailverificationtokenDescEmail is the schema descriptor for email field.
+	emailverificationtokenDescEmail := emailverificationtokenFields[3].Descriptor()
+	// emailverificationtoken.EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	emailverificationtoken.EmailValidator = emailverificationtokenDescEmail.Validators[0].(func(string) error)
+	// emailverificationtokenDescCreatedAt is the schema descriptor for created_at field.
+	emailverificationtokenDescCreatedAt := emailverificationtokenFields[5].Descriptor()
+	// emailverificationtoken.DefaultCreatedAt holds the default value on creation for the created_at field.
+	emailverificationtoken.DefaultCreatedAt = emailverificationtokenDescCreatedAt.Default.(func() time.Time)
 	funnelFields := schema.Funnel{}.Fields()
 	_ = funnelFields
 	// funnelDescName is the schema descriptor for name field.
 	funnelDescName := funnelFields[2].Descriptor()
 	// funnel.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	funnel.NameValidator = funnelDescName.Validators[0].(func(string) error)
+	monthlyeventcountFields := schema.MonthlyEventCount{}.Fields()
+	_ = monthlyeventcountFields
+	// monthlyeventcountDescCount is the schema descriptor for count field.
+	monthlyeventcountDescCount := monthlyeventcountFields[4].Descriptor()
+	// monthlyeventcount.DefaultCount holds the default value on creation for the count field.
+	monthlyeventcount.DefaultCount = monthlyeventcountDescCount.Default.(int64)
+	// monthlyeventcountDescUpdatedAt is the schema descriptor for updated_at field.
+	monthlyeventcountDescUpdatedAt := monthlyeventcountFields[5].Descriptor()
+	// monthlyeventcount.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	monthlyeventcount.DefaultUpdatedAt = monthlyeventcountDescUpdatedAt.Default.(func() time.Time)
+	// monthlyeventcount.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	monthlyeventcount.UpdateDefaultUpdatedAt = monthlyeventcountDescUpdatedAt.UpdateDefault.(func() time.Time)
+	passwordresettokenFields := schema.PasswordResetToken{}.Fields()
+	_ = passwordresettokenFields
+	// passwordresettokenDescToken is the schema descriptor for token field.
+	passwordresettokenDescToken := passwordresettokenFields[2].Descriptor()
+	// passwordresettoken.TokenValidator is a validator for the "token" field. It is called by the builders before save.
+	passwordresettoken.TokenValidator = passwordresettokenDescToken.Validators[0].(func(string) error)
+	// passwordresettokenDescEmail is the schema descriptor for email field.
+	passwordresettokenDescEmail := passwordresettokenFields[3].Descriptor()
+	// passwordresettoken.EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	passwordresettoken.EmailValidator = passwordresettokenDescEmail.Validators[0].(func(string) error)
+	// passwordresettokenDescUsed is the schema descriptor for used field.
+	passwordresettokenDescUsed := passwordresettokenFields[5].Descriptor()
+	// passwordresettoken.DefaultUsed holds the default value on creation for the used field.
+	passwordresettoken.DefaultUsed = passwordresettokenDescUsed.Default.(bool)
+	// passwordresettokenDescCreatedAt is the schema descriptor for created_at field.
+	passwordresettokenDescCreatedAt := passwordresettokenFields[6].Descriptor()
+	// passwordresettoken.DefaultCreatedAt holds the default value on creation for the created_at field.
+	passwordresettoken.DefaultCreatedAt = passwordresettokenDescCreatedAt.Default.(func() time.Time)
 	searchenginesFields := schema.SearchEngines{}.Fields()
 	_ = searchenginesFields
 	// searchenginesDescDomain is the schema descriptor for domain field.
@@ -161,18 +261,116 @@ func init() {
 	siteDescIngestLimitPerMinute := siteFields[7].Descriptor()
 	// site.DefaultIngestLimitPerMinute holds the default value on creation for the ingest_limit_per_minute field.
 	site.DefaultIngestLimitPerMinute = siteDescIngestLimitPerMinute.Default.(int)
+	// siteDescAllowedOrigins is the schema descriptor for allowed_origins field.
+	siteDescAllowedOrigins := siteFields[8].Descriptor()
+	// site.AllowedOriginsValidator is a validator for the "allowed_origins" field. It is called by the builders before save.
+	site.AllowedOriginsValidator = siteDescAllowedOrigins.Validators[0].(func(string) error)
 	// siteDescCreatedAt is the schema descriptor for created_at field.
-	siteDescCreatedAt := siteFields[8].Descriptor()
+	siteDescCreatedAt := siteFields[9].Descriptor()
 	// site.DefaultCreatedAt holds the default value on creation for the created_at field.
 	site.DefaultCreatedAt = siteDescCreatedAt.Default.(func() time.Time)
 	// siteDescUpdatedAt is the schema descriptor for updated_at field.
-	siteDescUpdatedAt := siteFields[9].Descriptor()
+	siteDescUpdatedAt := siteFields[10].Descriptor()
 	// site.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	site.DefaultUpdatedAt = siteDescUpdatedAt.Default.(func() time.Time)
 	// site.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	site.UpdateDefaultUpdatedAt = siteDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// siteDescVerificationToken is the schema descriptor for verification_token field.
+	siteDescVerificationToken := siteFields[11].Descriptor()
+	// site.VerificationTokenValidator is a validator for the "verification_token" field. It is called by the builders before save.
+	site.VerificationTokenValidator = siteDescVerificationToken.Validators[0].(func(string) error)
+	// siteDescIsVerified is the schema descriptor for is_verified field.
+	siteDescIsVerified := siteFields[12].Descriptor()
+	// site.DefaultIsVerified holds the default value on creation for the is_verified field.
+	site.DefaultIsVerified = siteDescIsVerified.Default.(bool)
 	sitemembershipFields := schema.SiteMembership{}.Fields()
 	_ = sitemembershipFields
+	subaccountFields := schema.SubAccount{}.Fields()
+	_ = subaccountFields
+	// subaccountDescEmail is the schema descriptor for email field.
+	subaccountDescEmail := subaccountFields[2].Descriptor()
+	// subaccount.EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	subaccount.EmailValidator = func() func(string) error {
+		validators := subaccountDescEmail.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(email string) error {
+			for _, fn := range fns {
+				if err := fn(email); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// subaccountDescPasswordHash is the schema descriptor for password_hash field.
+	subaccountDescPasswordHash := subaccountFields[3].Descriptor()
+	// subaccount.PasswordHashValidator is a validator for the "password_hash" field. It is called by the builders before save.
+	subaccount.PasswordHashValidator = func() func(string) error {
+		validators := subaccountDescPasswordHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(password_hash string) error {
+			for _, fn := range fns {
+				if err := fn(password_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// subaccountDescName is the schema descriptor for name field.
+	subaccountDescName := subaccountFields[4].Descriptor()
+	// subaccount.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	subaccount.NameValidator = subaccountDescName.Validators[0].(func(string) error)
+	// subaccountDescRole is the schema descriptor for role field.
+	subaccountDescRole := subaccountFields[5].Descriptor()
+	// subaccount.DefaultRole holds the default value on creation for the role field.
+	subaccount.DefaultRole = subaccountDescRole.Default.(string)
+	// subaccount.RoleValidator is a validator for the "role" field. It is called by the builders before save.
+	subaccount.RoleValidator = subaccountDescRole.Validators[0].(func(string) error)
+	// subaccountDescStatus is the schema descriptor for status field.
+	subaccountDescStatus := subaccountFields[6].Descriptor()
+	// subaccount.DefaultStatus holds the default value on creation for the status field.
+	subaccount.DefaultStatus = subaccountDescStatus.Default.(string)
+	// subaccount.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	subaccount.StatusValidator = subaccountDescStatus.Validators[0].(func(string) error)
+	// subaccountDescCreatedAt is the schema descriptor for created_at field.
+	subaccountDescCreatedAt := subaccountFields[8].Descriptor()
+	// subaccount.DefaultCreatedAt holds the default value on creation for the created_at field.
+	subaccount.DefaultCreatedAt = subaccountDescCreatedAt.Default.(func() time.Time)
+	// subaccountDescUpdatedAt is the schema descriptor for updated_at field.
+	subaccountDescUpdatedAt := subaccountFields[9].Descriptor()
+	// subaccount.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	subaccount.DefaultUpdatedAt = subaccountDescUpdatedAt.Default.(func() time.Time)
+	// subaccount.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	subaccount.UpdateDefaultUpdatedAt = subaccountDescUpdatedAt.UpdateDefault.(func() time.Time)
+	systemconfigFields := schema.SystemConfig{}.Fields()
+	_ = systemconfigFields
+	// systemconfigDescKey is the schema descriptor for key field.
+	systemconfigDescKey := systemconfigFields[0].Descriptor()
+	// systemconfig.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	systemconfig.KeyValidator = systemconfigDescKey.Validators[0].(func(string) error)
+	// systemconfigDescDescription is the schema descriptor for description field.
+	systemconfigDescDescription := systemconfigFields[2].Descriptor()
+	// systemconfig.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
+	systemconfig.DescriptionValidator = systemconfigDescDescription.Validators[0].(func(string) error)
+	// systemconfigDescGroupName is the schema descriptor for group_name field.
+	systemconfigDescGroupName := systemconfigFields[3].Descriptor()
+	// systemconfig.DefaultGroupName holds the default value on creation for the group_name field.
+	systemconfig.DefaultGroupName = systemconfigDescGroupName.Default.(string)
+	// systemconfig.GroupNameValidator is a validator for the "group_name" field. It is called by the builders before save.
+	systemconfig.GroupNameValidator = systemconfigDescGroupName.Validators[0].(func(string) error)
+	// systemconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	systemconfigDescUpdatedAt := systemconfigFields[4].Descriptor()
+	// systemconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	systemconfig.DefaultUpdatedAt = systemconfigDescUpdatedAt.Default.(func() time.Time)
+	// systemconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	systemconfig.UpdateDefaultUpdatedAt = systemconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
 	userFields := schema.User{}.Fields()
 	_ = userFields
 	// userDescEmailVerified is the schema descriptor for email_verified field.
@@ -187,14 +385,94 @@ func init() {
 	userDescTotpEnabled := userFields[8].Descriptor()
 	// user.DefaultTotpEnabled holds the default value on creation for the totp_enabled field.
 	user.DefaultTotpEnabled = userDescTotpEnabled.Default.(bool)
+	// userDescIsAdmin is the schema descriptor for is_admin field.
+	userDescIsAdmin := userFields[12].Descriptor()
+	// user.DefaultIsAdmin holds the default value on creation for the is_admin field.
+	user.DefaultIsAdmin = userDescIsAdmin.Default.(bool)
 	// userDescCreatedAt is the schema descriptor for created_at field.
-	userDescCreatedAt := userFields[12].Descriptor()
+	userDescCreatedAt := userFields[13].Descriptor()
 	// user.DefaultCreatedAt holds the default value on creation for the created_at field.
 	user.DefaultCreatedAt = userDescCreatedAt.Default.(func() time.Time)
 	// userDescUpdatedAt is the schema descriptor for updated_at field.
-	userDescUpdatedAt := userFields[13].Descriptor()
+	userDescUpdatedAt := userFields[14].Descriptor()
 	// user.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	user.DefaultUpdatedAt = userDescUpdatedAt.Default.(func() time.Time)
+	userconfigFields := schema.UserConfig{}.Fields()
+	_ = userconfigFields
+	// userconfigDescStatus is the schema descriptor for status field.
+	userconfigDescStatus := userconfigFields[3].Descriptor()
+	// userconfig.DefaultStatus holds the default value on creation for the status field.
+	userconfig.DefaultStatus = userconfigDescStatus.Default.(string)
+	// userconfig.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	userconfig.StatusValidator = userconfigDescStatus.Validators[0].(func(string) error)
+	// userconfigDescCreatedAt is the schema descriptor for created_at field.
+	userconfigDescCreatedAt := userconfigFields[5].Descriptor()
+	// userconfig.DefaultCreatedAt holds the default value on creation for the created_at field.
+	userconfig.DefaultCreatedAt = userconfigDescCreatedAt.Default.(func() time.Time)
+	// userconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	userconfigDescUpdatedAt := userconfigFields[6].Descriptor()
+	// userconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	userconfig.DefaultUpdatedAt = userconfigDescUpdatedAt.Default.(func() time.Time)
+	// userconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	userconfig.UpdateDefaultUpdatedAt = userconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
+	usergroupFields := schema.UserGroup{}.Fields()
+	_ = usergroupFields
+	// usergroupDescName is the schema descriptor for name field.
+	usergroupDescName := usergroupFields[1].Descriptor()
+	// usergroup.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	usergroup.NameValidator = func() func(string) error {
+		validators := usergroupDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// usergroupDescMaxSites is the schema descriptor for max_sites field.
+	usergroupDescMaxSites := usergroupFields[3].Descriptor()
+	// usergroup.DefaultMaxSites holds the default value on creation for the max_sites field.
+	usergroup.DefaultMaxSites = usergroupDescMaxSites.Default.(int)
+	// usergroupDescMaxMonthlyEvents is the schema descriptor for max_monthly_events field.
+	usergroupDescMaxMonthlyEvents := usergroupFields[4].Descriptor()
+	// usergroup.DefaultMaxMonthlyEvents holds the default value on creation for the max_monthly_events field.
+	usergroup.DefaultMaxMonthlyEvents = usergroupDescMaxMonthlyEvents.Default.(int)
+	// usergroupDescMaxAPIKeys is the schema descriptor for max_api_keys field.
+	usergroupDescMaxAPIKeys := usergroupFields[5].Descriptor()
+	// usergroup.DefaultMaxAPIKeys holds the default value on creation for the max_api_keys field.
+	usergroup.DefaultMaxAPIKeys = usergroupDescMaxAPIKeys.Default.(int)
+	// usergroupDescMaxSubAccounts is the schema descriptor for max_sub_accounts field.
+	usergroupDescMaxSubAccounts := usergroupFields[6].Descriptor()
+	// usergroup.DefaultMaxSubAccounts holds the default value on creation for the max_sub_accounts field.
+	usergroup.DefaultMaxSubAccounts = usergroupDescMaxSubAccounts.Default.(int)
+	// usergroupDescCustomSearchEngines is the schema descriptor for custom_search_engines field.
+	usergroupDescCustomSearchEngines := usergroupFields[7].Descriptor()
+	// usergroup.DefaultCustomSearchEngines holds the default value on creation for the custom_search_engines field.
+	usergroup.DefaultCustomSearchEngines = usergroupDescCustomSearchEngines.Default.(bool)
+	// usergroupDescIsDefault is the schema descriptor for is_default field.
+	usergroupDescIsDefault := usergroupFields[8].Descriptor()
+	// usergroup.DefaultIsDefault holds the default value on creation for the is_default field.
+	usergroup.DefaultIsDefault = usergroupDescIsDefault.Default.(bool)
+	// usergroupDescPrice is the schema descriptor for price field.
+	usergroupDescPrice := usergroupFields[9].Descriptor()
+	// usergroup.DefaultPrice holds the default value on creation for the price field.
+	usergroup.DefaultPrice = usergroupDescPrice.Default.(float64)
+	// usergroupDescCreatedAt is the schema descriptor for created_at field.
+	usergroupDescCreatedAt := usergroupFields[10].Descriptor()
+	// usergroup.DefaultCreatedAt holds the default value on creation for the created_at field.
+	usergroup.DefaultCreatedAt = usergroupDescCreatedAt.Default.(func() time.Time)
+	// usergroupDescUpdatedAt is the schema descriptor for updated_at field.
+	usergroupDescUpdatedAt := usergroupFields[11].Descriptor()
+	// usergroup.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	usergroup.DefaultUpdatedAt = usergroupDescUpdatedAt.Default.(func() time.Time)
+	// usergroup.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	usergroup.UpdateDefaultUpdatedAt = usergroupDescUpdatedAt.UpdateDefault.(func() time.Time)
 	usersessionFields := schema.UserSession{}.Fields()
 	_ = usersessionFields
 	// usersessionDescDevice is the schema descriptor for device field.

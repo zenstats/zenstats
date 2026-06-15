@@ -75,14 +75,14 @@ func (s *StatsHandle) validate(c *gin.Context) (*types.StatsRequest, error) {
 //	@Router			/stats/{domain}/aggregate [get]
 func (s *StatsHandle) GetAggregate() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
+		siteID := c.GetInt64("site_id")
 		req, err := s.validate(c)
 		if err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
 
-		stats, err := s.statsService.GetAggregate(c, domain, req)
+		stats, err := s.statsService.GetAggregate(c, siteID, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return
@@ -116,7 +116,7 @@ func (s *StatsHandle) GetAggregate() gin.HandlerFunc {
 //	@Router			/stats/{domain}/time_series [get]
 func (s *StatsHandle) GetTimeSeries() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
+		siteID := c.GetInt64("site_id")
 
 		req, err := s.validate(c)
 		if err != nil {
@@ -124,7 +124,7 @@ func (s *StatsHandle) GetTimeSeries() gin.HandlerFunc {
 			return
 		}
 
-		stats, err := s.statsService.GetTimeSeries(c, domain, req)
+		stats, err := s.statsService.GetTimeSeries(c, siteID, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return

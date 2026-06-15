@@ -90,6 +90,11 @@ func IngestLimitPerMinute(v int) predicate.Site {
 	return predicate.Site(sql.FieldEQ(FieldIngestLimitPerMinute, v))
 }
 
+// AllowedOrigins applies equality check predicate on the "allowed_origins" field. It's identical to AllowedOriginsEQ.
+func AllowedOrigins(v string) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldAllowedOrigins, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Site {
 	return predicate.Site(sql.FieldEQ(FieldCreatedAt, v))
@@ -98,6 +103,21 @@ func CreatedAt(v time.Time) predicate.Site {
 // UpdatedAt applies equality check predicate on the "updated_at" field. It's identical to UpdatedAtEQ.
 func UpdatedAt(v time.Time) predicate.Site {
 	return predicate.Site(sql.FieldEQ(FieldUpdatedAt, v))
+}
+
+// VerificationToken applies equality check predicate on the "verification_token" field. It's identical to VerificationTokenEQ.
+func VerificationToken(v string) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldVerificationToken, v))
+}
+
+// IsVerified applies equality check predicate on the "is_verified" field. It's identical to IsVerifiedEQ.
+func IsVerified(v bool) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldIsVerified, v))
+}
+
+// VerifiedAt applies equality check predicate on the "verified_at" field. It's identical to VerifiedAtEQ.
+func VerifiedAt(v time.Time) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldVerifiedAt, v))
 }
 
 // DomainEQ applies the EQ predicate on the "domain" field.
@@ -445,6 +465,81 @@ func IngestLimitPerMinuteLTE(v int) predicate.Site {
 	return predicate.Site(sql.FieldLTE(FieldIngestLimitPerMinute, v))
 }
 
+// AllowedOriginsEQ applies the EQ predicate on the "allowed_origins" field.
+func AllowedOriginsEQ(v string) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldAllowedOrigins, v))
+}
+
+// AllowedOriginsNEQ applies the NEQ predicate on the "allowed_origins" field.
+func AllowedOriginsNEQ(v string) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldAllowedOrigins, v))
+}
+
+// AllowedOriginsIn applies the In predicate on the "allowed_origins" field.
+func AllowedOriginsIn(vs ...string) predicate.Site {
+	return predicate.Site(sql.FieldIn(FieldAllowedOrigins, vs...))
+}
+
+// AllowedOriginsNotIn applies the NotIn predicate on the "allowed_origins" field.
+func AllowedOriginsNotIn(vs ...string) predicate.Site {
+	return predicate.Site(sql.FieldNotIn(FieldAllowedOrigins, vs...))
+}
+
+// AllowedOriginsGT applies the GT predicate on the "allowed_origins" field.
+func AllowedOriginsGT(v string) predicate.Site {
+	return predicate.Site(sql.FieldGT(FieldAllowedOrigins, v))
+}
+
+// AllowedOriginsGTE applies the GTE predicate on the "allowed_origins" field.
+func AllowedOriginsGTE(v string) predicate.Site {
+	return predicate.Site(sql.FieldGTE(FieldAllowedOrigins, v))
+}
+
+// AllowedOriginsLT applies the LT predicate on the "allowed_origins" field.
+func AllowedOriginsLT(v string) predicate.Site {
+	return predicate.Site(sql.FieldLT(FieldAllowedOrigins, v))
+}
+
+// AllowedOriginsLTE applies the LTE predicate on the "allowed_origins" field.
+func AllowedOriginsLTE(v string) predicate.Site {
+	return predicate.Site(sql.FieldLTE(FieldAllowedOrigins, v))
+}
+
+// AllowedOriginsContains applies the Contains predicate on the "allowed_origins" field.
+func AllowedOriginsContains(v string) predicate.Site {
+	return predicate.Site(sql.FieldContains(FieldAllowedOrigins, v))
+}
+
+// AllowedOriginsHasPrefix applies the HasPrefix predicate on the "allowed_origins" field.
+func AllowedOriginsHasPrefix(v string) predicate.Site {
+	return predicate.Site(sql.FieldHasPrefix(FieldAllowedOrigins, v))
+}
+
+// AllowedOriginsHasSuffix applies the HasSuffix predicate on the "allowed_origins" field.
+func AllowedOriginsHasSuffix(v string) predicate.Site {
+	return predicate.Site(sql.FieldHasSuffix(FieldAllowedOrigins, v))
+}
+
+// AllowedOriginsIsNil applies the IsNil predicate on the "allowed_origins" field.
+func AllowedOriginsIsNil() predicate.Site {
+	return predicate.Site(sql.FieldIsNull(FieldAllowedOrigins))
+}
+
+// AllowedOriginsNotNil applies the NotNil predicate on the "allowed_origins" field.
+func AllowedOriginsNotNil() predicate.Site {
+	return predicate.Site(sql.FieldNotNull(FieldAllowedOrigins))
+}
+
+// AllowedOriginsEqualFold applies the EqualFold predicate on the "allowed_origins" field.
+func AllowedOriginsEqualFold(v string) predicate.Site {
+	return predicate.Site(sql.FieldEqualFold(FieldAllowedOrigins, v))
+}
+
+// AllowedOriginsContainsFold applies the ContainsFold predicate on the "allowed_origins" field.
+func AllowedOriginsContainsFold(v string) predicate.Site {
+	return predicate.Site(sql.FieldContainsFold(FieldAllowedOrigins, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Site {
 	return predicate.Site(sql.FieldEQ(FieldCreatedAt, v))
@@ -523,6 +618,131 @@ func UpdatedAtLT(v time.Time) predicate.Site {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.Site {
 	return predicate.Site(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// VerificationTokenEQ applies the EQ predicate on the "verification_token" field.
+func VerificationTokenEQ(v string) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldVerificationToken, v))
+}
+
+// VerificationTokenNEQ applies the NEQ predicate on the "verification_token" field.
+func VerificationTokenNEQ(v string) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldVerificationToken, v))
+}
+
+// VerificationTokenIn applies the In predicate on the "verification_token" field.
+func VerificationTokenIn(vs ...string) predicate.Site {
+	return predicate.Site(sql.FieldIn(FieldVerificationToken, vs...))
+}
+
+// VerificationTokenNotIn applies the NotIn predicate on the "verification_token" field.
+func VerificationTokenNotIn(vs ...string) predicate.Site {
+	return predicate.Site(sql.FieldNotIn(FieldVerificationToken, vs...))
+}
+
+// VerificationTokenGT applies the GT predicate on the "verification_token" field.
+func VerificationTokenGT(v string) predicate.Site {
+	return predicate.Site(sql.FieldGT(FieldVerificationToken, v))
+}
+
+// VerificationTokenGTE applies the GTE predicate on the "verification_token" field.
+func VerificationTokenGTE(v string) predicate.Site {
+	return predicate.Site(sql.FieldGTE(FieldVerificationToken, v))
+}
+
+// VerificationTokenLT applies the LT predicate on the "verification_token" field.
+func VerificationTokenLT(v string) predicate.Site {
+	return predicate.Site(sql.FieldLT(FieldVerificationToken, v))
+}
+
+// VerificationTokenLTE applies the LTE predicate on the "verification_token" field.
+func VerificationTokenLTE(v string) predicate.Site {
+	return predicate.Site(sql.FieldLTE(FieldVerificationToken, v))
+}
+
+// VerificationTokenContains applies the Contains predicate on the "verification_token" field.
+func VerificationTokenContains(v string) predicate.Site {
+	return predicate.Site(sql.FieldContains(FieldVerificationToken, v))
+}
+
+// VerificationTokenHasPrefix applies the HasPrefix predicate on the "verification_token" field.
+func VerificationTokenHasPrefix(v string) predicate.Site {
+	return predicate.Site(sql.FieldHasPrefix(FieldVerificationToken, v))
+}
+
+// VerificationTokenHasSuffix applies the HasSuffix predicate on the "verification_token" field.
+func VerificationTokenHasSuffix(v string) predicate.Site {
+	return predicate.Site(sql.FieldHasSuffix(FieldVerificationToken, v))
+}
+
+// VerificationTokenEqualFold applies the EqualFold predicate on the "verification_token" field.
+func VerificationTokenEqualFold(v string) predicate.Site {
+	return predicate.Site(sql.FieldEqualFold(FieldVerificationToken, v))
+}
+
+// VerificationTokenContainsFold applies the ContainsFold predicate on the "verification_token" field.
+func VerificationTokenContainsFold(v string) predicate.Site {
+	return predicate.Site(sql.FieldContainsFold(FieldVerificationToken, v))
+}
+
+// IsVerifiedEQ applies the EQ predicate on the "is_verified" field.
+func IsVerifiedEQ(v bool) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldIsVerified, v))
+}
+
+// IsVerifiedNEQ applies the NEQ predicate on the "is_verified" field.
+func IsVerifiedNEQ(v bool) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldIsVerified, v))
+}
+
+// VerifiedAtEQ applies the EQ predicate on the "verified_at" field.
+func VerifiedAtEQ(v time.Time) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldVerifiedAt, v))
+}
+
+// VerifiedAtNEQ applies the NEQ predicate on the "verified_at" field.
+func VerifiedAtNEQ(v time.Time) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldVerifiedAt, v))
+}
+
+// VerifiedAtIn applies the In predicate on the "verified_at" field.
+func VerifiedAtIn(vs ...time.Time) predicate.Site {
+	return predicate.Site(sql.FieldIn(FieldVerifiedAt, vs...))
+}
+
+// VerifiedAtNotIn applies the NotIn predicate on the "verified_at" field.
+func VerifiedAtNotIn(vs ...time.Time) predicate.Site {
+	return predicate.Site(sql.FieldNotIn(FieldVerifiedAt, vs...))
+}
+
+// VerifiedAtGT applies the GT predicate on the "verified_at" field.
+func VerifiedAtGT(v time.Time) predicate.Site {
+	return predicate.Site(sql.FieldGT(FieldVerifiedAt, v))
+}
+
+// VerifiedAtGTE applies the GTE predicate on the "verified_at" field.
+func VerifiedAtGTE(v time.Time) predicate.Site {
+	return predicate.Site(sql.FieldGTE(FieldVerifiedAt, v))
+}
+
+// VerifiedAtLT applies the LT predicate on the "verified_at" field.
+func VerifiedAtLT(v time.Time) predicate.Site {
+	return predicate.Site(sql.FieldLT(FieldVerifiedAt, v))
+}
+
+// VerifiedAtLTE applies the LTE predicate on the "verified_at" field.
+func VerifiedAtLTE(v time.Time) predicate.Site {
+	return predicate.Site(sql.FieldLTE(FieldVerifiedAt, v))
+}
+
+// VerifiedAtIsNil applies the IsNil predicate on the "verified_at" field.
+func VerifiedAtIsNil() predicate.Site {
+	return predicate.Site(sql.FieldIsNull(FieldVerifiedAt))
+}
+
+// VerifiedAtNotNil applies the NotNil predicate on the "verified_at" field.
+func VerifiedAtNotNil() predicate.Site {
+	return predicate.Site(sql.FieldNotNull(FieldVerifiedAt))
 }
 
 // HasFunnels applies the HasEdge predicate on the "funnels" edge.

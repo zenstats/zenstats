@@ -30,6 +30,7 @@ services:
       - ZENSTATS_DB_PASSWORD=postgres
       - ZENSTATS_CLICKHOUSE_ADDR=zenstats_events_db:9000
       - ZENSTATS_MAXMIND_LICENSE_KEY=${ZENSTATS_MAXMIND_LICENSE_KEY}
+      - ZENSTATS_DOMAIN=${ZENSTATS_DOMAIN:-localhost}
     volumes:
       - zenstats-data:/app/data
     depends_on:

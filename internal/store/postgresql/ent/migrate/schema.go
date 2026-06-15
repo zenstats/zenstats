@@ -39,6 +39,81 @@ var (
 			},
 		},
 	}
+	// CustomSearchEnginesColumns holds the columns for the "custom_search_engines" table.
+	CustomSearchEnginesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "domain", Type: field.TypeString, Size: 255},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// CustomSearchEnginesTable holds the schema information for the "custom_search_engines" table.
+	CustomSearchEnginesTable = &schema.Table{
+		Name:       "custom_search_engines",
+		Columns:    CustomSearchEnginesColumns,
+		PrimaryKey: []*schema.Column{CustomSearchEnginesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "custom_search_engines_users_custom_search_engines",
+				Columns:    []*schema.Column{CustomSearchEnginesColumns[5]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "customsearchengine_user_id_domain",
+				Unique:  true,
+				Columns: []*schema.Column{CustomSearchEnginesColumns[5], CustomSearchEnginesColumns[1]},
+			},
+			{
+				Name:    "customsearchengine_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{CustomSearchEnginesColumns[5]},
+			},
+		},
+	}
+	// EmailVerificationTokensColumns holds the columns for the "email_verification_tokens" table.
+	EmailVerificationTokensColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "token", Type: field.TypeString, Unique: true, Size: 128},
+		{Name: "email", Type: field.TypeString, Size: 255},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// EmailVerificationTokensTable holds the schema information for the "email_verification_tokens" table.
+	EmailVerificationTokensTable = &schema.Table{
+		Name:       "email_verification_tokens",
+		Columns:    EmailVerificationTokensColumns,
+		PrimaryKey: []*schema.Column{EmailVerificationTokensColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "email_verification_tokens_users_email_verification_tokens",
+				Columns:    []*schema.Column{EmailVerificationTokensColumns[5]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "emailverificationtoken_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{EmailVerificationTokensColumns[5]},
+			},
+			{
+				Name:    "emailverificationtoken_token",
+				Unique:  true,
+				Columns: []*schema.Column{EmailVerificationTokensColumns[1]},
+			},
+			{
+				Name:    "emailverificationtoken_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{EmailVerificationTokensColumns[3]},
+			},
+		},
+	}
 	// FunnelsColumns holds the columns for the "funnels" table.
 	FunnelsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -126,6 +201,82 @@ var (
 				Name:    "goal_site_id_display_name",
 				Unique:  true,
 				Columns: []*schema.Column{GoalsColumns[4], GoalsColumns[3]},
+			},
+		},
+	}
+	// MonthlyEventCountsColumns holds the columns for the "monthly_event_counts" table.
+	MonthlyEventCountsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "year", Type: field.TypeInt},
+		{Name: "month", Type: field.TypeInt},
+		{Name: "count", Type: field.TypeInt64, Default: 0},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// MonthlyEventCountsTable holds the schema information for the "monthly_event_counts" table.
+	MonthlyEventCountsTable = &schema.Table{
+		Name:       "monthly_event_counts",
+		Columns:    MonthlyEventCountsColumns,
+		PrimaryKey: []*schema.Column{MonthlyEventCountsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "monthly_event_counts_users_monthly_event_counts",
+				Columns:    []*schema.Column{MonthlyEventCountsColumns[5]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "monthlyeventcount_user_id_year_month",
+				Unique:  true,
+				Columns: []*schema.Column{MonthlyEventCountsColumns[5], MonthlyEventCountsColumns[1], MonthlyEventCountsColumns[2]},
+			},
+			{
+				Name:    "monthlyeventcount_year_month",
+				Unique:  false,
+				Columns: []*schema.Column{MonthlyEventCountsColumns[1], MonthlyEventCountsColumns[2]},
+			},
+		},
+	}
+	// PasswordResetTokensColumns holds the columns for the "password_reset_tokens" table.
+	PasswordResetTokensColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "token", Type: field.TypeString, Unique: true, Size: 128},
+		{Name: "email", Type: field.TypeString, Size: 255},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "used", Type: field.TypeBool, Default: false},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// PasswordResetTokensTable holds the schema information for the "password_reset_tokens" table.
+	PasswordResetTokensTable = &schema.Table{
+		Name:       "password_reset_tokens",
+		Columns:    PasswordResetTokensColumns,
+		PrimaryKey: []*schema.Column{PasswordResetTokensColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "password_reset_tokens_users_password_reset_tokens",
+				Columns:    []*schema.Column{PasswordResetTokensColumns[6]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "passwordresettoken_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{PasswordResetTokensColumns[6]},
+			},
+			{
+				Name:    "passwordresettoken_token",
+				Unique:  true,
+				Columns: []*schema.Column{PasswordResetTokensColumns[1]},
+			},
+			{
+				Name:    "passwordresettoken_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{PasswordResetTokensColumns[3]},
 			},
 		},
 	}
@@ -241,15 +392,19 @@ var (
 	// SitesColumns holds the columns for the "sites" table.
 	SitesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
-		{Name: "domain", Type: field.TypeString, Unique: true, Size: 255},
+		{Name: "domain", Type: field.TypeString, Size: 255},
 		{Name: "remark", Type: field.TypeString, Nullable: true, Size: 255},
 		{Name: "timezone", Type: field.TypeString, Size: 50, Default: "UTC"},
 		{Name: "public", Type: field.TypeBool, Default: false},
 		{Name: "stats_start_date", Type: field.TypeTime, Nullable: true},
 		{Name: "ingest_rate_limit_scale_seconds", Type: field.TypeInt, Default: 60},
 		{Name: "ingest_limit_per_minute", Type: field.TypeInt, Default: 1000},
+		{Name: "allowed_origins", Type: field.TypeString, Nullable: true, Size: 2048},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "verification_token", Type: field.TypeString, Size: 64},
+		{Name: "is_verified", Type: field.TypeBool, Default: false},
+		{Name: "verified_at", Type: field.TypeTime, Nullable: true},
 	}
 	// SitesTable holds the schema information for the "sites" table.
 	SitesTable = &schema.Table{
@@ -298,6 +453,60 @@ var (
 			},
 		},
 	}
+	// SubAccountsColumns holds the columns for the "sub_accounts" table.
+	SubAccountsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "email", Type: field.TypeString, Unique: true, Size: 255},
+		{Name: "password_hash", Type: field.TypeString, Size: 255},
+		{Name: "name", Type: field.TypeString, Nullable: true, Size: 100},
+		{Name: "role", Type: field.TypeString, Size: 20, Default: "viewer"},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "last_seen", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "parent_user_id", Type: field.TypeInt64},
+	}
+	// SubAccountsTable holds the schema information for the "sub_accounts" table.
+	SubAccountsTable = &schema.Table{
+		Name:       "sub_accounts",
+		Columns:    SubAccountsColumns,
+		PrimaryKey: []*schema.Column{SubAccountsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "sub_accounts_users_sub_accounts",
+				Columns:    []*schema.Column{SubAccountsColumns[9]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "subaccount_parent_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{SubAccountsColumns[9]},
+			},
+			{
+				Name:    "subaccount_email",
+				Unique:  true,
+				Columns: []*schema.Column{SubAccountsColumns[1]},
+			},
+		},
+	}
+	// SystemConfigsColumns holds the columns for the "system_configs" table.
+	SystemConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "key", Type: field.TypeString, Unique: true, Size: 100},
+		{Name: "value", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "description", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "group_name", Type: field.TypeString, Size: 50, Default: "general"},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// SystemConfigsTable holds the schema information for the "system_configs" table.
+	SystemConfigsTable = &schema.Table{
+		Name:       "system_configs",
+		Columns:    SystemConfigsColumns,
+		PrimaryKey: []*schema.Column{SystemConfigsColumns[0]},
+	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -312,6 +521,7 @@ var (
 		{Name: "totp_last_used_at", Type: field.TypeTime, Nullable: true},
 		{Name: "totp_token", Type: field.TypeString, Nullable: true},
 		{Name: "notes", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "is_admin", Type: field.TypeBool, Default: false},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "site_members", Type: field.TypeInt64, Nullable: true},
@@ -324,7 +534,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_sites_members",
-				Columns:    []*schema.Column{UsersColumns[14]},
+				Columns:    []*schema.Column{UsersColumns[15]},
 				RefColumns: []*schema.Column{SitesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -336,6 +546,69 @@ var (
 				Columns: []*schema.Column{UsersColumns[1]},
 			},
 		},
+	}
+	// UserConfigsColumns holds the columns for the "user_configs" table.
+	UserConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "user_id", Type: field.TypeInt64, Unique: true},
+		{Name: "group_id", Type: field.TypeInt64},
+	}
+	// UserConfigsTable holds the schema information for the "user_configs" table.
+	UserConfigsTable = &schema.Table{
+		Name:       "user_configs",
+		Columns:    UserConfigsColumns,
+		PrimaryKey: []*schema.Column{UserConfigsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "user_configs_users_user_config",
+				Columns:    []*schema.Column{UserConfigsColumns[5]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "user_configs_user_groups_user_configs",
+				Columns:    []*schema.Column{UserConfigsColumns[6]},
+				RefColumns: []*schema.Column{UserGroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "userconfig_user_id",
+				Unique:  true,
+				Columns: []*schema.Column{UserConfigsColumns[5]},
+			},
+			{
+				Name:    "userconfig_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{UserConfigsColumns[6]},
+			},
+		},
+	}
+	// UserGroupsColumns holds the columns for the "user_groups" table.
+	UserGroupsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "description", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "max_sites", Type: field.TypeInt, Default: 3},
+		{Name: "max_monthly_events", Type: field.TypeInt, Default: 10000},
+		{Name: "max_api_keys", Type: field.TypeInt, Default: 2},
+		{Name: "max_sub_accounts", Type: field.TypeInt, Default: 0},
+		{Name: "custom_search_engines", Type: field.TypeBool, Default: false},
+		{Name: "is_default", Type: field.TypeBool, Default: false},
+		{Name: "price", Type: field.TypeFloat64, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// UserGroupsTable holds the schema information for the "user_groups" table.
+	UserGroupsTable = &schema.Table{
+		Name:       "user_groups",
+		Columns:    UserGroupsColumns,
+		PrimaryKey: []*schema.Column{UserGroupsColumns[0]},
 	}
 	// UserSessionsColumns holds the columns for the "user_sessions" table.
 	UserSessionsColumns = []*schema.Column{
@@ -363,30 +636,45 @@ var (
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
+		CustomSearchEnginesTable,
+		EmailVerificationTokensTable,
 		FunnelsTable,
 		FunnelStepsTable,
 		GoalsTable,
+		MonthlyEventCountsTable,
+		PasswordResetTokensTable,
 		SearchEnginesTable,
 		ShieldRulesCountriesTable,
 		ShieldRulesHostnamesTable,
 		ShieldRulesIpsTable,
 		SitesTable,
 		SiteMembershipsTable,
+		SubAccountsTable,
+		SystemConfigsTable,
 		UsersTable,
+		UserConfigsTable,
+		UserGroupsTable,
 		UserSessionsTable,
 	}
 )
 
 func init() {
 	APIKeysTable.ForeignKeys[0].RefTable = UsersTable
+	CustomSearchEnginesTable.ForeignKeys[0].RefTable = UsersTable
+	EmailVerificationTokensTable.ForeignKeys[0].RefTable = UsersTable
 	FunnelsTable.ForeignKeys[0].RefTable = SitesTable
 	FunnelStepsTable.ForeignKeys[0].RefTable = FunnelsTable
 	FunnelStepsTable.ForeignKeys[1].RefTable = GoalsTable
 	GoalsTable.ForeignKeys[0].RefTable = SitesTable
+	MonthlyEventCountsTable.ForeignKeys[0].RefTable = UsersTable
+	PasswordResetTokensTable.ForeignKeys[0].RefTable = UsersTable
 	ShieldRulesCountriesTable.ForeignKeys[0].RefTable = SitesTable
 	ShieldRulesHostnamesTable.ForeignKeys[0].RefTable = SitesTable
 	ShieldRulesIpsTable.ForeignKeys[0].RefTable = SitesTable
 	SiteMembershipsTable.ForeignKeys[0].RefTable = SitesTable
 	SiteMembershipsTable.ForeignKeys[1].RefTable = UsersTable
+	SubAccountsTable.ForeignKeys[0].RefTable = UsersTable
 	UsersTable.ForeignKeys[0].RefTable = SitesTable
+	UserConfigsTable.ForeignKeys[0].RefTable = UsersTable
+	UserConfigsTable.ForeignKeys[1].RefTable = UserGroupsTable
 }

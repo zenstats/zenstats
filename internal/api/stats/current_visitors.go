@@ -23,9 +23,9 @@ import (
 //	@Router			/stats/{domain}/current-visitors [get]
 func (s *StatsHandle) GetCurrentVisitors() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
+		siteID := c.GetInt64("site_id")
 
-		result, err := s.statsService.GetCurrentVisitors(c, domain)
+		result, err := s.statsService.GetCurrentVisitors(c, siteID)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return

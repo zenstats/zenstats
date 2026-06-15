@@ -28,6 +28,7 @@ type Config struct {
 		HttpPort int    `mapstructure:"http_port"`
 	} `mapstructure:"scheme"`
 
+	BaseURL           string `mapstructure:"base_url"`
 	Port              int    `mapstructure:"port"`
 	PoolSize          int    `mapstructure:"pool_size"`
 	LogLevel          string `mapstructure:"log_level"`
@@ -36,11 +37,13 @@ type Config struct {
 	DataPath          string `mapstructure:"data_path"`
 	MaxmindLicenseKey string `mapstructure:"maxmind_license_key"`
 
-	DefaultUser struct {
+	SMTP struct {
+		Host     string `mapstructure:"host"`
+		Port     int    `mapstructure:"port"`
 		Username string `mapstructure:"username"`
-		Email    string `mapstructure:"email"`
 		Password string `mapstructure:"password"`
-	} `mapstructure:"default_user"`
+		From     string `mapstructure:"from"`
+	} `mapstructure:"smtp"`
 
 	Clickhouse struct {
 		Addr     []string `mapstructure:"addr"`
@@ -143,6 +146,8 @@ func bindEnvVars() {
 
 	viper.BindEnv("maxmind_license_key", "ZENSTATS_MAXMIND_LICENSE_KEY")
 
+	viper.BindEnv("base_url", "ZENSTATS_DOMAIN")
+
 	if addrStr := os.Getenv("ZENSTATS_CLICKHOUSE_ADDR"); addrStr != "" {
 		// try json
 		var addr []string
@@ -152,4 +157,15 @@ func bindEnvVars() {
 			viper.Set("clickhouse.addr", strings.Split(addrStr, ","))
 		}
 	}
+}
+
+// ReloadConfig 从 viper 重新加载配置到 Conf
+func ReloadConfig() error {
+	return viper.Unmarshal(Conf)
+}
+
+// SetConfigValue 动态设置配置值并同步到 Conf
+func SetConfigValue(key string, value interface{}) {
+	viper.Set(key, value)
+	_ = viper.Unmarshal(Conf)
 }

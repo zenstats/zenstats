@@ -50,7 +50,7 @@ func (bs *BreakdownService) GetBreakdown(ctx context.Context, params *types.Quer
 	if err != nil {
 		return nil, err
 	}
-	site := &types.Site{ID: query.SiteID, Timezone: query.Timezone}
+	site := &types.Site{ID: query.SiteID, UserID: query.UserID, Timezone: query.Timezone}
 	// 执行查询
 	result, err := bs.qs.runner.RunQuery(ctx, query, site)
 	if err != nil {

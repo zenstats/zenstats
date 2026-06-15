@@ -21,7 +21,6 @@ func (Site) Fields() []ent.Field {
 			Unique().
 			Immutable(),
 		field.String("domain").
-			Unique().
 			NotEmpty().
 			MaxLen(255).
 			Comment("The domain of the site"),
@@ -44,12 +43,27 @@ func (Site) Fields() []ent.Field {
 			Default(60),
 		field.Int("ingest_limit_per_minute").
 			Default(1000),
+		field.String("allowed_origins").
+			MaxLen(2048).
+			Optional().
+			Comment("Comma-separated allowed origins for event ingestion"),
 		field.Time("created_at").
 			Default(time.Now).
 			Immutable(),
 		field.Time("updated_at").
 			Default(time.Now).
 			UpdateDefault(time.Now),
+		field.String("verification_token").
+			MaxLen(64).
+			Immutable().
+			Comment("Random token for domain verification"),
+		field.Bool("is_verified").
+			Default(false).
+			Comment("Whether the site domain is verified"),
+		field.Time("verified_at").
+			Optional().
+			Nillable().
+			Comment("When the site was verified"),
 	}
 }
 

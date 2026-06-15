@@ -21,10 +21,10 @@ func TestDimensionToColumnUsesExistingDeviceAlias(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := qb.DimensionToColumn(tt.dimension, "sessions", "select"); got != tt.want {
+			if got := qb.DimensionToColumn(tt.dimension, "sessions", "select", 0); got != tt.want {
 				t.Fatalf("DimensionToColumn(%q) = %q, want %q", tt.dimension, got, tt.want)
 			}
-			if got := qb.DimensionToColumn(tt.dimension, "sessions", "group"); got != tt.want {
+			if got := qb.DimensionToColumn(tt.dimension, "sessions", "group", 0); got != tt.want {
 				t.Fatalf("DimensionToColumn(%q, group) = %q, want %q", tt.dimension, got, tt.want)
 			}
 		})
@@ -44,10 +44,10 @@ func TestDimensionToColumnUsesExistingRegionAlias(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := qb.DimensionToColumn(tt.dimension, "sessions", "select"); got != "continent as region" {
+			if got := qb.DimensionToColumn(tt.dimension, "sessions", "select", 0); got != "continent as region" {
 				t.Fatalf("DimensionToColumn(%q) = %q, want %q", tt.dimension, got, "continent as region")
 			}
-			if got := qb.DimensionToColumn(tt.dimension, "sessions", "group"); got != "continent" {
+			if got := qb.DimensionToColumn(tt.dimension, "sessions", "group", 0); got != "continent" {
 				t.Fatalf("DimensionToColumn(%q, group) = %q, want %q", tt.dimension, got, "continent")
 			}
 		})
@@ -145,11 +145,11 @@ func TestTimeDimensionsUseStableAliasesForSelectAndGroupBy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.dimension, func(t *testing.T) {
-			selectColumn := qb.DimensionToColumn(tt.dimension, "events", "select")
+			selectColumn := qb.DimensionToColumn(tt.dimension, "events", "select", 0)
 			if !strings.Contains(selectColumn, tt.selectPart) || !strings.Contains(selectColumn, " as "+tt.alias) {
 				t.Fatalf("select column for %s = %q", tt.dimension, selectColumn)
 			}
-			if groupColumn := qb.DimensionToColumn(tt.dimension, "events", "group"); groupColumn != tt.alias {
+			if groupColumn := qb.DimensionToColumn(tt.dimension, "events", "group", 0); groupColumn != tt.alias {
 				t.Fatalf("group column for %s = %q, want %q", tt.dimension, groupColumn, tt.alias)
 			}
 		})

@@ -31,10 +31,18 @@ type Site struct {
 	IngestRateLimitScaleSeconds int `json:"ingest_rate_limit_scale_seconds,omitempty"`
 	// IngestLimitPerMinute holds the value of the "ingest_limit_per_minute" field.
 	IngestLimitPerMinute int `json:"ingest_limit_per_minute,omitempty"`
+	// Comma-separated allowed origins for event ingestion
+	AllowedOrigins string `json:"allowed_origins,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// Random token for domain verification
+	VerificationToken string `json:"verification_token,omitempty"`
+	// Whether the site domain is verified
+	IsVerified bool `json:"is_verified,omitempty"`
+	// When the site was verified
+	VerifiedAt *time.Time `json:"verified_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the SiteQuery when eager-loading is set.
 	Edges        SiteEdges `json:"edges"`
@@ -130,13 +138,13 @@ func (*Site) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case site.FieldPublic:
+		case site.FieldPublic, site.FieldIsVerified:
 			values[i] = new(sql.NullBool)
 		case site.FieldID, site.FieldIngestRateLimitScaleSeconds, site.FieldIngestLimitPerMinute:
 			values[i] = new(sql.NullInt64)
-		case site.FieldDomain, site.FieldRemark, site.FieldTimezone:
+		case site.FieldDomain, site.FieldRemark, site.FieldTimezone, site.FieldAllowedOrigins, site.FieldVerificationToken:
 			values[i] = new(sql.NullString)
-		case site.FieldStatsStartDate, site.FieldCreatedAt, site.FieldUpdatedAt:
+		case site.FieldStatsStartDate, site.FieldCreatedAt, site.FieldUpdatedAt, site.FieldVerifiedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -202,6 +210,12 @@ func (s *Site) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				s.IngestLimitPerMinute = int(value.Int64)
 			}
+		case site.FieldAllowedOrigins:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field allowed_origins", values[i])
+			} else if value.Valid {
+				s.AllowedOrigins = value.String
+			}
 		case site.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -213,6 +227,25 @@ func (s *Site) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
 			} else if value.Valid {
 				s.UpdatedAt = value.Time
+			}
+		case site.FieldVerificationToken:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field verification_token", values[i])
+			} else if value.Valid {
+				s.VerificationToken = value.String
+			}
+		case site.FieldIsVerified:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field is_verified", values[i])
+			} else if value.Valid {
+				s.IsVerified = value.Bool
+			}
+		case site.FieldVerifiedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field verified_at", values[i])
+			} else if value.Valid {
+				s.VerifiedAt = new(time.Time)
+				*s.VerifiedAt = value.Time
 			}
 		default:
 			s.selectValues.Set(columns[i], values[i])
@@ -308,11 +341,25 @@ func (s *Site) String() string {
 	builder.WriteString("ingest_limit_per_minute=")
 	builder.WriteString(fmt.Sprintf("%v", s.IngestLimitPerMinute))
 	builder.WriteString(", ")
+	builder.WriteString("allowed_origins=")
+	builder.WriteString(s.AllowedOrigins)
+	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(s.CreatedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
 	builder.WriteString("updated_at=")
 	builder.WriteString(s.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("verification_token=")
+	builder.WriteString(s.VerificationToken)
+	builder.WriteString(", ")
+	builder.WriteString("is_verified=")
+	builder.WriteString(fmt.Sprintf("%v", s.IsVerified))
+	builder.WriteString(", ")
+	if v := s.VerifiedAt; v != nil {
+		builder.WriteString("verified_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

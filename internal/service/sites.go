@@ -2,8 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +21,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
 	"github.com/zenstats/zenstats/pkg/globals"
 	"github.com/zenstats/zenstats/pkg/utils"
 )
@@ -41,6 +46,7 @@ type SiteService struct {
 	shieldRuleIPCache       *expirable.LRU[string, []*ent.ShieldRulesIp]
 	shieldRuleHostnameCache *expirable.LRU[string, []*ent.ShieldRulesHostname]
 	shieldRuleCountryCache  *expirable.LRU[string, []*ent.ShieldRulesCountry]
+	membershipCache         *expirable.LRU[string, *ent.Site]
 }
 
 // GetSiteService 获取 SiteService 单例实例。
@@ -54,12 +60,14 @@ func GetSiteService() *SiteService {
 		ipCache := expirable.NewLRU[string, []*ent.ShieldRulesIp](1000, nil, 30*time.Minute)
 		hostnameCache := expirable.NewLRU[string, []*ent.ShieldRulesHostname](1000, nil, 30*time.Minute)
 		countryCache := expirable.NewLRU[string, []*ent.ShieldRulesCountry](1000, nil, 30*time.Minute)
+		membershipCache := expirable.NewLRU[string, *ent.Site](1000, nil, 30*time.Minute)
 		siteServiceInstance = &SiteService{
 			db:                      db,
 			domainCache:             l,
 			shieldRuleIPCache:       ipCache,
 			shieldRuleHostnameCache: hostnameCache,
 			shieldRuleCountryCache:  countryCache,
+			membershipCache:         membershipCache,
 			cache:                   sync.Map{},
 			allSitesCacheKey:        "all_sites",
 		}
@@ -81,11 +89,27 @@ type IngestConfig struct {
 	LimitPerMinute        int
 }
 
+// generateVerificationToken 生成随机的 32 字符十六进制验证令牌。
+func generateVerificationToken() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", b), nil
+}
+
 // CreateSite 创建新站点并为当前用户分配 Owner 角色，使用事务保证原子性。
+// 多个用户可以创建相同域名的站点，但只能有一个被验证。
 func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*ent.Site, error) {
 	tx, err := s.db.Client.Tx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("starting a transaction: %w", err)
+	}
+
+	token, err := generateVerificationToken()
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("generating verification token: %w", err)
 	}
 
 	site, err := s.db.Client.Site.Create().
@@ -94,12 +118,13 @@ func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*en
 		SetRemark(params.Remark).
 		SetIngestRateLimitScaleSeconds(params.IngestConfig.RateLimitScaleSeconds).
 		SetIngestLimitPerMinute(params.IngestConfig.LimitPerMinute).
+		SetVerificationToken(token).
+		SetIsVerified(false).
 		Save(ctx)
 
-	// 判断err 是否是唯一约束错误
-	if ent.IsConstraintError(err) {
+	if err != nil {
 		tx.Rollback()
-		return nil, errors.New("domain already exists")
+		return nil, fmt.Errorf("creating site: %w", err)
 	}
 
 	// 授权sites 给当前用户
@@ -126,29 +151,61 @@ func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*en
 }
 
 // GetSiteByDomain 根据域名查询站点，优先从 LRU 缓存中获取。
+// 当存在多个同名域名站点时，优先返回已验证的站点。
+// 若缓存命中但该站点未验证，会回源确认是否已有其他用户验证了该域名。
 func (s *SiteService) GetSiteByDomain(ctx context.Context, domain string) (*ent.Site, error) {
-	if site, ok := s.domainCache.Get(domain); ok {
-		return site, nil
+	if cached, ok := s.domainCache.Get(domain); ok {
+		// 缓存命中：若已验证则直接返回，若未验证则回源检查是否有已验证站点
+		if cached.IsVerified {
+			return cached, nil
+		}
+		verified, err := s.db.Client.Site.Query().
+			Where(site.Domain(domain), site.IsVerified(true)).
+			First(ctx)
+		if err == nil {
+			s.domainCache.Add(domain, verified)
+			return verified, nil
+		}
+		// 没有已验证站点，返回缓存的未验证站点
+		return cached, nil
 	}
 
-	site, err := s.db.Client.Site.Query().Where(site.Domain(domain)).Only(ctx)
+	sites, err := s.db.Client.Site.Query().Where(site.Domain(domain)).All(ctx)
 	if err != nil {
 		return nil, err
 	}
-	s.domainCache.Add(domain, site)
+	if len(sites) == 0 {
+		return nil, fmt.Errorf("site not found")
+	}
 
-	return site, nil
+	// 优先返回已验证的站点
+	var result *ent.Site
+	for _, s := range sites {
+		if s.IsVerified {
+			result = s
+			break
+		}
+	}
+	if result == nil {
+		result = sites[0]
+	}
+
+	s.domainCache.Add(domain, result)
+	return result, nil
 }
 
 // SiteWithRemark 包含角色信息的站点响应结构（service 层）。
 type SiteWithRemark struct {
-	ID                          int64  `json:"id"`
-	Domain                      string `json:"domain"`
-	Timezone                    string `json:"timezone"`
-	Remark                      string `json:"remark"`
-	IngestRateLimitScaleSeconds int    `json:"rate_seconds"`
-	IngetLimitPerMinute         int    `json:"limit_minute"`
-	Role                        string `json:"role"`
+	ID                          int64      `json:"id"`
+	Domain                      string     `json:"domain"`
+	Timezone                    string     `json:"timezone"`
+	Remark                      string     `json:"remark"`
+	IngestRateLimitScaleSeconds int        `json:"rate_seconds"`
+	IngetLimitPerMinute         int        `json:"limit_minute"`
+	AllowedOrigins              string     `json:"allowed_origins"`
+	Role                        string     `json:"role"`
+	IsVerified                  bool       `json:"is_verified"`
+	VerifiedAt                  *time.Time `json:"verified_at,omitempty"`
 }
 
 // GetUserSiteList 获取当前用户的站点列表。
@@ -171,7 +228,10 @@ func (s *SiteService) GetUserSiteList(ctx *gin.Context) ([]*SiteWithRemark, erro
 			Remark:                      sm.Edges.Site.Remark,
 			IngestRateLimitScaleSeconds: sm.Edges.Site.IngestRateLimitScaleSeconds,
 			IngetLimitPerMinute:         sm.Edges.Site.IngestLimitPerMinute,
+			AllowedOrigins:              sm.Edges.Site.AllowedOrigins,
 			Role:                        sm.Role.String(),
+			IsVerified:                  sm.Edges.Site.IsVerified,
+			VerifiedAt:                  sm.Edges.Site.VerifiedAt,
 		}
 	}
 
@@ -204,12 +264,50 @@ func (s *SiteService) GetUserSiteByDomain(ctx *gin.Context, domain string) ([]*S
 			Remark:                      sm.Edges.Site.Remark,
 			IngestRateLimitScaleSeconds: sm.Edges.Site.IngestRateLimitScaleSeconds,
 			IngetLimitPerMinute:         sm.Edges.Site.IngestLimitPerMinute,
+			AllowedOrigins:              sm.Edges.Site.AllowedOrigins,
 			Role:                        sm.Role.String(),
+			IsVerified:                  sm.Edges.Site.IsVerified,
+			VerifiedAt:                  sm.Edges.Site.VerifiedAt,
 		}
 		sites = append(sites, site)
 	}
 
 	return sites, nil
+}
+
+// CheckSiteMembership 检查用户是否为指定域名站点的成员，并返回该用户所属的具体站点。
+func (s *SiteService) CheckSiteMembership(ctx context.Context, userID int64, domain string) (*ent.Site, error) {
+	cacheKey := fmt.Sprintf("%d:%s", userID, domain)
+	if cached, ok := s.membershipCache.Get(cacheKey); ok {
+		return cached, nil
+	}
+
+	// 查找该域名下所有站点
+	sites, err := s.db.Client.Site.Query().Where(site.Domain(domain)).All(ctx)
+	if err != nil || len(sites) == 0 {
+		return nil, fmt.Errorf("site not found")
+	}
+
+	siteIDs := make([]int64, len(sites))
+	for i, st := range sites {
+		siteIDs[i] = st.ID
+	}
+
+	// 查找用户在这些站点中的 membership
+	membership, err := s.db.Client.SiteMembership.Query().
+		Where(
+			sitemembership.SiteIDIn(siteIDs...),
+			sitemembership.UserID(userID),
+		).
+		WithSite().
+		First(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("site membership not found")
+	}
+
+	result := membership.Edges.Site
+	s.membershipCache.Add(cacheKey, result)
+	return result, nil
 }
 
 // GetSiteList 获取所有站点列表，使用缓存加速。
@@ -233,6 +331,68 @@ func (s *SiteService) GetSiteList(ctx *gin.Context) ([]*ent.Site, error) {
 	return sites, nil
 }
 
+// AdminSiteItem 管理员站点列表项（含站点所有者信息）。
+type AdminSiteItem struct {
+	ID         int64
+	Domain     string
+	Remark     string
+	Timezone   string
+	OwnerName  string
+	IsVerified bool
+	VerifiedAt *time.Time
+	CreatedAt  time.Time
+}
+
+// GetAllSitesWithOwner 分页查询所有站点，附带站点所有者用户名。
+func (s *SiteService) GetAllSitesWithOwner(ctx context.Context, offset, pageSize int) ([]*AdminSiteItem, error) {
+	siteMemberships, err := s.db.Client.SiteMembership.Query().
+		Where(sitemembership.RoleEQ("owner")).
+		WithSite().
+		WithUser(func(uq *ent.UserQuery) {
+			uq.Select(user.FieldID, user.FieldName)
+		}).
+		Order(ent.Desc(sitemembership.FieldID)).
+		Offset(offset).
+		Limit(pageSize + 1).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// 每个站点可能有多个 owner，取第一个
+	seenSites := make(map[int64]bool)
+	result := make([]*AdminSiteItem, 0, pageSize)
+	for _, sm := range siteMemberships {
+		if sm.Edges.Site == nil || seenSites[sm.Edges.Site.ID] {
+			continue
+		}
+		seenSites[sm.Edges.Site.ID] = true
+
+		ownerName := ""
+		if sm.Edges.User != nil {
+			ownerName = sm.Edges.User.Name
+		}
+
+		result = append(result, &AdminSiteItem{
+			ID:         sm.Edges.Site.ID,
+			Domain:     sm.Edges.Site.Domain,
+			Remark:     sm.Edges.Site.Remark,
+			Timezone:   sm.Edges.Site.Timezone,
+			OwnerName:  ownerName,
+			IsVerified: sm.Edges.Site.IsVerified,
+			VerifiedAt: sm.Edges.Site.VerifiedAt,
+			CreatedAt:  sm.Edges.Site.CreatedAt,
+		})
+	}
+
+	return result, nil
+}
+
+// GetAllSitesCount 获取所有站点总数。
+func (s *SiteService) GetAllSitesCount(ctx context.Context) (int, error) {
+	return s.db.Client.Site.Query().Count(ctx)
+}
+
 // GetSiteByID 根据ID获取站点信息
 func (s *SiteService) GetSiteByID(ctx *gin.Context, id int) (*ent.Site, error) {
 	cacheKey := fmt.Sprintf("site:%d", id)
@@ -249,22 +409,84 @@ func (s *SiteService) GetSiteByID(ctx *gin.Context, id int) (*ent.Site, error) {
 	return site, nil
 }
 
-// AddShieldRuleIP 添加IP屏蔽规则
-func (s *SiteService) AddShieldRuleIP(ctx *gin.Context, domain string, ip string, action string, description string) (*ent.ShieldRulesIp, error) {
-	// 通过domain获取站点信息
-	site, err := s.GetSiteByDomain(ctx, domain)
+// AdminVerifySite 管理员手动验证站点（跳过域名所有权验证）。
+func (s *SiteService) AdminVerifySite(ctx context.Context, siteID int64) error {
+	// 直接查询站点
+	siteEntity, err := s.db.Client.Site.Query().Where(site.ID(siteID)).Only(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("site not found: %w", err)
+		return fmt.Errorf("site not found: %w", err)
 	}
 
+	if siteEntity.IsVerified {
+		return errors.New("site already verified")
+	}
+
+	// 启动事务，检查是否有其他同域名站点已验证
+	tx, err := s.db.Client.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("starting a transaction: %w", err)
+	}
+
+	// 锁定当前站点行
+	lockSite, err := tx.Site.Query().Where(site.ID(siteID)).Only(ctx)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("locking site: %w", err)
+	}
+	if lockSite.IsVerified {
+		tx.Rollback()
+		return errors.New("site already verified")
+	}
+
+	// 检查是否有其他同域名站点已验证
+	domain := siteEntity.Domain
+	otherVerified, err := tx.Site.Query().
+		Where(
+			site.Domain(domain),
+			site.IsVerified(true),
+			site.IDNEQ(siteID),
+		).
+		Exist(ctx)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("checking other verified sites: %w", err)
+	}
+	if otherVerified {
+		tx.Rollback()
+		return errors.New("domain already verified by another user")
+	}
+
+	// 管理员手动验证通过，更新站点状态
+	now := time.Now()
+	_, err = tx.Site.UpdateOneID(siteID).
+		SetIsVerified(true).
+		SetVerifiedAt(now).
+		Save(ctx)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("updating site verification status: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing transaction: %w", err)
+	}
+
+	// 清除缓存
+	s.InvalidateDomainCache(domain)
+	s.cache.Delete(s.allSitesCacheKey)
+
+	return nil
+}
+
+// AddShieldRuleIP 添加IP屏蔽规则
+func (s *SiteService) AddShieldRuleIP(ctx *gin.Context, siteID int64, ip string, action string, description string) (*ent.ShieldRulesIp, error) {
 	ipInet, err := utils.ParseInet(ip)
 	if err != nil {
 		return nil, fmt.Errorf("invalid IP format: %w", err)
 	}
 
-	// 创建IP屏蔽规则
 	rule, err := s.db.Client.ShieldRulesIp.Create().
-		SetSiteID(site.ID).
+		SetSiteID(siteID).
 		SetInet(ipInet).
 		SetAction(action).
 		SetDescription(description).
@@ -274,52 +496,35 @@ func (s *SiteService) AddShieldRuleIP(ctx *gin.Context, domain string, ip string
 		return nil, fmt.Errorf("create shield rule ip failed: %w", err)
 	}
 
-	// 添加成功后清除缓存
-	s.shieldRuleIPCache.Remove(domain)
+	s.shieldRuleIPCache.Remove(fmt.Sprintf("%d", siteID))
 	return rule, nil
 }
 
 // ListShieldRuleIP 获取IP屏蔽规则列表
-func (s *SiteService) ListShieldRuleIP(ctx context.Context, domain string) ([]*ent.ShieldRulesIp, error) {
-	// 尝试从缓存获取
-	if rules, ok := s.shieldRuleIPCache.Get(domain); ok {
+func (s *SiteService) ListShieldRuleIP(ctx context.Context, siteID int64) ([]*ent.ShieldRulesIp, error) {
+	cacheKey := fmt.Sprintf("%d", siteID)
+	if rules, ok := s.shieldRuleIPCache.Get(cacheKey); ok {
 		return rules, nil
 	}
 
-	// 通过domain获取站点信息
-	site, err := s.GetSiteByDomain(ctx, domain)
-	if err != nil {
-		return nil, fmt.Errorf("site not found: %w", err)
-	}
-
-	// 查询该站点的所有IP屏蔽规则
 	rules, err := s.db.Client.ShieldRulesIp.Query().
-		Where(shieldrulesip.SiteID(site.ID)).
+		Where(shieldrulesip.SiteID(siteID)).
 		Order(ent.Desc(shieldrulesip.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query shield rule ip failed: %w", err)
 	}
 
-	// 存入缓存
-	s.shieldRuleIPCache.Add(domain, rules)
-
+	s.shieldRuleIPCache.Add(cacheKey, rules)
 	return rules, nil
 }
 
 // RemoveShieldRuleIP 删除IP屏蔽规则
-func (s *SiteService) RemoveShieldRuleIP(ctx context.Context, domain string, ruleID int64) error {
-	// 通过domain获取站点信息
-	site, err := s.GetSiteByDomain(ctx, domain)
-	if err != nil {
-		return fmt.Errorf("site not found: %w", err)
-	}
-
-	// 验证规则是否属于该站点
+func (s *SiteService) RemoveShieldRuleIP(ctx context.Context, siteID int64, ruleID int64) error {
 	count, err := s.db.Client.ShieldRulesIp.Query().
 		Where(
 			shieldrulesip.ID(ruleID),
-			shieldrulesip.SiteID(site.ID),
+			shieldrulesip.SiteID(siteID),
 		).
 		Count(ctx)
 	if err != nil {
@@ -329,27 +534,18 @@ func (s *SiteService) RemoveShieldRuleIP(ctx context.Context, domain string, rul
 		return fmt.Errorf("shield rule ip not found or not belongs to site")
 	}
 
-	// 删除规则
 	if err := s.db.Client.ShieldRulesIp.DeleteOneID(ruleID).Exec(ctx); err != nil {
 		return fmt.Errorf("delete shield rule ip failed: %w", err)
 	}
 
-	// 删除成功后清除缓存
-	s.shieldRuleIPCache.Remove(domain)
+	s.shieldRuleIPCache.Remove(fmt.Sprintf("%d", siteID))
 	return nil
 }
 
 // AddShieldRuleHostname 添加Hostname屏蔽规则
-func (s *SiteService) AddShieldRuleHostname(ctx context.Context, domain string, hostname string, hostnamePattern string, action string) (*ent.ShieldRulesHostname, error) {
-	// 验证站点是否存在
-	site, err := s.db.Client.Site.Query().Where(site.Domain(domain)).Only(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("site not found: %w", err)
-	}
-
-	// 创建Hostname屏蔽规则
+func (s *SiteService) AddShieldRuleHostname(ctx context.Context, siteID int64, hostname string, hostnamePattern string, action string) (*ent.ShieldRulesHostname, error) {
 	rule, err := s.db.Client.ShieldRulesHostname.Create().
-		SetSiteID(site.ID).
+		SetSiteID(siteID).
 		SetHostname(hostname).
 		SetHostnamePattern(hostnamePattern).
 		SetAction(action).
@@ -359,52 +555,35 @@ func (s *SiteService) AddShieldRuleHostname(ctx context.Context, domain string, 
 		return nil, fmt.Errorf("create shield rule hostname failed: %w", err)
 	}
 
-	// 添加成功后清除缓存
-	s.shieldRuleHostnameCache.Remove(domain)
-
+	s.shieldRuleHostnameCache.Remove(fmt.Sprintf("%d", siteID))
 	return rule, nil
 }
 
 // ListShieldRuleHostname 获取Hostname屏蔽规则列表
-func (s *SiteService) ListShieldRuleHostname(ctx context.Context, domain string) ([]*ent.ShieldRulesHostname, error) {
-	// 尝试从缓存获取
-	if rules, ok := s.shieldRuleHostnameCache.Get(domain); ok {
+func (s *SiteService) ListShieldRuleHostname(ctx context.Context, siteID int64) ([]*ent.ShieldRulesHostname, error) {
+	cacheKey := fmt.Sprintf("%d", siteID)
+	if rules, ok := s.shieldRuleHostnameCache.Get(cacheKey); ok {
 		return rules, nil
 	}
 
-	// 通过domain获取站点信息
-	site, err := s.GetSiteByDomain(ctx, domain)
-	if err != nil {
-		return nil, fmt.Errorf("site not found: %w", err)
-	}
-
-	// 查询该站点的所有Hostname屏蔽规则
 	rules, err := s.db.Client.ShieldRulesHostname.Query().
-		Where(shieldruleshostname.SiteID(site.ID)).
+		Where(shieldruleshostname.SiteID(siteID)).
 		Order(ent.Desc(shieldruleshostname.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query shield rule hostname failed: %w", err)
 	}
 
-	// 存入缓存
-	s.shieldRuleHostnameCache.Add(domain, rules)
-
+	s.shieldRuleHostnameCache.Add(cacheKey, rules)
 	return rules, nil
 }
 
 // RemoveShieldRuleHostname 删除Hostname屏蔽规则
-func (s *SiteService) RemoveShieldRuleHostname(ctx *gin.Context, domain string, ruleID int64) error {
-	site, err := s.GetSiteByDomain(ctx, domain)
-	if err != nil {
-		return fmt.Errorf("site not found: %w", err)
-	}
-
-	// 验证规则是否属于该站点
+func (s *SiteService) RemoveShieldRuleHostname(ctx *gin.Context, siteID int64, ruleID int64) error {
 	count, err := s.db.Client.ShieldRulesHostname.Query().
 		Where(
 			shieldruleshostname.ID(ruleID),
-			shieldruleshostname.SiteID(site.ID),
+			shieldruleshostname.SiteID(siteID),
 		).
 		Count(ctx)
 	if err != nil {
@@ -414,28 +593,19 @@ func (s *SiteService) RemoveShieldRuleHostname(ctx *gin.Context, domain string, 
 		return fmt.Errorf("shield rule hostname not found or not belongs to site")
 	}
 
-	// 删除规则
 	if err := s.db.Client.ShieldRulesHostname.DeleteOneID(ruleID).Exec(ctx); err != nil {
 		return fmt.Errorf("delete shield rule hostname failed: %w", err)
 	}
-	// 删除成功后清除缓存
-	s.shieldRuleHostnameCache.Remove(domain)
 
+	s.shieldRuleHostnameCache.Remove(fmt.Sprintf("%d", siteID))
 	return nil
 }
 
 // AddShieldRuleCountry 添加Country屏蔽规则
-func (s *SiteService) AddShieldRuleCountry(ctx *gin.Context, domain string, countryCode string, action string) (*ent.ShieldRulesCountry, error) {
-	// 验证站点是否存在
-	site, err := s.db.Client.Site.Query().Where(site.Domain(domain)).Only(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("site not found: %w", err)
-	}
-	// 获取当前登陆用户
+func (s *SiteService) AddShieldRuleCountry(ctx *gin.Context, siteID int64, countryCode string, action string) (*ent.ShieldRulesCountry, error) {
 	user, _ := GetUserService().GetUserByID(ctx, ctx.GetInt64("user_id"))
-	// 创建Country屏蔽规则
 	rule, err := s.db.Client.ShieldRulesCountry.Create().
-		SetSiteID(site.ID).
+		SetSiteID(siteID).
 		SetCountryCode(countryCode).
 		SetAction(action).
 		SetAddedBy(user.Name).
@@ -444,52 +614,35 @@ func (s *SiteService) AddShieldRuleCountry(ctx *gin.Context, domain string, coun
 		return nil, fmt.Errorf("create shield rule country failed: %w", err)
 	}
 
-	// 添加成功后清除缓存
-	s.shieldRuleCountryCache.Remove(domain)
-
+	s.shieldRuleCountryCache.Remove(fmt.Sprintf("%d", siteID))
 	return rule, nil
 }
 
 // ListShieldRuleCountry 获取Country屏蔽规则列表
-func (s *SiteService) ListShieldRuleCountry(ctx context.Context, domain string) ([]*ent.ShieldRulesCountry, error) {
-	// 尝试从缓存获取
-	if rules, ok := s.shieldRuleCountryCache.Get(domain); ok {
+func (s *SiteService) ListShieldRuleCountry(ctx context.Context, siteID int64) ([]*ent.ShieldRulesCountry, error) {
+	cacheKey := fmt.Sprintf("%d", siteID)
+	if rules, ok := s.shieldRuleCountryCache.Get(cacheKey); ok {
 		return rules, nil
 	}
 
-	// 通过domain获取站点信息
-	site, err := s.GetSiteByDomain(ctx, domain)
-	if err != nil {
-		return nil, fmt.Errorf("site not found: %w", err)
-	}
-
-	// 查询该站点的所有Country屏蔽规则
 	rules, err := s.db.Client.ShieldRulesCountry.Query().
-		Where(shieldrulescountry.SiteID(site.ID)).
+		Where(shieldrulescountry.SiteID(siteID)).
 		Order(ent.Desc(shieldrulescountry.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query shield rule country failed: %w", err)
 	}
 
-	// 存入缓存
-	s.shieldRuleCountryCache.Add(domain, rules)
-
+	s.shieldRuleCountryCache.Add(cacheKey, rules)
 	return rules, nil
 }
 
 // RemoveShieldRuleCountry 删除Country屏蔽规则
-func (s *SiteService) RemoveShieldRuleCountry(ctx *gin.Context, domain string, ruleID int64) error {
-	site, err := s.GetSiteByDomain(ctx, domain)
-	if err != nil {
-		return fmt.Errorf("site not found: %w", err)
-	}
-
-	// 验证规则是否属于该站点
+func (s *SiteService) RemoveShieldRuleCountry(ctx *gin.Context, siteID int64, ruleID int64) error {
 	count, err := s.db.Client.ShieldRulesCountry.Query().
 		Where(
 			shieldrulescountry.ID(ruleID),
-			shieldrulescountry.SiteID(site.ID),
+			shieldrulescountry.SiteID(siteID),
 		).
 		Count(ctx)
 	if err != nil {
@@ -499,23 +652,21 @@ func (s *SiteService) RemoveShieldRuleCountry(ctx *gin.Context, domain string, r
 		return fmt.Errorf("shield rule country not found or not belongs to site")
 	}
 
-	// 删除规则
 	if err := s.db.Client.ShieldRulesCountry.DeleteOneID(ruleID).Exec(ctx); err != nil {
 		return fmt.Errorf("delete shield rule country failed: %w", err)
 	}
-	// 删除成功后清除缓存
-	s.shieldRuleCountryCache.Remove(domain)
 
+	s.shieldRuleCountryCache.Remove(fmt.Sprintf("%d", siteID))
 	return nil
 }
 
 // UpdateSite 更新站点信息
-func (s *SiteService) UpdateSite(ctx *gin.Context, domain string, req types.UpdateSiteRequest) (*ent.Site, error) {
+func (s *SiteService) UpdateSite(ctx *gin.Context, siteID int64, req types.UpdateSiteRequest) (*ent.Site, error) {
 	tx, err := s.db.Client.Tx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("starting a transaction: %w", err)
 	}
-	siteEntity, err := tx.Site.Query().Where(site.Domain(domain)).First(ctx)
+	siteEntity, err := tx.Site.Query().Where(site.ID(siteID)).First(ctx)
 	if err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("query site failed: %w", err)
@@ -547,6 +698,10 @@ func (s *SiteService) UpdateSite(ctx *gin.Context, domain string, req types.Upda
 		updateQuery = updateQuery.SetIngestLimitPerMinute(*req.IngestLimitPerMinute)
 	}
 
+	if req.AllowedOrigins != nil {
+		updateQuery = updateQuery.SetAllowedOrigins(*req.AllowedOrigins)
+	}
+
 	siteEntity, err = updateQuery.Save(ctx)
 	if err != nil {
 		tx.Rollback()
@@ -563,7 +718,7 @@ func (s *SiteService) UpdateSite(ctx *gin.Context, domain string, req types.Upda
 	// 更新缓存
 	cacheKey := fmt.Sprintf("site:%d", siteEntity.ID)
 	s.cache.Store(cacheKey, siteEntity)
-	s.domainCache.Add(domain, siteEntity)
+	s.InvalidateDomainCache(siteEntity.Domain)
 	// 清除用户站点列表缓存
 	s.cache.Delete(s.allSitesCacheKey)
 
@@ -603,18 +758,235 @@ func (s *SiteService) DeleteSite(ctx *gin.Context, id int) error {
 	// 清除缓存
 	cacheKey := fmt.Sprintf("site:%d", id)
 	s.cache.Delete(cacheKey)
-	s.domainCache.Remove(site.Domain)
+	s.InvalidateDomainCache(site.Domain)
 	s.cache.Delete(s.allSitesCacheKey)
 
 	return nil
 }
 
 // IsDomainInList 检查指定域名是否已注册到系统中。
+// IsDomainInList 检查域名是否在系统中且已验证。
 func (s *SiteService) IsDomainInList(ctx *gin.Context, domain string) (bool, error) {
-	_, err := s.GetSiteByDomain(ctx, domain)
+	_, err := s.GetVerifiedSiteByDomain(ctx, domain)
 	if err != nil {
 		return false, err
 	}
 
 	return true, nil
+}
+
+// GetUserSiteCount 获取用户的站点数量
+func (s *SiteService) GetUserSiteCount(ctx context.Context, userID int64) (int, error) {
+	return s.db.Client.SiteMembership.Query().
+		Where(sitemembership.UserID(userID)).
+		Count(ctx)
+}
+
+// GetSiteOwnerUserID 获取站点所有者的 user_id
+func (s *SiteService) GetSiteOwnerUserID(ctx context.Context, siteID int64) (int64, error) {
+	membership, err := s.db.Client.SiteMembership.Query().
+		Where(
+			sitemembership.SiteID(siteID),
+			sitemembership.RoleEQ("owner"),
+		).
+		Only(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return membership.UserID, nil
+}
+
+// InvalidateDomainCache 清除指定域名的缓存。
+func (s *SiteService) InvalidateDomainCache(domain string) {
+	s.domainCache.Remove(domain)
+}
+
+// GetVerifiedSiteByDomain 根据域名获取已验证的站点。
+// 仅当站点已验证时返回，否则返回错误。
+func (s *SiteService) GetVerifiedSiteByDomain(ctx context.Context, domain string) (*ent.Site, error) {
+	site, err := s.GetSiteByDomain(ctx, domain)
+	if err != nil {
+		return nil, fmt.Errorf("site not found or not verified")
+	}
+	if !site.IsVerified {
+		return nil, fmt.Errorf("site not found or not verified")
+	}
+	return site, nil
+}
+
+// GetUserSiteByDomainForUser 获取当前用户在指定域名下的站点（通过 membership 关联）。
+func (s *SiteService) GetUserSiteByDomainForUser(ctx context.Context, userID int64, domain string) (*ent.Site, error) {
+	sites, err := s.db.Client.Site.Query().
+		Where(site.Domain(domain)).
+		All(ctx)
+	if err != nil || len(sites) == 0 {
+		return nil, fmt.Errorf("site not found")
+	}
+
+	siteIDs := make([]int64, len(sites))
+	for i, st := range sites {
+		siteIDs[i] = st.ID
+	}
+
+	// 查找用户在这些站点中的 membership
+	membership, err := s.db.Client.SiteMembership.Query().
+		Where(
+			sitemembership.SiteIDIn(siteIDs...),
+			sitemembership.UserID(userID),
+		).
+		WithSite().
+		First(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("site membership not found")
+	}
+
+	return membership.Edges.Site, nil
+}
+
+// GetVerificationStatus 获取站点的验证状态信息。
+func (s *SiteService) GetVerificationStatus(ctx context.Context, domain string, userID int64) (*types.SiteVerificationStatus, error) {
+	site, err := s.GetUserSiteByDomainForUser(ctx, userID, domain)
+	if err != nil {
+		return nil, err
+	}
+
+	status := &types.SiteVerificationStatus{
+		Domain:     site.Domain,
+		IsVerified: site.IsVerified,
+		VerifiedAt: site.VerifiedAt,
+	}
+
+	// 仅在站点未验证且用户是 owner 时返回 token
+	if !site.IsVerified {
+		// 检查是否为 owner
+		isOwner, err := s.db.Client.SiteMembership.Query().
+			Where(
+				sitemembership.SiteID(site.ID),
+				sitemembership.UserID(userID),
+				sitemembership.RoleEQ("owner"),
+			).
+			Exist(ctx)
+		if err == nil && isOwner {
+			status.VerificationToken = site.VerificationToken
+		}
+	}
+
+	return status, nil
+}
+
+// VerifySite 验证站点域名所有权。
+// 通过获取域名下的验证文件并与 token 比对来确认所有权。
+func (s *SiteService) VerifySite(ctx context.Context, domain string, userID int64) error {
+	siteEntity, err := s.GetUserSiteByDomainForUser(ctx, userID, domain)
+	if err != nil {
+		return err
+	}
+
+	if siteEntity.IsVerified {
+		return errors.New("site already verified")
+	}
+
+	// 检查是否为 owner
+	isOwner, err := s.db.Client.SiteMembership.Query().
+		Where(
+			sitemembership.SiteID(siteEntity.ID),
+			sitemembership.UserID(userID),
+			sitemembership.RoleEQ("owner"),
+		).
+		Exist(ctx)
+	if err != nil || !isOwner {
+		return errors.New("only site owner can verify")
+	}
+
+	// 启动事务，检查是否有其他同域名站点已验证
+	tx, err := s.db.Client.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("starting a transaction: %w", err)
+	}
+
+	// 锁定当前站点行
+	lockSite, err := tx.Site.Query().Where(site.ID(siteEntity.ID)).Only(ctx)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("locking site: %w", err)
+	}
+	if lockSite.IsVerified {
+		tx.Rollback()
+		return errors.New("site already verified")
+	}
+
+	// 检查是否有其他同域名站点已验证
+	otherVerified, err := tx.Site.Query().
+		Where(
+			site.Domain(domain),
+			site.IsVerified(true),
+			site.IDNEQ(siteEntity.ID),
+		).
+		Exist(ctx)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("checking other verified sites: %w", err)
+	}
+	if otherVerified {
+		tx.Rollback()
+		return errors.New("domain already verified by another user")
+	}
+
+	// 获取验证文件内容：先尝试 HTTPS，失败后回退 HTTP
+	verificationPath := "/.well-known/zenstats-verification.txt"
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	httpsURL := fmt.Sprintf("https://%s%s", domain, verificationPath)
+	resp, err := client.Get(httpsURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		// HTTPS 失败，回退到 HTTP
+		httpURL := fmt.Sprintf("http://%s%s", domain, verificationPath)
+		resp, err = client.Get(httpURL)
+		if err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to fetch verification file (tried HTTPS and HTTP): %w", err)
+		}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		tx.Rollback()
+		return fmt.Errorf("verification file not found (HTTP %d)", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to read verification file: %w", err)
+	}
+
+	token := strings.TrimSpace(string(body))
+	if token != siteEntity.VerificationToken {
+		tx.Rollback()
+		return errors.New("verification token mismatch")
+	}
+
+	// 验证通过，更新站点状态
+	now := time.Now()
+	_, err = tx.Site.UpdateOneID(siteEntity.ID).
+		SetIsVerified(true).
+		SetVerifiedAt(now).
+		Save(ctx)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("updating site verification status: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing transaction: %w", err)
+	}
+
+	// 清除缓存
+	s.InvalidateDomainCache(domain)
+	s.cache.Delete(s.allSitesCacheKey)
+
+	return nil
 }

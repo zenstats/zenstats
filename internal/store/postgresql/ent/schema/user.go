@@ -31,6 +31,7 @@ func (User) Fields() []ent.Field {
 		field.Time("totp_last_used_at").Optional(),
 		field.String("totp_token").Optional(),
 		field.Text("notes").Optional(),
+		field.Bool("is_admin").Default(false).Comment("是否为管理员"),
 		field.Time("created_at").Default(time.Now),
 		field.Time("updated_at").Default(time.Now),
 	}
@@ -42,6 +43,19 @@ func (User) Edges() []ent.Edge {
 		edge.To("api_keys", APIKey.Type),
 
 		edge.To("site_memberships", SiteMembership.Type),
+
+		edge.To("user_config", UserConfig.Type).
+			Unique(),
+
+		edge.To("custom_search_engines", CustomSearchEngine.Type),
+
+		edge.To("sub_accounts", SubAccount.Type),
+
+		edge.To("password_reset_tokens", PasswordResetToken.Type),
+
+		edge.To("email_verification_tokens", EmailVerificationToken.Type),
+
+		edge.To("monthly_event_counts", MonthlyEventCount.Type),
 	}
 }
 

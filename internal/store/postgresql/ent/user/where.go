@@ -110,6 +110,11 @@ func Notes(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldNotes, v))
 }
 
+// IsAdmin applies equality check predicate on the "is_admin" field. It's identical to IsAdminEQ.
+func IsAdmin(v bool) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldIsAdmin, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldCreatedAt, v))
@@ -720,6 +725,16 @@ func NotesContainsFold(v string) predicate.User {
 	return predicate.User(sql.FieldContainsFold(FieldNotes, v))
 }
 
+// IsAdminEQ applies the EQ predicate on the "is_admin" field.
+func IsAdminEQ(v bool) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldIsAdmin, v))
+}
+
+// IsAdminNEQ applies the NEQ predicate on the "is_admin" field.
+func IsAdminNEQ(v bool) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldIsAdmin, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldCreatedAt, v))
@@ -838,6 +853,144 @@ func HasSiteMemberships() predicate.User {
 func HasSiteMembershipsWith(preds ...predicate.SiteMembership) predicate.User {
 	return predicate.User(func(s *sql.Selector) {
 		step := newSiteMembershipsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasUserConfig applies the HasEdge predicate on the "user_config" edge.
+func HasUserConfig() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, UserConfigTable, UserConfigColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasUserConfigWith applies the HasEdge predicate on the "user_config" edge with a given conditions (other predicates).
+func HasUserConfigWith(preds ...predicate.UserConfig) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newUserConfigStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCustomSearchEngines applies the HasEdge predicate on the "custom_search_engines" edge.
+func HasCustomSearchEngines() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CustomSearchEnginesTable, CustomSearchEnginesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCustomSearchEnginesWith applies the HasEdge predicate on the "custom_search_engines" edge with a given conditions (other predicates).
+func HasCustomSearchEnginesWith(preds ...predicate.CustomSearchEngine) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newCustomSearchEnginesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasSubAccounts applies the HasEdge predicate on the "sub_accounts" edge.
+func HasSubAccounts() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SubAccountsTable, SubAccountsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSubAccountsWith applies the HasEdge predicate on the "sub_accounts" edge with a given conditions (other predicates).
+func HasSubAccountsWith(preds ...predicate.SubAccount) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newSubAccountsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasPasswordResetTokens applies the HasEdge predicate on the "password_reset_tokens" edge.
+func HasPasswordResetTokens() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, PasswordResetTokensTable, PasswordResetTokensColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPasswordResetTokensWith applies the HasEdge predicate on the "password_reset_tokens" edge with a given conditions (other predicates).
+func HasPasswordResetTokensWith(preds ...predicate.PasswordResetToken) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newPasswordResetTokensStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasEmailVerificationTokens applies the HasEdge predicate on the "email_verification_tokens" edge.
+func HasEmailVerificationTokens() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, EmailVerificationTokensTable, EmailVerificationTokensColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasEmailVerificationTokensWith applies the HasEdge predicate on the "email_verification_tokens" edge with a given conditions (other predicates).
+func HasEmailVerificationTokensWith(preds ...predicate.EmailVerificationToken) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newEmailVerificationTokensStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasMonthlyEventCounts applies the HasEdge predicate on the "monthly_event_counts" edge.
+func HasMonthlyEventCounts() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, MonthlyEventCountsTable, MonthlyEventCountsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMonthlyEventCountsWith applies the HasEdge predicate on the "monthly_event_counts" edge with a given conditions (other predicates).
+func HasMonthlyEventCountsWith(preds ...predicate.MonthlyEventCount) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newMonthlyEventCountsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

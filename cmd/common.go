@@ -18,6 +18,7 @@ func Init() {
 	bootstrap.InitClickhouseTable()
 	bootstrap.InitGeoIP()
 	bootstrap.InitPostgres()
+	bootstrap.InitSystemConfig()
 }
 
 func InitServer() {

@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/common"
+	"github.com/zenstats/zenstats/internal/event"
 	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/pkg/globals"
 	"github.com/zenstats/zenstats/pkg/utils"
@@ -18,7 +20,7 @@ import (
 
 // ingestLimiter 事件采集限频器，按站点域名维度限流。
 type ingestLimiter struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	windows map[string]*ingestWindow
 }
 
@@ -27,8 +29,23 @@ type ingestWindow struct {
 	resetTime time.Time
 }
 
-var limiter = &ingestLimiter{
-	windows: make(map[string]*ingestWindow),
+var limiter = newIngestLimiter()
+
+func newIngestLimiter() *ingestLimiter {
+	l := &ingestLimiter{
+		windows: make(map[string]*ingestWindow),
+	}
+	go l.cleanupLoop()
+	return l
+}
+
+// cleanupLoop 每 5 分钟清理一次过期窗口，避免每次请求都遍历 map。
+func (l *ingestLimiter) cleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		l.cleanup()
+	}
 }
 
 // allow 检查指定域名是否允许采集。当站点未配置限频（scale=0 或 limit=0）时不限流。
@@ -36,24 +53,41 @@ func (l *ingestLimiter) allow(domain string, scaleSeconds, limitPerMinute int) b
 	if scaleSeconds <= 0 || limitPerMinute <= 0 {
 		return true
 	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
 
 	now := time.Now()
 	key := fmt.Sprintf("%s:%d:%d", domain, scaleSeconds, limitPerMinute)
+
+	// 先用读锁快速检查是否存在且未过期
+	l.mu.RLock()
 	w, exists := l.windows[key]
-	if !exists || now.After(w.resetTime) {
-		w = &ingestWindow{
-			count:     1,
-			resetTime: now.Add(time.Duration(scaleSeconds) * time.Second),
+	l.mu.RUnlock()
+
+	if exists && now.Before(w.resetTime) {
+		// 窗口未过期，用写锁更新计数
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		if w.count >= limitPerMinute {
+			return false
 		}
-		l.windows[key] = w
+		w.count++
 		return true
 	}
-	if w.count >= limitPerMinute {
-		return false
+
+	// 窗口不存在或已过期，用写锁创建/重置窗口
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	// double-check：其他 goroutine 可能已更新
+	if w, exists = l.windows[key]; exists && now.Before(w.resetTime) {
+		if w.count >= limitPerMinute {
+			return false
+		}
+		w.count++
+		return true
 	}
-	w.count++
+	l.windows[key] = &ingestWindow{
+		count:     1,
+		resetTime: now.Add(time.Duration(scaleSeconds) * time.Second),
+	}
 	return true
 }
 
@@ -67,6 +101,107 @@ func (l *ingestLimiter) cleanup() {
 			delete(l.windows, k)
 		}
 	}
+}
+
+// verifyRequestOrigin 验证请求来源是否匹配域名。
+// allowedOrigins 是管理员配置的额外允许来源列表（逗号分隔），支持通配符（如 *.example.com）。
+// 如果 Origin 和 Referer 都不存在（非浏览器客户端），放行。
+func verifyRequestOrigin(c *gin.Context, domain string, allowedOrigins string) bool {
+	origin := c.GetHeader("Origin")
+	referer := c.GetHeader("Referer")
+
+	// 两个头部都不存在 → 非浏览器客户端（如服务端 SDK），放行
+	if origin == "" && referer == "" {
+		return true
+	}
+
+	// 只解析一次 host，避免重复扫描
+	originHost := extractHost(origin)
+	refererHost := extractHost(referer)
+
+	// 检查是否匹配站点自身域名
+	if matchOriginHost(originHost, domain) || matchOriginHost(refererHost, domain) {
+		return true
+	}
+
+	// 检查管理员配置的额外允许来源
+	if allowedOrigins != "" {
+		for _, extra := range strings.Split(allowedOrigins, ",") {
+			extra = strings.TrimSpace(extra)
+			if extra == "" {
+				continue
+			}
+			if matchOriginHost(originHost, extra) || matchOriginHost(refererHost, extra) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// extractHost 从 URL/Origin 字符串中提取主机部分（host），不含端口号和路径。
+// 支持带协议前缀（https://example.com）和裸主机名（example.com）两种格式。
+// 热路径优化：避免 range/数组分配，直接用 if-else 剥离协议前缀。
+func extractHost(raw string) string {
+	if raw == "" {
+		return ""
+	}
+
+	rest := raw
+
+	// 直接比较协议前缀，避免 range + 数组字面量分配
+	if len(raw) >= 8 && raw[:8] == "https://" {
+		rest = raw[8:]
+	} else if len(raw) >= 7 && raw[:7] == "http://" {
+		rest = raw[7:]
+	}
+
+	// 手动查找主机结束位置（遇到 / : ? # 即停止）
+	hostEnd := 0
+	for hostEnd < len(rest) {
+		c := rest[hostEnd]
+		if c == '/' || c == ':' || c == '?' || c == '#' {
+			break
+		}
+		hostEnd++
+	}
+
+	return rest[:hostEnd]
+}
+
+// matchOriginHost 检查主机名是否匹配域名模式。
+// pattern 支持两种格式：
+//   - 精确匹配：example.com、www.example.com
+//   - 通配符匹配：*.example.com（匹配所有子域名）
+//
+// 热路径优化：直接字节比较替代 strings.HasPrefix，消除函数调用。
+func matchOriginHost(host, pattern string) bool {
+	if host == "" || pattern == "" {
+		return false
+	}
+
+	// 直接检查 * 前缀，避免 strings.HasPrefix 函数调用
+	allowSub := len(pattern) >= 2 && pattern[0] == '*' && pattern[1] == '.'
+	baseDomain := pattern
+	if allowSub {
+		baseDomain = pattern[2:]
+	}
+
+	// 精确匹配：长度不等的字符串在 Go 中 O(1) 快速返回
+	if host == baseDomain {
+		return true
+	}
+
+	// 通配符子域名匹配：sub.example.com 匹配 *.example.com
+	// host 必须比 baseDomain 长至少 2 字符（1 子域名标签 + 1 点号）
+	if allowSub && len(host) > len(baseDomain) &&
+		host[len(host)-len(baseDomain)-1] == '.' &&
+		host[len(host)-len(baseDomain):] == baseDomain {
+		return true
+	}
+
+	return false
 }
 
 // setEventRequestDefaults 设置 EventRequest 的默认值
@@ -108,7 +243,7 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 		var tempReq common.TempEventRequest
 		body, err := c.GetRawData()
 		if err != nil {
-			slog.Error("failed to get raw data", "error", err)
+			slog.Debug("failed to get raw data", "error", err)
 			c.JSON(http.StatusBadRequest, "bad")
 			return
 		}
@@ -116,7 +251,7 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 
 		err = json.Unmarshal(body, &tempReq)
 		if err != nil {
-			slog.Error("failed to unmarshal request body", "error", err)
+			slog.Debug("failed to unmarshal request body", "error", err)
 			c.JSON(http.StatusBadRequest, "bad")
 			return
 		}
@@ -129,26 +264,72 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 
 		can, err := siteService.IsDomainInList(c, tempReq.Domain)
 		if err != nil {
-			slog.Error("failed to check domain", "error", err)
+			slog.Debug("failed to check domain", "error", err)
 			c.JSON(http.StatusBadRequest, "bad")
 			return
 		}
 		if !can {
-			slog.Warn("domain not allowed", "domain", tempReq.Domain)
+			slog.Debug("domain not allowed", "domain", tempReq.Domain)
 			c.JSON(http.StatusBadRequest, "bad")
 			return
 		}
 
+		// 验证检查：仅接受已验证站点的事件
+		site, err := siteService.GetVerifiedSiteByDomain(c, tempReq.Domain)
+		if err != nil {
+			slog.Debug("site not verified", "domain", tempReq.Domain, "error", err)
+			c.JSON(http.StatusBadRequest, "bad")
+			return
+		}
+
+		// 验证请求来源
+		if !verifyRequestOrigin(c, tempReq.Domain, site.AllowedOrigins) {
+			slog.Warn("event rejected: invalid request origin",
+				"domain", tempReq.Domain,
+				"origin", c.GetHeader("Origin"),
+				"referer", c.GetHeader("Referer"),
+			)
+			c.JSON(http.StatusForbidden, "forbidden")
+			return
+		}
+
 		// 限频检查：仅在站点配置了限频时生效
-		site, err := siteService.GetSiteByDomain(c, tempReq.Domain)
-		if err == nil {
+		if site != nil {
 			if !limiter.allow(tempReq.Domain, site.IngestRateLimitScaleSeconds, site.IngestLimitPerMinute) {
+				slog.Warn("rate limit exceeded",
+					"domain", tempReq.Domain,
+					"rate_limit_scale_seconds", site.IngestRateLimitScaleSeconds,
+					"limit_per_minute", site.IngestLimitPerMinute,
+				)
 				c.JSON(http.StatusTooManyRequests, "rate limit exceeded")
 				return
 			}
 		}
-		// 定期清理过期窗口
-		limiter.cleanup()
+
+		// 月事件数配额检查
+		if site != nil {
+			ownerUserID, err := siteService.GetSiteOwnerUserID(c, site.ID)
+			if err == nil && ownerUserID > 0 {
+				userService := service.GetUserService()
+				user, err := userService.GetUserWithConfig(c, ownerUserID)
+				if err == nil && user.Edges.UserConfig != nil && user.Edges.UserConfig.Edges.Group != nil {
+					maxEvents := user.Edges.UserConfig.Edges.Group.MaxMonthlyEvents
+					if maxEvents != -1 {
+						quota := event.GetMonthlyQuota()
+						currentCount := quota.Increment(ownerUserID)
+						if currentCount > int64(maxEvents) {
+							// 超限，丢弃事件
+							c.JSON(http.StatusTooManyRequests, "monthly event limit exceeded")
+							return
+						}
+					} else {
+						// 无限制但仍需计数
+						quota := event.GetMonthlyQuota()
+						quota.Increment(ownerUserID)
+					}
+				}
+			}
+		}
 
 		req := common.EventRequest{
 			Timestamp:      tempReq.Timestamp,

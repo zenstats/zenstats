@@ -13,21 +13,33 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emailverificationtoken"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/userconfig"
 )
 
 // UserQuery is the builder for querying User entities.
 type UserQuery struct {
 	config
-	ctx                 *QueryContext
-	order               []user.OrderOption
-	inters              []Interceptor
-	predicates          []predicate.User
-	withAPIKeys         *APIKeyQuery
-	withSiteMemberships *SiteMembershipQuery
-	withFKs             bool
+	ctx                         *QueryContext
+	order                       []user.OrderOption
+	inters                      []Interceptor
+	predicates                  []predicate.User
+	withAPIKeys                 *APIKeyQuery
+	withSiteMemberships         *SiteMembershipQuery
+	withUserConfig              *UserConfigQuery
+	withCustomSearchEngines     *CustomSearchEngineQuery
+	withSubAccounts             *SubAccountQuery
+	withPasswordResetTokens     *PasswordResetTokenQuery
+	withEmailVerificationTokens *EmailVerificationTokenQuery
+	withMonthlyEventCounts      *MonthlyEventCountQuery
+	withFKs                     bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -101,6 +113,138 @@ func (uq *UserQuery) QuerySiteMemberships() *SiteMembershipQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(sitemembership.Table, sitemembership.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.SiteMembershipsTable, user.SiteMembershipsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryUserConfig chains the current query on the "user_config" edge.
+func (uq *UserQuery) QueryUserConfig() *UserConfigQuery {
+	query := (&UserConfigClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(userconfig.Table, userconfig.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, user.UserConfigTable, user.UserConfigColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCustomSearchEngines chains the current query on the "custom_search_engines" edge.
+func (uq *UserQuery) QueryCustomSearchEngines() *CustomSearchEngineQuery {
+	query := (&CustomSearchEngineClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(customsearchengine.Table, customsearchengine.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.CustomSearchEnginesTable, user.CustomSearchEnginesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySubAccounts chains the current query on the "sub_accounts" edge.
+func (uq *UserQuery) QuerySubAccounts() *SubAccountQuery {
+	query := (&SubAccountClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(subaccount.Table, subaccount.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.SubAccountsTable, user.SubAccountsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryPasswordResetTokens chains the current query on the "password_reset_tokens" edge.
+func (uq *UserQuery) QueryPasswordResetTokens() *PasswordResetTokenQuery {
+	query := (&PasswordResetTokenClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(passwordresettoken.Table, passwordresettoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.PasswordResetTokensTable, user.PasswordResetTokensColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryEmailVerificationTokens chains the current query on the "email_verification_tokens" edge.
+func (uq *UserQuery) QueryEmailVerificationTokens() *EmailVerificationTokenQuery {
+	query := (&EmailVerificationTokenClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(emailverificationtoken.Table, emailverificationtoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.EmailVerificationTokensTable, user.EmailVerificationTokensColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMonthlyEventCounts chains the current query on the "monthly_event_counts" edge.
+func (uq *UserQuery) QueryMonthlyEventCounts() *MonthlyEventCountQuery {
+	query := (&MonthlyEventCountClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(monthlyeventcount.Table, monthlyeventcount.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.MonthlyEventCountsTable, user.MonthlyEventCountsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
@@ -295,13 +439,19 @@ func (uq *UserQuery) Clone() *UserQuery {
 		return nil
 	}
 	return &UserQuery{
-		config:              uq.config,
-		ctx:                 uq.ctx.Clone(),
-		order:               append([]user.OrderOption{}, uq.order...),
-		inters:              append([]Interceptor{}, uq.inters...),
-		predicates:          append([]predicate.User{}, uq.predicates...),
-		withAPIKeys:         uq.withAPIKeys.Clone(),
-		withSiteMemberships: uq.withSiteMemberships.Clone(),
+		config:                      uq.config,
+		ctx:                         uq.ctx.Clone(),
+		order:                       append([]user.OrderOption{}, uq.order...),
+		inters:                      append([]Interceptor{}, uq.inters...),
+		predicates:                  append([]predicate.User{}, uq.predicates...),
+		withAPIKeys:                 uq.withAPIKeys.Clone(),
+		withSiteMemberships:         uq.withSiteMemberships.Clone(),
+		withUserConfig:              uq.withUserConfig.Clone(),
+		withCustomSearchEngines:     uq.withCustomSearchEngines.Clone(),
+		withSubAccounts:             uq.withSubAccounts.Clone(),
+		withPasswordResetTokens:     uq.withPasswordResetTokens.Clone(),
+		withEmailVerificationTokens: uq.withEmailVerificationTokens.Clone(),
+		withMonthlyEventCounts:      uq.withMonthlyEventCounts.Clone(),
 		// clone intermediate query.
 		sql:  uq.sql.Clone(),
 		path: uq.path,
@@ -327,6 +477,72 @@ func (uq *UserQuery) WithSiteMemberships(opts ...func(*SiteMembershipQuery)) *Us
 		opt(query)
 	}
 	uq.withSiteMemberships = query
+	return uq
+}
+
+// WithUserConfig tells the query-builder to eager-load the nodes that are connected to
+// the "user_config" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithUserConfig(opts ...func(*UserConfigQuery)) *UserQuery {
+	query := (&UserConfigClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withUserConfig = query
+	return uq
+}
+
+// WithCustomSearchEngines tells the query-builder to eager-load the nodes that are connected to
+// the "custom_search_engines" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithCustomSearchEngines(opts ...func(*CustomSearchEngineQuery)) *UserQuery {
+	query := (&CustomSearchEngineClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withCustomSearchEngines = query
+	return uq
+}
+
+// WithSubAccounts tells the query-builder to eager-load the nodes that are connected to
+// the "sub_accounts" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithSubAccounts(opts ...func(*SubAccountQuery)) *UserQuery {
+	query := (&SubAccountClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withSubAccounts = query
+	return uq
+}
+
+// WithPasswordResetTokens tells the query-builder to eager-load the nodes that are connected to
+// the "password_reset_tokens" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithPasswordResetTokens(opts ...func(*PasswordResetTokenQuery)) *UserQuery {
+	query := (&PasswordResetTokenClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withPasswordResetTokens = query
+	return uq
+}
+
+// WithEmailVerificationTokens tells the query-builder to eager-load the nodes that are connected to
+// the "email_verification_tokens" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithEmailVerificationTokens(opts ...func(*EmailVerificationTokenQuery)) *UserQuery {
+	query := (&EmailVerificationTokenClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withEmailVerificationTokens = query
+	return uq
+}
+
+// WithMonthlyEventCounts tells the query-builder to eager-load the nodes that are connected to
+// the "monthly_event_counts" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithMonthlyEventCounts(opts ...func(*MonthlyEventCountQuery)) *UserQuery {
+	query := (&MonthlyEventCountClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withMonthlyEventCounts = query
 	return uq
 }
 
@@ -409,9 +625,15 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		nodes       = []*User{}
 		withFKs     = uq.withFKs
 		_spec       = uq.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [8]bool{
 			uq.withAPIKeys != nil,
 			uq.withSiteMemberships != nil,
+			uq.withUserConfig != nil,
+			uq.withCustomSearchEngines != nil,
+			uq.withSubAccounts != nil,
+			uq.withPasswordResetTokens != nil,
+			uq.withEmailVerificationTokens != nil,
+			uq.withMonthlyEventCounts != nil,
 		}
 	)
 	if withFKs {
@@ -446,6 +668,55 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := uq.loadSiteMemberships(ctx, query, nodes,
 			func(n *User) { n.Edges.SiteMemberships = []*SiteMembership{} },
 			func(n *User, e *SiteMembership) { n.Edges.SiteMemberships = append(n.Edges.SiteMemberships, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withUserConfig; query != nil {
+		if err := uq.loadUserConfig(ctx, query, nodes, nil,
+			func(n *User, e *UserConfig) { n.Edges.UserConfig = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withCustomSearchEngines; query != nil {
+		if err := uq.loadCustomSearchEngines(ctx, query, nodes,
+			func(n *User) { n.Edges.CustomSearchEngines = []*CustomSearchEngine{} },
+			func(n *User, e *CustomSearchEngine) {
+				n.Edges.CustomSearchEngines = append(n.Edges.CustomSearchEngines, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withSubAccounts; query != nil {
+		if err := uq.loadSubAccounts(ctx, query, nodes,
+			func(n *User) { n.Edges.SubAccounts = []*SubAccount{} },
+			func(n *User, e *SubAccount) { n.Edges.SubAccounts = append(n.Edges.SubAccounts, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withPasswordResetTokens; query != nil {
+		if err := uq.loadPasswordResetTokens(ctx, query, nodes,
+			func(n *User) { n.Edges.PasswordResetTokens = []*PasswordResetToken{} },
+			func(n *User, e *PasswordResetToken) {
+				n.Edges.PasswordResetTokens = append(n.Edges.PasswordResetTokens, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withEmailVerificationTokens; query != nil {
+		if err := uq.loadEmailVerificationTokens(ctx, query, nodes,
+			func(n *User) { n.Edges.EmailVerificationTokens = []*EmailVerificationToken{} },
+			func(n *User, e *EmailVerificationToken) {
+				n.Edges.EmailVerificationTokens = append(n.Edges.EmailVerificationTokens, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withMonthlyEventCounts; query != nil {
+		if err := uq.loadMonthlyEventCounts(ctx, query, nodes,
+			func(n *User) { n.Edges.MonthlyEventCounts = []*MonthlyEventCount{} },
+			func(n *User, e *MonthlyEventCount) {
+				n.Edges.MonthlyEventCounts = append(n.Edges.MonthlyEventCounts, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -497,6 +768,183 @@ func (uq *UserQuery) loadSiteMemberships(ctx context.Context, query *SiteMembers
 	}
 	query.Where(predicate.SiteMembership(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(user.SiteMembershipsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (uq *UserQuery) loadUserConfig(ctx context.Context, query *UserConfigQuery, nodes []*User, init func(*User), assign func(*User, *UserConfig)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(userconfig.FieldUserID)
+	}
+	query.Where(predicate.UserConfig(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.UserConfigColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (uq *UserQuery) loadCustomSearchEngines(ctx context.Context, query *CustomSearchEngineQuery, nodes []*User, init func(*User), assign func(*User, *CustomSearchEngine)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(customsearchengine.FieldUserID)
+	}
+	query.Where(predicate.CustomSearchEngine(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.CustomSearchEnginesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (uq *UserQuery) loadSubAccounts(ctx context.Context, query *SubAccountQuery, nodes []*User, init func(*User), assign func(*User, *SubAccount)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(subaccount.FieldParentUserID)
+	}
+	query.Where(predicate.SubAccount(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.SubAccountsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ParentUserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "parent_user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (uq *UserQuery) loadPasswordResetTokens(ctx context.Context, query *PasswordResetTokenQuery, nodes []*User, init func(*User), assign func(*User, *PasswordResetToken)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(passwordresettoken.FieldUserID)
+	}
+	query.Where(predicate.PasswordResetToken(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.PasswordResetTokensColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (uq *UserQuery) loadEmailVerificationTokens(ctx context.Context, query *EmailVerificationTokenQuery, nodes []*User, init func(*User), assign func(*User, *EmailVerificationToken)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(emailverificationtoken.FieldUserID)
+	}
+	query.Where(predicate.EmailVerificationToken(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.EmailVerificationTokensColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (uq *UserQuery) loadMonthlyEventCounts(ctx context.Context, query *MonthlyEventCountQuery, nodes []*User, init func(*User), assign func(*User, *MonthlyEventCount)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(monthlyeventcount.FieldUserID)
+	}
+	query.Where(predicate.MonthlyEventCount(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.MonthlyEventCountsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

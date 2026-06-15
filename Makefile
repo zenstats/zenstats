@@ -94,13 +94,21 @@ docker-build:
 	@docker build -t zenstats:latest .
 	@echo "Docker image built: zenstats:latest"
 
-# 数据库迁移
+# 数据库迁移（服务已运行时用 exec，否则用 run）
 docker-migrate:
-	@cd deploy && docker compose run --rm zenstats migrate
+	@cd deploy && if docker compose ps zenstats --status running -q 2>/dev/null | grep -q .; then \
+		docker compose exec zenstats /app/zenstats migrate; \
+	else \
+		docker compose run --rm zenstats migrate; \
+	fi
 	@echo "Migration complete"
 
 docker-seed:
-	@cd deploy && docker compose run --rm zenstats seed
+	@cd deploy && if docker compose ps zenstats --status running -q 2>/dev/null | grep -q .; then \
+		docker compose exec zenstats /app/zenstats seed; \
+	else \
+		docker compose run --rm zenstats seed; \
+	fi
 	@echo "Seed complete"
 
 # ---- Tracker ----

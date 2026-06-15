@@ -28,10 +28,18 @@ const (
 	FieldIngestRateLimitScaleSeconds = "ingest_rate_limit_scale_seconds"
 	// FieldIngestLimitPerMinute holds the string denoting the ingest_limit_per_minute field in the database.
 	FieldIngestLimitPerMinute = "ingest_limit_per_minute"
+	// FieldAllowedOrigins holds the string denoting the allowed_origins field in the database.
+	FieldAllowedOrigins = "allowed_origins"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
+	// FieldVerificationToken holds the string denoting the verification_token field in the database.
+	FieldVerificationToken = "verification_token"
+	// FieldIsVerified holds the string denoting the is_verified field in the database.
+	FieldIsVerified = "is_verified"
+	// FieldVerifiedAt holds the string denoting the verified_at field in the database.
+	FieldVerifiedAt = "verified_at"
 	// EdgeFunnels holds the string denoting the funnels edge name in mutations.
 	EdgeFunnels = "funnels"
 	// EdgeMembers holds the string denoting the members edge name in mutations.
@@ -109,8 +117,12 @@ var Columns = []string{
 	FieldStatsStartDate,
 	FieldIngestRateLimitScaleSeconds,
 	FieldIngestLimitPerMinute,
+	FieldAllowedOrigins,
 	FieldCreatedAt,
 	FieldUpdatedAt,
+	FieldVerificationToken,
+	FieldIsVerified,
+	FieldVerifiedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -138,12 +150,18 @@ var (
 	DefaultIngestRateLimitScaleSeconds int
 	// DefaultIngestLimitPerMinute holds the default value on creation for the "ingest_limit_per_minute" field.
 	DefaultIngestLimitPerMinute int
+	// AllowedOriginsValidator is a validator for the "allowed_origins" field. It is called by the builders before save.
+	AllowedOriginsValidator func(string) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
 	DefaultUpdatedAt func() time.Time
 	// UpdateDefaultUpdatedAt holds the default value on update for the "updated_at" field.
 	UpdateDefaultUpdatedAt func() time.Time
+	// VerificationTokenValidator is a validator for the "verification_token" field. It is called by the builders before save.
+	VerificationTokenValidator func(string) error
+	// DefaultIsVerified holds the default value on creation for the "is_verified" field.
+	DefaultIsVerified bool
 )
 
 // OrderOption defines the ordering options for the Site queries.
@@ -189,6 +207,11 @@ func ByIngestLimitPerMinute(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIngestLimitPerMinute, opts...).ToFunc()
 }
 
+// ByAllowedOrigins orders the results by the allowed_origins field.
+func ByAllowedOrigins(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAllowedOrigins, opts...).ToFunc()
+}
+
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
@@ -197,6 +220,21 @@ func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByUpdatedAt orders the results by the updated_at field.
 func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
+}
+
+// ByVerificationToken orders the results by the verification_token field.
+func ByVerificationToken(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVerificationToken, opts...).ToFunc()
+}
+
+// ByIsVerified orders the results by the is_verified field.
+func ByIsVerified(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldIsVerified, opts...).ToFunc()
+}
+
+// ByVerifiedAt orders the results by the verified_at field.
+func ByVerifiedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVerifiedAt, opts...).ToFunc()
 }
 
 // ByFunnelsCount orders the results by funnels count.

@@ -25,22 +25,17 @@ import (
 //	@Router			/sites/{domain} [put]
 func (h *SitesHandler) Update() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		domain := c.Param("domain")
-		_, err := h.service.GetSiteByDomain(c, domain)
-		if err != nil {
-			response.Error(c, http.StatusInternalServerError, err)
-			return
-		}
+		siteID := c.GetInt64("site_id")
 
 		var req types.UpdateSiteRequest
 
-		if err = c.ShouldBindJSON(&req); err != nil {
+		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
 
 		// 传递整个 req 结构体到服务层
-		site, err := h.service.UpdateSite(c, domain, req)
+		site, err := h.service.UpdateSite(c, siteID, req)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return

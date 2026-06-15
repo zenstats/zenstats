@@ -9,8 +9,8 @@ type CreateSiteRequest struct {
 	Domain                      string `json:"domain" binding:"required" maxLength:"255" example:"example.com"`
 	Timezone                    string `json:"timezone" maxLength:"255" example:"Asia/Shanghai"`
 	Remark                      string `json:"remark" maxLength:"255" example:"官网"`
-	IngestRateLimitScaleSeconds int    `json:"rate_seconds" binding:"omitempty,min=1,max=3600" example:"60"`
-	IngestLimitPerMinute        int    `json:"limit_minute" binding:"omitempty,min=1,max=10000000" example:"600"`
+	IngestRateLimitScaleSeconds int    `json:"rate_seconds" binding:"omitempty,min=0,max=3600" example:"60"`
+	IngestLimitPerMinute        int    `json:"limit_minute" binding:"omitempty,min=0,max=10000000" example:"600"`
 }
 
 // UpdateSiteRequest 更新站点请求参数，支持部分更新（可选字段使用指针类型）。
@@ -19,18 +19,22 @@ type UpdateSiteRequest struct {
 	Public                      *bool     `json:"public" binding:"omitempty,boolean"`
 	Remark                      string    `json:"remark" binding:"omitempty,max=255"`
 	StatsStartDate              time.Time `json:"stats_start_date" binding:"omitempty,datetime"`
-	IngestRateLimitScaleSeconds *int      `json:"rate_seconds" binding:"omitempty,min=1,max=3600"`
-	IngestLimitPerMinute        *int      `json:"limit_minute" binding:"omitempty,min=1,max=10000000"`
+	IngestRateLimitScaleSeconds *int      `json:"rate_seconds" binding:"omitempty,min=0,max=3600"`
+	IngestLimitPerMinute        *int      `json:"limit_minute" binding:"omitempty,min=0,max=10000000"`
+	AllowedOrigins              *string   `json:"allowed_origins" binding:"omitempty,max=2048"`
 }
 
 // SiteWithRemark 包含备注信息的站点响应结构。
 type SiteWithRemark struct {
-	ID                          int64  `json:"id"`
-	Domain                      string `json:"domain"`
-	Timezone                    string `json:"timezone"`
-	Remark                      string `json:"remark"`
-	IngestRateLimitScaleSeconds int    `json:"rate_seconds"`
-	IngetLimitPerMinute         int    `json:"limit_minute"`
+	ID                          int64      `json:"id"`
+	Domain                      string     `json:"domain"`
+	Timezone                    string     `json:"timezone"`
+	Remark                      string     `json:"remark"`
+	IngestRateLimitScaleSeconds int        `json:"rate_seconds"`
+	IngetLimitPerMinute         int        `json:"limit_minute"`
+	AllowedOrigins              string     `json:"allowed_origins"`
+	IsVerified                  bool       `json:"is_verified"`
+	VerifiedAt                  *time.Time `json:"verified_at,omitempty"`
 }
 
 // SiteResponse 站点详细信息响应结构。
@@ -76,4 +80,12 @@ type ShieldRuleIPResponse struct {
 	AddedBy     string    `json:"added_by"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// SiteVerificationStatus 站点验证状态响应结构。
+type SiteVerificationStatus struct {
+	Domain            string     `json:"domain"`
+	IsVerified        bool       `json:"is_verified"`
+	VerificationToken string     `json:"verification_token,omitempty"`
+	VerifiedAt        *time.Time `json:"verified_at,omitempty"`
 }

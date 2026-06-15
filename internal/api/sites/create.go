@@ -1,6 +1,8 @@
 package sites
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -34,6 +36,37 @@ func (h *SitesHandler) Create() gin.HandlerFunc {
 		// 判断 req.Timezone 是否是有效的时区
 		if _, err := time.LoadLocation(req.Timezone); err != nil {
 			response.Error(c, http.StatusBadRequest, err)
+			return
+		}
+
+		// 检查用户站点配额
+		userID, _ := c.Get("user_id")
+		uid := userID.(int64)
+		userService := service.GetUserService()
+		user, err := userService.GetUserWithConfig(c.Request.Context(), uid)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, err)
+			return
+		}
+		if user.Edges.UserConfig != nil && user.Edges.UserConfig.Edges.Group != nil {
+			maxSites := user.Edges.UserConfig.Edges.Group.MaxSites
+			if maxSites != -1 {
+				siteCount, err := h.service.GetUserSiteCount(c.Request.Context(), uid)
+				if err != nil {
+					response.Error(c, http.StatusInternalServerError, err)
+					return
+				}
+				if siteCount >= maxSites {
+					response.Error(c, http.StatusForbidden, errors.New("site limit reached for your plan"))
+					return
+				}
+			}
+		}
+
+		// 检查该域名是否已被其他用户验证
+		existingVerified, _ := h.service.GetVerifiedSiteByDomain(c.Request.Context(), req.Domain)
+		if existingVerified != nil {
+			response.Error(c, http.StatusConflict, fmt.Errorf("domain %s is already verified by another user, your site will not receive data", req.Domain))
 			return
 		}
 

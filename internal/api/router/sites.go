@@ -14,26 +14,30 @@ func RegisterSitesRouter(router *gin.RouterGroup) {
 
 	site := router.Use(middleware.JWTAuth())
 	site.GET("/sites", siteHandle.List())
-	site.GET("/sites/:domain", siteHandle.Info())
-	site.POST("/sites", siteHandle.Create())
-	site.PUT("/sites/:domain", siteHandle.Update())
-	site.DELETE("/sites/:domain", siteHandle.Delete())
+	site.GET("/sites/:domain", middleware.SiteMembershipAuth(), siteHandle.Info())
+	site.POST("/sites", middleware.SubAccountReadOnly(), siteHandle.Create())
+	site.PUT("/sites/:domain", middleware.SubAccountReadOnly(), middleware.SiteMembershipAuth(), siteHandle.Update())
+	site.DELETE("/sites/:domain", middleware.SubAccountReadOnly(), middleware.SiteMembershipAuth(), siteHandle.Delete())
+
+	// Site Verification
+	site.GET("/sites/:domain/verification-status", middleware.SiteMembershipAuth(), siteHandle.VerificationStatus())
+	site.POST("/sites/:domain/verify", middleware.SiteMembershipAuth(), siteHandle.Verify())
 
 	// Shield Rules Management
-	shieldRules := router.Group("sites/:domain/shield", middleware.JWTAuth())
+	shieldRules := router.Group("sites/:domain/shield", middleware.JWTAuth(), middleware.SiteMembershipAuth())
 
 	// IP Rules
 	shieldRules.GET("/ip", siteHandle.ListShieldRuleIP())
-	shieldRules.POST("/ip", siteHandle.AddShieldRuleIP())
-	shieldRules.DELETE("/ip/:ruleId", siteHandle.RemoveShieldRuleIP())
+	shieldRules.POST("/ip", middleware.SubAccountReadOnly(), siteHandle.AddShieldRuleIP())
+	shieldRules.DELETE("/ip/:ruleId", middleware.SubAccountReadOnly(), siteHandle.RemoveShieldRuleIP())
 
 	// Hostname Rules
 	shieldRules.GET("/hostname", siteHandle.ListShieldRuleHostname())
-	shieldRules.POST("/hostname", siteHandle.AddShieldRuleHostname())
-	shieldRules.DELETE("/hostname/:ruleId", siteHandle.RemoveShieldRuleHostname())
+	shieldRules.POST("/hostname", middleware.SubAccountReadOnly(), siteHandle.AddShieldRuleHostname())
+	shieldRules.DELETE("/hostname/:ruleId", middleware.SubAccountReadOnly(), siteHandle.RemoveShieldRuleHostname())
 
 	// Country Rules
 	shieldRules.GET("/country", siteHandle.ListShieldRuleCountry())
-	shieldRules.POST("/country", siteHandle.AddShieldRuleCountry())
-	shieldRules.DELETE("/country/:ruleId", siteHandle.RemoveShieldRuleCountry())
+	shieldRules.POST("/country", middleware.SubAccountReadOnly(), siteHandle.AddShieldRuleCountry())
+	shieldRules.DELETE("/country/:ruleId", middleware.SubAccountReadOnly(), siteHandle.RemoveShieldRuleCountry())
 }

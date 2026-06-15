@@ -13,16 +13,24 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emailverificationtoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/systemconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/userconfig"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/usergroup"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/usersession"
 )
 
@@ -84,18 +92,26 @@ var (
 func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			apikey.Table:              apikey.ValidColumn,
-			funnel.Table:              funnel.ValidColumn,
-			funnelstep.Table:          funnelstep.ValidColumn,
-			goal.Table:                goal.ValidColumn,
-			searchengines.Table:       searchengines.ValidColumn,
-			shieldrulescountry.Table:  shieldrulescountry.ValidColumn,
-			shieldruleshostname.Table: shieldruleshostname.ValidColumn,
-			shieldrulesip.Table:       shieldrulesip.ValidColumn,
-			site.Table:                site.ValidColumn,
-			sitemembership.Table:      sitemembership.ValidColumn,
-			user.Table:                user.ValidColumn,
-			usersession.Table:         usersession.ValidColumn,
+			apikey.Table:                 apikey.ValidColumn,
+			customsearchengine.Table:     customsearchengine.ValidColumn,
+			emailverificationtoken.Table: emailverificationtoken.ValidColumn,
+			funnel.Table:                 funnel.ValidColumn,
+			funnelstep.Table:             funnelstep.ValidColumn,
+			goal.Table:                   goal.ValidColumn,
+			monthlyeventcount.Table:      monthlyeventcount.ValidColumn,
+			passwordresettoken.Table:     passwordresettoken.ValidColumn,
+			searchengines.Table:          searchengines.ValidColumn,
+			shieldrulescountry.Table:     shieldrulescountry.ValidColumn,
+			shieldruleshostname.Table:    shieldruleshostname.ValidColumn,
+			shieldrulesip.Table:          shieldrulesip.ValidColumn,
+			site.Table:                   site.ValidColumn,
+			sitemembership.Table:         sitemembership.ValidColumn,
+			subaccount.Table:             subaccount.ValidColumn,
+			systemconfig.Table:           systemconfig.ValidColumn,
+			user.Table:                   user.ValidColumn,
+			userconfig.Table:             userconfig.ValidColumn,
+			usergroup.Table:              usergroup.ValidColumn,
+			usersession.Table:            usersession.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)
