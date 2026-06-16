@@ -81,7 +81,11 @@ zenstats/
 │   │   ├── external/      # 事件采集接口
 │   │   ├── goals/         # 目标管理接口
 │   │   ├── funnels/       # 漏斗管理接口
-│   │   └── apikeys/       # API Key 管理接口
+│   │   ├── apikeys/       # API Key 管理接口
+│   │   ├── user/          # 用户相关接口
+│   │   ├── import/        # 数据导入接口
+│   │   ├── admin/         # 管理员接口
+│   │   └── health/        # 健康检查接口
 │   │
 │   ├── service/           # 业务服务层
 │   │   ├── stats/         # 统计查询服务
@@ -333,24 +337,52 @@ Sessions 表 (VersionedCollapsingMergeTree)
 
 ```
 /api/
-├── event                    # 事件采集（外部）
+├── health                   # 健康检查（GET）
+├── event                    # 事件采集（外部埋点 POST）
 ├── auth/                    # 认证
-│   ├── login               # 登录
-│   ├── register            # 注册
-│   └── setup               # 初始设置
-├── v1/                      # 管理 API
-│   ├── sites/              # 站点管理
-│   ├── goals/              # 目标管理
-│   ├── funnels/            # 漏斗管理
-│   └── apikeys/            # API Key 管理
-├── stats/                   # 统计 API
+│   ├── init                # 系统初始化（POST）
+│   ├── login               # 用户登录（POST）
+│   ├── sub-login           # 子账号登录（POST）
+│   ├── register            # 用户注册（POST）
+│   ├── refresh             # 刷新令牌（GET）
+│   ├── state               # 系统初始化状态（GET）
+│   ├── verify-email        # 验证邮箱（GET）
+│   ├── forgot-password     # 忘记密码（POST）
+│   ├── reset-password      # 重置密码（POST）
+│   ├── send-verification   # 发送验证邮件（POST，需登录）
+│   ├── verification-status # 验证状态（GET，需登录）
+│   └── change-password     # 修改密码（POST，需登录）
+├── sites/                   # 站点管理（需 JWT）
 │   └── :domain/
-│       ├── aggregate       # 总览指标
-│       ├── main-graph      # 时序图表
-│       ├── breakdown       # 维度细分
-│       ├── current-visitors # 实时访客
-│       └── export          # 导出 CSV
-└── external/                # 外部接口
+│       ├── shield/ip/       # IP 屏蔽规则 CRUD
+│       ├── shield/hostname/ # 域名屏蔽规则 CRUD
+│       ├── shield/country/  # 国家屏蔽规则 CRUD
+│       ├── verification-status # 验证状态（GET）
+│       ├── verify           # 触发验证（POST）
+│       ├── funnels/          # 漏斗 CRUD
+│       ├── goals/            # 目标 CRUD
+│       └── import/           # GA4 历史数据导入与查询
+├── stats/:domain/           # 统计分析（JWT 或 API Key）
+│   ├── aggregate           # 总览指标
+│   ├── main-graph          # 主图表时序
+│   ├── time_series         # 时间序列（别名）
+│   ├── breakdown           # 维度细分排行
+│   ├── export              # CSV 导出
+│   ├── current-visitors    # 实时在线访客
+│   └── funnel/:funnelId    # 漏斗转化分析
+├── user/                    # 用户相关（需 JWT）
+│   ├── profile             # 个人资料（PUT）
+│   ├── quota               # 配额查询（GET）
+│   ├── search-engines/     # 自定义搜索引擎 CRUD
+│   └── sub-accounts/       # 子账号 CRUD + 重置密码
+├── apikeys/                 # API Key 管理（需 JWT）
+├── admin/                   # 管理员（需 JWT + Admin 角色）
+│   ├── users/              # 用户管理
+│   ├── groups/             # 套餐管理
+│   ├── sites/              # 站点管理
+│   ├── configs             # 系统配置
+│   └── stats               # 系统统计
+└── import/:domain/          # 数据导入（JWT 或 API Key）
 ```
 
 ### 认证方式

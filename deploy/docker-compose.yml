@@ -14,7 +14,8 @@ services:
     environment:
       - ZENSTATS_DOMAIN=${ZENSTATS_DOMAIN:-localhost}
     depends_on:
-      - zenstats
+      zenstats:
+        condition: service_healthy
 
   zenstats:
     build:
@@ -27,7 +28,10 @@ services:
       - APP_ENV=prod
       - GIN_MODE=release
       - ZENSTATS_DB_HOST=zenstats_db
-      - ZENSTATS_DB_PASSWORD=postgres
+      - ZENSTATS_DB_PORT=5432
+      - ZENSTATS_DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - ZENSTATS_DB_USERNAME=postgres
+      - ZENSTATS_DB_DATABASE=zenstats
       - ZENSTATS_CLICKHOUSE_ADDR=zenstats_events_db:9000
       - ZENSTATS_MAXMIND_LICENSE_KEY=${ZENSTATS_MAXMIND_LICENSE_KEY}
       - ZENSTATS_DOMAIN=${ZENSTATS_DOMAIN:-localhost}
@@ -38,24 +42,33 @@ services:
         condition: service_healthy
       zenstats_events_db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O - http://127.0.0.1:8080/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   zenstats_db:
     image: postgres:16-alpine
-    restart: always
+    restart: unless-stopped
     volumes:
       - db-data:/var/lib/postgresql/data
     expose:
       - "5432"
     environment:
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
       - POSTGRES_DB=zenstats
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      start_period: 1m
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   zenstats_events_db:
     image: clickhouse/clickhouse-server:24.12-alpine
-    restart: always
+    restart: unless-stopped
     volumes:
       - event-data:/var/lib/clickhouse
       - event-logs:/var/log/clickhouse-server
@@ -74,7 +87,10 @@ services:
       - CLICKHOUSE_DB=zenstats_events_db
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O - http://127.0.0.1:8123/ping || exit 1"]
-      start_period: 1m
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   db-data:

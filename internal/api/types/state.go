@@ -6,6 +6,9 @@ type StatsRequest struct {
 	Date            string `form:"date" binding:"omitempty"`
 	From            string `form:"from" binding:"omitempty"`
 	To              string `form:"to" binding:"omitempty"`
+	Compare         string `form:"compare" binding:"omitempty"`          // "1" = enable auto comparison vs previous period
+	CompareFrom     string `form:"compare_from" binding:"omitempty"`     // explicit compare start (optional)
+	CompareTo       string `form:"compare_to" binding:"omitempty"`       // explicit compare end (optional)
 	Interval        string `form:"interval" binding:"omitempty"`
 	Metrics         string `form:"metrics" binding:"omitempty"`
 	Limit           int    `form:"limit" binding:"omitempty"`

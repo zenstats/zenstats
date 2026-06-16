@@ -34,7 +34,7 @@ func NewGoalsHandler() *GoalsHandler {
 //	@Success		200			{object}	response.SuccessResponse{data=[]service.Goal}	"成功响应"
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
 //	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
-//	@Router			/api/sites/{domain}/goals [get]
+//	@Router			/sites/{domain}/goals [get]
 func (h *GoalsHandler) List() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		siteID, err := h.getSiteID(c)
@@ -67,7 +67,7 @@ func (h *GoalsHandler) List() gin.HandlerFunc {
 //	@Failure		400			{object}	response.ErrorResponse	"请求参数错误"
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
 //	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
-//	@Router			/api/sites/{domain}/goals [post]
+//	@Router			/sites/{domain}/goals [post]
 func (h *GoalsHandler) Create() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		siteID, err := h.getSiteID(c)
@@ -108,7 +108,7 @@ func (h *GoalsHandler) Create() gin.HandlerFunc {
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
 //	@Failure		404			{object}	response.ErrorResponse	"目标不存在"
 //	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
-//	@Router			/api/sites/{domain}/goals/{goalId} [put]
+//	@Router			/sites/{domain}/goals/{goalId} [put]
 func (h *GoalsHandler) Update() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		siteID, err := h.getSiteID(c)
@@ -152,7 +152,7 @@ func (h *GoalsHandler) Update() gin.HandlerFunc {
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
 //	@Failure		404			{object}	response.ErrorResponse	"目标不存在"
 //	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
-//	@Router			/api/sites/{domain}/goals/{goalId} [delete]
+//	@Router			/sites/{domain}/goals/{goalId} [delete]
 func (h *GoalsHandler) Delete() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		siteID, err := h.getSiteID(c)

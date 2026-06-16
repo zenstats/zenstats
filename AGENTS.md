@@ -83,7 +83,6 @@ config.init() → InitLog → InitWorkQueue → InitClickhouseTable → InitGeoI
 3. **先读后写**: 修改前理清调用链、入口、依赖顺序
 4. **禁止手动修改 ent 生成代码**: `internal/store/postgresql/ent/*_create.go` 等自动生成文件不得手动编辑
 5. **Schema 变更三步骤**: 改 ent schema 文件 → `make ent-generate` → `go run main.go migrate`
-6. **进度播报格式** (可选):
+6. **前端类型验证用 `tsc -b` 而非 `tsc --noEmit`**: Docker 构建使用 `tsc -b`（project references 模式），`tsc --noEmit` 不会触发该模式下的严格检查。修改前端代码后必须运行 `npx tsc -b` 验证类型，再用 `npx vite build` 构建。
+7. **进度播报格式**:
    > 🧩 步骤：{描述} / 🎯 目的：{原因} / ▶️ 执行：{操作} / ✅ 结果：{状态} / 🧾 证据：{可验证证据}
-7. **无额外 linter**: 项目不含 golangci-lint/staticcheck/revive，仅用 `go vet`
-8. **环境变量前缀**: `ZENSTATS_`，如 `ZENSTATS_DB_HOST`, `ZENSTATS_CLICKHOUSE_ADDR`

@@ -12,6 +12,7 @@ import (
 // @Summary		获取用户额度信息
 // @Description	获取当前用户的套餐额度及使用情况。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Success		200	{object}	response.SuccessResponse{data=types.UserQuotaInfo}	"额度信息"

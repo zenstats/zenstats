@@ -20,7 +20,7 @@ import (
 //	@Failure		400		{object}	response.ErrorResponse	"请求参数错误"
 //	@Failure		401		{object}	response.ErrorResponse	"未认证"
 //	@Failure		403		{object}	response.ErrorResponse	"无权限"
-//	@Failure		500		{object}(response.ErrorResponse	"服务器内部错误"
+//	@Failure		500		{object}	response.ErrorResponse	"服务器内部错误"
 //	@Router			/sites/{domain}/verification-status [get]
 func (h *SitesHandler) VerificationStatus() gin.HandlerFunc {
 	return func(c *gin.Context) {

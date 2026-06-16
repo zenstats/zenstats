@@ -3,6 +3,7 @@ package funnel
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -81,7 +82,7 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 	stepIndex := 0
 	for rows.Next() {
 		var visitors uint64
-		var stepOrder int
+		var stepOrder uint8
 
 		if err := rows.Scan(&stepOrder, &visitors); err != nil {
 			return nil, fmt.Errorf("failed to scan funnel result: %w", err)
@@ -93,7 +94,7 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 
 		step := req.Steps[stepOrder-1]
 		stepResults[stepIndex] = &FunnelStepResult{
-			StepOrder:      stepOrder,
+			StepOrder:      int(stepOrder),
 			GoalName:       step.GoalName,
 			Visitors:       visitors,
 			DropOff:        0,
@@ -134,58 +135,58 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 }
 
 // buildFunnelQuery 构建漏斗分析 SQL 查询。
-// 策略：使用 CTE (Common Table Expression) 和窗口函数
-// 对于 sequential 漏斗：每个步骤独立统计，允许其他活动在步骤之间发生
+// 策略：单次扫描事件表，使用 minIf 按步骤条件计算每个用户各步骤的最早触发时间，
+// 再通过 WHERE 比较时间戳确保严格时序。避免多表 JOIN 的列引用问题，性能更优。
 func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any) {
 	args := []any{req.SiteID, req.StartTime, req.EndTime}
 
-	// 构建每个步骤的 CTE
-	withClauses := make([]string, len(req.Steps))
-	stepNames := make([]string, len(req.Steps))
-
+	// 构建 per-step 条件表达式（用于 minIf 和 WHERE OR）
+	stepConds := make([]string, len(req.Steps))
+	orConds := make([]string, len(req.Steps))
 	for i, step := range req.Steps {
-		stepName := fmt.Sprintf("step_%d", i+1)
-		stepNames[i] = stepName
+		cond := s.buildGoalCondition(step, i+4)
+		stepConds[i] = cond
+		orConds[i] = cond
+		args = append(args, step.GoalValue)
+	}
 
-		// 根据 goal 类型构建不同的 WHERE 条件
-		whereCondition := s.buildGoalCondition(step, i+2) // 参数从 3 开始
+	// CTE: 单表扫描，每个用户一行，含各步骤的最早时间
+	minIfParts := make([]string, len(req.Steps))
+	for i := range req.Steps {
+		minIfParts[i] = fmt.Sprintf(`minIf(timestamp, %s) AS ts_%d`, stepConds[i], i+1)
+	}
 
-		withClauses[i] = fmt.Sprintf(`%s AS (
-			SELECT user_id
+	// 构建每个步骤的统计 SELECT
+	selectParts := make([]string, len(req.Steps))
+	for i := range req.Steps {
+		// 步骤 N 的 WHERE：前 N 步时间非空且严格递增
+		conds := make([]string, 0, i+1)
+		for j := 0; j <= i; j++ {
+			conds = append(conds, fmt.Sprintf(`ts_%d IS NOT NULL`, j+1))
+			if j > 0 {
+				conds = append(conds, fmt.Sprintf(`ts_%d > ts_%d`, j+1, j))
+			}
+		}
+		selectParts[i] = fmt.Sprintf(
+			`SELECT %d AS step_order, count(*) AS visitors FROM funnel_data WHERE %s`,
+			i+1, strings.Join(conds, " AND "),
+		)
+	}
+
+	query := fmt.Sprintf(
+		`WITH funnel_data AS (
+			SELECT user_id, %s
 			FROM zenstats_events_db.events
 			WHERE site_id = toUInt64($1)
 				AND timestamp >= $2
 				AND timestamp <= $3
-				AND %s
+				AND (%s)
 			GROUP BY user_id
-		)`, stepName, whereCondition)
-
-		args = append(args, step.GoalValue)
-	}
-
-	// 构建最终查询：计算每个步骤的用户数
-	// 使用 INTERSECT 来确保用户按顺序完成所有前面的步骤
-	selectParts := make([]string, len(req.Steps))
-	for i := range req.Steps {
-		stepName := stepNames[i]
-
-		// 对于第 i 个步骤，需要与前面所有步骤取交集
-		if i == 0 {
-			selectParts[i] = fmt.Sprintf(`SELECT 1 AS step_order, count(*) AS visitors FROM %s`, stepName)
-		} else {
-			// 与前面所有步骤取交集
-			intersectParts := make([]string, i+1)
-			for j := 0; j <= i; j++ {
-				intersectParts[j] = stepNames[j]
-			}
-			selectParts[i] = fmt.Sprintf(`SELECT %d AS step_order, count(*) AS visitors FROM %s`,
-				i+1, joinWithIntersect(intersectParts))
-		}
-	}
-
-	query := fmt.Sprintf(`WITH %s %s`,
-		joinWithComma(withClauses),
-		joinWithUnion(selectParts))
+		) %s`,
+		strings.Join(minIfParts, ", "),
+		strings.Join(orConds, " OR "),
+		strings.Join(selectParts, " UNION ALL "),
+	)
 
 	return query, args
 }
@@ -200,35 +201,4 @@ func (s *AnalysisService) buildGoalCondition(step *FunnelStep, paramIndex int) s
 	default:
 		return fmt.Sprintf(`name = $%d`, paramIndex)
 	}
-}
-
-// joinWithIntersect 使用 INTERSECT ALL 连接多个查询
-func joinWithIntersect(parts []string) string {
-	result := parts[0]
-	for i := 1; i < len(parts); i++ {
-		result = fmt.Sprintf(`%s INTERSECT ALL SELECT user_id FROM %s`, result, parts[i])
-	}
-	// 包装成子查询
-	return fmt.Sprintf(`(SELECT user_id FROM %s)`, result)
-}
-
-// joinWithComma 用逗号连接字符串
-func joinWithComma(parts []string) string {
-	result := ""
-	for i, part := range parts {
-		if i > 0 {
-			result += ", "
-		}
-		result += part
-	}
-	return result
-}
-
-// joinWithUnion 用 UNION ALL 连接查询
-func joinWithUnion(parts []string) string {
-	result := parts[0]
-	for i := 1; i < len(parts); i++ {
-		result = fmt.Sprintf(`%s UNION ALL %s`, result, parts[i])
-	}
-	return result
 }

@@ -13,6 +13,7 @@ import (
 // @Summary		获取套餐列表
 // @Description	获取所有套餐的列表。
 // @Tags			管理员
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Success		200	{object}	response.SuccessResponse{data=types.AdminGroupListResponse}	"套餐列表"
@@ -63,6 +64,7 @@ func (h *AdminHandler) ListGroups() gin.HandlerFunc {
 // @Summary		创建套餐
 // @Description	创建新的套餐配置。
 // @Tags			管理员
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			request	body		types.CreateGroupRequest	true	"套餐配置"
@@ -118,6 +120,7 @@ func (h *AdminHandler) CreateGroup() gin.HandlerFunc {
 // @Summary		更新套餐
 // @Description	更新指定套餐的配置。
 // @Tags			管理员
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			groupId	path		int						true	"套餐ID"
@@ -167,6 +170,7 @@ func (h *AdminHandler) UpdateGroup() gin.HandlerFunc {
 // @Summary		删除套餐
 // @Description	删除指定套餐。
 // @Tags			管理员
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			groupId	path		int	true	"套餐ID"
@@ -202,6 +206,7 @@ func (h *AdminHandler) DeleteGroup() gin.HandlerFunc {
 // @Summary		获取系统统计
 // @Description	获取系统统计数据，包括用户数、站点数等。
 // @Tags			管理员
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Success		200	{object}	response.SuccessResponse{data=types.SystemStats}	"系统统计"

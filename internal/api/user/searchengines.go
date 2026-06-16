@@ -12,6 +12,7 @@ import (
 // @Summary		获取自定义搜索引擎列表
 // @Description	获取当前用户的自定义搜索引擎列表。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Success		200	{object}	response.SuccessResponse{data=types.CustomSearchEngineListResponse}	"搜索引擎列表"
@@ -57,6 +58,7 @@ func (h *UserHandler) ListSearchEngines() gin.HandlerFunc {
 // @Summary		创建自定义搜索引擎
 // @Description	为当前用户创建自定义搜索引擎。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			request	body		types.CreateSearchEngineRequest	true	"搜索引擎配置"
@@ -106,6 +108,7 @@ func (h *UserHandler) CreateSearchEngine() gin.HandlerFunc {
 // @Summary		更新自定义搜索引擎
 // @Description	更新指定的自定义搜索引擎。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			id		path		int								true	"搜索引擎ID"
@@ -168,6 +171,7 @@ func (h *UserHandler) UpdateSearchEngine() gin.HandlerFunc {
 // @Summary		删除自定义搜索引擎
 // @Description	删除指定的自定义搜索引擎。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			id	path		int	true	"搜索引擎ID"

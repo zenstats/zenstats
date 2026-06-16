@@ -11,6 +11,7 @@ import (
 // @Summary		更新用户资料
 // @Description	更新当前用户的显示名称。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			body	body		types.UpdateProfileRequest	true	"更新资料参数"

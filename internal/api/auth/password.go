@@ -130,6 +130,19 @@ func (h *ResetPasswordHandler) ResetPassword() gin.HandlerFunc {
 }
 
 // ChangePassword 修改密码（已登录用户）
+//
+//	@Summary		修改密码
+//	@Description	已登录用户修改自己的密码，需要提供旧密码。
+//	@Tags			认证
+//	@Security		BearerAuth
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		types.ChangePasswordRequest	true	"修改密码请求"
+//	@Success		200		{object}	response.SuccessResponse	"修改成功"
+//	@Failure		400		{object}	response.ErrorResponse	"请求参数错误"
+//	@Failure		401		{object}	response.ErrorResponse	"旧密码不正确或未登录"
+//	@Failure		500		{object}	response.ErrorResponse	"服务器内部错误"
+//	@Router			/auth/change-password [post]
 func (h *AuthHandler) ChangePassword() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req types.ChangePasswordRequest

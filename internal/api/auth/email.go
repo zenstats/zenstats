@@ -24,6 +24,7 @@ func NewEmailHandler() *EmailHandler {
 // @Summary      发送验证邮件
 // @Description  向当前用户发送邮箱验证邮件
 // @Tags         认证
+// @Security     BearerAuth
 // @Produce      json
 // @Success      200  {object}  response.SuccessResponse  "发送成功"
 // @Failure      401  {object}  response.ErrorResponse    "未授权"
@@ -107,6 +108,7 @@ func (h *EmailHandler) VerifyEmail() gin.HandlerFunc {
 // @Summary      获取邮箱验证状态
 // @Description  获取当前用户的邮箱验证状态
 // @Tags         认证
+// @Security     BearerAuth
 // @Produce      json
 // @Success      200  {object}  response.SuccessResponse{data=types.VerificationStatus}  "验证状态"
 // @Failure      401  {object}  response.ErrorResponse  "未授权"

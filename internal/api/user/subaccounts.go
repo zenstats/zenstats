@@ -12,6 +12,7 @@ import (
 // @Summary		获取子账号列表
 // @Description	获取当前用户的子账号列表。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Success		200	{object}	response.SuccessResponse{data=types.SubAccountListResponse}	"子账号列表"
@@ -70,6 +71,7 @@ func (h *UserHandler) ListSubAccounts() gin.HandlerFunc {
 // @Summary		创建子账号
 // @Description	为当前用户创建子账号。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			request	body		types.CreateSubAccountRequest	true	"子账号信息"
@@ -140,6 +142,7 @@ func (h *UserHandler) CreateSubAccount() gin.HandlerFunc {
 // @Summary		更新子账号
 // @Description	更新指定的子账号信息。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			id		path		int							true	"子账号ID"
@@ -191,6 +194,7 @@ func (h *UserHandler) UpdateSubAccount() gin.HandlerFunc {
 // @Summary		删除子账号
 // @Description	删除指定的子账号。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			id	path		int	true	"子账号ID"
@@ -234,6 +238,7 @@ func (h *UserHandler) DeleteSubAccount() gin.HandlerFunc {
 // @Summary		重置子账号密码
 // @Description	重置指定子账号的密码。
 // @Tags			用户
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			id		path		int								true	"子账号ID"

@@ -29,7 +29,6 @@ type Config struct {
 	} `mapstructure:"scheme"`
 
 	BaseURL           string `mapstructure:"base_url"`
-	Port              int    `mapstructure:"port"`
 	PoolSize          int    `mapstructure:"pool_size"`
 	LogLevel          string `mapstructure:"log_level"`
 	SecretKey         string `mapstructure:"secret_key"`
@@ -73,7 +72,7 @@ func init() {
 	if currentEnv == "" {
 		currentEnv = "dev"
 	}
-	slog.Info("current env", "env", currentEnv)
+	slog.Info("current", "env", currentEnv)
 	var yamlContent []byte
 	var configFileName string
 	switch currentEnv {
@@ -138,7 +137,7 @@ func init() {
 func bindEnvVars() {
 	viper.BindEnv("db.host", "ZENSTATS_DB_HOST")
 	viper.BindEnv("db.password", "ZENSTATS_DB_PASSWORD")
-	viper.BindEnv("db.user", "ZENSTATS_DB_USERNAME")
+	viper.BindEnv("db.username", "ZENSTATS_DB_USERNAME")
 
 	viper.BindEnv("clickhouse.addr", "ZENSTATS_CLICKHOUSE_ADDR")
 	viper.BindEnv("clickhouse.password", "ZENSTATS_CLICKHOUSE_PASSWORD")

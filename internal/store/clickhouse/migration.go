@@ -19,6 +19,32 @@ func NewMigration() *Migration {
 
 func (m *Migration) Run() error {
 	ctx := context.Background()
+
+	// 1. 基础表创建（幂等 CREATE TABLE IF NOT EXISTS）
+	err := m.ensureBaseTables(ctx)
+	if err != nil {
+		return err
+	}
+
+	// 2. 在线 schema 变更（幂等 ALTER TABLE，已有表升级用）
+	err = m.runOnlineMigrations(ctx)
+	if err != nil {
+		slog.Error("online migration failed", "error", err)
+	}
+
+	slog.Info("migration completed")
+	return nil
+}
+
+// RunOnline 仅执行在线 schema 变更（不创建表），用于升级已有部署。
+// 可通过 CLI 命令或 entrypoint 调用：/app/zenstats migrate-clickhouse
+func (m *Migration) RunOnline() error {
+	ctx := context.Background()
+	slog.Info("running online ClickHouse migrations")
+	return m.runOnlineMigrations(ctx)
+}
+
+func (m *Migration) ensureBaseTables(ctx context.Context) error {
 	err := m.ensureLocationDataTable(ctx)
 	if err != nil {
 		slog.Error("ensure location_data table failed", "error", err)
@@ -77,7 +103,49 @@ func (m *Migration) Run() error {
 	if err != nil {
 		slog.Error("ensure events table failed", "error", err)
 	}
-	slog.Info("migration completed")
+	return nil
+}
+
+// runOnlineMigrations 执行在线 schema 变更（ALTER TABLE），用于升级已有部署。
+// 所有语句均为幂等设计，可安全重复执行。
+func (m *Migration) runOnlineMigrations(ctx context.Context) error {
+	bt := "`" // backtick shorthand
+
+	// ========== events 表 ==========
+	eventsAlters := []string{
+		// device 列重命名为 screen_size（如果旧表列名是 device）
+		fmt.Sprintf(`ALTER TABLE zenstats_events_db.events RENAME COLUMN IF EXISTS %sdevice%s TO %sscreen_size%s`, bt, bt, bt, bt),
+		// 兼容别名
+		fmt.Sprintf(`ALTER TABLE zenstats_events_db.events ADD COLUMN IF NOT EXISTS %sdevice%s LowCardinality(String) ALIAS screen_size`, bt, bt),
+		// user_agent 类型变更
+		fmt.Sprintf(`ALTER TABLE zenstats_events_db.events MODIFY COLUMN IF EXISTS %suser_agent%s String CODEC(ZSTD(3))`, bt, bt),
+	}
+
+	// ========== sessions 表 ==========
+	sessionsAlters := []string{
+		// 列重命名
+		fmt.Sprintf(`ALTER TABLE zenstats_events_db.sessions RENAME COLUMN IF EXISTS %sdevice%s TO %sscreen_size%s`, bt, bt, bt, bt),
+		// version 列
+		fmt.Sprintf(`ALTER TABLE zenstats_events_db.sessions ADD COLUMN IF NOT EXISTS %sversion%s UInt64`, bt, bt),
+		// 兼容别名
+		fmt.Sprintf(`ALTER TABLE zenstats_events_db.sessions ADD COLUMN IF NOT EXISTS %sdevice%s LowCardinality(String) ALIAS screen_size`, bt, bt),
+		fmt.Sprintf(`ALTER TABLE zenstats_events_db.sessions ADD COLUMN IF NOT EXISTS %sentry_page_hostname%s String ALIAS hostname`, bt, bt),
+		// user_agent 类型变更
+		fmt.Sprintf(`ALTER TABLE zenstats_events_db.sessions MODIFY COLUMN IF EXISTS %suser_agent%s String CODEC(ZSTD(3))`, bt, bt),
+	}
+
+	for _, sql := range eventsAlters {
+		if err := m.conn.Exec(ctx, sql); err != nil {
+			slog.Warn("online migration (events)", "sql", sql, "error", err)
+		}
+	}
+	for _, sql := range sessionsAlters {
+		if err := m.conn.Exec(ctx, sql); err != nil {
+			slog.Warn("online migration (sessions)", "sql", sql, "error", err)
+		}
+	}
+
+	slog.Info("online ClickHouse migrations applied")
 	return nil
 }
 
@@ -380,7 +448,7 @@ func (m *Migration) ensureSessionsTable(ctx context.Context) error {
     {{backtick}}entry_meta.value{{backtick}} Array(String) CODEC(ZSTD(3)),
     {{backtick}}browser{{backtick}} LowCardinality(String),
     {{backtick}}browser_version{{backtick}} LowCardinality(String),
-    {{backtick}}user_agent{{backtick}} LowCardinality(String),
+    {{backtick}}user_agent{{backtick}} String CODEC(ZSTD(3)),
     {{backtick}}operating_system_version{{backtick}} LowCardinality(String),
 
     {{backtick}}ipv4{{backtick}} IPv4,
@@ -439,7 +507,7 @@ func (m *Migration) ensureEventsTable(ctx context.Context) error {
     {{backtick}}meta.value{{backtick}} Array(String) CODEC(ZSTD(3)),
     {{backtick}}browser{{backtick}} LowCardinality(String),
     {{backtick}}browser_version{{backtick}} LowCardinality(String),
-    {{backtick}}user_agent{{backtick}} LowCardinality(String),
+    {{backtick}}user_agent{{backtick}} String CODEC(ZSTD(3)),
     {{backtick}}operating_system_version{{backtick}} LowCardinality(String),
     {{backtick}}engagement_time{{backtick}} UInt32,
     {{backtick}}scroll_depth{{backtick}} UInt8,

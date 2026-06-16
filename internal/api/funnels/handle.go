@@ -41,7 +41,7 @@ func NewFunnelsHandler() *FunnelsHandler {
 //	@Success		200			{object}	response.SuccessResponse{data=[]service.Funnel}	"成功响应"
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
 //	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
-//	@Router			/api/sites/{domain}/funnels [get]
+//	@Router			/sites/{domain}/funnels [get]
 func (h *FunnelsHandler) List() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		siteID, err := h.getSiteID(c)
@@ -73,7 +73,7 @@ func (h *FunnelsHandler) List() gin.HandlerFunc {
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
 //	@Failure		404			{object}	response.ErrorResponse	"漏斗不存在"
 //	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
-//	@Router			/api/sites/{domain}/funnels/{funnelId} [get]
+//	@Router			/sites/{domain}/funnels/{funnelId} [get]
 func (h *FunnelsHandler) Get() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		siteID, err := h.getSiteID(c)
@@ -112,7 +112,7 @@ func (h *FunnelsHandler) Get() gin.HandlerFunc {
 //	@Failure		400			{object}	response.ErrorResponse	"请求参数错误"
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
 //	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
-//	@Router			/api/sites/{domain}/funnels [post]
+//	@Router			/sites/{domain}/funnels [post]
 func (h *FunnelsHandler) Create() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		siteID, err := h.getSiteID(c)
@@ -153,7 +153,7 @@ func (h *FunnelsHandler) Create() gin.HandlerFunc {
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
 //	@Failure		404			{object}	response.ErrorResponse	"漏斗不存在"
 //	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
-//	@Router			/api/sites/{domain}/funnels/{funnelId} [put]
+//	@Router			/sites/{domain}/funnels/{funnelId} [put]
 func (h *FunnelsHandler) Update() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		siteID, err := h.getSiteID(c)
@@ -197,7 +197,7 @@ func (h *FunnelsHandler) Update() gin.HandlerFunc {
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
 //	@Failure		404			{object}	response.ErrorResponse	"漏斗不存在"
 //	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
-//	@Router			/api/sites/{domain}/funnels/{funnelId} [delete]
+//	@Router			/sites/{domain}/funnels/{funnelId} [delete]
 func (h *FunnelsHandler) Delete() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		siteID, err := h.getSiteID(c)
@@ -240,7 +240,7 @@ func (h *FunnelsHandler) Delete() gin.HandlerFunc {
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
 //	@Failure		404			{object}	response.ErrorResponse	"漏斗不存在"
 //	@Failure		500			{object}	response.ErrorResponse	"服务器内部错误"
-//	@Router			/api/stats/{domain}/funnel/{funnelId} [get]
+//	@Router			/stats/{domain}/funnel/{funnelId} [get]
 func (h *FunnelsHandler) Analyze() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		siteID, err := h.getSiteID(c)
@@ -363,7 +363,7 @@ func (h *FunnelsHandler) parseTimeRange(c *gin.Context) (time.Time, time.Time, e
 		startDate = baseDate.SubDays(29).StartOfDay().SetTimezone(carbon.UTC).StdTime()
 	case "custom":
 		if from == "" || to == "" {
-			return time.Time{}, time.Time{}, http.ErrMissingFile
+			return time.Time{}, time.Time{}, fmt.Errorf("from and to are required when period=custom")
 		}
 		startDate = carbon.Parse(from, timezone).StartOfDay().SetTimezone(carbon.UTC).StdTime()
 		endDate = carbon.Parse(to, timezone).EndOfDay().SetTimezone(carbon.UTC).StdTime()

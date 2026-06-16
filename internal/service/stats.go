@@ -55,8 +55,17 @@ func (s *StatsService) GetAggregate(ctx *gin.Context, siteID int64, req *atypes.
 		return nil, err
 	}
 
-	// 计算对比时间范围（上一同期）
-	comparisonStart, comparisonEnd := s.getComparisonDateRange(req, site.Timezone)
+	// 计算对比时间范围：优先使用显式对比日期，否则自动计算上一同期
+	var comparisonStart, comparisonEnd time.Time
+	if req.CompareFrom != "" {
+		comparisonStart, comparisonEnd = s.getDateRange(&atypes.StatsRequest{
+			Period: "custom",
+			From:   req.CompareFrom,
+			To:     req.CompareTo,
+		}, site.Timezone, 0)
+	} else {
+		comparisonStart, comparisonEnd = s.getComparisonDateRange(req, site.Timezone)
+	}
 
 	params := &types.Params{
 		Interval: req.Interval,
@@ -224,7 +233,82 @@ func (s *StatsService) GetMainGraph(ctx *gin.Context, siteID int64, req *atypes.
 
 	aggregateService := stats.NewAggregateService(qs)
 
-	return aggregateService.GetTimeSeries(ctx, params)
+	points, err := aggregateService.GetTimeSeries(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// 如果有对比标志或显式对比日期，获取对比时段数据并合并
+	if req.Compare == "1" || req.CompareFrom != "" {
+		var compStart, compEnd time.Time
+		var compPeriod, compFrom, compTo string
+		if req.CompareFrom != "" {
+			// 显式对比日期
+			compStart, compEnd = s.getDateRange(&atypes.StatsRequest{
+				Period: "custom",
+				From:   req.CompareFrom,
+				To:     req.CompareTo,
+			}, site.Timezone, 0)
+			compPeriod = "custom"
+			compFrom = req.CompareFrom
+			compTo = req.CompareTo
+		} else {
+			// 自动计算上一同期
+			compStart, compEnd = s.getComparisonDateRange(req, site.Timezone)
+			compPeriod = req.Period
+			compFrom = compStart.Format("2006-01-02")
+			compTo = compEnd.Format("2006-01-02")
+		}
+
+		compParams := &types.Params{
+			Interval: interval,
+			SiteID:   fmt.Sprintf("%d", site.ID),
+			UTCTimeRange: types.TimeRange{
+				Start: compStart,
+				End:   compEnd,
+			},
+			Period:          compPeriod,
+			From:            compFrom,
+			To:              compTo,
+			Timezone:        site.Timezone,
+			Metrics:         metricsList,
+			Dimensions:      []string{},
+			Filters:         filters,
+			SampleThreshold: req.SampleThreshold,
+		}
+
+		compPoints, err := aggregateService.GetTimeSeries(ctx, compParams)
+		if err != nil {
+			// Comparison failure is non-fatal; return primary data only
+			return points, nil
+		}
+
+		// Merge comparison data into primary points by aligning timestamps
+		points = mergeComparisonTimeSeries(points, compPoints, metricsList)
+	}
+
+	return points, nil
+}
+
+// mergeComparisonTimeSeries 将对比时序数据合并到主时序数据中（指标名加 _comparison 后缀）
+func mergeComparisonTimeSeries(primary, comparison []stats.TimeSeriesPoint, metrics []string) []stats.TimeSeriesPoint {
+	// 建立主数据点索引：规范化 timestamp 后匹配
+	compByTS := make(map[string]stats.TimeSeriesPoint)
+	for _, p := range comparison {
+		compByTS[p.Timestamp] = p
+	}
+
+	for i := range primary {
+		ts := primary[i].Timestamp
+		if cp, ok := compByTS[ts]; ok {
+			for _, m := range metrics {
+				if v, exists := cp.Metrics[m]; exists {
+					primary[i].Metrics[m+"_comparison"] = v
+				}
+			}
+		}
+	}
+	return primary
 }
 
 // GetCurrentVisitors 获取实时在线访客数

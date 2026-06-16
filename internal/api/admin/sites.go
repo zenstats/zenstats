@@ -14,6 +14,7 @@ import (
 //	@Summary		获取站点列表
 //	@Description	获取所有站点的列表，支持分页。
 //	@Tags			管理员
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			page		query		int	false	"页码"		default(1)
@@ -76,6 +77,7 @@ func (h *AdminHandler) ListSites() gin.HandlerFunc {
 //	@Summary		删除站点
 //	@Description	管理员删除指定站点。
 //	@Tags			管理员
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			siteId	path		int	true	"站点ID"
@@ -108,6 +110,7 @@ func (h *AdminHandler) DeleteSite() gin.HandlerFunc {
 //	@Summary		手动验证站点
 //	@Description	管理员手动将站点标记为已验证（跳过域名所有权验证）。
 //	@Tags			管理员
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			siteId	path		int	true	"站点ID"

@@ -12,6 +12,7 @@ import (
 // @Summary		获取用户列表
 // @Description	获取所有用户的列表，支持分页和搜索。
 // @Tags			管理员
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			page		query		int		false	"页码"		default(1)
@@ -82,6 +83,7 @@ func (h *AdminHandler) ListUsers() gin.HandlerFunc {
 // @Summary		获取用户详情
 // @Description	获取指定用户的详细信息。
 // @Tags			管理员
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			userId	path		int	true	"用户ID"
@@ -141,6 +143,7 @@ func (h *AdminHandler) GetUser() gin.HandlerFunc {
 // @Summary		更新用户套餐
 // @Description	更新指定用户的套餐配置。
 // @Tags			管理员
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			userId	path		int						true	"用户ID"
@@ -178,6 +181,7 @@ func (h *AdminHandler) UpdateUserGroup() gin.HandlerFunc {
 // @Summary		更新用户状态
 // @Description	更新指定用户的状态（启用/禁用）。
 // @Tags			管理员
+// @Security		BearerAuth
 // @Accept			json
 // @Produce		json
 // @Param			userId	path		int							true	"用户ID"

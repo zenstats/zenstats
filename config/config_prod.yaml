@@ -1,6 +1,3 @@
-server_port: 8011
-server_host: 0.0.0.0
-
 pool_size: 100
 app_debug: false
 log_level: info
@@ -21,7 +18,7 @@ scheme:
   http_port: 8080
 
 clickhouse:
-  #  This configuration can be overridden using the environment variable ZENSTAT_SLICKHOUSEOADDR
+  #  This configuration can be overridden using the environment variable ZENSTATS_CLICKHOUSE_ADDR
   addr:
     - zenstats_events_db:9000 # docker compose service name
   database: zenstats_events_db
@@ -30,7 +27,7 @@ clickhouse:
   ssl: false
 
 db:
-  host: 127.0.0.1
+  host: zenstats_db # docker compose service name
   port: 5432
   username: postgres
   password: "postgres"
