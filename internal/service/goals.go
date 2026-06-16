@@ -7,6 +7,7 @@ import (
 
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/pkg/globals"
 )
@@ -158,7 +159,14 @@ func (s *GoalService) UpdateGoal(ctx context.Context, siteID int64, goalID int64
 
 // DeleteGoal 删除目标。
 func (s *GoalService) DeleteGoal(ctx context.Context, siteID int64, goalID int64) error {
-	err := s.db.Client.Goal.DeleteOneID(goalID).
+	// 先删除关联的漏斗步骤（外键约束）
+	_, err := s.db.Client.FunnelStep.Delete().
+		Where(funnelstep.GoalID(goalID)).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete funnel steps referencing goal: %w", err)
+	}
+	err = s.db.Client.Goal.DeleteOneID(goalID).
 		Where(goal.SiteID(siteID)).
 		Exec(ctx)
 	if err != nil {

@@ -290,7 +290,14 @@ func (s *FunnelService) UpdateFunnel(ctx context.Context, siteID int64, funnelID
 
 // DeleteFunnel 删除漏斗。
 func (s *FunnelService) DeleteFunnel(ctx context.Context, siteID int64, funnelID int64) error {
-	err := s.db.Client.Funnel.DeleteOneID(funnelID).
+	// 先删除关联的漏斗步骤（外键约束）
+	_, err := s.db.Client.FunnelStep.Delete().
+		Where(funnelstep.FunnelID(funnelID)).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to delete funnel steps: %w", err)
+	}
+	err = s.db.Client.Funnel.DeleteOneID(funnelID).
 		Where(funnel.SiteID(siteID)).
 		Exec(ctx)
 	if err != nil {
