@@ -290,21 +290,16 @@ func (s *StatsService) GetMainGraph(ctx *gin.Context, siteID int64, req *atypes.
 	return points, nil
 }
 
-// mergeComparisonTimeSeries 将对比时序数据合并到主时序数据中（指标名加 _comparison 后缀）
+// mergeComparisonTimeSeries 将对比时序数据合并到主时序数据中（指标名加 _comparison 后缀）。
+// 按数组索引对齐（主数据和对比数据具有相同的点数和间隔），而非按时间戳对齐。
 func mergeComparisonTimeSeries(primary, comparison []stats.TimeSeriesPoint, metrics []string) []stats.TimeSeriesPoint {
-	// 建立主数据点索引：规范化 timestamp 后匹配
-	compByTS := make(map[string]stats.TimeSeriesPoint)
-	for _, p := range comparison {
-		compByTS[p.Timestamp] = p
-	}
-
 	for i := range primary {
-		ts := primary[i].Timestamp
-		if cp, ok := compByTS[ts]; ok {
-			for _, m := range metrics {
-				if v, exists := cp.Metrics[m]; exists {
-					primary[i].Metrics[m+"_comparison"] = v
-				}
+		if i >= len(comparison) {
+			break
+		}
+		for _, m := range metrics {
+			if v, exists := comparison[i].Metrics[m]; exists {
+				primary[i].Metrics[m+"_comparison"] = v
 			}
 		}
 	}
