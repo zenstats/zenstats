@@ -325,6 +325,9 @@ func (e *EventWork) PutGeolocation(event *models.Events) {
 	}
 
 	event.CountryCode = geoData.IsoCode
+	if len(event.CountryCode) != 2 {
+		event.CountryCode = "UN"
+	}
 	event.Coordinates = geoData.Coordinates
 }
 
