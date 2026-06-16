@@ -24,7 +24,7 @@ const (
 )
 
 var fallbackDownloadURLs = []string{
-	"https://github.com/Loyalsoldier/geoip/raw/release/Country-without-asn.mmdb",
+	"https://raw.githubusercontent.com/Loyalsoldier/geoip/release/Country-without-asn.mmdb",
 	"https://cdn.jsdelivr.net/gh/Loyalsoldier/geoip@release/Country-without-asn.mmdb",
 }
 
@@ -145,7 +145,11 @@ func (g *GeoIP) downloadFromFallback() (string, error) {
 	client := &http.Client{Timeout: httpTimeout}
 
 	var lastErr error
-	for _, url := range fallbackDownloadURLs {
+	for _, rawURL := range fallbackDownloadURLs {
+		url := rawURL
+		if config.Conf.GeoIPMirror != "" {
+			url = config.Conf.GeoIPMirror + url
+		}
 		slog.Info("Trying fallback GeoIP source", "url", url)
 		resp, err := client.Get(url)
 		if err != nil {

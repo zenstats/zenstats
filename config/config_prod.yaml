@@ -4,6 +4,7 @@ log_level: info
 secret_key: "KKfc8Y5Zpn5CE/0P+ce3ptJRRAZJBhbcOHSqoessJ4kLxkEi+S4nNsl6ekj0AxKF"
 data_path: "./data"
 maxmind_license_key: ""
+geoip_mirror: ""
 base_url: ""
 
 smtp:

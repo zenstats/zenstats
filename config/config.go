@@ -35,6 +35,7 @@ type Config struct {
 	AppDebug          bool   `mapstructure:"app_debug"`
 	DataPath          string `mapstructure:"data_path"`
 	MaxmindLicenseKey string `mapstructure:"maxmind_license_key"`
+	GeoIPMirror       string `mapstructure:"geoip_mirror"`
 
 	SMTP struct {
 		Host     string `mapstructure:"host"`
@@ -144,6 +145,8 @@ func bindEnvVars() {
 	viper.BindEnv("clickhouse.username", "ZENSTATS_CLICKHOUSE_USERNAME")
 
 	viper.BindEnv("maxmind_license_key", "ZENSTATS_MAXMIND_LICENSE_KEY")
+
+	viper.BindEnv("geoip_mirror", "ZENSTATS_GEOIP_MIRROR")
 
 	viper.BindEnv("base_url", "ZENSTATS_DOMAIN")
 

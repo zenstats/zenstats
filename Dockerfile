@@ -24,13 +24,18 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /build/bin/zenstats .
 FROM alpine:3.20 AS geoip-downloader
 
 ARG APK_MIRROR=""
+ARG GEOIP_MIRROR=""
 RUN if [ -n "$APK_MIRROR" ]; then \
       sed -i "s|dl-cdn.alpinelinux.org|${APK_MIRROR}|g" /etc/apk/repositories; \
     fi && \
     apk add --no-cache wget
 RUN mkdir -p /geoip-seed && \
-    wget -q -O /geoip-seed/GeoLite2-City-fallback.mmdb \
-    https://github.com/Loyalsoldier/geoip/raw/release/Country-without-asn.mmdb || \
+    if [ -n "$GEOIP_MIRROR" ]; then \
+      URL="${GEOIP_MIRROR}https://raw.githubusercontent.com/Loyalsoldier/geoip/release/Country-without-asn.mmdb"; \
+    else \
+      URL="https://raw.githubusercontent.com/Loyalsoldier/geoip/release/Country-without-asn.mmdb"; \
+    fi && \
+    wget --timeout=30 -O /geoip-seed/GeoLite2-City-fallback.mmdb "$URL" || \
     echo "GeoIP fallback download failed, will download at runtime"
 
 # ---- Runtime Stage ----
