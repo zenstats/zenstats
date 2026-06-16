@@ -147,7 +147,12 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 		cond := s.buildGoalCondition(step, i+4)
 		stepConds[i] = cond
 		orConds[i] = cond
-		args = append(args, step.GoalValue)
+		// 通配符模式下将 * 转换为 ClickHouse 正则 .*
+		val := step.GoalValue
+		if hasWildcard(val) {
+			val = wildcardToClickHouseRegex(val)
+		}
+		args = append(args, val)
 	}
 
 	// CTE: 单表扫描，每个用户一行，含各步骤的最早时间
@@ -191,14 +196,55 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 	return query, args
 }
 
-// buildGoalCondition 根据 goal 类型构建 WHERE 条件
+// buildGoalCondition 根据 goal 类型构建 WHERE 条件。
+// 支持两种匹配模式：
+//   - 精确匹配：goal 值不含 * 或 ? 时，使用 = 比较
+//   - 通配符匹配：goal 值含 * 或 ? 时，使用 ClickHouse match() 正则匹配
+//     例如 /soft/*.html 会匹配 /soft/1111.html、/soft/abc.html 等
 func (s *AnalysisService) buildGoalCondition(step *FunnelStep, paramIndex int) string {
-	switch step.GoalType {
-	case "event":
-		return fmt.Sprintf(`name = $%d`, paramIndex)
-	case "page":
-		return fmt.Sprintf(`pathname = $%d`, paramIndex)
-	default:
-		return fmt.Sprintf(`name = $%d`, paramIndex)
+	col := "name"
+	if step.GoalType == "page" {
+		col = "pathname"
 	}
+	if hasWildcard(step.GoalValue) {
+		// 通配符 → 正则匹配
+		return fmt.Sprintf(`match(%s, $%d)`, col, paramIndex)
+	}
+	return fmt.Sprintf(`%s = $%d`, col, paramIndex)
+}
+
+// hasWildcard 检查字符串是否包含通配符 * 或 ?
+func hasWildcard(s string) bool {
+	return strings.Contains(s, "*") || strings.Contains(s, "?")
+}
+
+// wildcardToClickHouseRegex 将通配符模式转换为 ClickHouse match() 可用的正则表达式。
+//
+//	* → .*  (匹配任意字符任意次)
+//	? → .   (匹配单个字符)
+//
+// 其他正则特殊字符会被转义。
+// 例如 /soft/*.html → /soft/.*\.html
+func wildcardToClickHouseRegex(pattern string) string {
+	// 先转义正则特殊字符（除了 * 和 ?）
+	re := strings.NewReplacer(
+		`.`, `\.`,
+		`+`, `\+`,
+		`(`, `\(`,
+		`)`, `\)`,
+		`[`, `\[`,
+		`]`, `\]`,
+		`{`, `\{`,
+		`}`, `\}`,
+		`^`, `\^`,
+		`$`, `\$`,
+		`|`, `\|`,
+	)
+	escaped := re.Replace(pattern)
+
+	// * → .*, ? → .
+	escaped = strings.ReplaceAll(escaped, "*", ".*")
+	escaped = strings.ReplaceAll(escaped, "?", ".")
+
+	return escaped
 }
