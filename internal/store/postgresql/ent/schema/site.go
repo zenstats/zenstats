@@ -55,6 +55,8 @@ func (Site) Fields() []ent.Field {
 			UpdateDefault(time.Now),
 		field.String("verification_token").
 			MaxLen(64).
+			Optional().
+			Nillable().
 			Immutable().
 			Comment("Random token for domain verification"),
 		field.Bool("is_verified").

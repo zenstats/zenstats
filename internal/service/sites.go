@@ -866,8 +866,8 @@ func (s *SiteService) GetVerificationStatus(ctx context.Context, domain string, 
 				sitemembership.RoleEQ("owner"),
 			).
 			Exist(ctx)
-		if err == nil && isOwner {
-			status.VerificationToken = site.VerificationToken
+		if err == nil && isOwner && site.VerificationToken != nil {
+			status.VerificationToken = *site.VerificationToken
 		}
 	}
 
@@ -964,7 +964,7 @@ func (s *SiteService) VerifySite(ctx context.Context, domain string, userID int6
 	}
 
 	token := strings.TrimSpace(string(body))
-	if token != siteEntity.VerificationToken {
+	if siteEntity.VerificationToken == nil || token != *siteEntity.VerificationToken {
 		tx.Rollback()
 		return errors.New("verification token mismatch")
 	}

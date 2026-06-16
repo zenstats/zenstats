@@ -8459,7 +8459,7 @@ func (m *SiteMutation) VerificationToken() (r string, exists bool) {
 // OldVerificationToken returns the old "verification_token" field's value of the Site entity.
 // If the Site object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *SiteMutation) OldVerificationToken(ctx context.Context) (v string, err error) {
+func (m *SiteMutation) OldVerificationToken(ctx context.Context) (v *string, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldVerificationToken is only allowed on UpdateOne operations")
 	}
@@ -8473,9 +8473,22 @@ func (m *SiteMutation) OldVerificationToken(ctx context.Context) (v string, err 
 	return oldValue.VerificationToken, nil
 }
 
+// ClearVerificationToken clears the value of the "verification_token" field.
+func (m *SiteMutation) ClearVerificationToken() {
+	m.verification_token = nil
+	m.clearedFields[site.FieldVerificationToken] = struct{}{}
+}
+
+// VerificationTokenCleared returns if the "verification_token" field was cleared in this mutation.
+func (m *SiteMutation) VerificationTokenCleared() bool {
+	_, ok := m.clearedFields[site.FieldVerificationToken]
+	return ok
+}
+
 // ResetVerificationToken resets all changes to the "verification_token" field.
 func (m *SiteMutation) ResetVerificationToken() {
 	m.verification_token = nil
+	delete(m.clearedFields, site.FieldVerificationToken)
 }
 
 // SetIsVerified sets the "is_verified" field.
@@ -9250,6 +9263,9 @@ func (m *SiteMutation) ClearedFields() []string {
 	if m.FieldCleared(site.FieldAllowedOrigins) {
 		fields = append(fields, site.FieldAllowedOrigins)
 	}
+	if m.FieldCleared(site.FieldVerificationToken) {
+		fields = append(fields, site.FieldVerificationToken)
+	}
 	if m.FieldCleared(site.FieldVerifiedAt) {
 		fields = append(fields, site.FieldVerifiedAt)
 	}
@@ -9275,6 +9291,9 @@ func (m *SiteMutation) ClearField(name string) error {
 		return nil
 	case site.FieldAllowedOrigins:
 		m.ClearAllowedOrigins()
+		return nil
+	case site.FieldVerificationToken:
+		m.ClearVerificationToken()
 		return nil
 	case site.FieldVerifiedAt:
 		m.ClearVerifiedAt()

@@ -165,6 +165,14 @@ func (sc *SiteCreate) SetVerificationToken(s string) *SiteCreate {
 	return sc
 }
 
+// SetNillableVerificationToken sets the "verification_token" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableVerificationToken(s *string) *SiteCreate {
+	if s != nil {
+		sc.SetVerificationToken(*s)
+	}
+	return sc
+}
+
 // SetIsVerified sets the "is_verified" field.
 func (sc *SiteCreate) SetIsVerified(b bool) *SiteCreate {
 	sc.mutation.SetIsVerified(b)
@@ -412,9 +420,6 @@ func (sc *SiteCreate) check() error {
 	if _, ok := sc.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "Site.updated_at"`)}
 	}
-	if _, ok := sc.mutation.VerificationToken(); !ok {
-		return &ValidationError{Name: "verification_token", err: errors.New(`ent: missing required field "Site.verification_token"`)}
-	}
 	if v, ok := sc.mutation.VerificationToken(); ok {
 		if err := site.VerificationTokenValidator(v); err != nil {
 			return &ValidationError{Name: "verification_token", err: fmt.Errorf(`ent: validator failed for field "Site.verification_token": %w`, err)}
@@ -497,7 +502,7 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 	}
 	if value, ok := sc.mutation.VerificationToken(); ok {
 		_spec.SetField(site.FieldVerificationToken, field.TypeString, value)
-		_node.VerificationToken = value
+		_node.VerificationToken = &value
 	}
 	if value, ok := sc.mutation.IsVerified(); ok {
 		_spec.SetField(site.FieldIsVerified, field.TypeBool, value)

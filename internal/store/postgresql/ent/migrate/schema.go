@@ -402,7 +402,7 @@ var (
 		{Name: "allowed_origins", Type: field.TypeString, Nullable: true, Size: 2048},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "verification_token", Type: field.TypeString, Size: 64},
+		{Name: "verification_token", Type: field.TypeString, Nullable: true, Size: 64},
 		{Name: "is_verified", Type: field.TypeBool, Default: false},
 		{Name: "verified_at", Type: field.TypeTime, Nullable: true},
 	}

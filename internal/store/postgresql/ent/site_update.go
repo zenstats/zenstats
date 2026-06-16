@@ -591,6 +591,9 @@ func (su *SiteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := su.mutation.UpdatedAt(); ok {
 		_spec.SetField(site.FieldUpdatedAt, field.TypeTime, value)
 	}
+	if su.mutation.VerificationTokenCleared() {
+		_spec.ClearField(site.FieldVerificationToken, field.TypeString)
+	}
 	if value, ok := su.mutation.IsVerified(); ok {
 		_spec.SetField(site.FieldIsVerified, field.TypeBool, value)
 	}
@@ -1520,6 +1523,9 @@ func (suo *SiteUpdateOne) sqlSave(ctx context.Context) (_node *Site, err error) 
 	}
 	if value, ok := suo.mutation.UpdatedAt(); ok {
 		_spec.SetField(site.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if suo.mutation.VerificationTokenCleared() {
+		_spec.ClearField(site.FieldVerificationToken, field.TypeString)
 	}
 	if value, ok := suo.mutation.IsVerified(); ok {
 		_spec.SetField(site.FieldIsVerified, field.TypeBool, value)

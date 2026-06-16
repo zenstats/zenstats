@@ -675,6 +675,16 @@ func VerificationTokenHasSuffix(v string) predicate.Site {
 	return predicate.Site(sql.FieldHasSuffix(FieldVerificationToken, v))
 }
 
+// VerificationTokenIsNil applies the IsNil predicate on the "verification_token" field.
+func VerificationTokenIsNil() predicate.Site {
+	return predicate.Site(sql.FieldIsNull(FieldVerificationToken))
+}
+
+// VerificationTokenNotNil applies the NotNil predicate on the "verification_token" field.
+func VerificationTokenNotNil() predicate.Site {
+	return predicate.Site(sql.FieldNotNull(FieldVerificationToken))
+}
+
 // VerificationTokenEqualFold applies the EqualFold predicate on the "verification_token" field.
 func VerificationTokenEqualFold(v string) predicate.Site {
 	return predicate.Site(sql.FieldEqualFold(FieldVerificationToken, v))

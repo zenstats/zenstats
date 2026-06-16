@@ -38,7 +38,7 @@ type Site struct {
 	// UpdatedAt holds the value of the "updated_at" field.
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Random token for domain verification
-	VerificationToken string `json:"verification_token,omitempty"`
+	VerificationToken *string `json:"verification_token,omitempty"`
 	// Whether the site domain is verified
 	IsVerified bool `json:"is_verified,omitempty"`
 	// When the site was verified
@@ -232,7 +232,8 @@ func (s *Site) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field verification_token", values[i])
 			} else if value.Valid {
-				s.VerificationToken = value.String
+				s.VerificationToken = new(string)
+				*s.VerificationToken = value.String
 			}
 		case site.FieldIsVerified:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -350,8 +351,10 @@ func (s *Site) String() string {
 	builder.WriteString("updated_at=")
 	builder.WriteString(s.UpdatedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
-	builder.WriteString("verification_token=")
-	builder.WriteString(s.VerificationToken)
+	if v := s.VerificationToken; v != nil {
+		builder.WriteString("verification_token=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	builder.WriteString("is_verified=")
 	builder.WriteString(fmt.Sprintf("%v", s.IsVerified))
