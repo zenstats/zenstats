@@ -159,13 +159,17 @@ func (s *GoalService) UpdateGoal(ctx context.Context, siteID int64, goalID int64
 
 // DeleteGoal 删除目标。
 func (s *GoalService) DeleteGoal(ctx context.Context, siteID int64, goalID int64) error {
-	// 先删除关联的漏斗步骤（外键约束）
-	_, err := s.db.Client.FunnelStep.Delete().
+	// 检查目标是否被漏斗引用
+	count, err := s.db.Client.FunnelStep.Query().
 		Where(funnelstep.GoalID(goalID)).
-		Exec(ctx)
+		Count(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to delete funnel steps referencing goal: %w", err)
+		return fmt.Errorf("failed to check goal usage: %w", err)
 	}
+	if count > 0 {
+		return fmt.Errorf("目标已被 %d 个漏斗使用，请先从漏斗中移除", count)
+	}
+
 	err = s.db.Client.Goal.DeleteOneID(goalID).
 		Where(goal.SiteID(siteID)).
 		Exec(ctx)
