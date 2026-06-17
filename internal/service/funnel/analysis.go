@@ -41,8 +41,8 @@ type FunnelAnalysisResult struct {
 // FunnelStep 漏斗步骤定义。
 type FunnelStep struct {
 	GoalID      int64
-	GoalType    string            // "event" or "page"
-	GoalValue   string            // event name or page path
+	GoalType    string // "event" or "page"
+	GoalValue   string // event name or page path
 	GoalName    string
 	StepOrder   int
 	CustomProps map[string]string // 目标自定义属性过滤条件
@@ -79,7 +79,7 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 	}
 	defer rows.Close()
 
-	// 处理结果
+	// 处理结果 — 按 stepOrder 索引，确保顺序不受 SQL 返回行序影响
 	stepIndex := 0
 	for rows.Next() {
 		var visitors uint64
@@ -89,12 +89,12 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 			return nil, fmt.Errorf("failed to scan funnel result: %w", err)
 		}
 
-		if stepIndex == 0 {
+		if stepOrder == 1 {
 			totalVisitors = visitors
 		}
 
 		step := req.Steps[stepOrder-1]
-		stepResults[stepIndex] = &FunnelStepResult{
+		stepResults[stepOrder-1] = &FunnelStepResult{
 			StepOrder:      int(stepOrder),
 			GoalName:       step.GoalName,
 			Visitors:       visitors,
@@ -157,9 +157,9 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 		goalArgs = append(goalArgs, val)
 	}
 	// minIf 中的 ? (每个 step 一次) + site_id/timestamps (3个) + WHERE OR 中的 ? (每个 step 一次)
-	args = append(args, goalArgs...)          // minIf 部分
+	args = append(args, goalArgs...)                            // minIf 部分
 	args = append(args, req.SiteID, req.StartTime, req.EndTime) // WHERE 条件
-	args = append(args, goalArgs...)          // WHERE OR 部分
+	args = append(args, goalArgs...)                            // WHERE OR 部分
 
 	// CTE: 单表扫描，每个用户一行，含各步骤的最早时间
 	minIfParts := make([]string, len(req.Steps))
@@ -193,7 +193,7 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 				AND timestamp <= ?
 				AND (%s)
 			GROUP BY user_id
-		) %s ORDER BY step_order`,
+		) %s`,
 		strings.Join(minIfParts, ", "),
 		strings.Join(orConds, " OR "),
 		strings.Join(selectParts, " UNION ALL "),
@@ -249,8 +249,8 @@ func hasWildcard(s string) bool {
 
 // wildcardToClickHouseRegex 将通配符模式转换为 ClickHouse match() 可用的正则表达式。
 //
-//	* → .*  (匹配任意字符任意次)
-//	? → .   (匹配单个字符)
+//   - → .*  (匹配任意字符任意次)
+//     ? → .   (匹配单个字符)
 //
 // 其他正则特殊字符会被转义。
 // 例如 /soft/*.html → /soft/.*\.html
