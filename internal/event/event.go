@@ -2,11 +2,13 @@ package event
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
-	"math/rand"
+	mathrand "math/rand"
 	"net"
 	"net/url"
 	"regexp"
@@ -44,6 +46,8 @@ type EventWork struct {
 	historicalThreshold time.Duration // historicalThreshold 表示历史数据阈值，超过此阈值的事件跳过会话管理
 
 	hostPatternCache sync.Map // 缓存hostname正则表达式
+
+	currentSalt string // 用户ID生成盐值，服务启动时随机生成
 }
 
 func NewEventWork(q *generic.DynamicQueue[*common.EventRequest], batchSize int, historicalThreshold time.Duration) (*EventWork, error) {
@@ -60,6 +64,7 @@ func NewEventWork(q *generic.DynamicQueue[*common.EventRequest], batchSize int, 
 		sessionManager:      session.NewSessionManager(ctx, batchSize),
 		siteService:         service.GetSiteService(),
 		historicalThreshold: historicalThreshold,
+		currentSalt:         generateSalt(),
 	}
 	e.writeBuffer = NewWriteBuffer(ctx, batchSize, time.Second*5)
 
@@ -270,13 +275,33 @@ func (e *EventWork) Shutdown() {
 }
 
 func (e *EventWork) generateUserID(ip, user_agent, domain string) (uint64, error) {
-	salt := "" // 后续看是否需要在启动时生成随机salt
+	// 使用启动时生成的随机 salt + 根域名做跨子域归一化
+	salt := e.currentSalt
+	rootDomain := getRootDomain(domain)
 
 	hash := sha256.New()
-	hash.Write([]byte(ip + user_agent + domain + salt))
+	hash.Write([]byte(ip + user_agent + rootDomain + salt))
 	hashBytes := hash.Sum(nil)
 
 	return binary.LittleEndian.Uint64(hashBytes[:8]), nil
+}
+
+// getRootDomain 从 hostname 提取根域名（如 www.example.com → example.com）。
+// IPv4 地址和单段 hostname 直接返回原值。
+func getRootDomain(hostname string) string {
+	if hostname == "" {
+		return ""
+	}
+	// IP 地址直接返回
+	if net.ParseIP(hostname) != nil {
+		return hostname
+	}
+	// 拆分为段，取最后两段作为根域名（如 example.com）
+	parts := strings.Split(strings.TrimRight(hostname, "."), ".")
+	if len(parts) >= 2 {
+		return parts[len(parts)-2] + "." + parts[len(parts)-1]
+	}
+	return hostname
 }
 
 // PutUserAgent parses the given user agent string and updates the session attributes
@@ -544,7 +569,7 @@ func (e *EventWork) dropShieldRuleCountry(site *ent.Site, countryCode string) bo
 
 // generateSeedSessionId 为种子数据生成会话ID
 func generateSeedSessionId(t time.Time) uint64 {
-	return (uint64(t.UnixNano()) << 24) | (uint64(rand.Intn(256)) << 16) | uint64(rand.Intn(65536))
+	return (uint64(t.UnixNano()) << 24) | (uint64(mathrand.Intn(256)) << 16) | uint64(mathrand.Intn(65536))
 }
 
 // createHistoricalSession 为历史事件创建基础会话记录
@@ -600,4 +625,14 @@ func createHistoricalSession(event *models.Events) *models.Sessions {
 	}
 
 	return session
+}
+
+// generateSalt 生成一个 16 字节随机盐值用于用户 ID 哈希。
+func generateSalt() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		// fallback：用时间戳作为盐值
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b)
 }

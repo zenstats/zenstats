@@ -20,6 +20,9 @@ var (
 
 	//go:embed config_prod.yaml
 	ProdConfig []byte
+
+	//go:embed config_test.yaml
+	TestConfig []byte
 )
 
 type Config struct {
@@ -83,6 +86,9 @@ func init() {
 	case "prod":
 		yamlContent = ProdConfig
 		configFileName = "config_prod"
+	case "test":
+		yamlContent = TestConfig
+		configFileName = "config_test"
 	default:
 		slog.Error("Unsupported environment", "env", currentEnv)
 		os.Exit(1)

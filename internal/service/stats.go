@@ -149,6 +149,12 @@ func (s *StatsService) GetBreakdown(ctx *gin.Context, siteID int64, req *atypes.
 		return nil, err
 	}
 	offset := 0
+	if req.Limit <= 0 {
+		req.Limit = 9
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
 	if req.Page > 1 {
 		offset = (req.Page - 1) * req.Limit
 	}

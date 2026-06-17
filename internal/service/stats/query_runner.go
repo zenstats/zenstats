@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/zenstats/zenstats/internal/service/stats/sql"
@@ -144,9 +145,38 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 				values[i] = &val
 				pointers[i] = &val
 			default:
-				var val any
-				values[i] = &val
-				pointers[i] = &val
+				// Fallback: infer Go type from ClickHouse type name
+				typeName := colType.DatabaseTypeName()
+				switch {
+				case strings.Contains(typeName, "Int64"):
+					var val int64
+					values[i] = &val
+					pointers[i] = &val
+				case strings.Contains(typeName, "Int32") || strings.Contains(typeName, "Int16") || strings.Contains(typeName, "Int8"):
+					var val int32
+					values[i] = &val
+					pointers[i] = &val
+				case strings.Contains(typeName, "UInt64"):
+					var val uint64
+					values[i] = &val
+					pointers[i] = &val
+				case strings.Contains(typeName, "UInt32") || strings.Contains(typeName, "UInt16") || strings.Contains(typeName, "UInt8"):
+					var val uint32
+					values[i] = &val
+					pointers[i] = &val
+				case strings.Contains(typeName, "Float") || strings.Contains(typeName, "Decimal"):
+					var val float64
+					values[i] = &val
+					pointers[i] = &val
+				case strings.Contains(typeName, "String") || strings.Contains(typeName, "FixedString") || strings.Contains(typeName, "Enum"):
+					var val string
+					values[i] = &val
+					pointers[i] = &val
+				default:
+					var val any
+					values[i] = &val
+					pointers[i] = &val
+				}
 			}
 		}
 
@@ -176,7 +206,23 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 			case "String", "LowCardinality(String)":
 				val = *values[i].(*string)
 			default:
-				val = *values[i].(*any)
+				typeName := columnTypes[i].DatabaseTypeName()
+				switch {
+				case strings.Contains(typeName, "Int64"):
+					val = *values[i].(*int64)
+				case strings.Contains(typeName, "Int32") || strings.Contains(typeName, "Int16") || strings.Contains(typeName, "Int8"):
+					val = *values[i].(*int32)
+				case strings.Contains(typeName, "UInt64"):
+					val = *values[i].(*uint64)
+				case strings.Contains(typeName, "UInt32") || strings.Contains(typeName, "UInt16") || strings.Contains(typeName, "UInt8"):
+					val = *values[i].(*uint32)
+				case strings.Contains(typeName, "Float") || strings.Contains(typeName, "Decimal"):
+					val = *values[i].(*float64)
+				case strings.Contains(typeName, "String") || strings.Contains(typeName, "FixedString") || strings.Contains(typeName, "Enum"):
+					val = *values[i].(*string)
+				default:
+					val = *values[i].(*any)
+				}
 			}
 			row[col] = convertValue(val)
 		}

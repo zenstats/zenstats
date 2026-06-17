@@ -61,6 +61,12 @@ func (gc *GoalCreate) SetDisplayName(s string) *GoalCreate {
 	return gc
 }
 
+// SetCustomProps sets the "custom_props" field.
+func (gc *GoalCreate) SetCustomProps(m map[string]string) *GoalCreate {
+	gc.mutation.SetCustomProps(m)
+	return gc
+}
+
 // SetID sets the "id" field.
 func (gc *GoalCreate) SetID(i int64) *GoalCreate {
 	gc.mutation.SetID(i)
@@ -173,6 +179,10 @@ func (gc *GoalCreate) createSpec() (*Goal, *sqlgraph.CreateSpec) {
 	if value, ok := gc.mutation.DisplayName(); ok {
 		_spec.SetField(goal.FieldDisplayName, field.TypeString, value)
 		_node.DisplayName = value
+	}
+	if value, ok := gc.mutation.CustomProps(); ok {
+		_spec.SetField(goal.FieldCustomProps, field.TypeJSON, value)
+		_node.CustomProps = value
 	}
 	if nodes := gc.mutation.SiteIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

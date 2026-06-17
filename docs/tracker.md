@@ -10,6 +10,7 @@ The ZenStats tracking script is a lightweight (~3KB) JavaScript snippet that aut
 - [Event Properties](#event-properties)
 - [Goals & Conversions](#goals--conversions)
 - [Funnels](#funnels)
+- [Funnels](#funnels)
 - [Privacy & Data](#privacy--data)
 - [Integration Guides](#integration-guides)
 - [Troubleshooting](#troubleshooting)
@@ -35,6 +36,9 @@ Replace `yourdomain.com` with the domain you added to your ZenStats account, and
 |-----------|----------|-------------|
 | `data-domain` | Yes | The domain name you registered in ZenStats |
 | `data-api` | No | Custom API endpoint URL (defaults to `/api/event`) |
+| `data-outbound-links` | No | Set to `true` to automatically track outbound link clicks |
+| `data-file-downloads` | No | Set to `true` to automatically track file downloads (pdf, zip, etc.) |
+| `data-file-types` | No | Comma-separated file extensions for download tracking (default: `pdf,xlsx,docx,txt,rtf,csv,...`) |
 | `event-*` | No | Custom properties to attach to all events (see [Custom Properties](#custom-properties)) |
 
 ### Example with All Attributes
@@ -135,10 +139,22 @@ The easiest way to track custom events is by adding CSS class names to HTML elem
 </form>
 ```
 
+**Additional Properties via Classes:**
+
+Add extra properties to events using additional classes:
+
+```html
+<button class="event-name=Purchase event-plan=Pro event-amount=99">
+  Buy Pro
+</button>
+```
+
+This sends an event with name `Purchase` and properties `{ plan: "Pro", amount: "99" }`.
+
 **Notes:**
 - Use `+` to represent spaces in event names (e.g., `Button+Click` becomes "Button Click")
-- If your CMS replaces `=` with `-`, use `event-name--EventName` instead
-- The class can be on the element or any parent element
+- The class can be on the element or any parent element (up to 3 levels)
+- For links, the `url` property is automatically set to the link's `href`
 
 ### Using JavaScript (Manual Tracking)
 
@@ -175,6 +191,34 @@ By default, custom events affect bounce rate calculations. To exclude an event f
 ```javascript
 zenstats('Scroll Depth', { interactive: false })
 ```
+
+### Outbound Link Clicks
+
+Enable automatic tracking of outbound link clicks by adding `data-outbound-links="true"` to the script tag:
+
+```html
+<script defer data-domain="yourdomain.com" data-outbound-links="true" src="..."></script>
+```
+
+When enabled, clicks on links pointing to external domains are tracked as `Outbound Link: Click` events with a `url` property.
+
+### File Downloads
+
+Enable automatic file download tracking by adding `data-file-downloads="true"`:
+
+```html
+<script defer data-domain="yourdomain.com" data-file-downloads="true" src="..."></script>
+```
+
+This tracks clicks on links ending with common file extensions (pdf, zip, docx, etc.). Customize file types:
+
+```html
+<script defer data-domain="yourdomain.com" data-file-downloads="true" data-file-types="pdf,zip,csv" src="..."></script>
+```
+
+### Form Submissions
+
+Form submissions are automatically tracked as `Form: Submission` events. If a form has a `event-name=*` class, it will be tracked with that custom name instead.
 
 ---
 

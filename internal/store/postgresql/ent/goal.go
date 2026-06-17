@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -25,6 +26,8 @@ type Goal struct {
 	PagePath string `json:"page_path,omitempty"`
 	// DisplayName holds the value of the "display_name" field.
 	DisplayName string `json:"display_name,omitempty"`
+	// CustomProps holds the value of the "custom_props" field.
+	CustomProps map[string]string `json:"custom_props,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the GoalQuery when eager-loading is set.
 	Edges        GoalEdges `json:"edges"`
@@ -67,6 +70,8 @@ func (*Goal) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case goal.FieldCustomProps:
+			values[i] = new([]byte)
 		case goal.FieldID, goal.FieldSiteID:
 			values[i] = new(sql.NullInt64)
 		case goal.FieldEventName, goal.FieldPagePath, goal.FieldDisplayName:
@@ -115,6 +120,14 @@ func (_go *Goal) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field display_name", values[i])
 			} else if value.Valid {
 				_go.DisplayName = value.String
+			}
+		case goal.FieldCustomProps:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field custom_props", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_go.CustomProps); err != nil {
+					return fmt.Errorf("unmarshal field custom_props: %w", err)
+				}
 			}
 		default:
 			_go.selectValues.Set(columns[i], values[i])
@@ -173,6 +186,9 @@ func (_go *Goal) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("display_name=")
 	builder.WriteString(_go.DisplayName)
+	builder.WriteString(", ")
+	builder.WriteString("custom_props=")
+	builder.WriteString(fmt.Sprintf("%v", _go.CustomProps))
 	builder.WriteByte(')')
 	return builder.String()
 }

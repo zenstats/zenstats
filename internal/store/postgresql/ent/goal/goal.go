@@ -20,6 +20,8 @@ const (
 	FieldPagePath = "page_path"
 	// FieldDisplayName holds the string denoting the display_name field in the database.
 	FieldDisplayName = "display_name"
+	// FieldCustomProps holds the string denoting the custom_props field in the database.
+	FieldCustomProps = "custom_props"
 	// EdgeSite holds the string denoting the site edge name in mutations.
 	EdgeSite = "site"
 	// EdgeFunnelSteps holds the string denoting the funnel_steps edge name in mutations.
@@ -49,6 +51,7 @@ var Columns = []string{
 	FieldEventName,
 	FieldPagePath,
 	FieldDisplayName,
+	FieldCustomProps,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).

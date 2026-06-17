@@ -1,0 +1,30 @@
+app_debug: false
+base_url: ""
+clickhouse:
+    addr:
+        - 127.0.0.1:9001
+    database: zenstats_events_db
+    password: ""
+    ssl: false
+    username: default
+data_path: ./data
+db:
+    database: zenstats
+    host: 127.0.0.1
+    password: postgres
+    port: 5433
+    username: postgres
+geoip_mirror: ""
+log_level: warn
+maxmind_license_key: ""
+pool_size: 20
+scheme:
+    address: 0.0.0.0
+    http_port: 8080
+secret_key: test-secret-key-for-integration-tests-only
+smtp:
+    from: ""
+    host: ""
+    password: ""
+    port: 587
+    username: ""

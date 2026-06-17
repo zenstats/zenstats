@@ -44,11 +44,11 @@ func TestDimensionToColumnUsesExistingRegionAlias(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := qb.DimensionToColumn(tt.dimension, "sessions", "select", 0); got != "continent as region" {
-				t.Fatalf("DimensionToColumn(%q) = %q, want %q", tt.dimension, got, "continent as region")
+			if got := qb.DimensionToColumn(tt.dimension, "sessions", "select", 0); got != "continent_name as region" {
+				t.Fatalf("DimensionToColumn(%q) = %q, want %q", tt.dimension, got, "continent_name as region")
 			}
-			if got := qb.DimensionToColumn(tt.dimension, "sessions", "group", 0); got != "continent" {
-				t.Fatalf("DimensionToColumn(%q, group) = %q, want %q", tt.dimension, got, "continent")
+			if got := qb.DimensionToColumn(tt.dimension, "sessions", "group", 0); got != "continent_name" {
+				t.Fatalf("DimensionToColumn(%q, group) = %q, want %q", tt.dimension, got, "continent_name")
 			}
 		})
 	}
@@ -67,16 +67,16 @@ func TestSelectSessionMetricsUsesSessionEventsColumn(t *testing.T) {
 	}
 }
 
-func TestSelectSessionMetricsAliasesPageviewsAsRequestedMetric(t *testing.T) {
+func TestSelectEventMetricsAliasesPageviewsAsRequestedMetric(t *testing.T) {
 	qb := NewQueryBuilder()
 	query := &types.Query{Metrics: []string{"pageviews"}}
 
-	got := qb.selectSessionMetrics(query)
-	if !strings.Contains(got, " as pageviews") {
-		t.Fatalf("session pageviews metric must be aliased as pageviews for joined queries: %q", got)
+	got := qb.selectEventMetrics(query)
+	if !strings.Contains(got, "countIf(name = 'pageview') as pageviews") {
+		t.Fatalf("event pageviews metric must use countIf: %q", got)
 	}
 	if strings.Contains(got, "cur_pageviews") {
-		t.Fatalf("session pageviews metric must not expose stale cur_pageviews alias: %q", got)
+		t.Fatalf("event pageviews metric must not expose stale cur_pageviews alias: %q", got)
 	}
 }
 
@@ -100,29 +100,33 @@ func TestEventPageBreakdownMixedMetricsSelectsExistingSessionAliases(t *testing.
 	}
 
 	selectClause := qb.buildJoinSelectClause((&TableDecider{}).EventFields(eventQuery), (&TableDecider{}).SessionFields(sessionQuery))
-	sessionSelect := qb.selectSessionMetrics(sessionQuery)
+	eventSelect := qb.selectEventMetrics(eventQuery)
 
-	if !strings.Contains(sessionSelect, " as pageviews") {
-		t.Fatalf("session subquery should expose pageviews alias: %q", sessionSelect)
+	// pageviews 和 events 现在是 event 指标，应在 event 子查询中
+	if !strings.Contains(eventSelect, "countIf(name = 'pageview') as pageviews") {
+		t.Fatalf("event subquery should expose pageviews alias with countIf: %q", eventSelect)
 	}
-	if !strings.Contains(selectClause, "s.pageviews") {
-		t.Fatalf("joined select should reference s.pageviews: %q", selectClause)
+	if !strings.Contains(eventSelect, "countIf(name != 'engagement') as events") {
+		t.Fatalf("event subquery should expose events alias with countIf: %q", eventSelect)
 	}
-	if strings.Contains(sessionSelect, "cur_pageviews") || strings.Contains(selectClause, "cur_pageviews") {
-		t.Fatalf("joined breakdown query must not use cur_pageviews alias; select=%q session=%q", selectClause, sessionSelect)
+	if !strings.Contains(selectClause, "e.pageviews") {
+		t.Fatalf("joined select should reference e.pageviews: %q", selectClause)
+	}
+	if strings.Contains(eventSelect, "cur_pageviews") || strings.Contains(selectClause, "cur_pageviews") {
+		t.Fatalf("joined breakdown query must not use cur_pageviews alias; select=%q event=%q", selectClause, eventSelect)
 	}
 }
 
 func TestAggregateSessionMetricsDoNotNestAggregateFunctions(t *testing.T) {
 	qb := NewQueryBuilder()
-	query := &types.Query{Metrics: []string{"pageviews", "visits"}}
+	query := &types.Query{Metrics: []string{"events", "visits"}}
 
 	got := qb.selectSessionMetrics(query)
 	if strings.Contains(got, "sum(toUInt64") || strings.Contains(got, "sum(round(sum(") {
 		t.Fatalf("session aggregate metrics must not nest aggregate functions: %q", got)
 	}
-	if !strings.Contains(got, "sum(pageviews * sign)") {
-		t.Fatalf("expected pageviews to use raw pageviews aggregation: %q", got)
+	if !strings.Contains(got, "sum(sign * events)") {
+		t.Fatalf("expected events to use raw session aggregation: %q", got)
 	}
 	if !strings.Contains(got, "sum(sign)") {
 		t.Fatalf("expected visits to use sum(sign): %q", got)

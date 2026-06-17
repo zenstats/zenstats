@@ -148,7 +148,7 @@ func (wb *WhereBuilder) addCustomPropFilter(filter *types.Filter) error {
 	}
 
 	// 添加属性存在条件
-	wb.AddCondition(fmt.Sprintf("hasKey(%s, ?)", column), propName)
+	wb.AddCondition(fmt.Sprintf("has(%s.key, ?)", column), propName)
 
 	// 处理(none)特殊值
 	values, ok := any(filter.Values).([]any)
@@ -157,13 +157,13 @@ func (wb *WhereBuilder) addCustomPropFilter(filter *types.Filter) error {
 			// 仅保留属性不存在条件
 			wb.conditions = wb.conditions[:len(wb.conditions)-1]
 			wb.params = wb.params[:len(wb.params)-1]
-			wb.AddCondition(fmt.Sprintf("NOT hasKey(%s, ?)", column), propName)
+			wb.AddCondition(fmt.Sprintf("NOT has(%s.key, ?)", column), propName)
 			return nil
 		}
 	}
 
 	// 根据操作符添加相应条件
-	fieldExpr := fmt.Sprintf("%s['%s']", column, propName)
+	fieldExpr := fmt.Sprintf("%s.value[indexOf(%s.key, '%s')]", column, column, propName)
 	return wb.addFilterCondition(fieldExpr, filter)
 }
 
@@ -299,11 +299,11 @@ func (wb *WhereBuilder) addSimpleFilter(table string, filter *types.Filter) erro
 		}
 		// 处理(none)特殊值
 		if len(filter.Values) > 0 && filter.Values[0] == "(none)" {
-			wb.AddCondition(fmt.Sprintf("not hasKey(%s, ?)", column), propName)
+			wb.AddCondition(fmt.Sprintf("not has(%s.key, ?)", column), propName)
 			return nil
 		}
 		// 添加属性存在条件
-		wb.AddCondition(fmt.Sprintf("hasKey(%s, ?)", column), propName)
+		wb.AddCondition(fmt.Sprintf("has(%s.key, ?)", column), propName)
 		// wb.AddCondition(fmt.Sprintf("arrayExists(x -> x = ?, %s.key)", column), propName)
 	}
 
@@ -385,11 +385,11 @@ func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
 	default:
 		if strings.HasPrefix(name, "event:props:") {
 			propName := strings.TrimPrefix(name, "event:props:")
-			return fmt.Sprintf("meta['%s']", propName), nil
+			return fmt.Sprintf("meta.value[indexOf(meta.key, '%s')]", propName), nil
 		}
 		if strings.HasPrefix(name, "visit:entry_props:") {
 			propName := strings.TrimPrefix(name, "visit:entry_props:")
-			return fmt.Sprintf("entry_meta['%s']", propName), nil
+			return fmt.Sprintf("entry_meta.value[indexOf(entry_meta.key, '%s')]", propName), nil
 		}
 		return name, nil
 	}
@@ -511,7 +511,7 @@ func (wb *WhereBuilder) addIsNotFilter(field string, values any, modifiers map[s
 		if strings.HasPrefix(field, "visit:entry_props:") {
 			column = "entry_meta"
 		}
-		condition := fmt.Sprintf("(not hasKey(%s, ?) OR %s NOT IN (%s))", column, fieldExpr, strings.Join(placeholders, ","))
+		condition := fmt.Sprintf("(not has(%s.key, ?) OR %s NOT IN (%s))", column, fieldExpr, strings.Join(placeholders, ","))
 		allParams := append([]any{propName}, params...)
 		wb.AddCondition(condition, allParams...)
 	} else {

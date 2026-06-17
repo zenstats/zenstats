@@ -35,7 +35,6 @@ func (qo *QueryOptimizer) Optimize(query *types.Query) *types.Query {
 		qo.extendHostnameFiltersToVisit,
 		qo.setTimeOnPageData,
 		qo.removeTimeOnPageIfUnavailable,
-		qo.trimRelativeDateRange,
 		qo.setSQLJoinType,
 	}
 
@@ -146,9 +145,9 @@ func (qo *QueryOptimizer) metricCategory(metricName string, query *types.Query) 
 	switch metricName {
 	case "conversion_rate", "group_conversion_rate", "percentage":
 		return "either"
-	case "conversions", "revenue", "time_on_page", "scroll_depth":
+	case "conversions", "revenue", "time_on_page", "scroll_depth", "pageviews", "events":
 		return "event"
-	case "events", "pageviews", "visit_duration", "views_per_visit", "bounce_rate":
+	case "visit_duration", "views_per_visit", "bounce_rate":
 		return "session"
 	case "total_visitors":
 		return "other"

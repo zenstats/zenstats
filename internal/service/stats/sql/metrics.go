@@ -49,6 +49,11 @@ var AvailableMetrics = Metrics{
 		Description: "Visit duration in seconds",
 		Valid:       true,
 	},
+	"scroll_depth": {
+		Name:        "scroll_depth",
+		Description: "Average scroll depth percentage from engagement events",
+		Valid:       true,
+	},
 }
 
 // ValidateMetrics 验证指标是否有效
@@ -83,7 +88,7 @@ func (m Metrics) GetMetricSQL(metric string, samplingEnabled bool) (string, erro
 		frag := gen.Uniq("user_id", samplingEnabled)
 		return fmt.Sprintf("%s as visitors", frag.ToSql()), nil
 	case "pageviews":
-		frag := gen.Total(samplingEnabled)
+		frag := gen.PageViewsForEvent(samplingEnabled)
 		return fmt.Sprintf("%s as pageviews", frag.ToSql()), nil
 	case "visits":
 		return "sum(sign) as visits", nil
@@ -99,6 +104,9 @@ func (m Metrics) GetMetricSQL(metric string, samplingEnabled bool) (string, erro
 	case "views_per_visit":
 		frag := gen.ViewsPerVisit()
 		return fmt.Sprintf("%s as views_per_visit", frag.ToSql()), nil
+	case "scroll_depth":
+		frag := gen.ScrollDepthForEvent(samplingEnabled)
+		return fmt.Sprintf("%s as scroll_depth", frag.ToSql()), nil
 	default:
 		return "", fmt.Errorf("metric %s is not available", metric)
 	}

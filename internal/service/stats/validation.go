@@ -46,8 +46,8 @@ func validateIntervals(params *types.Params) error {
 // validatePagination checks if the pagination parameter is valid
 func validatePagination(params *types.Params) error {
 	if params.Pagination != nil {
-		if params.Pagination.Limit < 0 || params.Pagination.Limit > 1000 {
-			return errors.New("pagination limit must be between 0 and 1000")
+		if params.Pagination.Limit < 0 || params.Pagination.Limit > 100000 {
+			return errors.New("pagination limit must be between 0 and 100000")
 		}
 		if params.Pagination.Offset < 0 {
 			return errors.New("pagination offset cannot be negative")
@@ -561,7 +561,7 @@ func GetToplevelFilter(params *types.Params, prefix string) []any {
 func MetricFromString(s string) (string, error) {
 	s = strings.TrimSpace(s)
 	switch s {
-	case "visitors", "pageviews", "events", "visits", "bounce_rate", "visit_duration", "time_on_page", "conversion_rate", "views_per_visit":
+	case "visitors", "pageviews", "events", "visits", "bounce_rate", "visit_duration", "time_on_page", "conversion_rate", "views_per_visit", "scroll_depth":
 		return s, nil
 	default:
 		return "", fmt.Errorf("invalid metric: %s. Find valid metrics from the documentation: https://plausible.io/docs/stats-api#metrics", s)

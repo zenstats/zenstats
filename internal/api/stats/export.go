@@ -62,6 +62,7 @@ func (s *StatsHandle) ExportBreakdown() gin.HandlerFunc {
 				limit = parsed
 			}
 		}
+		req.Limit = limit
 
 		// 复用 breakdown 逻辑获取全量数据
 		result, err := s.statsService.GetBreakdown(c, siteID, req, property, metrics)

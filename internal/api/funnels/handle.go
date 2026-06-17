@@ -273,11 +273,12 @@ func (h *FunnelsHandler) Analyze() gin.HandlerFunc {
 		steps := make([]*funnel.FunnelStep, len(f.Steps))
 		for i, step := range f.Steps {
 			steps[i] = &funnel.FunnelStep{
-				GoalID:    step.GoalID,
-				GoalType:  step.GoalType,
-				GoalValue: step.GoalValue,
-				GoalName:  step.GoalName,
-				StepOrder: step.StepOrder,
+				GoalID:      step.GoalID,
+				GoalType:    step.GoalType,
+				GoalValue:   step.GoalValue,
+				GoalName:    step.GoalName,
+				StepOrder:   step.StepOrder,
+				CustomProps: step.CustomProps,
 			}
 		}
 

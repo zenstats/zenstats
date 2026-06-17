@@ -64,6 +64,30 @@ func (g *SQLFragmentGenerator) EventsForEvent(samplingEnabled bool) SQLFragment 
 	}, samplingEnabled)
 }
 
+// PageViewsForEvent events 表的 pageviews 统计，直接计数 pageview 事件。
+func (g *SQLFragmentGenerator) PageViewsForEvent(samplingEnabled bool) SQLFragment {
+	return g.ScaleSample(SQLFragment{
+		SQL:  "countIf(name = 'pageview')",
+		Args: nil,
+	}, samplingEnabled)
+}
+
+// VisitsForEvent events 表的 visits 统计，按 session 去重。
+func (g *SQLFragmentGenerator) VisitsForEvent(samplingEnabled bool) SQLFragment {
+	return g.ScaleSample(SQLFragment{
+		SQL:  "uniq(session_id)",
+		Args: nil,
+	}, samplingEnabled)
+}
+
+// ScrollDepthForEvent events 表的滚动深度统计，取 engagement 事件的平均滚动深度。
+func (g *SQLFragmentGenerator) ScrollDepthForEvent(samplingEnabled bool) SQLFragment {
+	return g.ScaleSample(SQLFragment{
+		SQL:  "toFloat64(avgIf(scroll_depth, name = 'engagement'))",
+		Args: nil,
+	}, samplingEnabled)
+}
+
 // EventsForSession events总数
 func (g *SQLFragmentGenerator) EventsForSession(samplingEnabled bool) SQLFragment {
 	return g.ScaleSample(SQLFragment{
@@ -84,26 +108,27 @@ func (g *SQLFragmentGenerator) SamplePercent(samplingEnabled bool) SQLFragment {
 	}
 }
 
-// BounceRate 计算跳出率
+// BounceRate 计算跳出率（百分比，保留两位小数）。
 func (g *SQLFragmentGenerator) BounceRate() SQLFragment {
 	return SQLFragment{
-		SQL:  "toFloat64(ifNotFinite(round(sum(is_bounce * sign) / sum(sign) * 100, 2), 0))",
+		SQL:  "toFloat64(greatest(ifNotFinite(round(sum(is_bounce * sign) / nullIf(sum(sign), 0) * 100, 2), 0), 0))",
 		Args: nil,
 	}
 }
 
-// ViewsPerVisit 页面浏览量除以访问量。
+// ViewsPerVisit 页面浏览量除以访问量。使用 greatest 防止 sign 负值导致的下溢。
 func (g *SQLFragmentGenerator) ViewsPerVisit() SQLFragment {
 	return SQLFragment{
-		SQL:  "ifNotFinite(round(sum(pageviews * sign) / nullIf(sum(sign), 0), 2), 0)",
+		SQL:  "greatest(ifNotFinite(round(sum(pageviews * sign) / nullIf(sum(sign), 0), 2), 0), 0)",
 		Args: nil,
 	}
 }
 
-// VisitDuration 计算平均访问时长
+// VisitDuration 计算平均访问时长。使用 greatest 防止 sign 负值导致的下溢。
+// VisitDuration 平均会话时长（秒，保留两位小数）。
 func (g *SQLFragmentGenerator) VisitDuration() SQLFragment {
 	return SQLFragment{
-		SQL:  "toUInt32(ifNotFinite(round(avg(duration * sign)), 0))",
+		SQL:  "toFloat64(greatest(ifNotFinite(round(avg(duration * sign)), 0), 0))",
 		Args: nil,
 	}
 }

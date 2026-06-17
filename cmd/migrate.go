@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zenstats/zenstats/internal/bootstrap"
@@ -31,6 +32,11 @@ var MigrateCmd = &cobra.Command{
 
 		// 插入默认搜索引擎
 		insertDefaultSearchEngines(client)
+
+		// 测试环境自动创建测试站点
+		if os.Getenv("APP_ENV") == "test" {
+			insertDefaultTestSite(client)
+		}
 
 		// 初始化系统配置
 		bootstrap.InitSystemConfig()
@@ -161,4 +167,35 @@ func insertDefaultSearchEngines(client *postgresql.Client) {
 
 func init() {
 	RootCmd.AddCommand(MigrateCmd)
+}
+
+// insertDefaultTestSite 为测试环境自动创建一个测试站点
+func insertDefaultTestSite(client *postgresql.Client) {
+	ctx := context.Background()
+
+	count, err := client.Client.Site.Query().Count(ctx)
+	if err != nil {
+		fmt.Printf("failed counting sites: %v\n", err)
+		return
+	}
+	if count > 0 {
+		return
+	}
+
+	fmt.Println("Test mode: inserting default site...")
+
+	// 生成一个随机域名避免冲突
+	domain := fmt.Sprintf("test-%d.example.com", time.Now().Unix())
+	_, err = client.Client.Site.Create().
+		SetDomain(domain).
+		SetTimezone("UTC").
+		SetPublic(false).
+		SetIsVerified(true).
+		Save(ctx)
+	if err != nil {
+		fmt.Printf("failed creating test site: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Default test site created: %s\n", domain)
 }

@@ -34,7 +34,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile --ignore-scripts --prefer-offline && pnpm rebuild
 
 COPY web/ .
-COPY --from=tracker-builder /build/zenstats.js /build/public/js/zenstats.js
+COPY --from=tracker-builder /build/tracker/dist /build/public/js
 
 RUN pnpm build
 

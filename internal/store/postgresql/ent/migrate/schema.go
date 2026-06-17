@@ -181,6 +181,7 @@ var (
 		{Name: "event_name", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "page_path", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "display_name", Type: field.TypeString, Size: 2147483647},
+		{Name: "custom_props", Type: field.TypeJSON, Nullable: true},
 		{Name: "site_id", Type: field.TypeInt64},
 	}
 	// GoalsTable holds the schema information for the "goals" table.
@@ -191,7 +192,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "goals_sites_goals",
-				Columns:    []*schema.Column{GoalsColumns[4]},
+				Columns:    []*schema.Column{GoalsColumns[5]},
 				RefColumns: []*schema.Column{SitesColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -200,7 +201,7 @@ var (
 			{
 				Name:    "goal_site_id_display_name",
 				Unique:  true,
-				Columns: []*schema.Column{GoalsColumns[4], GoalsColumns[3]},
+				Columns: []*schema.Column{GoalsColumns[5], GoalsColumns[3]},
 			},
 		},
 	}

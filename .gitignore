@@ -24,6 +24,7 @@ Thumbs.db
 
 # Project specific
 tracker/node_modules
+tracker/dist/
 data/*.mmdb
 data/*.tar.gz
 zenstats.js

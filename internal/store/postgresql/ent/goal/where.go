@@ -308,6 +308,16 @@ func DisplayNameContainsFold(v string) predicate.Goal {
 	return predicate.Goal(sql.FieldContainsFold(FieldDisplayName, v))
 }
 
+// CustomPropsIsNil applies the IsNil predicate on the "custom_props" field.
+func CustomPropsIsNil() predicate.Goal {
+	return predicate.Goal(sql.FieldIsNull(FieldCustomProps))
+}
+
+// CustomPropsNotNil applies the NotNil predicate on the "custom_props" field.
+func CustomPropsNotNil() predicate.Goal {
+	return predicate.Goal(sql.FieldNotNull(FieldCustomProps))
+}
+
 // HasSite applies the HasEdge predicate on the "site" edge.
 func HasSite() predicate.Goal {
 	return predicate.Goal(func(s *sql.Selector) {

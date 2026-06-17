@@ -23,6 +23,7 @@ func (Goal) Fields() []ent.Field {
 		field.Text("event_name").Optional(),
 		field.Text("page_path").Optional(),
 		field.Text("display_name"),
+		field.JSON("custom_props", map[string]string{}).Optional(),
 	}
 }
 

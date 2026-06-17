@@ -180,7 +180,12 @@ func (qb *QueryBuilder) buildEventsQuery(site *types.Site, eventQuery *types.Que
 
 	if whereClause != "" {
 		sqlBuilder.WriteString(" WHERE " + whereClause)
+	} else {
+		sqlBuilder.WriteString(" WHERE 1=1")
 	}
+
+	// 排除 engagement 事件以优化查询性能，除非需要 time_on_page / scroll_depth 指标
+	sqlBuilder.WriteString(qb.derivedNameFilter(eventQuery))
 
 	// Add grouping
 	groupBy := qb.buildGroupBy("events", eventQuery)
@@ -205,9 +210,17 @@ func (qb *QueryBuilder) selectEventMetrics(query *types.Query) string {
 	metrics := make([]string, 0, len(query.Metrics))
 
 	for _, metric := range query.Metrics {
-		sql, err := AvailableMetrics.GetMetricSQL(metric, samplingEnabled)
-		if err != nil {
-			slog.Error("GetMetricSQL error", "metric", metric, "error", err)
+		var sql string
+		var err error
+		// visits 在 events 表用 uniq(session_id) 代替 sum(sign)
+		if metric == "visits" {
+			frag := qb.fragmentGenerator.VisitsForEvent(samplingEnabled)
+			sql = fmt.Sprintf("%s as visits", frag.ToSql())
+		} else {
+			sql, err = AvailableMetrics.GetMetricSQL(metric, samplingEnabled)
+			if err != nil {
+				slog.Error("GetMetricSQL error", "metric", metric, "error", err)
+			}
 		}
 		metrics = append(metrics, sql)
 	}
@@ -478,7 +491,24 @@ func (qb *QueryBuilder) sessionTimeSlotsExpr(query *types.Query) string {
 	if qb.hasDimension(query, "time:minute") {
 		step = "60"
 	}
-	return fmt.Sprintf("arrayMap(x -> toDateTime(x), range(toUInt32(toStartOfInterval(start, INTERVAL %s second)), toUInt32(toStartOfInterval(greatest(timestamp, start), INTERVAL %s second)) + %s, %s))", step, step, step, step)
+
+	first := query.UTCTimeRange.Start.Format("2006-01-02 15:04:05")
+	last := query.UTCTimeRange.End.Format("2006-01-02 15:04:05")
+
+	// range(lower, upper, step) 生成 [lower, upper) 的值，所以 upper 需要 +step
+	// lower: greatest(start, first) — 不早于查询开始时间
+	// upper: least(greatest(timestamp, start), last) — 不晚于查询结束时间
+	return fmt.Sprintf(
+		"arrayMap(x -> toDateTime(x), "+
+			"range("+
+			"toUInt32(toStartOfInterval(greatest(start, toDateTime('%s')), INTERVAL %s second)), "+
+			"toUInt32(toStartOfInterval(least(greatest(timestamp, start), toDateTime('%s')), INTERVAL %s second)) + %s, "+
+			"%s"+
+			"))",
+		first, step,
+		last, step, step,
+		step,
+	)
 }
 
 // buildSessionSubquery creates a subquery for session joins in event queries
@@ -492,13 +522,13 @@ func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []any,
 		}
 	}
 
-	whereClause, _ := whereBuilder.Build()
+	whereClause, params := whereBuilder.Build()
 
 	sql := fmt.Sprintf(
 		"SELECT session_id FROM sessions WHERE %s AND sign = 1 GROUP BY session_id",
 		whereClause,
 	)
-	return sql, nil, nil
+	return sql, params, nil
 }
 
 // buildEventSubquery creates a subquery for event joins in session queries.
@@ -515,6 +545,9 @@ func (qb *QueryBuilder) buildEventSubquery(query *types.Query) (string, []any, e
 	}
 
 	whereClause, params := whereBuilder.Build()
+
+	// 排除 engagement 事件以优化查询性能
+	whereClause += qb.derivedNameFilter(query)
 
 	// Build SELECT clause: always include session_id, plus any event dimension columns
 	selectCols := []string{"session_id"}
@@ -585,6 +618,10 @@ func (qb *QueryBuilder) buildOrderBy(sql string, query *types.Query) string {
 // paginate applies LIMIT and OFFSET to the query
 func (qb *QueryBuilder) paginate(sql string, query *types.Query) string {
 	if query.Pagination == nil || query.Pagination.Limit <= 0 {
+		// 有维度细分但未设置分页时，加默认 limit 防止返回海量数据
+		if len(query.Dimensions) > 0 {
+			return sql + " LIMIT 200"
+		}
 		return sql
 	}
 
@@ -962,11 +999,19 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 	default:
 		if strings.HasPrefix(dimension, "event:props:") {
 			propName := strings.TrimPrefix(dimension, "event:props:")
-			return fmt.Sprintf("meta['%s']", propName)
+			expr := fmt.Sprintf("meta.value[indexOf(meta.key, '%s')]", propName)
+			if purpose == "group" {
+				return expr
+			}
+			return fmt.Sprintf("%s as %s", expr, propName)
 		}
 		if strings.HasPrefix(dimension, "visit:entry_props:") {
 			propName := strings.TrimPrefix(dimension, "visit:entry_props:")
-			return fmt.Sprintf("entry_meta['%s']", propName)
+			expr := fmt.Sprintf("entry_meta.value[indexOf(entry_meta.key, '%s')]", propName)
+			if purpose == "group" {
+				return expr
+			}
+			return fmt.Sprintf("%s as %s", expr, propName)
 		}
 		// if strings.HasPrefix(dimension, "visit:props:") {
 		// 	propName := strings.TrimPrefix(dimension, "visit:props:")
@@ -1171,4 +1216,23 @@ func (qs *QueryBuilder) buildUserSearchEngineCase(searchEngines []*ent.CustomSea
 		conditions = append(conditions, fmt.Sprintf("WHEN positionCaseInsensitive(referrer_source, '%s') > 0 THEN '%s'", searchEngine.Domain, searchEngine.Name))
 	}
 	return strings.Join(conditions, "\n")
+}
+
+// derivedNameFilter 根据查询上下文决定是否排除 engagement 事件。
+// 规则：
+//  1. 有 event:goal 过滤时不过滤（目标自己会加精确 name 条件）
+//  2. 查询 time_on_page / scroll_depth 指标时不过滤（需要 engagement 事件）
+//  3. 默认排除 engagement 事件以减少扫描量
+func (qb *QueryBuilder) derivedNameFilter(query *types.Query) string {
+	// Goal 过滤自己处理 name 条件
+	if types.HasEventGoalFilter(query.Filters) {
+		return ""
+	}
+	// time_on_page / scroll_depth 指标需要 engagement 事件
+	for _, m := range query.Metrics {
+		if m == "time_on_page" || m == "scroll_depth" {
+			return ""
+		}
+	}
+	return " AND name != 'engagement'"
 }

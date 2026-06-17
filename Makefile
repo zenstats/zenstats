@@ -1,4 +1,4 @@
-.PHONY: swagger build run test clean lint docker-build fmt submodule-init ent-generate dev-up dev-down dev-logs dev-clean prod-up prod-down prod-logs docker-migrate docker-seed
+.PHONY: swagger build run test clean lint docker-build fmt submodule-init ent-generate dev-up dev-down dev-logs dev-clean prod-up prod-down prod-logs docker-migrate docker-seed test-up test-down test-seed test-integration
 
 # 构建项目
 build:
@@ -111,14 +111,54 @@ docker-seed:
 	fi
 	@echo "Seed complete"
 
+# ---- 集成测试环境 ----
+
+# 启动测试专用 PG + ClickHouse 容器（独立端口 5433/9001/8124）
+test-up:
+	@cd deploy && docker compose -f docker-compose.test.yml up -d --wait
+	@echo "Test environment ready."
+	@echo "  PostgreSQL: localhost:5433"
+	@echo "  ClickHouse HTTP: http://localhost:8124"
+	@echo "  ClickHouse Native: localhost:9001"
+	@echo ""
+	@echo "Run 'make test-seed' to generate test data."
+
+# 停止测试环境
+test-down:
+	@cd deploy && docker compose -f docker-compose.test.yml down -v
+	@echo "Test environment removed."
+
+# 生成确定性测试数据（需先 make test-up + migrate）
+test-seed:
+	@APP_ENV=test go run main.go migrate
+	@APP_ENV=test go run main.go seed --test --clean
+	@echo "Test data seeded (deterministic, fixed random seed=42, clean start)"
+
+# 运行完整集成测试（启动容器 → 迁移 → 种子 → 测试 → 清理）
+test-integration: test-up
+	@echo "Waiting for databases..."
+	@sleep 3
+	@APP_ENV=test go run main.go migrate
+	@APP_ENV=test go run main.go seed --test --clean
+	@echo ""
+	@echo "=== Running Unit Tests ==="
+	@go test -short ./internal/service/stats/sql/... -count=1
+	@echo ""
+	@echo "=== Running E2E Tests ==="
+	@APP_ENV=test go test ./internal/service/stats/... -run TestE2E -v -count=1
+	@echo ""
+	@echo "All tests passed."
+
 # ---- Tracker ----
 
 # 编译 tracker 脚本（本地开发用）
 tracker-build:
+	@rm -rf tracker/dist
 	@cd tracker && npm ci && npm run deploy
-	@echo "Tracker script compiled: zenstats.js"
+	@echo "Tracker script compiled: tracker/dist/"
 
 # 编译 tracker 脚本（开发模式）
 tracker-dev:
+	@rm -rf tracker/dist
 	@cd tracker && npm run deploy
-	@echo "Tracker script compiled (dev): zenstats.js"
+	@echo "Tracker script compiled (dev): tracker/dist/"

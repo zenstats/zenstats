@@ -97,6 +97,18 @@ func (gu *GoalUpdate) SetNillableDisplayName(s *string) *GoalUpdate {
 	return gu
 }
 
+// SetCustomProps sets the "custom_props" field.
+func (gu *GoalUpdate) SetCustomProps(m map[string]string) *GoalUpdate {
+	gu.mutation.SetCustomProps(m)
+	return gu
+}
+
+// ClearCustomProps clears the value of the "custom_props" field.
+func (gu *GoalUpdate) ClearCustomProps() *GoalUpdate {
+	gu.mutation.ClearCustomProps()
+	return gu
+}
+
 // SetSite sets the "site" edge to the Site entity.
 func (gu *GoalUpdate) SetSite(s *Site) *GoalUpdate {
 	return gu.SetSiteID(s.ID)
@@ -210,6 +222,12 @@ func (gu *GoalUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := gu.mutation.DisplayName(); ok {
 		_spec.SetField(goal.FieldDisplayName, field.TypeString, value)
+	}
+	if value, ok := gu.mutation.CustomProps(); ok {
+		_spec.SetField(goal.FieldCustomProps, field.TypeJSON, value)
+	}
+	if gu.mutation.CustomPropsCleared() {
+		_spec.ClearField(goal.FieldCustomProps, field.TypeJSON)
 	}
 	if gu.mutation.SiteCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -373,6 +391,18 @@ func (guo *GoalUpdateOne) SetNillableDisplayName(s *string) *GoalUpdateOne {
 	return guo
 }
 
+// SetCustomProps sets the "custom_props" field.
+func (guo *GoalUpdateOne) SetCustomProps(m map[string]string) *GoalUpdateOne {
+	guo.mutation.SetCustomProps(m)
+	return guo
+}
+
+// ClearCustomProps clears the value of the "custom_props" field.
+func (guo *GoalUpdateOne) ClearCustomProps() *GoalUpdateOne {
+	guo.mutation.ClearCustomProps()
+	return guo
+}
+
 // SetSite sets the "site" edge to the Site entity.
 func (guo *GoalUpdateOne) SetSite(s *Site) *GoalUpdateOne {
 	return guo.SetSiteID(s.ID)
@@ -516,6 +546,12 @@ func (guo *GoalUpdateOne) sqlSave(ctx context.Context) (_node *Goal, err error) 
 	}
 	if value, ok := guo.mutation.DisplayName(); ok {
 		_spec.SetField(goal.FieldDisplayName, field.TypeString, value)
+	}
+	if value, ok := guo.mutation.CustomProps(); ok {
+		_spec.SetField(goal.FieldCustomProps, field.TypeJSON, value)
+	}
+	if guo.mutation.CustomPropsCleared() {
+		_spec.ClearField(goal.FieldCustomProps, field.TypeJSON)
 	}
 	if guo.mutation.SiteCleared() {
 		edge := &sqlgraph.EdgeSpec{

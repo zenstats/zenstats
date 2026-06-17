@@ -41,10 +41,11 @@ type FunnelAnalysisResult struct {
 // FunnelStep 漏斗步骤定义。
 type FunnelStep struct {
 	GoalID      int64
-	GoalType    string // "event" or "page"
-	GoalValue   string // event name or page path
+	GoalType    string            // "event" or "page"
+	GoalValue   string            // event name or page path
 	GoalName    string
 	StepOrder   int
+	CustomProps map[string]string // 目标自定义属性过滤条件
 }
 
 // AnalysisRequest 漏斗分析请求。
@@ -197,20 +198,43 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 }
 
 // buildGoalCondition 根据 goal 类型构建 WHERE 条件。
+//
+// 页面类型目标：仅匹配 pageview 事件在指定路径上的发生。
+// 事件类型目标：按事件名称匹配。
+//
 // 支持两种匹配模式：
 //   - 精确匹配：goal 值不含 * 或 ? 时，使用 = 比较
 //   - 通配符匹配：goal 值含 * 或 ? 时，使用 ClickHouse match() 正则匹配
 //     例如 /soft/*.html 会匹配 /soft/1111.html、/soft/abc.html 等
 func (s *AnalysisService) buildGoalCondition(step *FunnelStep, paramIndex int) string {
-	col := "name"
+	var baseCond string
 	if step.GoalType == "page" {
-		col = "pathname"
+		// 页面类型目标：过滤到 pageview 事件 + 匹配 pathname
+		if hasWildcard(step.GoalValue) {
+			baseCond = fmt.Sprintf(`(name = 'pageview' AND match(pathname, $%d))`, paramIndex)
+		} else {
+			baseCond = fmt.Sprintf(`(name = 'pageview' AND pathname = $%d)`, paramIndex)
+		}
+	} else {
+		// 事件类型目标：按事件名称匹配
+		if hasWildcard(step.GoalValue) {
+			baseCond = fmt.Sprintf(`match(name, $%d)`, paramIndex)
+		} else {
+			baseCond = fmt.Sprintf(`name = $%d`, paramIndex)
+		}
 	}
-	if hasWildcard(step.GoalValue) {
-		// 通配符 → 正则匹配
-		return fmt.Sprintf(`match(%s, $%d)`, col, paramIndex)
+
+	// 追加自定义属性过滤条件
+	if len(step.CustomProps) > 0 {
+		for key, val := range step.CustomProps {
+			baseCond += fmt.Sprintf(
+				` AND "meta.value"[indexOf("meta.key", '%s')] = '%s'`,
+				key, val,
+			)
+		}
 	}
-	return fmt.Sprintf(`%s = $%d`, col, paramIndex)
+
+	return baseCond
 }
 
 // hasWildcard 检查字符串是否包含通配符 * 或 ?
@@ -246,5 +270,6 @@ func wildcardToClickHouseRegex(pattern string) string {
 	escaped = strings.ReplaceAll(escaped, "*", ".*")
 	escaped = strings.ReplaceAll(escaped, "?", ".")
 
-	return escaped
+	// 添加锚点确保全串匹配，与 ClickHouse match() FullMatch 语义一致
+	return "^" + escaped + "$"
 }

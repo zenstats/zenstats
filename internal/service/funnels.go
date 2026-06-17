@@ -63,11 +63,12 @@ type FunnelDetail struct {
 
 // FunnelStepInfo 漏斗步骤详情（包含目标信息）。
 type FunnelStepInfo struct {
-	StepOrder   int    `json:"step_order"`
-	GoalID      int64  `json:"goal_id"`
-	GoalName    string `json:"goal_name"`
-	GoalType    string `json:"goal_type"`
-	GoalValue   string `json:"goal_value"`
+	StepOrder   int               `json:"step_order"`
+	GoalID      int64             `json:"goal_id"`
+	GoalName    string            `json:"goal_name"`
+	GoalType    string            `json:"goal_type"`
+	GoalValue   string            `json:"goal_value"`
+	CustomProps map[string]string `json:"custom_props,omitempty"`
 }
 
 // CreateFunnelRequest 创建漏斗请求参数。
@@ -139,9 +140,10 @@ func (s *FunnelService) GetFunnel(ctx context.Context, siteID int64, funnelID in
 		}
 
 		stepInfo := &FunnelStepInfo{
-			StepOrder: fs.StepOrder,
-			GoalID:    fs.GoalID,
-			GoalName:  g.DisplayName,
+			StepOrder:   fs.StepOrder,
+			GoalID:      fs.GoalID,
+			GoalName:    g.DisplayName,
+			CustomProps: g.CustomProps,
 		}
 
 		if g.EventName != "" {

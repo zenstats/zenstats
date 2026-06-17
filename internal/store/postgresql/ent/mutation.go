@@ -3115,6 +3115,7 @@ type GoalMutation struct {
 	event_name          *string
 	page_path           *string
 	display_name        *string
+	custom_props        *map[string]string
 	clearedFields       map[string]struct{}
 	site                *int64
 	clearedsite         bool
@@ -3400,6 +3401,55 @@ func (m *GoalMutation) ResetDisplayName() {
 	m.display_name = nil
 }
 
+// SetCustomProps sets the "custom_props" field.
+func (m *GoalMutation) SetCustomProps(value map[string]string) {
+	m.custom_props = &value
+}
+
+// CustomProps returns the value of the "custom_props" field in the mutation.
+func (m *GoalMutation) CustomProps() (r map[string]string, exists bool) {
+	v := m.custom_props
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCustomProps returns the old "custom_props" field's value of the Goal entity.
+// If the Goal object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GoalMutation) OldCustomProps(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCustomProps is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCustomProps requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCustomProps: %w", err)
+	}
+	return oldValue.CustomProps, nil
+}
+
+// ClearCustomProps clears the value of the "custom_props" field.
+func (m *GoalMutation) ClearCustomProps() {
+	m.custom_props = nil
+	m.clearedFields[goal.FieldCustomProps] = struct{}{}
+}
+
+// CustomPropsCleared returns if the "custom_props" field was cleared in this mutation.
+func (m *GoalMutation) CustomPropsCleared() bool {
+	_, ok := m.clearedFields[goal.FieldCustomProps]
+	return ok
+}
+
+// ResetCustomProps resets all changes to the "custom_props" field.
+func (m *GoalMutation) ResetCustomProps() {
+	m.custom_props = nil
+	delete(m.clearedFields, goal.FieldCustomProps)
+}
+
 // ClearSite clears the "site" edge to the Site entity.
 func (m *GoalMutation) ClearSite() {
 	m.clearedsite = true
@@ -3515,7 +3565,7 @@ func (m *GoalMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GoalMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 5)
 	if m.site != nil {
 		fields = append(fields, goal.FieldSiteID)
 	}
@@ -3527,6 +3577,9 @@ func (m *GoalMutation) Fields() []string {
 	}
 	if m.display_name != nil {
 		fields = append(fields, goal.FieldDisplayName)
+	}
+	if m.custom_props != nil {
+		fields = append(fields, goal.FieldCustomProps)
 	}
 	return fields
 }
@@ -3544,6 +3597,8 @@ func (m *GoalMutation) Field(name string) (ent.Value, bool) {
 		return m.PagePath()
 	case goal.FieldDisplayName:
 		return m.DisplayName()
+	case goal.FieldCustomProps:
+		return m.CustomProps()
 	}
 	return nil, false
 }
@@ -3561,6 +3616,8 @@ func (m *GoalMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldPagePath(ctx)
 	case goal.FieldDisplayName:
 		return m.OldDisplayName(ctx)
+	case goal.FieldCustomProps:
+		return m.OldCustomProps(ctx)
 	}
 	return nil, fmt.Errorf("unknown Goal field %s", name)
 }
@@ -3597,6 +3654,13 @@ func (m *GoalMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDisplayName(v)
+		return nil
+	case goal.FieldCustomProps:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCustomProps(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Goal field %s", name)
@@ -3637,6 +3701,9 @@ func (m *GoalMutation) ClearedFields() []string {
 	if m.FieldCleared(goal.FieldPagePath) {
 		fields = append(fields, goal.FieldPagePath)
 	}
+	if m.FieldCleared(goal.FieldCustomProps) {
+		fields = append(fields, goal.FieldCustomProps)
+	}
 	return fields
 }
 
@@ -3657,6 +3724,9 @@ func (m *GoalMutation) ClearField(name string) error {
 	case goal.FieldPagePath:
 		m.ClearPagePath()
 		return nil
+	case goal.FieldCustomProps:
+		m.ClearCustomProps()
+		return nil
 	}
 	return fmt.Errorf("unknown Goal nullable field %s", name)
 }
@@ -3676,6 +3746,9 @@ func (m *GoalMutation) ResetField(name string) error {
 		return nil
 	case goal.FieldDisplayName:
 		m.ResetDisplayName()
+		return nil
+	case goal.FieldCustomProps:
+		m.ResetCustomProps()
 		return nil
 	}
 	return fmt.Errorf("unknown Goal field %s", name)

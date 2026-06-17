@@ -25,4 +25,6 @@ func RegisterStatsRouter(router *gin.RouterGroup) {
 	statsGroup.GET("/:domain/current-visitors", handle.GetCurrentVisitors())
 	// 时间序列（别名）
 	statsGroup.GET("/:domain/time_series", handle.GetTimeSeries())
+	// 筛选器建议（自动补全）
+	statsGroup.GET("/:domain/suggestions", handle.GetSuggestions())
 }

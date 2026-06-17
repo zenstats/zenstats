@@ -3,44 +3,32 @@
 
   var location = window.location
   var document = window.document
-  var scriptEl = document.currentScript;
+  var scriptEl = document.currentScript || {};
 
-  var endpoint = scriptEl.getAttribute('data-api') || defaultEndpoint(scriptEl)
-  var dataDomain = scriptEl.getAttribute('data-domain')
+  var endpoint = scriptEl.getAttribute && scriptEl.getAttribute('data-api') || defaultEndpoint()
+  var dataDomain = scriptEl.getAttribute && scriptEl.getAttribute('data-domain')
 
-  function defaultEndpoint(el) {
-    return new URL(el.src).origin + '/api/event'
+  function defaultEndpoint() {
+    var src = scriptEl.src || ''
+    return new URL(src).origin + '/api/event'
   }
 
   function onIgnoredEvent(eventName, reason, options) {
     if (reason) console.warn('Ignoring Event: ' + reason);
     options && options.callback && options.callback({ status: 0, ignored: true })
-
-    if (eventName === 'pageview') {
-      currentEngagementIgnored = true
-    }
+    if (eventName === 'pageview') currentEngagementIgnored = true
   }
 
   var currentEngagementIgnored
   var currentEngagementURL = location.href
   var currentEngagementProps = {}
   var currentEngagementMaxScrollDepth = -1
-
-  // Multiple pageviews might be sent by the same script when the page
-  // uses client-side routing (e.g. hash or history-based). This flag
-  // prevents registering multiple listeners in those cases.
   var listeningOnEngagement = false
-
-  // Timestamp indicating when this particular page last became visible.
-  // Reset during pageviews, set to null when page is closed.
   var runningEngagementStart = null
-
-  // When page is hidden, this 'engaged' time is saved to this variable
   var currentEngagementTime = 0
 
-  // Event batching configuration
-  var BATCH_INTERVAL = 2000  // Flush every 2 seconds
-  var MAX_BATCH_SIZE = 10    // Max events per batch
+  var BATCH_INTERVAL = 2000
+  var MAX_BATCH_SIZE = 10
   var eventQueue = []
   var batchTimer = null
 
@@ -48,46 +36,33 @@
     var body = document.body || {}
     var el = document.documentElement || {}
     return Math.max(
-      body.scrollHeight || 0,
-      body.offsetHeight || 0,
-      body.clientHeight || 0,
-      el.scrollHeight || 0,
-      el.offsetHeight || 0,
-      el.clientHeight || 0
+      body.scrollHeight || 0, body.offsetHeight || 0, body.clientHeight || 0,
+      el.scrollHeight || 0, el.offsetHeight || 0, el.clientHeight || 0
     )
   }
 
   function getCurrentScrollDepthPx() {
     var body = document.body || {}
     var el = document.documentElement || {}
-    var viewportHeight = window.innerHeight || el.clientHeight || 0
-    var scrollTop = window.scrollY || el.scrollTop || body.scrollTop || 0
-
-    return currentDocumentHeight <= viewportHeight ? currentDocumentHeight : scrollTop + viewportHeight
+    var vh = window.innerHeight || el.clientHeight || 0
+    var st = window.scrollY || el.scrollTop || body.scrollTop || 0
+    return currentDocumentHeight <= vh ? currentDocumentHeight : st + vh
   }
 
   function getEngagementTime() {
-    if (runningEngagementStart) {
-      return currentEngagementTime + (Date.now() - runningEngagementStart)
-    } else {
-      return currentEngagementTime
-    }
+    return runningEngagementStart ? currentEngagementTime + (Date.now() - runningEngagementStart) : currentEngagementTime
   }
 
   var currentDocumentHeight = getDocumentHeight()
   var maxScrollDepthPx = getCurrentScrollDepthPx()
-
-  // Scroll handler with requestAnimationFrame throttle
   var scrollTicking = false
+
   function onScroll() {
     if (!scrollTicking) {
       window.requestAnimationFrame(function() {
         currentDocumentHeight = getDocumentHeight()
-        var currentScrollDepthPx = getCurrentScrollDepthPx()
-
-        if (currentScrollDepthPx > maxScrollDepthPx) {
-          maxScrollDepthPx = currentScrollDepthPx
-        }
+        var d = getCurrentScrollDepthPx()
+        if (d > maxScrollDepthPx) maxScrollDepthPx = d
         scrollTicking = false
       })
       scrollTicking = true
@@ -96,54 +71,25 @@
 
   window.addEventListener('load', function () {
     currentDocumentHeight = getDocumentHeight()
-
-    // Update the document height again after every 200ms during the
-    // next 3 seconds. This makes sure dynamically loaded content is
-    // also accounted for.
-    var count = 0
-    var interval = setInterval(function () {
+    var c = 0
+    var iv = setInterval(function () {
       currentDocumentHeight = getDocumentHeight()
-      if (++count === 15) {clearInterval(interval)}
+      if (++c === 15) clearInterval(iv)
     }, 200)
-
   })
-
   document.addEventListener('scroll', onScroll)
 
   function triggerEngagement() {
-    var engagementTime = getEngagementTime()
-
-    /*
-    We send engagements if there's new relevant engagement information to share:
-    - If the user has scrolled more than the previously sent max scroll depth.
-    - If the user has been engaged for more than 3 seconds since the last engagement event.
-
-    The first engagement event is always sent due to containing at least the initial scroll depth.
-
-    Also, we don't send engagements if the current pageview is ignored (onIgnoredEvent)
-    */
-    if (!currentEngagementIgnored && (currentEngagementMaxScrollDepth < maxScrollDepthPx || engagementTime > 2000)) {
+    var et = getEngagementTime()
+    if (!currentEngagementIgnored && (currentEngagementMaxScrollDepth < maxScrollDepthPx || et > 2000)) {
       currentEngagementMaxScrollDepth = maxScrollDepthPx
-
-      var payload = {
-        n: 'engagement',
-        sd: Math.round((maxScrollDepthPx / currentDocumentHeight) * 100),
-        d: dataDomain,
-        u: currentEngagementURL,
-        p: currentEngagementProps,
-        e: engagementTime,
+      sendRequest(endpoint, {
+        n: 'engagement', sd: Math.round((maxScrollDepthPx / currentDocumentHeight) * 100),
+        d: dataDomain, u: currentEngagementURL, p: currentEngagementProps, e: et,
         v: '{{TRACKER_SCRIPT_VERSION}}'
-      }
-
-      // Reset current engagement time metrics. They will restart upon when page becomes visible or the next SPA pageview
+      })
       runningEngagementStart = null
       currentEngagementTime = 0
-
-      {{#if hash}}
-      payload.h = 1
-      {{/if}}
-
-      sendRequest(endpoint, payload)
     }
   }
 
@@ -151,22 +97,17 @@
     if (document.visibilityState === 'visible' && document.hasFocus() && runningEngagementStart === null) {
       runningEngagementStart = Date.now()
     } else if (document.visibilityState === 'hidden' || !document.hasFocus()) {
-      // Tab went back to background or lost focus. Save the engaged time so far
       currentEngagementTime = getEngagementTime()
       runningEngagementStart = null
-
       triggerEngagement()
     }
   }
 
   var engagementTimer = null
-
   function startEngagementTimer() {
     if (engagementTimer) clearInterval(engagementTimer)
     engagementTimer = setInterval(function() {
-      if (!currentEngagementIgnored && runningEngagementStart !== null) {
-        triggerEngagement()
-      }
+      if (!currentEngagementIgnored && runningEngagementStart !== null) triggerEngagement()
     }, 10000)
   }
 
@@ -180,65 +121,190 @@
     }
   }
 
+  {{#if (any COMPILE_TAGGED_EVENTS COMPILE_OUTBOUND_LINKS COMPILE_FILE_DOWNLOADS)}}
+  var PARENTS_TO_SEARCH_LIMIT = 3
+  var MIDDLE_MOUSE_BUTTON = 1
+  {{/if}}
+
+  {{#if COMPILE_OUTBOUND_LINKS}}
+  function isOutboundLink(link) {
+    return link && typeof link.href === 'string' && link.host && link.host !== location.host && !link.href.match(/^(javascript:|mailto:|tel:)/i)
+  }
+  {{/if}}
+
+  {{#if COMPILE_FILE_DOWNLOADS}}
+  var DEFAULT_FILE_TYPES = 'pdf,xlsx,docx,txt,rtf,csv,exe,key,pps,ppt,pptx,7z,pkg,rar,gz,zip,avi,mov,mp4,mpeg,wmv,midi,mp3,wav,wma,dmg'
+  var fileTypes = (scriptEl.getAttribute && scriptEl.getAttribute('data-file-types') || DEFAULT_FILE_TYPES).split(',')
+
+  function isDownloadToTrack(url) {
+    if (!url) return false
+    var ext = url.split('.').pop()
+    for (var i = 0; i < fileTypes.length; i++) {
+      if (fileTypes[i] === ext) return true
+    }
+    return false
+  }
+  {{/if}}
+
+  {{#if (any COMPILE_TAGGED_EVENTS COMPILE_OUTBOUND_LINKS COMPILE_FILE_DOWNLOADS)}}
+  function isLink(el) {
+    return el && el.tagName && el.tagName.toLowerCase() === 'a'
+  }
+
+  function getLinkEl(link) {
+    while (link && (typeof link.tagName === 'undefined' || !isLink(link) || !link.href) && link !== document.body)
+      link = link.parentNode
+    return link
+  }
+  {{/if}}
+
+  {{#if COMPILE_TAGGED_EVENTS}}
+  function isTagged(el) {
+    var cl = el && el.classList
+    if (!cl) return false
+    for (var i = 0; i < cl.length; i++) {
+      if (cl.item(i).match(/event-name(=|--)(.+)/)) return true
+    }
+    return false
+  }
+
+
+  function getTaggedEventAttributes(htmlEl) {
+    var te = isTagged(htmlEl) ? htmlEl : htmlEl && htmlEl.parentNode
+    var attrs = { name: null, props: {} }
+    var cl = te && te.classList
+    if (!cl) return attrs
+    for (var i = 0; i < cl.length; i++) {
+      var m = cl.item(i).match(/event-(.+)(=|--)(.+)/)
+      if (m) {
+        var k = m[1], v = m[3].replace(/\+/g, ' ')
+        if (k.toLowerCase() === 'name') attrs.name = v
+        else attrs.props[k] = v
+      }
+    }
+    return attrs
+  }
+
+  function isForm(el) {
+    return el && el.tagName && el.tagName.toLowerCase() === 'form'
+  }
+  {{/if}}
+
+  {{#if (any COMPILE_OUTBOUND_LINKS COMPILE_FILE_DOWNLOADS COMPILE_TAGGED_EVENTS)}}
+  function handleLinkClickEvent(event) {
+    if (event.type === 'auxclick' && event.button !== MIDDLE_MOUSE_BUTTON) return
+
+    {{#if COMPILE_TAGGED_EVENTS}}
+    // Single DOM walk: check tagged elements + links in one pass
+    var clicked = event.target
+    var foundLink
+    for (var i = 0; i <= PARENTS_TO_SEARCH_LIMIT; i++) {
+      if (!clicked) break
+      if (isForm(clicked)) return
+      if (isLink(clicked)) foundLink = clicked
+      if (isTagged(clicked)) {
+        var ea = getTaggedEventAttributes(clicked)
+        if (foundLink) ea.props.url = foundLink.href
+        if (ea.name) return trigger(ea.name, { props: ea.props })
+        return  // Tagged element → suppress outbound / download
+      }
+      clicked = clicked.parentNode
+    }
+    {{else}}
+    var foundLink = getLinkEl(event.target)
+    {{/if}}
+
+    {{#if (any COMPILE_OUTBOUND_LINKS COMPILE_FILE_DOWNLOADS)}}
+    var hrefWO = foundLink && typeof foundLink.href === 'string' && foundLink.href.split('?')[0]
+    {{/if}}
+    {{#if COMPILE_OUTBOUND_LINKS}}
+    if (foundLink && isOutboundLink(foundLink)) return trigger('Outbound Link: Click', { props: { url: foundLink.href } })
+    {{/if}}
+    {{#if COMPILE_FILE_DOWNLOADS}}
+    if (hrefWO && isDownloadToTrack(hrefWO)) return trigger('File Download', { props: { url: hrefWO } })
+    {{/if}}
+  }
+
+  function handleFormSubmitEvent(event) {
+    {{#if COMPILE_TAGGED_EVENTS}}
+    var ea = getTaggedEventAttributes(event.target)
+    if (ea.name) return trigger(ea.name, { props: ea.props })
+    {{/if}}
+    trigger('Form: Submission')
+  }
+  {{/if}}
+
   function trigger(eventName, options) {
     var isPageview = eventName === 'pageview'
 
     if (isPageview && listeningOnEngagement) {
-      // If we're listening on engagement already, at least one pageview
-      // has been sent by the current script (i.e. it's most likely a SPA).
-      // Trigger an engagement marking the "exit from the previous page".
       triggerEngagement()
       currentDocumentHeight = getDocumentHeight()
       maxScrollDepthPx = getCurrentScrollDepthPx()
     }
 
-    // if (/^localhost$|^127(\.[0-9]+){0,2}\.[0-9]+$|^\[::1?\]$/.test(location.hostname) || location.protocol === 'file:') {
-    //   return onIgnoredEvent(eventName, 'localhost', options)
-    // }
     if ((window._phantom || window.__nightmare || window.navigator.webdriver || window.Cypress) && !window.__zenstats) {
       return onIgnoredEvent(eventName, null, options)
     }
     try {
-      if (window.localStorage.zenstats_ignore === 'true') {
-        return onIgnoredEvent(eventName, 'localStorage flag', options)
+      if (window.localStorage.zenstats_ignore === 'true') return onIgnoredEvent(eventName, 'localStorage flag', options)
+    } catch (e) {}
+
+    {{#if COMPILE_EXCLUSIONS}}
+    var exclusionRegexCache = {}
+    function pathMatches(wildcardPath) {
+      var actualPath = location.pathname
+      {{#if COMPILE_HASH}}
+      actualPath += location.hash
+      {{/if}}
+      var regex = exclusionRegexCache[wildcardPath]
+      if (!regex) {
+        regex = exclusionRegexCache[wildcardPath] = new RegExp(
+          '^' +
+            wildcardPath
+              .trim()
+              .replace(/\*\*/g, '.*')
+              .replace(/([^\.])\*/g, '$1[^\\s/]*') +
+            '\/?$'
+        )
       }
-    } catch (e) {
-
+      return actualPath.match(regex)
     }
 
-    var payload = {}
-    payload.n = eventName
-    payload.v = '{{TRACKER_SCRIPT_VERSION}}'
+    if (isPageview) {
+      var dataIncludeAttr = scriptEl.getAttribute && scriptEl.getAttribute('data-include')
+      var dataExcludeAttr = scriptEl.getAttribute && scriptEl.getAttribute('data-exclude')
 
-    payload.u = location.href
-    payload.d = dataDomain
-    payload.r = document.referrer || null
-    if (options && options.meta) {
-      payload.m = JSON.stringify(options.meta)
+      var isIncluded =
+        !dataIncludeAttr ||
+        (dataIncludeAttr && dataIncludeAttr.split(',').some(pathMatches))
+      var isExcluded =
+        dataExcludeAttr && dataExcludeAttr.split(',').some(pathMatches)
+
+      if (!isIncluded || isExcluded)
+        return onIgnoredEvent(eventName, 'exclusion rule', options)
     }
-    if (options && options.props) {
-      payload.p = options.props
+    {{/if}}
+
+    {{#if COMPILE_MANUAL}}
+    var customURL = options && (options.u || options.url)
+    {{/if}}
+    var payload = {
+      n: eventName, v: '{{TRACKER_SCRIPT_VERSION}}',
+      u: {{#if COMPILE_MANUAL}}(customURL || location.href){{else}}location.href{{/if}}, d: dataDomain, r: document.referrer || null
     }
-    if (options && options.interactive === false) {
-      payload.i = false
-    }
+    if (options && options.meta) payload.m = JSON.stringify(options.meta)
+    if (options && options.props) payload.p = options.props
+    if (options && options.interactive === false) payload.i = false
 
-
-    var propAttributes = scriptEl.getAttributeNames().filter(function (name) {
-      return name.substring(0, 6) === 'event-'
-    })
-
+    {{#if COMPILE_PAGEVIEW_PROPS}}
+    var attrs = scriptEl.getAttributeNames && scriptEl.getAttributeNames().filter(function(n) { return n.substring(0,6) === 'event-' }) || []
     var props = payload.p || {}
-
-    propAttributes.forEach(function(attribute) {
-      var propKey = attribute.replace('event-', '')
-      var propValue = scriptEl.getAttribute(attribute)
-      props[propKey] = props[propKey] || propValue
-    })
-
+    for (var i = 0; i < attrs.length; i++) {
+      var k = attrs[i].replace('event-', ''), v = scriptEl.getAttribute(attrs[i])
+      props[k] = props[k] || v
+    }
     payload.p = props
-    {{#if hash}}
-    payload.h = 1
     {{/if}}
 
     if (isPageview) {
@@ -247,162 +313,125 @@
       currentEngagementProps = payload.p
       currentEngagementMaxScrollDepth = -1
       currentEngagementTime = 0
-      if (document.visibilityState === 'visible') {
-        runningEngagementStart = Date.now()
-      } else {
-        runningEngagementStart = null
-      }
+      if (document.visibilityState === 'visible') runningEngagementStart = Date.now()
+      else runningEngagementStart = null
       registerEngagementListener()
       startEngagementTimer()
     }
-
     addToQueue(payload, options)
   }
 
-  // Event batching: queue events and flush periodically
+  {{#if (any COMPILE_TAGGED_EVENTS COMPILE_OUTBOUND_LINKS COMPILE_FILE_DOWNLOADS)}}
+  document.addEventListener('click', handleLinkClickEvent)
+  document.addEventListener('auxclick', handleLinkClickEvent)
+  document.addEventListener('submit', handleFormSubmitEvent)
+  {{/if}}
+
   function addToQueue(payload, options) {
     eventQueue.push({ payload: payload, options: options })
-
-    if (eventQueue.length >= MAX_BATCH_SIZE) {
-      flushQueue()
-    } else if (!batchTimer) {
-      batchTimer = setTimeout(flushQueue, BATCH_INTERVAL)
-    }
+    if (eventQueue.length >= MAX_BATCH_SIZE) flushQueue()
+    else if (!batchTimer) batchTimer = setTimeout(flushQueue, BATCH_INTERVAL)
   }
 
   function flushQueue() {
-    if (batchTimer) {
-      clearTimeout(batchTimer)
-      batchTimer = null
-    }
-
+    if (batchTimer) { clearTimeout(batchTimer); batchTimer = null }
     if (eventQueue.length === 0) return
-
-    var eventsToSend = eventQueue.splice(0, MAX_BATCH_SIZE)
-    var callbacks = []
-
-    // Collect all callbacks
-    for (var i = 0; i < eventsToSend.length; i++) {
-      if (eventsToSend[i].options && eventsToSend[i].options.callback) {
-        callbacks.push(eventsToSend[i].options.callback)
-      }
+    var items = eventQueue.splice(0, MAX_BATCH_SIZE)
+    var cbs = []
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].options && items[i].options.callback) cbs.push(items[i].options.callback)
     }
-
-    // Send batch if multiple events, otherwise send single
-    if (eventsToSend.length === 1) {
-      sendRequest(endpoint, eventsToSend[0].payload, eventsToSend[0].options)
+    if (items.length === 1) {
+      sendRequest(endpoint, items[0].payload, items[0].options)
     } else {
-      var batchPayload = {
-        n: 'batch',
-        e: eventsToSend.map(function(item) { return item.payload }),
-        v: '{{TRACKER_SCRIPT_VERSION}}'
-      }
-      sendRequest(endpoint, batchPayload, callbacks.length > 0 ? { callback: function(result) {
-        for (var j = 0; j < callbacks.length; j++) {
-          callbacks[j](result)
-        }
-      }} : null)
+      sendRequest(endpoint, {
+        n: 'batch', e: items.map(function(x) { return x.payload }), v: '{{TRACKER_SCRIPT_VERSION}}'
+      }, cbs.length > 0 ? { callback: function(r) { for (var j = 0; j < cbs.length; j++) cbs[j](r) } } : null)
     }
-
-    // If there are more events in queue, schedule another flush
-    if (eventQueue.length > 0) {
-      batchTimer = setTimeout(flushQueue, BATCH_INTERVAL)
-    }
+    if (eventQueue.length > 0) batchTimer = setTimeout(flushQueue, BATCH_INTERVAL)
   }
 
-  // Flush remaining events on page unload
   window.addEventListener('beforeunload', function() {
     triggerEngagement()
-    flushQueue()
+    if (eventQueue.length > 0) {
+      // Use sendBeacon for reliable delivery during page unload
+      if (navigator.sendBeacon) {
+        var items = eventQueue.splice(0, eventQueue.length)
+        if (items.length === 1) {
+          navigator.sendBeacon(endpoint, JSON.stringify(items[0].payload))
+        } else {
+          navigator.sendBeacon(endpoint, JSON.stringify({
+            n: 'batch', e: items.map(function(x) { return x.payload }), v: '{{TRACKER_SCRIPT_VERSION}}'
+          }))
+        }
+      } else {
+        flushQueue()
+      }
+    }
   })
 
   function sendRequest(endpoint, payload, options) {
+    // Use sendBeacon when no callback is expected (fire-and-forget)
+    if (navigator.sendBeacon && !(options && options.callback)) {
+      navigator.sendBeacon(endpoint, JSON.stringify(payload))
+      return
+    }
     if (window.fetch) {
       fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain'
-        },
-        keepalive: true,
-        body: JSON.stringify(payload)
-      }).then(function(response) {
-        options && options.callback && options.callback({ status: response.status })
-      }).catch(function(error) {
-        options && options.callback && options.callback({ status: 0, error: error })
-      })
+        method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        keepalive: true, body: JSON.stringify(payload)
+      }).then(function(r) { options && options.callback && options.callback({ status: r.status }) })
+        .catch(function(e) { options && options.callback && options.callback({ status: 0, error: e }) })
     } else if (window.XMLHttpRequest) {
-      // Fallback to XMLHttpRequest for older browsers
       try {
         var xhr = new XMLHttpRequest()
         xhr.open('POST', endpoint, true)
         xhr.setRequestHeader('Content-Type', 'text/plain')
         xhr.onreadystatechange = function() {
-          if (xhr.readyState === 4) {
-            options && options.callback && options.callback({ status: xhr.status })
-          }
+          if (xhr.readyState === 4) options && options.callback && options.callback({ status: xhr.status })
         }
-        xhr.onerror = function() {
-          options && options.callback && options.callback({ status: 0, error: 'Network error' })
-        }
+        xhr.onerror = function() { options && options.callback && options.callback({ status: 0, error: 'Network error' }) }
         xhr.send(JSON.stringify(payload))
-      } catch (e) {
-        options && options.callback && options.callback({ status: 0, error: e })
-      }
+      } catch(e) { options && options.callback && options.callback({ status: 0, error: e }) }
     } else {
-      // Last resort: image pixel (limited payload, no response)
       options && options.callback && options.callback({ status: 0, error: 'No transport available' })
     }
   }
 
+  // Initialize
   var queue = (window.zenstats && window.zenstats.q) || []
   window.zenstats = trigger
-  for (var i = 0; i < queue.length; i++) {
-    trigger.apply(this, queue[i])
-  }
+  for (var i = 0; i < queue.length; i++) trigger.apply(this, queue[i])
 
+  // SPA pageview tracking
   var lastPage;
-
-  function page(isSPANavigation) {
-    {{#unless hash}}
-    if (isSPANavigation && lastPage === location.pathname) return;
+  function page(isSPANav) {
+    {{#unless COMPILE_HASH}}
+    if (isSPANav && lastPage === location.pathname) return;
     {{/unless}}
-
     lastPage = location.pathname
     trigger('pageview')
   }
+  var onSPANav = function() { page(true) }
 
-  var onSPANavigation = function() {page(true)}
-
-  {{#if hash}}
-  window.addEventListener('hashchange', onSPANavigation)
+  {{#if COMPILE_HASH}}
+  window.addEventListener('hashchange', onSPANav)
   {{else}}
   var his = window.history
   if (his.pushState) {
-    var originalPushState = his['pushState']
-    his.pushState = function() {
-      originalPushState.apply(this, arguments)
-      onSPANavigation();
-    }
-    window.addEventListener('popstate', onSPANavigation)
+    var orig = his.pushState
+    his.pushState = function() { orig.apply(this, arguments); onSPANav() }
+    window.addEventListener('popstate', onSPANav)
   }
   {{/if}}
 
-  function handleVisibilityChange() {
-    if (!lastPage && document.visibilityState === 'visible') {
-      page()
-    }
+  function visChange() {
+    if (!lastPage && document.visibilityState === 'visible') page()
   }
-
   if (document.visibilityState === 'hidden' || document.visibilityState === 'prerender') {
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', visChange)
   } else {
     page()
   }
-
-  window.addEventListener('pageshow', function(event) {
-    if (event.persisted) {
-      // Page was restored from bfcache - trigger a pageview
-      page();
-    }
-  })
+  window.addEventListener('pageshow', function(e) { if (e.persisted) page() })
 })();
