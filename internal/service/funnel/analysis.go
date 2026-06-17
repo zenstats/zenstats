@@ -139,22 +139,27 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 // 策略：单次扫描事件表，使用 minIf 按步骤条件计算每个用户各步骤的最早触发时间，
 // 再通过 WHERE 比较时间戳确保严格时序。避免多表 JOIN 的列引用问题，性能更优。
 func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any) {
-	args := []any{req.SiteID, req.StartTime, req.EndTime}
-
-	// 构建 per-step 条件表达式（用于 minIf 和 WHERE OR）
+	// 参数顺序必须匹配最终 SQL 中 ? 的出现顺序：
+	// minIf 中的 ? (SELECT 子句，最先) → site_id/timestamp 的 ? (WHERE 子句) → WHERE OR 中的 ?
+	// 因此先把各 step 的 goal value 放入 args，再放 site_id / timestamps
+	var args []any
 	stepConds := make([]string, len(req.Steps))
 	orConds := make([]string, len(req.Steps))
+	var goalArgs []any
 	for i, step := range req.Steps {
 		cond := s.buildGoalCondition(step)
 		stepConds[i] = cond
 		orConds[i] = cond
-		// 通配符模式下将 * 转换为 ClickHouse 正则 .*
 		val := step.GoalValue
 		if hasWildcard(val) {
 			val = wildcardToClickHouseRegex(val)
 		}
-		args = append(args, val)
+		goalArgs = append(goalArgs, val)
 	}
+	// minIf 中的 ? (每个 step 一次) + site_id/timestamps (3个) + WHERE OR 中的 ? (每个 step 一次)
+	args = append(args, goalArgs...)          // minIf 部分
+	args = append(args, req.SiteID, req.StartTime, req.EndTime) // WHERE 条件
+	args = append(args, goalArgs...)          // WHERE OR 部分
 
 	// CTE: 单表扫描，每个用户一行，含各步骤的最早时间
 	minIfParts := make([]string, len(req.Steps))
