@@ -3,6 +3,8 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile.caddy
+      args:
+        - VITE_DATA_DOMAIN=${ZENSTATS_DOMAIN:-localhost}
     restart: always
     ports:
       - "80:80"

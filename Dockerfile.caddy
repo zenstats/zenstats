@@ -20,8 +20,10 @@ RUN npm run deploy
 FROM node:22-alpine AS frontend-builder
 
 ARG NPM_REGISTRY=https://registry.npmmirror.com
+ARG VITE_DATA_DOMAIN=localhost
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+ENV VITE_DATA_DOMAIN=${VITE_DATA_DOMAIN}
 
 RUN corepack enable && corepack prepare pnpm@10.13.1 --activate \
   && pnpm config set registry ${NPM_REGISTRY} \

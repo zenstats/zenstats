@@ -81,7 +81,7 @@
 
   function triggerEngagement() {
     var et = getEngagementTime()
-    if (!currentEngagementIgnored && (currentEngagementMaxScrollDepth < maxScrollDepthPx || et > 2000)) {
+    if (!currentEngagementIgnored && (currentEngagementMaxScrollDepth < maxScrollDepthPx || et >= 3000)) {
       currentEngagementMaxScrollDepth = maxScrollDepthPx
       sendRequest(endpoint, {
         n: 'engagement', sd: Math.round((maxScrollDepthPx / currentDocumentHeight) * 100),
@@ -324,7 +324,7 @@
   {{#if (any COMPILE_TAGGED_EVENTS COMPILE_OUTBOUND_LINKS COMPILE_FILE_DOWNLOADS)}}
   document.addEventListener('click', handleLinkClickEvent)
   document.addEventListener('auxclick', handleLinkClickEvent)
-  document.addEventListener('submit', handleFormSubmitEvent)
+  document.addEventListener('submit', handleFormSubmitEvent, true)
   {{/if}}
 
   function addToQueue(payload, options) {
@@ -353,29 +353,10 @@
 
   window.addEventListener('beforeunload', function() {
     triggerEngagement()
-    if (eventQueue.length > 0) {
-      // Use sendBeacon for reliable delivery during page unload
-      if (navigator.sendBeacon) {
-        var items = eventQueue.splice(0, eventQueue.length)
-        if (items.length === 1) {
-          navigator.sendBeacon(endpoint, JSON.stringify(items[0].payload))
-        } else {
-          navigator.sendBeacon(endpoint, JSON.stringify({
-            n: 'batch', e: items.map(function(x) { return x.payload }), v: '{{TRACKER_SCRIPT_VERSION}}'
-          }))
-        }
-      } else {
-        flushQueue()
-      }
-    }
+    flushQueue()
   })
 
   function sendRequest(endpoint, payload, options) {
-    // Use sendBeacon when no callback is expected (fire-and-forget)
-    if (navigator.sendBeacon && !(options && options.callback)) {
-      navigator.sendBeacon(endpoint, JSON.stringify(payload))
-      return
-    }
     if (window.fetch) {
       fetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'text/plain' },
@@ -398,9 +379,11 @@
     }
   }
 
-  // Initialize
+  // Initialize (guard against double-load)
+  if (window.zenstats && window.zenstats.l) return
   var queue = (window.zenstats && window.zenstats.q) || []
   window.zenstats = trigger
+  window.zenstats.l = true
   for (var i = 0; i < queue.length; i++) trigger.apply(this, queue[i])
 
   // SPA pageview tracking
@@ -419,7 +402,7 @@
   {{else}}
   var his = window.history
   if (his.pushState) {
-    var orig = his.pushState
+    var orig = his['pushState']
     his.pushState = function() { orig.apply(this, arguments); onSPANav() }
     window.addEventListener('popstate', onSPANav)
   }
