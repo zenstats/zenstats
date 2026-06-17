@@ -193,7 +193,7 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 				AND timestamp <= ?
 				AND (%s)
 			GROUP BY user_id
-		) %s`,
+		) %s ORDER BY step_order`,
 		strings.Join(minIfParts, ", "),
 		strings.Join(orConds, " OR "),
 		strings.Join(selectParts, " UNION ALL "),
