@@ -145,7 +145,7 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 	stepConds := make([]string, len(req.Steps))
 	orConds := make([]string, len(req.Steps))
 	for i, step := range req.Steps {
-		cond := s.buildGoalCondition(step, i+4)
+		cond := s.buildGoalCondition(step)
 		stepConds[i] = cond
 		orConds[i] = cond
 		// 通配符模式下将 * 转换为 ClickHouse 正则 .*
@@ -183,9 +183,9 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 		`WITH funnel_data AS (
 			SELECT user_id, %s
 			FROM zenstats_events_db.events
-			WHERE site_id = toUInt64($1)
-				AND timestamp >= $2
-				AND timestamp <= $3
+			WHERE site_id = toUInt64(?)
+				AND timestamp >= ?
+				AND timestamp <= ?
 				AND (%s)
 			GROUP BY user_id
 		) %s`,
@@ -206,21 +206,21 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 //   - 精确匹配：goal 值不含 * 或 ? 时，使用 = 比较
 //   - 通配符匹配：goal 值含 * 或 ? 时，使用 ClickHouse match() 正则匹配
 //     例如 /soft/*.html 会匹配 /soft/1111.html、/soft/abc.html 等
-func (s *AnalysisService) buildGoalCondition(step *FunnelStep, paramIndex int) string {
+func (s *AnalysisService) buildGoalCondition(step *FunnelStep) string {
 	var baseCond string
 	if step.GoalType == "page" {
 		// 页面类型目标：过滤到 pageview 事件 + 匹配 pathname
 		if hasWildcard(step.GoalValue) {
-			baseCond = fmt.Sprintf(`(name = 'pageview' AND match(pathname, $%d))`, paramIndex)
+			baseCond = `(name = 'pageview' AND match(pathname, ?))`
 		} else {
-			baseCond = fmt.Sprintf(`(name = 'pageview' AND pathname = $%d)`, paramIndex)
+			baseCond = `(name = 'pageview' AND pathname = ?)`
 		}
 	} else {
 		// 事件类型目标：按事件名称匹配
 		if hasWildcard(step.GoalValue) {
-			baseCond = fmt.Sprintf(`match(name, $%d)`, paramIndex)
+			baseCond = `match(name, ?)`
 		} else {
-			baseCond = fmt.Sprintf(`name = $%d`, paramIndex)
+			baseCond = `name = ?`
 		}
 	}
 
