@@ -66,9 +66,26 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 }
 
 // runCountQuery 执行 COUNT 查询获取分页总行数
+// runCountQuery 执行 COUNT 查询获取分页总行数。
+// 注意：必须移除原始 SQL 中的 LIMIT/OFFSET 子句，否则 COUNT 的只是截断后的行数。
 func (qr *QueryRunner) runCountQuery(ctx context.Context, originalSQL string, args []any) (int, error) {
-	// 用 COUNT(*) 包裹原始查询获取总行数
-	countSQL := fmt.Sprintf("SELECT count(*) FROM (%s)", originalSQL)
+	// 移除 LIMIT / OFFSET 子句（大小写不敏感）
+	cleanSQL := originalSQL
+	// 查找最后一个 LIMIT 子句的位置
+	limitIdx := strings.LastIndex(strings.ToUpper(cleanSQL), "LIMIT ")
+	offsetIdx := strings.LastIndex(strings.ToUpper(cleanSQL), "OFFSET ")
+	
+	if limitIdx >= 0 {
+		// 截掉 LIMIT 及其后面的所有内容
+		cleanSQL = cleanSQL[:limitIdx]
+	}
+	// OFFSET 需要在 LIMIT 之后，如果 LIMIT 已移除则 OFFSET 也会被移除
+	// 但如果只有 OFFSET 没有 LIMIT（不常见），则单独处理
+	if offsetIdx >= 0 {
+		cleanSQL = cleanSQL[:offsetIdx]
+	}
+
+	countSQL := fmt.Sprintf("SELECT count(*) FROM (%s)", strings.TrimSpace(cleanSQL))
 
 	var totalRows uint64
 	err := qr.conn.QueryRow(ctx, countSQL, args...).Scan(&totalRows)
