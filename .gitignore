@@ -23,8 +23,6 @@ go.work.sum
 Thumbs.db
 
 # Project specific
-tracker/node_modules
-tracker/dist/
 data/*.mmdb
 data/*.tar.gz
 zenstats.js
@@ -33,3 +31,8 @@ zenstats.js
 .env
 .env.local
 .env.production
+
+# Agent / IDE tooling
+.codegraph/
+.reasonix/
+reasonix.toml

@@ -3,30 +3,14 @@ set -e
 
 # ============================================================
 # ZenStats 容器入口脚本
-# 1. 将预下载的 GeoIP 种子数据复制到持久化数据目录（首次启动）
-# 2. 等待数据库就绪并自动执行迁移
-# 3. 启动应用服务
+# 1. 等待数据库就绪并自动执行迁移
+# 2. 启动应用服务（GeoIP 数据库将在首次运行时自动下载）
 # ============================================================
 
 MAX_RETRIES=10
 RETRY_INTERVAL=3
-DATA_DIR="/app/data"
-GEOIP_SEED_DIR="/app/geoip-seed"
 
 echo "=== ZenStats Entrypoint ==="
-
-# ---- 初始化持久化数据目录 ----
-# 将预下载的 GeoIP 数据库复制到 volume 挂载的数据目录（仅当文件不存在时）
-if [ -d "$GEOIP_SEED_DIR" ] && [ -n "$(ls -A $GEOIP_SEED_DIR 2>/dev/null)" ]; then
-	echo "Initializing data directory with seed files..."
-	for f in "$GEOIP_SEED_DIR"/*; do
-		fname=$(basename "$f")
-		if [ ! -f "$DATA_DIR/$fname" ]; then
-			cp "$f" "$DATA_DIR/$fname"
-			echo "  Copied $fname to $DATA_DIR/"
-		fi
-	done
-fi
 
 # ---- 等待 PostgreSQL 并执行迁移 ----
 echo "Waiting for PostgreSQL (${ZENSTATS_DB_HOST}:${ZENSTATS_DB_PORT:-5432})..."

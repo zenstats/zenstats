@@ -120,18 +120,7 @@ zenstats/
 │   ├── log/               # 日志工具
 │   └── validator/         # 数据验证
 │
-├── tracker/                # 前端追踪脚本
-│   ├── src/               # 脚本源码
-│   └── compile.js         # 编译脚本
-│
-├── web/                    # React 前端
-│   └── src/
-│       ├── pages/         # 页面组件
-│       ├── components/    # 通用组件
-│       ├── store/         # 状态管理
-│       ├── i18n/          # 国际化配置
-│       └── utils/         # 工具函数
-│
+├── scripts/                # 部署迁移脚本
 ├── sql/                    # 数据库脚本
 │   ├── clickhouse/        # ClickHouse 建表语句
 │   └── migration.sql      # PostgreSQL 迁移脚本
@@ -483,7 +472,7 @@ web/src/
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| caddy | 80, 443 | 反向代理，自动 SSL 证书 |
+| frontend | 80, 443 | Caddy 网关（SPA + Tracker + API 反向代理） |
 | zenstats | 8080 | Go 应用服务 |
 | zenstats_db | 5432 | PostgreSQL 数据库 |
 | zenstats_events_db | 8123, 9000 | ClickHouse 分析数据库 |
@@ -496,5 +485,3 @@ web/src/
 | event-data | ClickHouse 事件数据 |
 | event-logs | ClickHouse 日志 |
 | zenstats-data | 应用数据（GeoIP 等） |
-| caddy-data | Caddy SSL 证书 |
-| caddy-config | Caddy 配置 |

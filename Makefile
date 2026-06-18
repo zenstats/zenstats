@@ -1,4 +1,8 @@
-.PHONY: swagger build run test clean lint docker-build fmt submodule-init ent-generate dev-up dev-down dev-logs dev-clean prod-up prod-down prod-logs docker-migrate docker-seed test-up test-down test-seed test-integration
+.PHONY: build run test test-cover clean lint swagger fmt ent-generate docker-build test-up test-down test-seed test-integration
+
+# ============================================================================
+#  Go 开发命令
+# ============================================================================
 
 # 构建项目
 build:
@@ -43,79 +47,22 @@ ent-generate:
 	@cd internal/store/postgresql && go generate ./...
 	@echo "Ent code generation complete"
 
-# ---- Git Submodule ----
+# ============================================================================
+#  Docker 镜像
+# ============================================================================
 
-# 初始化/更新 submodule（首次克隆项目或 submodule 变更后执行）
-submodule-init:
-	@git submodule update --init --recursive
-	@echo "Submodule initialized: web"
-
-# ---- Docker 开发环境 ----
-
-# 启动开发环境（暴露数据库端口）
-dev-up:
-	@cd deploy && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
-	@echo "Dev environment started."
-	@echo "  ClickHouse: http://localhost:8123"
-	@echo "  PostgreSQL: localhost:5432"
-
-# 停止开发环境
-dev-down:
-	@cd deploy && docker compose -f docker-compose.yml -f docker-compose.dev.yml down
-
-# 查看开发环境日志
-dev-logs:
-	@cd deploy && docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
-
-# 清理开发环境数据
-dev-clean:
-	@cd deploy && docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
-	@echo "Dev data cleaned"
-
-# ---- Docker 生产环境 ----
-
-# 启动生产环境（不暴露端口）
-prod-up:
-	@cd deploy && docker compose up -d
-	@echo "Production environment started"
-
-# 停止生产环境
-prod-down:
-	@cd deploy && docker compose down
-
-# 查看生产环境日志
-prod-logs:
-	@cd deploy && docker compose logs -f
-
-# ---- Docker 通用命令 ----
-
-# 构建 Docker 镜像
+# 构建 API 后端 Docker 镜像
 docker-build:
 	@docker build -t zenstats:latest .
 	@echo "Docker image built: zenstats:latest"
 
-# 数据库迁移（服务已运行时用 exec，否则用 run）
-docker-migrate:
-	@cd deploy && if docker compose ps zenstats --status running -q 2>/dev/null | grep -q .; then \
-		docker compose exec zenstats /app/zenstats migrate; \
-	else \
-		docker compose run --rm zenstats migrate; \
-	fi
-	@echo "Migration complete"
+# ============================================================================
+#  集成测试（需先启动测试数据库: make test-up）
+# ============================================================================
 
-docker-seed:
-	@cd deploy && if docker compose ps zenstats --status running -q 2>/dev/null | grep -q .; then \
-		docker compose exec zenstats /app/zenstats seed; \
-	else \
-		docker compose run --rm zenstats seed; \
-	fi
-	@echo "Seed complete"
-
-# ---- 集成测试环境 ----
-
-# 启动测试专用 PG + ClickHouse 容器（独立端口 5433/9001/8124）
+# 启动测试专用 PG + ClickHouse 容器
 test-up:
-	@cd deploy && docker compose -f docker-compose.test.yml up -d --wait
+	@cd ../zenstats-deploy && docker compose -f docker-compose.test.yml up -d --wait
 	@echo "Test environment ready."
 	@echo "  PostgreSQL: localhost:5433"
 	@echo "  ClickHouse HTTP: http://localhost:8124"
@@ -125,10 +72,10 @@ test-up:
 
 # 停止测试环境
 test-down:
-	@cd deploy && docker compose -f docker-compose.test.yml down -v
+	@cd ../zenstats-deploy && docker compose -f docker-compose.test.yml down -v
 	@echo "Test environment removed."
 
-# 生成确定性测试数据（需先 make test-up + migrate）
+# 生成确定性测试数据（需先 make test-up）
 test-seed:
 	@APP_ENV=test go run main.go migrate
 	@APP_ENV=test go run main.go seed --test --clean
@@ -149,16 +96,7 @@ test-integration: test-up
 	@echo ""
 	@echo "All tests passed."
 
-# ---- Tracker ----
-
-# 编译 tracker 脚本（本地开发用）
-tracker-build:
-	@rm -rf tracker/dist
-	@cd tracker && npm ci && npm run deploy
-	@echo "Tracker script compiled: tracker/dist/"
-
-# 编译 tracker 脚本（开发模式）
-tracker-dev:
-	@rm -rf tracker/dist
-	@cd tracker && npm run deploy
-	@echo "Tracker script compiled (dev): tracker/dist/"
+# ============================================================================
+#  部署 → 请使用独立的 zenstats-deploy 项目
+#  https://github.com/zenstats/zenstats-deploy
+# ============================================================================

@@ -21,9 +21,6 @@ coverage.html
 data/*.mmdb
 data/*.tar.gz
 log/
-tracker/node_modules
-web/node_modules
-web/.git
 
 # Non-essential files
 README.md

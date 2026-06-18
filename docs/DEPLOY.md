@@ -60,22 +60,23 @@ make prod-up
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| caddy | 80, 443 | Caddy 反向代理（自动 SSL）+ 前端静态文件 |
+| frontend | 80, 443 | Caddy 网关（托管 SPA + Tracker JS，反向代理 API） |
 | zenstats | 内部 8080 | ZenStats 应用服务 |
 | zenstats_db | 内部 5432 | PostgreSQL 数据库 |
 | zenstats_events_db | 内部 8123/9000 | ClickHouse 事件存储 |
 
-> **注意**：容器启动时会**自动执行数据库迁移**（通过 `entrypoint.sh`），无需手动运行 `make docker-migrate`。首次启动需要等待 PG 和 CH 健康检查通过。
+> **注意**：`frontend` 服务从预先构建的镜像拉取，该镜像由 `zenstats-web` 仓库的 CI 自动构建推送。
+> 容器启动时会**自动执行数据库迁移**（通过 `entrypoint.sh`），无需手动运行 `make docker-migrate`。首次启动需要等待 PG 和 CH 健康检查通过。
 
 如果设置了 `ZENSTATS_DOMAIN`，服务将通过 `https://your.domain.com` 访问，SSL 证书全自动管理。
 
 ### 4. 访问服务
 
-- 如果设置了域名：`https://your.domain.com`（自动 SSL）
-- 本地测试：`http://localhost`（通过 Caddy 代理）
-- 首次访问会跳转到系统初始化页面，创建管理员账户
+- 管理面板 + API：`https://your.domain.com`（或 `http://your-server`）
+- 埋点脚本：`https://your.domain.com/js/script.js`
+- API 直连：由 Caddy 代理 `/api/*` 到 Go 后端
 
-> **SSL 说明**：Caddy 会自动为你的域名申请和续期 Let's Encrypt 证书。只需确保域名 DNS 已解析到服务器 IP，且 80/443 端口可从外网访问。
+> 前端管理面板由独立仓库 `zenstats-web` 维护，与本 API 后端通过统一网关集成。
 
 ### 5. 查看日志
 
@@ -108,7 +109,6 @@ make dev-clean    # 停止并清理数据
 
 ```bash
 go mod download
-make submodule-init  # 初始化前端子模块
 ```
 
 ### 2. 配置文件
