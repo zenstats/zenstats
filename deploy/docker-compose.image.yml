@@ -1,0 +1,107 @@
+# ================================================================
+# ZenStats — 使用预构建镜像快速部署（无需本地编译）
+#
+# 用法:
+#   cp .env.example .env && vi .env
+#   docker compose -f docker-compose.image.yml up -d
+#
+# 镜像自动支持 amd64 和 arm64 架构。
+# ================================================================
+
+services:
+  caddy:
+    image: ghcr.io/${REGISTRY_OWNER:-zenstats}/zenstats-caddy:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      - ZENSTATS_DOMAIN=${ZENSTATS_DOMAIN:-localhost}
+    depends_on:
+      zenstats:
+        condition: service_healthy
+
+  zenstats:
+    image: ghcr.io/${REGISTRY_OWNER:-zenstats}/zenstats:latest
+    restart: always
+    expose:
+      - "8080"
+    environment:
+      - APP_ENV=prod
+      - GIN_MODE=release
+      - ZENSTATS_DB_HOST=zenstats_db
+      - ZENSTATS_DB_PORT=5432
+      - ZENSTATS_DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - ZENSTATS_DB_USERNAME=postgres
+      - ZENSTATS_DB_DATABASE=zenstats
+      - ZENSTATS_CLICKHOUSE_ADDR=zenstats_events_db:9000
+      - ZENSTATS_MAXMIND_LICENSE_KEY=${ZENSTATS_MAXMIND_LICENSE_KEY}
+      - ZENSTATS_DOMAIN=${ZENSTATS_DOMAIN:-localhost}
+    volumes:
+      - zenstats-data:/app/data
+    depends_on:
+      zenstats_db:
+        condition: service_healthy
+      zenstats_events_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O - http://127.0.0.1:8080/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  zenstats_db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_DB=zenstats
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  zenstats_events_db:
+    image: clickhouse/clickhouse-server:24.12-alpine
+    restart: unless-stopped
+    volumes:
+      - event-data:/var/lib/clickhouse
+      - event-logs:/var/log/clickhouse-server
+      - ./clickhouse/logs.xml:/etc/clickhouse-server/config.d/logs.xml:ro
+      - ./clickhouse/ipv4-only.xml:/etc/clickhouse-server/config.d/ipv4-only.xml:ro
+      - ./clickhouse/low-resources.xml:/etc/clickhouse-server/config.d/low-resources.xml:ro
+    expose:
+      - "8123"
+      - "9000"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    environment:
+      - CLICKHOUSE_SKIP_USER_SETUP=1
+      - CLICKHOUSE_DB=zenstats_events_db
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O - http://127.0.0.1:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  db-data:
+  event-data:
+  event-logs:
+  zenstats-data:
+  caddy-data:
+  caddy-config:

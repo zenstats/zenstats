@@ -87,6 +87,17 @@ prod-down:
 prod-logs:
 	@cd deploy && docker compose logs -f
 
+# 清理生产环境（含数据卷）
+prod-clean:
+	@cd deploy && docker compose down -v
+	@echo "Production environment cleaned (all data removed)"
+
+# ---- 部署脚本 ----
+
+# 一键安装（交互式）
+install:
+	@cd deploy && ./install.sh
+
 # ---- Docker 通用命令 ----
 
 # 构建 Docker 镜像
