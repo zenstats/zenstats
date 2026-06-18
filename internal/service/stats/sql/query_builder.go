@@ -511,7 +511,9 @@ func (qb *QueryBuilder) sessionTimeSlotsExpr(query *types.Query) string {
 	)
 }
 
-// buildSessionSubquery creates a subquery for session joins in event queries
+// buildSessionSubquery creates a subquery for session joins in event queries.
+// Includes session-only dimension columns (entry_page, exit_page, etc.) so the
+// outer event query can GROUP BY them.
 func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []any, error) {
 	whereBuilder := NewWhereBuilder(query.SiteID)
 	whereBuilder.FilterSiteTimeRange("sessions", query.UTCTimeRange.Start, query.UTCTimeRange.End)
@@ -524,8 +526,29 @@ func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []any,
 
 	whereClause, params := whereBuilder.Build()
 
+	// Collect session-only dimension columns needed by the outer query.
+	// Use any() since these are session-level attributes and not in GROUP BY.
+	var extraCols []string
+	sessionDimensions := map[string]string{
+		"visit:entry_page":         "entry_page",
+		"visit:entry_page_hostname": "entry_page_hostname",
+		"visit:exit_page":          "exit_page",
+		"visit:exit_page_hostname": "exit_page_hostname",
+	}
+	for _, dim := range query.Dimensions {
+		if col, ok := sessionDimensions[dim]; ok {
+			extraCols = append(extraCols, fmt.Sprintf("any(%s) as %s", col, col))
+		}
+	}
+
+	selectClause := "session_id"
+	if len(extraCols) > 0 {
+		selectClause += ", " + strings.Join(extraCols, ", ")
+	}
+
 	sql := fmt.Sprintf(
-		"SELECT session_id FROM sessions WHERE %s AND sign = 1 GROUP BY session_id",
+		"SELECT %s FROM sessions WHERE %s AND sign = 1 GROUP BY session_id",
+		selectClause,
 		whereClause,
 	)
 	return sql, params, nil
@@ -845,6 +868,20 @@ func (qb *QueryBuilder) DimensionAlias(dimension string) string {
 	}
 }
 
+// sessionOnlyColumns are columns that exist only in the sessions table,
+// not in events. When querying from events with a session join, they need "sq." prefix.
+var sessionOnlyColumns = map[string]bool{
+	"entry_page": true, "exit_page": true,
+	"entry_page_hostname": true, "exit_page_hostname": true,
+}
+
+func maybePrefix(col, tableType string) string {
+	if tableType == "events" && sessionOnlyColumns[col] {
+		return "sq." + col
+	}
+	return col
+}
+
 // DimensionToColumn converts dimension names to database column names
 func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, userID int64) string {
 	switch dimension {
@@ -942,15 +979,15 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 		return "screen_size"
 	case "visit:entry_page":
 		if purpose == "select" {
-			return "entry_page as page"
+			return maybePrefix("entry_page", tableType) + " as page"
 		}
-		return "entry_page"
+		return maybePrefix("entry_page", tableType)
 	case "visit:entry_page_hostname":
-		return "entry_page_hostname"
+		return maybePrefix("entry_page_hostname", tableType)
 	case "visit:exit_page":
-		return "exit_page"
+		return maybePrefix("exit_page", tableType)
 	case "visit:exit_page_hostname":
-		return "exit_page_hostname"
+		return maybePrefix("exit_page_hostname", tableType)
 	case "time:minute":
 		if purpose == "group" {
 			return "minute"

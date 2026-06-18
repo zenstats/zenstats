@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -274,6 +275,7 @@ func (s *StatsService) GetMainGraph(ctx *gin.Context, siteID int64, req *atypes.
 				End:   compEnd,
 			},
 			Period:          compPeriod,
+			Date:            compFrom, // 对比时段日期，validation 需要
 			From:            compFrom,
 			To:              compTo,
 			Timezone:        site.Timezone,
@@ -285,11 +287,12 @@ func (s *StatsService) GetMainGraph(ctx *gin.Context, siteID int64, req *atypes.
 
 		compPoints, err := aggregateService.GetTimeSeries(ctx, compParams)
 		if err != nil {
-			// Comparison failure is non-fatal; return primary data only
-			return points, nil
+			// 对比数据获取失败，记录日志但不中断；曲线显示为 0
+			slog.Warn("failed to fetch comparison time series", "error", err)
+			compPoints = nil
 		}
 
-		// Merge comparison data into primary points by aligning timestamps
+		// 合并对比数据（compPoints 为空时 merge 会补 0，曲线正常渲染）
 		points = mergeComparisonTimeSeries(points, compPoints, metricsList)
 	}
 
@@ -297,16 +300,18 @@ func (s *StatsService) GetMainGraph(ctx *gin.Context, siteID int64, req *atypes.
 }
 
 // mergeComparisonTimeSeries 将对比时序数据合并到主时序数据中（指标名加 _comparison 后缀）。
-// 按数组索引对齐（主数据和对比数据具有相同的点数和间隔），而非按时间戳对齐。
+// 当对比数据不足时（数组更短），缺失的位置补 0，确保前端能渲染对比曲线。
 func mergeComparisonTimeSeries(primary, comparison []stats.TimeSeriesPoint, metrics []string) []stats.TimeSeriesPoint {
 	for i := range primary {
-		if i >= len(comparison) {
-			break
-		}
 		for _, m := range metrics {
-			if v, exists := comparison[i].Metrics[m]; exists {
-				primary[i].Metrics[m+"_comparison"] = v
+			if i < len(comparison) {
+				if v, exists := comparison[i].Metrics[m]; exists {
+					primary[i].Metrics[m+"_comparison"] = v
+					continue
+				}
 			}
+			// 对比数据缺失 → 补 0，让前端对比曲线正常渲染
+			primary[i].Metrics[m+"_comparison"] = float64(0)
 		}
 	}
 	return primary
