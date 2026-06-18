@@ -44,3 +44,13 @@ jobs:
             --build-arg GOPROXY=${{ env.GOPROXY }} \
             --push \
             -f Dockerfile .
+
+      - name: Make package public
+        run: |
+          OWNER="${{ gitea.repository_owner }}"
+          REPO="${{ gitea.repository_name }}"
+          curl -s -X PATCH \
+            -H "Authorization: token ${{ secrets.REGISTRY_PASSWORD }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/orgs/${OWNER}/packages/container/${REPO}/visibility" \
+            -d '{"visibility":"public"}'
