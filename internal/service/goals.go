@@ -38,23 +38,26 @@ func GetGoalService() *GoalService {
 
 // Goal 目标数据传输对象。
 type Goal struct {
-	ID          int64  `json:"id"`
-	SiteID      int64  `json:"site_id"`
-	EventName   string `json:"event_name,omitempty"`
-	PagePath    string `json:"page_path,omitempty"`
-	DisplayName string `json:"display_name"`
+	ID          int64             `json:"id"`
+	SiteID      int64             `json:"site_id"`
+	EventName   string            `json:"event_name,omitempty"`
+	PagePath    string            `json:"page_path,omitempty"`
+	DisplayName string            `json:"display_name"`
+	CustomProps map[string]string `json:"custom_props,omitempty"`
 }
 
 // CreateGoalRequest 创建目标请求参数。
 type CreateGoalRequest struct {
-	EventName   string `json:"event_name" binding:"omitempty"`
-	PagePath    string `json:"page_path" binding:"omitempty"`
-	DisplayName string `json:"display_name" binding:"required"`
+	EventName   string            `json:"event_name" binding:"omitempty"`
+	PagePath    string            `json:"page_path" binding:"omitempty"`
+	DisplayName string            `json:"display_name" binding:"required"`
+	CustomProps map[string]string `json:"custom_props,omitempty"`
 }
 
 // UpdateGoalRequest 更新目标请求参数。
 type UpdateGoalRequest struct {
-	DisplayName string `json:"display_name" binding:"omitempty"`
+	DisplayName string            `json:"display_name" binding:"omitempty"`
+	CustomProps map[string]string `json:"custom_props,omitempty"`
 }
 
 // ListGoals 获取站点的所有目标。
@@ -74,6 +77,7 @@ func (s *GoalService) ListGoals(ctx context.Context, siteID int64) ([]*Goal, err
 			EventName:   g.EventName,
 			PagePath:    g.PagePath,
 			DisplayName: g.DisplayName,
+			CustomProps: g.CustomProps,
 		}
 	}
 	return result, nil
@@ -94,6 +98,7 @@ func (s *GoalService) GetGoal(ctx context.Context, siteID int64, goalID int64) (
 		EventName:   g.EventName,
 		PagePath:    g.PagePath,
 		DisplayName: g.DisplayName,
+		CustomProps: g.CustomProps,
 	}, nil
 }
 
@@ -116,6 +121,9 @@ func (s *GoalService) CreateGoal(ctx context.Context, siteID int64, req *CreateG
 	if req.PagePath != "" {
 		builder = builder.SetPagePath(req.PagePath)
 	}
+	if len(req.CustomProps) > 0 {
+		builder = builder.SetCustomProps(req.CustomProps)
+	}
 
 	g, err := builder.Save(ctx)
 	if err != nil {
@@ -131,6 +139,7 @@ func (s *GoalService) CreateGoal(ctx context.Context, siteID int64, req *CreateG
 		EventName:   g.EventName,
 		PagePath:    g.PagePath,
 		DisplayName: g.DisplayName,
+		CustomProps: g.CustomProps,
 	}, nil
 }
 
@@ -141,6 +150,13 @@ func (s *GoalService) UpdateGoal(ctx context.Context, siteID int64, goalID int64
 
 	if req.DisplayName != "" {
 		builder = builder.SetDisplayName(req.DisplayName)
+	}
+	if req.CustomProps != nil {
+		if len(req.CustomProps) > 0 {
+			builder = builder.SetCustomProps(req.CustomProps)
+		} else {
+			builder = builder.ClearCustomProps()
+		}
 	}
 
 	g, err := builder.Save(ctx)
@@ -154,6 +170,7 @@ func (s *GoalService) UpdateGoal(ctx context.Context, siteID int64, goalID int64
 		EventName:   g.EventName,
 		PagePath:    g.PagePath,
 		DisplayName: g.DisplayName,
+		CustomProps: g.CustomProps,
 	}, nil
 }
 

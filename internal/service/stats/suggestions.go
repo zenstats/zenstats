@@ -61,6 +61,9 @@ func (s *SuggestionService) GetPropKeys(ctx context.Context, siteID string, star
 		}
 		items = append(items, SuggestionItem{Value: value, Label: value})
 	}
+	if items == nil {
+		items = []SuggestionItem{}
+	}
 	return items, nil
 }
 
@@ -103,6 +106,9 @@ func (s *SuggestionService) GetPropValues(ctx context.Context, siteID string, st
 			continue
 		}
 		items = append(items, SuggestionItem{Value: value, Label: value})
+	}
+	if items == nil {
+		items = []SuggestionItem{}
 	}
 
 	// 如果查询词可能匹配空值，追加 (none) 选项

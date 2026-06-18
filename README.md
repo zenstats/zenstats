@@ -64,35 +64,51 @@ Open **http://localhost:8080** and complete the initial setup wizard. Done.
 | | Capability |
 |---|---|
 | 🍪 **Cookieless** | No cookie banners needed — GDPR compliant out of the box |
-| ⚡ **Lightweight Tracker** | Tiny JS snippet (~3KB gzipped) — zero impact on your Lighthouse score |
-| 📊 **Real-time Dashboard** | Live visitor counts, page views, and engagement metrics |
-| 🌍 **GeoIP & Device Detection** | Visitor geography, browser, OS, and device type |
-| 🧩 **SPA Support** | Automatic route tracking for React, Vue, Angular, and more |
-| 🎯 **Goals & Funnels** | Track conversions and visualize multi-step funnels |
-| 📈 **UTM Campaigns** | Built-in marketing attribution |
+| ⚡ **Lightweight Tracker** | Tiny JS snippet (~3KB gzipped) — zero impact on Lighthouse scores |
+| 📊 **Real-time Dashboard** | Live visitor counts, page views, and engagement metrics with interactive charts |
+| 🌍 **GeoIP & Device Detection** | Visitor geography, browser, OS, device type, and screen size |
+| 🧩 **SPA Support** | Automatic route tracking for React, Vue, Angular (pushState + hash-based routing) |
+| 🎯 **Goals & Funnels** | Track conversions, define custom event goals, visualize multi-step funnels |
+| 📈 **UTM Campaigns** | Built-in marketing attribution (source, medium, campaign, content, term) |
+| 🔐 **Team Management** | Multi-user with role-based access (admin, user) and sub-accounts |
 | 🔑 **API Access** | REST API with key-based authentication for external integrations |
-| 🐳 **One-Command Deploy** | Docker Compose with Caddy + auto SSL |
+| 🛡️ **Shield Rules** | Filter unwanted traffic by IP, hostname, country, or UA |
+| 🐳 **One-Command Deploy** | Docker Compose with Caddy 2 + auto SSL |
+
+### Tracker Variants
+
+The JS tracker is compiled into **64 feature variants** (power set of 6 optional features), allowing you to serve the exact minimum code needed:
+
+| Feature | Flag | Description |
+|---|---|---|
+| `ex` | `COMPILE_EXCLUSIONS` | Include/exclude paths via `data-include` / `data-exclude` |
+| `fd` | `COMPILE_FILE_DOWNLOADS` | Track file download clicks (pdf, zip, docx, etc.) |
+| `ha` | `COMPILE_HASH` | Hash-based SPA routing detection (for HashRouter) |
+| `ma` | `COMPILE_MANUAL` | Manual pageview with custom URL override |
+| `ol` | `COMPILE_OUTBOUND_LINKS` | Track outbound link clicks |
+| `te` | `COMPILE_TAGGED_EVENTS` | Declarative event tracking via CSS class names |
+
+The default `script.js` includes all features **except** hash (`ha`), and works with BrowserRouter-based SPAs. If your app uses HashRouter, serve `script.hash.js`.
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────┐    ┌─────────────────────────────────────┐
-│   Browser    │───▶│  Caddy (Reverse Proxy + SSL + SPA)  │
-│  (Tracker)   │    └──────────────┬──────────────────────┘
+┌──────────────┐    ┌──────────────────────────────────────┐
+│   Browser    │───▶│  Caddy (Reverse Proxy + SSL + SPA)   │
+│  (Tracker)   │    └──────────────┬───────────────────────┘
 └──────────────┘                   │
                                   ▼
-┌─────────────────────────────────────────────────────────┐
-│               Zenstats (Go 1.24 / Gin)                  │
-│  ┌─────────┐  ┌──────────┐  ┌───────────────────────┐   │
-│  │  API    │─▶│ Service  │─▶│ Store                 │   │
-│  │  Layer  │  │ (Cached) │  │  ┌───────┐ ┌───────┐  │   │
-│  └─────────┘  └──────────┘  │  │  PG   │ │  CH   │  │   │
-│                             │  │(ent)  │ │(SQL)  │  │   │
-│                             │  └───────┘ └───────┘  │   │
-│                             └───────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│               Zenstats (Go 1.24 / Gin)                   │
+│  ┌─────────┐  ┌──────────┐  ┌────────────────────────┐   │
+│  │  API    │─▶│ Service  │─▶│ Store                  │   │
+│  │  Layer  │  │ (Cached) │  │  ┌────────┐ ┌────────┐ │   │
+│  └─────────┘  └──────────┘  │  │PG (ent)│ │CH (SQL)│ │   │
+│                             │  └────────┘ └────────┘ │   │
+│                             └────────────────────────┘   │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ### Data Flow
@@ -116,22 +132,22 @@ Tracker JS  ──▶  POST /api/event  ──▶  Event Buffer
 
 | Database | Role | Technology |
 |---|---|---|
-| **PostgreSQL** | Business data (users, sites, goals, funnels, API keys) | Ent ORM |
+| **PostgreSQL** | Business data (users, sites, goals, funnels, API keys, settings) | Ent ORM |
 | **ClickHouse** | Analytics data (events, sessions, geolocation) | Hand-written SQL |
 
-PostgreSQL handles transactional business logic; ClickHouse provides columnar storage for high-throughput event aggregation.
+PostgreSQL handles transactional business logic; ClickHouse provides columnar storage for high-throughput event aggregation and sub-second analytical queries.
 
 ---
 
 ## Tech Stack
 
-**Backend** — Go 1.24, Gin, Ent ORM, ClickHouse driver, JWT, Viper, Cobra, ants (goroutine pool), hashicorp LRU cache, GeoIP2, ua-parser
+**Backend** — Go 1.24, Gin, Ent ORM (PostgreSQL), ClickHouse client, JWT (access + refresh tokens), Viper (config), Cobra (CLI), ants (goroutine pool), hashicorp/golang-lru (multi-level cache), GeoIP2, ua-parser
 
-**Frontend** — React 19, TypeScript, Vite, Tailwind CSS, ECharts, Recharts, Zustand, react-i18next, Zod
+**Frontend** — React 19, TypeScript, Vite 7, Tailwind CSS 4, shadcn/ui, ECharts + Recharts, Zustand, Zustand, react-i18next, Zod, react-hook-form
 
-**Tracker** — Vanilla JS (~3KB), UglifyJS, Handlebars, Playwright (E2E)
+**Tracker** — Vanilla JS (~3KB-6KB depending on variants), UglifyJS (minifier), Handlebars (template), Playwright (E2E testing)
 
-**Infrastructure** — Docker, Docker Compose, Caddy 2 (auto SSL), PostgreSQL 16, ClickHouse 24.12
+**Infrastructure** — Docker / Docker Compose, Caddy 2 (auto TLS via Let's Encrypt), PostgreSQL 16, ClickHouse 24.12
 
 ---
 
@@ -139,23 +155,25 @@ PostgreSQL handles transactional business logic; ClickHouse provides columnar st
 
 ```
 zenstats/
-├── cmd/               # CLI entry points (server, migrate, seed, doc)
+├── cmd/                # CLI entry points (server, migrate, seed, doc)
+├── config/             # Embedded YAML config with ZENSTATS_ env overrides
+├── deploy/             # Docker Compose + Caddy configs
+├── docs/               # Swagger API docs + architecture guides
 ├── internal/
-│   ├── api/           # HTTP handlers + route registration
-│   ├── auth/          # JWT authentication (access + refresh tokens)
-│   ├── bootstrap/     # App initialization (DB, GeoIP, cron, queue)
-│   ├── event/         # Event ingestion pipeline (buffer → pool → write)
-│   ├── middleware/     # Gin middleware (JWT, API key, locale)
-│   ├── service/       # Business logic with LRU caching
-│   ├── session/       # Session aggregation + deduplication
-│   └── store/         # PG (ent) + CH (hand-written SQL) repositories
-├── pkg/               # Shared utilities (geoip, ua_parser, response, etc.)
-├── tracker/           # Frontend tracker SDK (JavaScript)
-├── web/               # React SPA (git submodule)
-├── config/            # Embedded YAML + env variable overrides
-├── deploy/            # Docker Compose + Caddy + ClickHouse configs
-├── docs/              # Swagger API docs + architecture guides
-└── sql/               # Database DDL scripts
+│   ├── api/            # HTTP handlers + route registration per module
+│   ├── auth/           # JWT (access + refresh token) authentication
+│   ├── bootstrap/      # App initialization (DB, GeoIP, cron, queues)
+│   ├── event/          # Event ingestion pipeline (buffer → pool → write to CH)
+│   ├── middleware/      # Gin middleware (JWT, API key, locale detection)
+│   ├── service/        # Business logic layer with LRU caching
+│   │   ├── funnel/     # Funnel query engine
+│   │   └── stats/      # Stats query engine (SQL builder, ClickHouse runner)
+│   ├── session/        # Session aggregation + deduplication
+│   └── store/          # PG (ent ORM) + CH (hand-written SQL) repositories
+├── pkg/                # Shared utilities (geoip, ua_parser, response helpers)
+├── sql/                # Database DDL scripts
+├── tracker/            # Frontend tracker JS SDK (compiled to dist/)
+└── web/                # React SPA (git submodule)
 ```
 
 ---
@@ -167,16 +185,20 @@ Settings are managed via embedded YAML with `ZENSTATS_` environment variable ove
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `ZENSTATS_MAXMIND_LICENSE_KEY` | **Yes** | — | MaxMind GeoIP license key (free) |
-| `ZENSTATS_DOMAIN` | No | `localhost` | Public domain (for Caddy SSL) |
-| `ZENSTATS_SECRET_KEY` | No | Auto-generated | JWT signing secret |
+| `ZENSTATS_DOMAIN` | No | `localhost` | Public domain (for Caddy SSL + self-tracking) |
+| `ZENSTATS_SECRET_KEY` | No | Auto-generated | JWT signing secret (`openssl rand -base64 32`) |
 | `ZENSTATS_DB_HOST` | No | `localhost` | PostgreSQL host |
-| `ZENSTATS_DB_PASSWORD` | No | — | PostgreSQL password |
-| `ZENSTATS_DB_USERNAME` | No | `zenstats` | PostgreSQL user |
+| `ZENSTATS_DB_PORT` | No | `5432` | PostgreSQL port |
+| `ZENSTATS_DB_USERNAME` | No | `postgres` | PostgreSQL user |
+| `ZENSTATS_DB_PASSWORD` | **Yes** | — | PostgreSQL password |
+| `ZENSTATS_DB_DATABASE` | No | `zenstats` | PostgreSQL database name |
 | `ZENSTATS_CLICKHOUSE_ADDR` | No | `localhost:9000` | ClickHouse address(es) |
-| `ZENSTATS_CLICKHOUSE_PASSWORD` | No | — | ClickHouse password |
 | `ZENSTATS_CLICKHOUSE_USERNAME` | No | `default` | ClickHouse user |
+| `ZENSTATS_CLICKHOUSE_PASSWORD` | No | — | ClickHouse password |
+| `ZENSTATS_LOG_LEVEL` | No | `info` | Log level (debug/info/warn/error) |
+| `ZENSTATS_POOL_SIZE` | No | `100` | Event processing goroutine pool size |
 
-Copy `deploy/.env.example` to `deploy/.env` and fill in your values.
+Copy `deploy/.env.example` → `deploy/.env` and fill in your values.
 
 ---
 
@@ -187,15 +209,15 @@ Copy `deploy/.env.example` to `deploy/.env` and fill in your values.
 | `make run` | Start development server |
 | `make build` | Build binary to `bin/zenstats` |
 | `make test` | Run all tests (requires Docker PG + CH) |
-| `make lint` | Static analysis (`go vet`) |
-| `make dev-up` / `make dev-down` | Start/stop Docker dev environment |
-| `make prod-up` / `make prod-down` | Start/stop Docker production environment |
-| `make docker-migrate` | Run migrations in Docker |
-| `make docker-seed` | Seed test data in Docker |
-| `make swagger` | Generate Swagger docs |
+| `make lint` | Static analysis (`go vet ./...`) |
+| `make dev-up` / `make dev-down` | Start / stop Docker dev environment |
+| `make prod-up` / `make prod-down` | Start / stop Docker production environment |
+| `make docker-migrate` | Run DB migrations in Docker |
+| `make docker-seed` | Seed test data in ClickHouse |
+| `make swagger` | Generate Swagger API docs |
 | `make ent-generate` | Regenerate Ent ORM code after schema changes |
-| `make tracker-build` | Compile tracker JS SDK |
-| `make submodule-init` | Initialize web (React) submodule |
+| `make tracker-build` | Compile tracker JS SDK (all 64 variants) |
+| `make submodule-init` | Initialize web (React SPA) submodule |
 
 ---
 

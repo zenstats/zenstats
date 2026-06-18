@@ -1,12 +1,16 @@
 package sql
 
 import (
+	"context"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/zenstats/zenstats/internal/service/stats/types"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/pkg/globals"
 )
 
 // WhereBuilder 构建查询的WHERE子句
@@ -419,6 +423,9 @@ func (wb *WhereBuilder) dbFieldVal(field string, val any) any {
 }
 
 // 目标事件过滤专用方法
+// 将 goal 的 display_name 解析为对应的过滤条件（先查 PG，再构建纯 ClickHouse SQL）：
+//   - event goal → events.name = goal.event_name
+//   - pageview goal → events.name = 'pageview' AND events.pathname = goal.page_path
 func (wb *WhereBuilder) addGoalFilter(goalValue any) error {
 	var goalName string
 	switch value := goalValue.(type) {
@@ -437,13 +444,50 @@ func (wb *WhereBuilder) addGoalFilter(goalValue any) error {
 		return fmt.Errorf("invalid goal value type: %T", goalValue)
 	}
 
-	// 查询目标ID的子查询
-	goalIDSubQuery := "SELECT id FROM goals WHERE site_id = ? AND name = ?"
-	wb.AddCondition(
-		fmt.Sprintf("goal_id IN (%s)", goalIDSubQuery),
-		wb.siteID, goalName,
-	)
+	// 从 PostgreSQL 查询 goal，解析 event_name / page_path
+	siteIDInt, _ := strconv.ParseInt(wb.siteID, 10, 64)
+	db := globals.GetDB()
+	if db != nil && siteIDInt > 0 {
+		g, err := db.Client.Goal.Query().
+			Where(goal.SiteID(siteIDInt), goal.DisplayName(goalName)).
+			Only(context.Background())
+		if err == nil {
+			if g.EventName != "" {
+				// Event goal: filter by event name
+				wb.AddCondition("name = ?", g.EventName)
+				wb.addGoalCustomProps(g.CustomProps)
+				return nil
+			}
+			if g.PagePath != "" {
+				// Pageview goal: filter by pageview event on that path
+				wb.AddCondition("name = 'pageview'")
+				wb.AddCondition("pathname = ?", g.PagePath)
+				wb.addGoalCustomProps(g.CustomProps)
+				return nil
+			}
+		}
+	}
+
+	// Goal not found → add impossible condition (matches nothing)
+	wb.AddCondition("1 = 0")
 	return nil
+}
+
+// addGoalCustomProps 为 goal 的自定义属性添加 ClickHouse 过滤条件。
+// custom_props 格式: {"plan": "pro", "source": "google"} →
+//   has(meta.key, 'plan') AND meta.value[indexOf(meta.key, 'plan')] = 'pro'
+//   AND has(meta.key, 'source') AND meta.value[indexOf(meta.key, 'source')] = 'google'
+func (wb *WhereBuilder) addGoalCustomProps(props map[string]string) {
+	if len(props) == 0 {
+		return
+	}
+	for key, val := range props {
+		// Escape single quotes in key/val for safe SQL embedding
+		escapedKey := strings.ReplaceAll(key, "'", "\\'")
+		escapedVal := strings.ReplaceAll(val, "'", "\\'")
+		wb.AddCondition(fmt.Sprintf("has(meta.key, '%s')", escapedKey))
+		wb.AddCondition(fmt.Sprintf("meta.value[indexOf(meta.key, '%s')] = '%s'", escapedKey, escapedVal))
+	}
 }
 
 // 各种过滤条件的具体实现

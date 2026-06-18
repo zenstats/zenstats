@@ -1,13 +1,17 @@
 package stats
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/zenstats/zenstats/internal/service/stats/sql"
 	"github.com/zenstats/zenstats/internal/service/stats/types"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/pkg/globals"
 )
 
 // ValidationError represents a validation error with a status code and message
@@ -249,6 +253,13 @@ func ensureCustomPropsAccess(site *types.Site, params *types.Params) error {
 
 // Helper function to validate goal filter
 func validateGoalFilter(site *types.Site, goalsInFilter []any) error {
+	// When site is nil (CreateQuery pre-validation), skip goal existence check.
+	// Goal resolution and validation is handled by the WHERE builder's addGoalFilter
+	// via PostgreSQL subqueries at query execution time.
+	if site == nil {
+		return nil
+	}
+
 	configuredGoals := GetGoalsForSite(site)
 
 	for _, goal := range goalsInFilter {
@@ -534,9 +545,29 @@ func isEventOnlyProperty(property string) bool {
 }
 
 func GetGoalsForSite(site *types.Site) []string {
-	// Implementation would retrieve configured goals for the site
-	// This is a placeholder implementation
-	return []string{}
+	if site == nil {
+		return []string{}
+	}
+	siteID, err := strconv.ParseInt(site.ID, 10, 64)
+	if err != nil {
+		return []string{}
+	}
+	db := globals.GetDB()
+	if db == nil {
+		return []string{}
+	}
+	ctx := context.Background()
+	goals, err := db.Client.Goal.Query().
+		Where(goal.SiteID(siteID)).
+		All(ctx)
+	if err != nil {
+		return []string{}
+	}
+	names := make([]string, len(goals))
+	for i, g := range goals {
+		names[i] = g.DisplayName
+	}
+	return names
 }
 
 func GetAllowedProps(site *types.Site, bypassSetup bool) any {

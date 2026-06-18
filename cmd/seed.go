@@ -72,86 +72,86 @@ type deviceProfile struct {
 
 var deviceProfiles = []deviceProfile{
 	{
-		Name:       "Chrome Desktop",
-		Browser:    "Chrome",
-		BrowserVer: []string{"120.0", "121.0", "122.0", "123.0", "124.0"},
-		OS:         "Windows",
-		OSVer:      []string{"10.0", "11.0"},
-		UATemplate: "Mozilla/5.0 (Windows NT %s; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36",
+		Name:        "Chrome Desktop",
+		Browser:     "Chrome",
+		BrowserVer:  []string{"120.0", "121.0", "122.0", "123.0", "124.0"},
+		OS:          "Windows",
+		OSVer:       []string{"10.0", "11.0"},
+		UATemplate:  "Mozilla/5.0 (Windows NT %s; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36",
 		ScreenSizes: []string{"1920x1080", "2560x1440", "1440x900", "1366x768", "1536x864"},
-		Weight:     35,
+		Weight:      35,
 	},
 	{
-		Name:       "Chrome macOS",
-		Browser:    "Chrome",
-		BrowserVer: []string{"120.0", "121.0", "122.0", "123.0", "124.0"},
-		OS:         "Mac",
-		OSVer:      []string{"14.0", "14.3", "14.5", "15.0"},
-		UATemplate: "Mozilla/5.0 (Macintosh; Intel Mac OS X %s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36",
+		Name:        "Chrome macOS",
+		Browser:     "Chrome",
+		BrowserVer:  []string{"120.0", "121.0", "122.0", "123.0", "124.0"},
+		OS:          "Mac",
+		OSVer:       []string{"14.0", "14.3", "14.5", "15.0"},
+		UATemplate:  "Mozilla/5.0 (Macintosh; Intel Mac OS X %s) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36",
 		ScreenSizes: []string{"1680x1050", "2560x1600", "1440x900", "2048x1280"},
-		Weight:     18,
+		Weight:      18,
 	},
 	{
-		Name:       "Safari macOS",
-		Browser:    "Safari",
-		BrowserVer: []string{"17.3", "17.4", "17.5", "18.0"},
-		OS:         "Mac",
-		OSVer:      []string{"14.0", "14.3", "14.5", "15.0"},
-		UATemplate: "Mozilla/5.0 (Macintosh; Intel Mac OS X %s) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/%s Safari/605.1.15",
+		Name:        "Safari macOS",
+		Browser:     "Safari",
+		BrowserVer:  []string{"17.3", "17.4", "17.5", "18.0"},
+		OS:          "Mac",
+		OSVer:       []string{"14.0", "14.3", "14.5", "15.0"},
+		UATemplate:  "Mozilla/5.0 (Macintosh; Intel Mac OS X %s) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/%s Safari/605.1.15",
 		ScreenSizes: []string{"1680x1050", "2560x1600", "1440x900"},
-		Weight:     10,
+		Weight:      10,
 	},
 	{
-		Name:       "Firefox Desktop",
-		Browser:    "Firefox",
-		BrowserVer: []string{"121.0", "122.0", "123.0", "124.0"},
-		OS:         "Windows",
-		OSVer:      []string{"10.0", "11.0"},
-		UATemplate: "Mozilla/5.0 (Windows NT %s; Win64; x64; rv:109.0) Gecko/20100101 Firefox/%s",
+		Name:        "Firefox Desktop",
+		Browser:     "Firefox",
+		BrowserVer:  []string{"121.0", "122.0", "123.0", "124.0"},
+		OS:          "Windows",
+		OSVer:       []string{"10.0", "11.0"},
+		UATemplate:  "Mozilla/5.0 (Windows NT %s; Win64; x64; rv:109.0) Gecko/20100101 Firefox/%s",
 		ScreenSizes: []string{"1920x1080", "2560x1440", "1366x768"},
-		Weight:     9,
+		Weight:      9,
 	},
 	{
-		Name:       "Edge Desktop",
-		Browser:    "Edge",
-		BrowserVer: []string{"120.0", "121.0", "122.0"},
-		OS:         "Windows",
-		OSVer:      []string{"10.0", "11.0"},
-		UATemplate: "Mozilla/5.0 (Windows NT %s; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36 Edg/%s",
+		Name:        "Edge Desktop",
+		Browser:     "Edge",
+		BrowserVer:  []string{"120.0", "121.0", "122.0"},
+		OS:          "Windows",
+		OSVer:       []string{"10.0", "11.0"},
+		UATemplate:  "Mozilla/5.0 (Windows NT %s; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Safari/537.36 Edg/%s",
 		ScreenSizes: []string{"1920x1080", "1366x768"},
-		Weight:     5,
+		Weight:      5,
 	},
 	{
-		Name:       "Chrome Android",
-		Browser:    "Chrome Mobile",
-		BrowserVer: []string{"120.0", "121.0", "122.0", "123.0"},
-		OS:         "Android",
-		OSVer:      []string{"13.0", "14.0", "15.0"},
-		UATemplate: "Mozilla/5.0 (Linux; Android %s; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Mobile Safari/537.36",
+		Name:        "Chrome Android",
+		Browser:     "Chrome Mobile",
+		BrowserVer:  []string{"120.0", "121.0", "122.0", "123.0"},
+		OS:          "Android",
+		OSVer:       []string{"13.0", "14.0", "15.0"},
+		UATemplate:  "Mozilla/5.0 (Linux; Android %s; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s Mobile Safari/537.36",
 		ScreenSizes: []string{"412x915", "393x851", "390x844", "428x926"},
-		Weight:     12,
-		IsMobile:   true,
+		Weight:      12,
+		IsMobile:    true,
 	},
 	{
-		Name:       "Safari iPhone",
-		Browser:    "Safari Mobile",
-		BrowserVer: []string{"17.3", "17.4", "17.5"},
-		OS:         "iPhone",
-		OSVer:      []string{"17.0", "17.3", "17.5", "18.0"},
-		UATemplate: "Mozilla/5.0 (iPhone; CPU iPhone OS %s like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/%s Mobile/15E148 Safari/604.1",
+		Name:        "Safari iPhone",
+		Browser:     "Safari Mobile",
+		BrowserVer:  []string{"17.3", "17.4", "17.5"},
+		OS:          "iPhone",
+		OSVer:       []string{"17.0", "17.3", "17.5", "18.0"},
+		UATemplate:  "Mozilla/5.0 (iPhone; CPU iPhone OS %s like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/%s Mobile/15E148 Safari/604.1",
 		ScreenSizes: []string{"390x844", "393x852", "428x926"},
-		Weight:     8,
-		IsMobile:   true,
+		Weight:      8,
+		IsMobile:    true,
 	},
 	{
-		Name:       "Safari iPad",
-		Browser:    "Safari",
-		BrowserVer: []string{"17.3", "17.4", "17.5"},
-		OS:         "iPad",
-		OSVer:      []string{"17.0", "17.3", "17.5"},
-		UATemplate: "Mozilla/5.0 (iPad; CPU OS %s like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/%s Safari/605.1.15",
+		Name:        "Safari iPad",
+		Browser:     "Safari",
+		BrowserVer:  []string{"17.3", "17.4", "17.5"},
+		OS:          "iPad",
+		OSVer:       []string{"17.0", "17.3", "17.5"},
+		UATemplate:  "Mozilla/5.0 (iPad; CPU OS %s like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/%s Safari/605.1.15",
 		ScreenSizes: []string{"1024x1366", "820x1180", "744x1133"},
-		Weight:     3,
+		Weight:      3,
 	},
 }
 
@@ -319,7 +319,7 @@ var pages = []string{
 
 // Page weight: higher = more frequent pageviews
 var pageWeights = []int{
-	30, // /
+	30,         // /
 	5, 3, 3, 2, // about/contact/pricing/help
 	8, 4, 3, 2, // blog/*
 	6, 4, 3, 2, 2, 1, // docs/*
@@ -532,9 +532,10 @@ func generateSiteData(queue *generic.DynamicQueue[*common.EventRequest], domain 
 		if seedTest {
 			baseSessions = 30 // 测试模式：每天固定 30 个会话
 		}
-		if dayOfWeek == time.Saturday {
+		switch dayOfWeek {
+		case time.Saturday:
 			baseSessions = int(float64(baseSessions) * 0.7)
-		} else if dayOfWeek == time.Sunday {
+		case time.Sunday:
 			baseSessions = int(float64(baseSessions) * 0.6)
 		}
 

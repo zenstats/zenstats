@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/dromara/carbon/v2"
 	"github.com/gin-gonic/gin"
@@ -65,8 +66,10 @@ func (s *StatsHandle) GetSuggestions() gin.HandlerFunc {
 		start, end := parseSuggestionsTimeRange(period, date, from, to, timezone)
 
 		suggestionService := stats.NewSuggestionService()
-		startStr := start.StdTime().Format("2006-01-02 15:04:05")
-		endStr := end.StdTime().Format("2006-01-02 15:04:05")
+		// StdTime() 返回站点时区的时间，Format 生成不含时区的字符串
+		// ClickHouse 把无时区字符串当 UTC 解析，所以必须显式转为 UTC
+		startStr := start.StdTime().UTC().Format("2006-01-02 15:04:05")
+		endStr := end.StdTime().UTC().Format("2006-01-02 15:04:05")
 		siteIDStr := fmt.Sprintf("%d", siteID)
 
 		if filterName == "prop_key" {
@@ -97,26 +100,33 @@ func (s *StatsHandle) GetSuggestions() gin.HandlerFunc {
 
 // parseSuggestionsTimeRange 解析建议查询的时间范围。
 func parseSuggestionsTimeRange(period, date, from, to, timezone string) (start, end *carbon.Carbon) {
+	// 用标准库解析时区，避免 carbon.Now(timezone) 的初始化问题
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		loc = time.UTC
+	}
+	now := time.Now().In(loc)
+
 	switch period {
 	case "day", "yesterday":
 		if date == "" && period == "yesterday" {
-			date = carbon.Now(timezone).SubDays(1).Format("2006-01-02")
+			date = now.AddDate(0, 0, -1).Format("2006-01-02")
 		} else if date == "" {
-			date = carbon.Now(timezone).Format("2006-01-02")
+			date = now.Format("2006-01-02")
 		}
 		d := carbon.Parse(date, timezone)
 		start = d.StartOfDay()
 		end = d.EndOfDay()
 	case "p7":
 		if date == "" {
-			date = carbon.Now(timezone).Format("2006-01-02")
+			date = now.Format("2006-01-02")
 		}
 		base := carbon.Parse(date, timezone)
 		end = base.EndOfDay()
 		start = base.SubDays(6).StartOfDay()
 	case "p14":
 		if date == "" {
-			date = carbon.Now(timezone).Format("2006-01-02")
+			date = now.Format("2006-01-02")
 		}
 		base := carbon.Parse(date, timezone)
 		end = base.EndOfDay()
@@ -124,7 +134,7 @@ func parseSuggestionsTimeRange(period, date, from, to, timezone string) (start, 
 	default:
 		// p30 或其他默认 30 天
 		if date == "" {
-			date = carbon.Now(timezone).Format("2006-01-02")
+			date = now.Format("2006-01-02")
 		}
 		base := carbon.Parse(date, timezone)
 		end = base.EndOfDay()
@@ -132,9 +142,9 @@ func parseSuggestionsTimeRange(period, date, from, to, timezone string) (start, 
 	case "custom":
 		if from == "" || to == "" {
 			// fallback to 30 days
-			base := carbon.Now(timezone)
-			end = base.EndOfDay()
-			start = base.SubDays(29).StartOfDay()
+			base := now
+			end = carbon.NewCarbon(base).EndOfDay()
+			start = carbon.NewCarbon(base).SubDays(29).StartOfDay()
 		} else {
 			start = carbon.Parse(from, timezone).StartOfDay()
 			end = carbon.Parse(to, timezone).EndOfDay()

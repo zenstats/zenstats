@@ -202,12 +202,12 @@ func (td *TableDecider) EventsJoinSessions(query *types.Query) bool {
 // 会话查询是否需要连接事件表
 func (td *TableDecider) SessionsJoinEvents(query *types.Query) bool {
 	for _, dim := range query.Dimensions {
-		if strings.HasPrefix(dim, "event:") && dim != "event:goal" {
+		if strings.HasPrefix(dim, "event:") {
 			return true
 		}
 	}
 	for _, filter := range query.Filters {
-		if filter.AnyDimension(func(dim string) bool { return strings.HasPrefix(dim, "event:") && dim != "event:goal" }) {
+		if filter.AnyDimension(func(dim string) bool { return strings.HasPrefix(dim, "event:") }) {
 			return true
 		}
 	}
