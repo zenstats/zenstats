@@ -183,9 +183,9 @@ go run main.go server
 ## Documentation
 
 - [Swagger API Docs](http://localhost:8081/swagger/index.html) (`go run main.go doc`)
-- [Architecture Overview](docs/ARCHITECTURE.md)
-- [Deployment Guide](docs/DEPLOY.md)
 - [Statistics API](docs/api-stats.md)
+- [系统架构](https://github.com/zenstats/zenstats-deploy/blob/main/docs/architecture.md) (zenstats-deploy)
+- [部署指南](https://github.com/zenstats/zenstats-deploy/blob/main/docs/DEPLOY.md) (zenstats-deploy)
 
 ---
 
