@@ -19,7 +19,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -ldflags="-s -w" -o /build/bin/zenstats .
 
 # ---- Runtime Stage ----
-FROM --platform=$TARGETPLATFORM alpine:3.20
+FROM --platform=$TARGETPLATFORM alpine:3.22
 
 ARG APK_MIRROR=""
 RUN if [ -n "$APK_MIRROR" ]; then \
