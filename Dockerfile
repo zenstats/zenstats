@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 ARG TARGETARCH
 ARG APK_MIRROR=""
@@ -32,8 +32,6 @@ RUN addgroup -S zenstats && adduser -S zenstats -G zenstats
 WORKDIR /app
 
 COPY --from=builder /build/bin/zenstats /app/zenstats
-COPY --from=builder /build/config/config_prod.yaml /app/config/config_prod.yaml
-
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
