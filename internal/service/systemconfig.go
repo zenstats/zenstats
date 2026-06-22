@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -54,14 +55,13 @@ var configDefinitions = map[string]struct {
 	Group       string
 	Default     string
 }{
-	"general.base_url":              {Description: "站点地址，用于生成验证链接等", Group: "general"},
-	"general.admin_email":           {Description: "管理员邮箱", Group: "general"},
-	"general.registration_enabled":  {Description: "是否开启注册", Group: "general", Default: "true"},
+	"general.base_url":              {Description: "站点地址，用于生成邮箱验证链接等", Group: "general"},
+	"general.registration_enabled":  {Description: "是否允许新用户注册", Group: "general", Default: "true"},
 	"smtp.host":                     {Description: "SMTP 服务器地址", Group: "smtp"},
-	"smtp.port":                     {Description: "SMTP 端口", Group: "smtp"},
+	"smtp.port":                     {Description: "SMTP 端口 (587/465/25)", Group: "smtp"},
 	"smtp.username":                 {Description: "SMTP 用户名", Group: "smtp"},
 	"smtp.password":                 {Description: "SMTP 密码", Group: "smtp"},
-	"smtp.from":                     {Description: "发件人地址", Group: "smtp"},
+	"smtp.from":                     {Description: "发件人地址，如 noreply@example.com", Group: "smtp"},
 }
 
 // InitDefaults 初始化默认配置（如果数据库中不存在）
@@ -75,13 +75,9 @@ func (s *SystemConfigService) InitDefaults(ctx context.Context) {
 			continue
 		}
 		if !exists {
-			defaultValue := def.Default
-			if defaultValue == "" {
-				defaultValue = ""
-			}
 			_, err = s.db.Client.SystemConfig.Create().
 				SetKey(key).
-				SetValue(defaultValue).
+				SetValue(def.Default).
 				SetDescription(def.Description).
 				SetGroupName(def.Group).
 				Save(ctx)
@@ -103,16 +99,19 @@ func (s *SystemConfigService) LoadConfigsFromDB(ctx context.Context) error {
 		if c.Value == "" {
 			continue
 		}
-		// 映射数据库配置到 viper
 		switch c.Key {
 		case "general.base_url":
 			config.SetConfigValue("base_url", c.Value)
-		case "general.admin_email":
-			// admin_email 可扩展
+		case "general.registration_enabled":
+			// handled dynamically via IsRegistrationEnabled()
 		case "smtp.host":
 			config.SetConfigValue("smtp.host", c.Value)
 		case "smtp.port":
-			// port 需要特殊处理
+			if port, err := strconv.Atoi(c.Value); err == nil && port > 0 {
+				config.SetConfigInt("smtp.port", port)
+			} else {
+				config.SetConfigInt("smtp.port", 587)
+			}
 		case "smtp.username":
 			config.SetConfigValue("smtp.username", c.Value)
 		case "smtp.password":
@@ -183,6 +182,12 @@ func (s *SystemConfigService) UpdateConfigs(ctx context.Context, items []ConfigI
 			config.SetConfigValue("base_url", item.Value)
 		case "smtp.host":
 			config.SetConfigValue("smtp.host", item.Value)
+		case "smtp.port":
+			if port, err := strconv.Atoi(item.Value); err == nil && port > 0 {
+				config.SetConfigInt("smtp.port", port)
+			} else {
+				config.SetConfigInt("smtp.port", 587)
+			}
 		case "smtp.username":
 			config.SetConfigValue("smtp.username", item.Value)
 		case "smtp.password":

@@ -1,0 +1,76 @@
+# ZenStats 统一配置文件
+# ========================
+# 通过 APP_ENV 环境变量选择环境（dev / test / prod）
+# 所有字段均可通过 ZENSTATS_ 前缀环境变量覆盖（如 ZENSTATS_DB_HOST）
+# 
+# ⚠️ secret_key 不在本文件中，必须通过 ZENSTATS_SECRET_KEY 环境变量设置
+
+default: &default
+  scheme:
+    address: "0.0.0.0"
+    http_port: 8080
+  smtp:
+    host: ""
+    port: 587
+    username: ""
+    password: ""
+    from: ""
+  data_path: "./data"
+  maxmind_license_key: ""
+  geoip_mirror: ""
+  base_url: ""
+
+# ClickHouse 公共配置（各环境仅覆盖 addr）
+clickhouse_default: &ch_default
+  database: zenstats_events_db
+  username: default
+  password: ""
+  ssl: false
+
+dev:
+  <<: *default
+  pool_size: 100
+  app_debug: true
+  log_level: debug
+  db:
+    host: 127.0.0.1
+    port: 5433
+    username: postgres
+    password: "postgres"
+    database: zenstats
+  clickhouse:
+    <<: *ch_default
+    addr:
+      - 127.0.0.1:9001
+
+test:
+  <<: *default
+  pool_size: 20
+  app_debug: false
+  log_level: warn
+  db:
+    host: 127.0.0.1
+    port: 5433
+    username: postgres
+    password: "postgres"
+    database: zenstats
+  clickhouse:
+    <<: *ch_default
+    addr:
+      - 127.0.0.1:9001
+
+prod:
+  <<: *default
+  pool_size: 100
+  app_debug: false
+  log_level: info
+  db:
+    host: zenstats_db
+    port: 5432
+    username: postgres
+    password: "postgres"
+    database: zenstats
+  clickhouse:
+    <<: *ch_default
+    addr:
+      - zenstats_events_db:9000

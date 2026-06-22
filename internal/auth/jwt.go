@@ -7,7 +7,9 @@ import (
 	"github.com/zenstats/zenstats/config"
 )
 
-var JWTSecret = []byte(config.Conf.SecretKey) // 替换为你的密钥
+func jwtSecret() []byte {
+	return []byte(config.Conf.SecretKey)
+}
 
 type CustomClaims struct {
 	UserID       int64  `json:"user_id"`
@@ -28,7 +30,7 @@ func GenerateRefreshToken(userID int64) (string, error) {
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(JWTSecret)
+	return token.SignedString(jwtSecret())
 }
 
 func GenerateToken(userID int64) (string, error) {
@@ -42,7 +44,7 @@ func GenerateToken(userID int64) (string, error) {
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(JWTSecret)
+	return token.SignedString(jwtSecret())
 }
 
 func GenerateSubAccountToken(subAccountID, parentUserID int64, role string) (string, error) {
@@ -58,7 +60,7 @@ func GenerateSubAccountToken(subAccountID, parentUserID int64, role string) (str
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(JWTSecret)
+	return token.SignedString(jwtSecret())
 }
 
 func GenerateSubAccountRefreshToken(subAccountID, parentUserID int64, role string) (string, error) {
@@ -74,12 +76,12 @@ func GenerateSubAccountRefreshToken(subAccountID, parentUserID int64, role strin
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(JWTSecret)
+	return token.SignedString(jwtSecret())
 }
 
 func ParseToken(tokenString string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
-		return JWTSecret, nil
+		return jwtSecret(), nil
 	})
 	if err != nil {
 		return nil, err
