@@ -9,6 +9,7 @@ type AdminUser struct {
 	Name      string    `json:"name"`
 	IsAdmin   bool      `json:"is_admin"`
 	Status    string    `json:"status"`
+	GroupID   int64     `json:"group_id"`
 	GroupName string    `json:"group_name"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

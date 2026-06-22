@@ -64,6 +64,7 @@ func (h *AdminHandler) ListUsers() gin.HandlerFunc {
 			if u.Edges.UserConfig != nil {
 				adminUser.Status = u.Edges.UserConfig.Status
 				if u.Edges.UserConfig.Edges.Group != nil {
+					adminUser.GroupID = u.Edges.UserConfig.Edges.Group.ID
 					adminUser.GroupName = u.Edges.UserConfig.Edges.Group.Name
 				}
 			}
