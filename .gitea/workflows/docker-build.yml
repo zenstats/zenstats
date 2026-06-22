@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY: ghcr.io
+  REGISTRY: registry.cn-hangzhou.aliyuncs.com
   GOPROXY: https://goproxy.cn,direct
 
 jobs:
@@ -24,14 +24,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GHCR
+      - name: Login to ACR
         run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
 
       - name: Build & Push
         run: |
           SHA="${GITHUB_SHA:-latest}"
           REF="${GITHUB_REF_NAME:-latest}"
-          IMAGE="${{ env.REGISTRY }}/${{ gitea.repository }}"
+          IMAGE="${{ env.REGISTRY }}/${{ vars.ACR_NAMESPACE }}/${{ gitea.repository_name }}"
 
           TAGS="-t ${IMAGE}:sha-${SHA:0:7} -t ${IMAGE}:${REF}"
           if [ "${{ gitea.ref }}" = "refs/heads/main" ]; then
@@ -44,4 +44,3 @@ jobs:
             --build-arg GOPROXY=${{ env.GOPROXY }} \
             --push \
             -f Dockerfile .
-
