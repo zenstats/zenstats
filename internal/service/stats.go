@@ -69,6 +69,7 @@ func (s *StatsService) GetAggregate(ctx *gin.Context, siteID int64, req *atypes.
 	}
 
 	params := &types.Params{
+		UserID:    ctx.GetInt64("user_id"),
 		Interval: req.Interval,
 		SiteID:   fmt.Sprintf("%d", site.ID),
 		UTCTimeRange: types.TimeRange{
@@ -115,6 +116,7 @@ func (s *StatsService) GetTimeSeries(ctx *gin.Context, siteID int64, req *atypes
 	}
 
 	params := &types.Params{
+		UserID:   ctx.GetInt64("user_id"),
 		Interval: interval,
 		SiteID:   fmt.Sprintf("%d", site.ID),
 		UTCTimeRange: types.TimeRange{
@@ -168,6 +170,7 @@ func (s *StatsService) GetBreakdown(ctx *gin.Context, siteID int64, req *atypes.
 	}
 
 	params := &types.Params{
+		UserID:   ctx.GetInt64("user_id"),
 		SiteID: fmt.Sprintf("%d", site.ID),
 		UTCTimeRange: types.TimeRange{
 			Start: start,
@@ -220,6 +223,7 @@ func (s *StatsService) GetMainGraph(ctx *gin.Context, siteID int64, req *atypes.
 	}
 
 	params := &types.Params{
+		UserID:   ctx.GetInt64("user_id"),
 		Interval: interval,
 		SiteID:   fmt.Sprintf("%d", site.ID),
 		UTCTimeRange: types.TimeRange{
@@ -268,6 +272,7 @@ func (s *StatsService) GetMainGraph(ctx *gin.Context, siteID int64, req *atypes.
 		}
 
 		compParams := &types.Params{
+			UserID:   ctx.GetInt64("user_id"),
 			Interval: interval,
 			SiteID:   fmt.Sprintf("%d", site.ID),
 			UTCTimeRange: types.TimeRange{

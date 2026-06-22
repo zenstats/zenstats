@@ -939,13 +939,17 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 		return "city_name as city"
 	case "visit:source":
 		if purpose == "group" {
-			return "referrer_source"
+			clause, err := qb.getSourceClause(userID)
+			if err != nil {
+				return "referrer_source"
+			}
+			return clause
 		}
 		sourceClause, err := qb.getSourceClause(userID)
 		if err != nil {
 			return "referrer_source"
 		}
-		return sourceClause
+		return sourceClause + " as referrer_source"
 	case "visit:medium":
 		return "referrer_medium"
 	case "visit:referrer":
@@ -1136,26 +1140,24 @@ func (qs *QueryBuilder) getSourceClause(userID int64) (string, error) {
 	if userID > 0 {
 		userEngines := getUserSearchEngines(userID)
 		if len(userEngines) > 0 {
-			// 合并用户自定义搜索引擎和全局搜索引擎，用户自定义优先
 			merged := mergeSearchEngines(searchEngines, userEngines)
 			clause := fmt.Sprintf(`
 					CASE
 						WHEN referrer_source = '' THEN 'Direct / None'
 						%s
 						ELSE referrer_source
-					END as referrer_source
+					END
 			`, qs.buildMergedSearchEngineCase(merged))
 			return clause, nil
 		}
 	}
 
-	// 使用全局搜索引擎
 	clause := fmt.Sprintf(`
 			CASE
 				WHEN referrer_source = '' THEN 'Direct / None'
 				%s
 				ELSE referrer_source
-			END as referrer_source
+			END
 	`, qs.buildSearchEngineCase(searchEngines))
 	return clause, nil
 }
