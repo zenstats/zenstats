@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/zenstats/zenstats/internal/service/stats/sql"
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
@@ -46,24 +47,40 @@ func (s *CustomSearchEngineService) GetSearchEngineByID(ctx context.Context, id 
 
 // CreateSearchEngine 创建自定义搜索引擎
 func (s *CustomSearchEngineService) CreateSearchEngine(ctx context.Context, userID int64, domain, name string) (*ent.CustomSearchEngine, error) {
-	return s.db.Client.CustomSearchEngine.Create().
+	engine, err := s.db.Client.CustomSearchEngine.Create().
 		SetUserID(userID).
 		SetDomain(domain).
 		SetName(name).
 		Save(ctx)
+	if err == nil {
+		sql.InvalidateUserSearchEngineCache(userID)
+	}
+	return engine, err
 }
 
 // UpdateSearchEngine 更新自定义搜索引擎
 func (s *CustomSearchEngineService) UpdateSearchEngine(ctx context.Context, id int64, domain, name string) (*ent.CustomSearchEngine, error) {
-	return s.db.Client.CustomSearchEngine.UpdateOneID(id).
+	engine, err := s.db.Client.CustomSearchEngine.UpdateOneID(id).
 		SetDomain(domain).
 		SetName(name).
 		Save(ctx)
+	if err == nil && engine != nil {
+		sql.InvalidateUserSearchEngineCache(engine.UserID)
+	}
+	return engine, err
 }
 
 // DeleteSearchEngine 删除自定义搜索引擎
 func (s *CustomSearchEngineService) DeleteSearchEngine(ctx context.Context, id int64) error {
-	return s.db.Client.CustomSearchEngine.DeleteOneID(id).Exec(ctx)
+	engine, err := s.db.Client.CustomSearchEngine.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.db.Client.CustomSearchEngine.DeleteOneID(id).Exec(ctx); err != nil {
+		return err
+	}
+	sql.InvalidateUserSearchEngineCache(engine.UserID)
+	return nil
 }
 
 // GetUserSearchEngineCount 获取用户自定义搜索引擎数量

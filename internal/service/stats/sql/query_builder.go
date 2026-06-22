@@ -30,6 +30,14 @@ var (
 	userSearchEngineCacheTTL  = 5 * time.Minute
 )
 
+// InvalidateUserSearchEngineCache clears the cache for a user so changes take effect immediately.
+func InvalidateUserSearchEngineCache(userID int64) {
+	userSearchEngineCacheMu.Lock()
+	delete(userSearchEngineCache, userID)
+	delete(userSearchEngineCacheTime, userID)
+	userSearchEngineCacheMu.Unlock()
+}
+
 // QueryBuilder builds SQL queries based on the analytics query specification
 type QueryBuilder struct {
 	fragmentGenerator *SQLFragmentGenerator
@@ -939,11 +947,7 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 		return "city_name as city"
 	case "visit:source":
 		if purpose == "group" {
-			clause, err := qb.getSourceClause(userID)
-			if err != nil {
-				return "referrer_source"
-			}
-			return clause
+			return "referrer_source"
 		}
 		sourceClause, err := qb.getSourceClause(userID)
 		if err != nil {

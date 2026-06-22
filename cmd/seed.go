@@ -256,6 +256,8 @@ var referrers = []referrerProfile{
 	{URL: "https://t.co", Weight: 3},
 	{URL: "https://www.zhihu.com", Weight: 3},
 	{URL: "https://weibo.com", Weight: 2},
+	{URL: "https://www.weibo.com", Weight: 2},
+	{URL: "https://m.weibo.com", Weight: 2},
 	{URL: "https://www.linkedin.com", Weight: 2},
 	{URL: "https://news.ycombinator.com", Weight: 1},
 }
