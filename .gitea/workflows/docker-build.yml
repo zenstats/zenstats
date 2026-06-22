@@ -31,7 +31,7 @@ jobs:
         run: |
           SHA="${GITHUB_SHA:-latest}"
           REF="${GITHUB_REF_NAME:-latest}"
-          IMAGE="${{ env.REGISTRY }}/${{ vars.ACR_NAMESPACE }}/${{ gitea.repository_name }}"
+          IMAGE="${{ env.REGISTRY }}/${{ vars.ACR_NAMESPACE }}/zenstats"
 
           TAGS="-t ${IMAGE}:sha-${SHA:0:7} -t ${IMAGE}:${REF}"
           if [ "${{ gitea.ref }}" = "refs/heads/main" ]; then

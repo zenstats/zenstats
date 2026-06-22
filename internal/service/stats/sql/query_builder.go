@@ -38,6 +38,14 @@ func InvalidateUserSearchEngineCache(userID int64) {
 	userSearchEngineCacheMu.Unlock()
 }
 
+// InvalidateSearchEngineCache clears the global search engine cache so admin changes take effect immediately.
+func InvalidateSearchEngineCache() {
+	searchEngineCacheMu.Lock()
+	searchEngineCache = nil
+	searchEngineCacheTime = time.Time{}
+	searchEngineCacheMu.Unlock()
+}
+
 // QueryBuilder builds SQL queries based on the analytics query specification
 type QueryBuilder struct {
 	fragmentGenerator *SQLFragmentGenerator

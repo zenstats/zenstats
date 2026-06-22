@@ -11,6 +11,7 @@ import (
 func RegisterAdminRouter(router *gin.RouterGroup) {
 	adminHandler := NewAdminHandler()
 	configHandler := NewSystemConfigHandler()
+	engineHandler := NewSearchEngineHandler()
 
 	admin := router.Group("/admin")
 	admin.Use(middleware.JWTAuth())
@@ -36,6 +37,12 @@ func RegisterAdminRouter(router *gin.RouterGroup) {
 	// 系统配置
 	admin.GET("/configs", configHandler.GetConfigs())
 	admin.PUT("/configs", configHandler.UpdateConfigs())
+
+	// 内置来源管理
+	admin.GET("/sources", engineHandler.ListSearchEngines())
+	admin.POST("/sources", engineHandler.CreateSearchEngine())
+	admin.PUT("/sources/:id", engineHandler.UpdateSearchEngine())
+	admin.DELETE("/sources/:id", engineHandler.DeleteSearchEngine())
 
 	// 系统统计
 	admin.GET("/stats", adminHandler.GetStats())
