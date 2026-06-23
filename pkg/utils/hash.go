@@ -161,7 +161,7 @@ func (m *MultiHasher) GetHashInfo() *HashInfo {
 	for k, v := range m.h {
 		dst[k] = hex.EncodeToString(v.Sum(nil))
 	}
-	return &HashInfo{h: dst}
+	return &HashInfo{H: dst}
 }
 
 // Sum returns the specified hash from the multihasher
@@ -180,11 +180,11 @@ func (m *MultiHasher) Size() int64 {
 
 // A HashInfo contains hash string for one or more hashType
 type HashInfo struct {
-	h map[*HashType]string `json:"hashInfo"`
+	H map[*HashType]string `json:"hashInfo"`
 }
 
 func NewHashInfoByMap(h map[*HashType]string) HashInfo {
-	return HashInfo{h}
+	return HashInfo{H: h}
 }
 
 func NewHashInfo(ht *HashType, str string) HashInfo {
@@ -192,11 +192,11 @@ func NewHashInfo(ht *HashType, str string) HashInfo {
 	if ht != nil {
 		m[ht] = str
 	}
-	return HashInfo{h: m}
+	return HashInfo{H: m}
 }
 
 func (hi HashInfo) String() string {
-	result, err := json.Marshal(hi.h)
+	result, err := json.Marshal(hi.H)
 	if err != nil {
 		return ""
 	}
@@ -207,11 +207,11 @@ func FromString(str string) HashInfo {
 	var tmp map[string]string
 	err := json.Unmarshal([]byte(str), &tmp)
 	if err != nil {
-		slog.Warn("failed to unmarsh HashInfo from string=%s", str)
+		slog.Warn("failed to unmarshal HashInfo from string", "str", str)
 	} else {
 		for k, v := range tmp {
 			if name2hash[k] != nil && len(v) > 0 {
-				hi.h[name2hash[k]] = v
+				hi.H[name2hash[k]] = v
 			}
 		}
 	}
@@ -219,9 +219,9 @@ func FromString(str string) HashInfo {
 	return hi
 }
 func (hi HashInfo) GetHash(ht *HashType) string {
-	return hi.h[ht]
+	return hi.H[ht]
 }
 
 func (hi HashInfo) Export() map[*HashType]string {
-	return hi.h
+	return hi.H
 }

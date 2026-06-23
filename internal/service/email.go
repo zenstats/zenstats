@@ -20,25 +20,17 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-var (
-	emailServiceInstance *EmailService
-	emailOnce            sync.Once
-)
-
 type EmailService struct {
 	db *postgresql.Client
 }
 
-func GetEmailService() *EmailService {
-	emailOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		emailServiceInstance = &EmailService{db: db}
-	})
-	return emailServiceInstance
-}
+var GetEmailService = sync.OnceValue(func() *EmailService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	return &EmailService{db: db}
+})
 
 // SendVerificationEmail 发送验证邮件
 func (s *EmailService) SendVerificationEmail(ctx context.Context, userID int64, email string, baseURL string) error {

@@ -139,7 +139,7 @@ func Retry(attempts int, sleep time.Duration, f func() error) (err error) {
 	for i := 0; i < attempts; i++ {
 		//fmt.Println("This is attempt number", i)
 		if i > 0 {
-			slog.Error("retrying after error:", err)
+			slog.Error("retrying after error", "err", err)
 			time.Sleep(sleep)
 			sleep *= 2
 		}

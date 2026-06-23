@@ -14,25 +14,17 @@ import (
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
-var (
-	systemConfigServiceInstance *SystemConfigService
-	systemConfigOnce            sync.Once
-)
-
 type SystemConfigService struct {
 	db *postgresql.Client
 }
 
-func GetSystemConfigService() *SystemConfigService {
-	systemConfigOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		systemConfigServiceInstance = &SystemConfigService{db: db}
-	})
-	return systemConfigServiceInstance
-}
+var GetSystemConfigService = sync.OnceValue(func() *SystemConfigService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	return &SystemConfigService{db: db}
+})
 
 // ConfigItem 配置项
 type ConfigItem struct {

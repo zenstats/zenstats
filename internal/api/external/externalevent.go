@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zenstats/zenstats/internal/common"
+	"github.com/zenstats/zenstats/internal/model"
 	"github.com/zenstats/zenstats/internal/event"
 	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/pkg/globals"
-	"github.com/zenstats/zenstats/pkg/utils"
+	"github.com/zenstats/zenstats/pkg/iputil"
 )
 
 // ingestLimiter 事件采集限频器，按站点域名维度限流。
@@ -205,14 +205,14 @@ func matchOriginHost(host, pattern string) bool {
 }
 
 // setEventRequestDefaults 设置 EventRequest 的默认值
-func setEventRequestDefaults(req *common.EventRequest, c *gin.Context) {
+func setEventRequestDefaults(req *model.EventRequest, c *gin.Context) {
 	req.Timestamp = time.Now()
-	req.Ip = utils.ClientIP(c.Request)
+	req.Ip = iputil.ClientIP(c.Request)
 	req.UserAgent = c.Request.UserAgent()
 }
 
 // parseInteractive 解析 Interactive 字段
-func parseInteractive(req *common.EventRequest, tempReq *common.TempEventRequest) {
+func parseInteractive(req *model.EventRequest, tempReq *model.TempEventRequest) {
 	req.Interactive = true
 	if tempReq.Interactive != nil {
 		var isFalse bool
@@ -231,7 +231,7 @@ func parseInteractive(req *common.EventRequest, tempReq *common.TempEventRequest
 //	@Tags			事件采集
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		common.EventRequest	true	"事件数据"
+//	@Param			body	body		model.EventRequest	true	"事件数据"
 //	@Success		202		{string}	string				"ok"
 //	@Failure		400		{string}	string				"请求参数错误或域名不允许"
 //	@Failure		429		{string}	string				"请求频率超限"
@@ -240,7 +240,7 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		slog.Debug("received event")
 
-		var tempReq common.TempEventRequest
+		var tempReq model.TempEventRequest
 		body, err := c.GetRawData()
 		if err != nil {
 			slog.Debug("failed to get raw data", "error", err)
@@ -331,7 +331,7 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			}
 		}
 
-		req := common.EventRequest{
+		req := model.EventRequest{
 			Timestamp:      tempReq.Timestamp,
 			Hash:           tempReq.Hash,
 			EventName:      tempReq.EventName,

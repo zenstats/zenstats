@@ -10,27 +10,19 @@ import (
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
-var (
-	searchEngineServiceInstance *SearchEngineService
-	searchEngineOnce            sync.Once
-)
-
 // SearchEngineService manages the global built-in search engines table.
 type SearchEngineService struct {
 	db *postgresql.Client
 }
 
 // GetSearchEngineService returns the singleton SearchEngineService.
-func GetSearchEngineService() *SearchEngineService {
-	searchEngineOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		searchEngineServiceInstance = &SearchEngineService{db: db}
-	})
-	return searchEngineServiceInstance
-}
+var GetSearchEngineService = sync.OnceValue(func() *SearchEngineService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	return &SearchEngineService{db: db}
+})
 
 // ListAll returns all built-in search engines.
 func (s *SearchEngineService) ListAll(ctx context.Context) ([]*ent.SearchEngines, error) {

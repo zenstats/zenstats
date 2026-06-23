@@ -18,11 +18,6 @@ import (
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
-var (
-	statsServiceInstance *StatsService
-	statsOnce            sync.Once
-)
-
 // StatsService 统计服务，基于查询引擎提供聚合、时序、细分等统计查询。
 type StatsService struct {
 	db *postgresql.Client
@@ -30,19 +25,16 @@ type StatsService struct {
 }
 
 // GetStatsService 获取 StatsService 单例实例。
-func GetStatsService() *StatsService {
-	statsOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		statsServiceInstance = &StatsService{
-			db: db,
-			cl: cl.GetConnection(),
-		}
-	})
-	return statsServiceInstance
-}
+var GetStatsService = sync.OnceValue(func() *StatsService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	return &StatsService{
+		db: db,
+		cl: cl.GetConnection(),
+	}
+})
 
 // GetAggregate 获取聚合统计（含对比数据）
 func (s *StatsService) GetAggregate(ctx *gin.Context, siteID int64, req *atypes.StatsRequest) (*stats.AggregateResult, error) {

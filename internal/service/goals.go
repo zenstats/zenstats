@@ -12,29 +12,19 @@ import (
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
-var (
-	goalServiceInstance *GoalService
-	goalOnce            sync.Once
-)
-
 // GoalService 目标管理服务，提供目标的增删改查功能。
 type GoalService struct {
 	db *postgresql.Client
 }
 
 // GetGoalService 获取 GoalService 单例实例。
-func GetGoalService() *GoalService {
-	goalOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		goalServiceInstance = &GoalService{
-			db: db,
-		}
-	})
-	return goalServiceInstance
-}
+var GetGoalService = sync.OnceValue(func() *GoalService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	return &GoalService{db: db}
+})
 
 // Goal 目标数据传输对象。
 type Goal struct {

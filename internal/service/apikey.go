@@ -16,27 +16,19 @@ import (
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
-var (
-	apiKeyServiceInstance *APIKeyService
-	apiKeyOnce            sync.Once
-)
-
 // APIKeyService API Key 管理服务，提供 API Key 的创建、查询、删除和鉴权。
 type APIKeyService struct {
 	db *postgresql.Client
 }
 
 // GetAPIKeyService 获取 APIKeyService 单例实例。
-func GetAPIKeyService() *APIKeyService {
-	apiKeyOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		apiKeyServiceInstance = &APIKeyService{db: db}
-	})
-	return apiKeyServiceInstance
-}
+var GetAPIKeyService = sync.OnceValue(func() *APIKeyService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	return &APIKeyService{db: db}
+})
 
 // APIKeyInfo API Key 信息（不包含 key_hash）。
 type APIKeyInfo struct {

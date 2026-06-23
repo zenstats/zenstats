@@ -11,27 +11,19 @@ import (
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
-var (
-	userGroupServiceInstance *UserGroupService
-	userGroupOnce            sync.Once
-)
-
 // UserGroupService 用户组服务，提供用户组/套餐相关的数据库操作。
 type UserGroupService struct {
 	db *postgresql.Client
 }
 
 // GetUserGroupService 获取 UserGroupService 单例实例。
-func GetUserGroupService() *UserGroupService {
-	userGroupOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		userGroupServiceInstance = &UserGroupService{db: db}
-	})
-	return userGroupServiceInstance
-}
+var GetUserGroupService = sync.OnceValue(func() *UserGroupService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	return &UserGroupService{db: db}
+})
 
 // GetAllGroups 获取所有用户组
 func (s *UserGroupService) GetAllGroups(ctx context.Context) ([]*ent.UserGroup, error) {

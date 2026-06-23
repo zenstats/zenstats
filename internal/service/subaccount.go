@@ -8,13 +8,8 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
+	"github.com/zenstats/zenstats/pkg/bcrypt"
 	"github.com/zenstats/zenstats/pkg/globals"
-	"github.com/zenstats/zenstats/pkg/utils"
-)
-
-var (
-	subAccountServiceInstance *SubAccountService
-	subAccountOnce            sync.Once
 )
 
 // SubAccountService 子账号服务，提供子账号的CRUD操作。
@@ -23,16 +18,13 @@ type SubAccountService struct {
 }
 
 // GetSubAccountService 获取 SubAccountService 单例实例。
-func GetSubAccountService() *SubAccountService {
-	subAccountOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		subAccountServiceInstance = &SubAccountService{db: db}
-	})
-	return subAccountServiceInstance
-}
+var GetSubAccountService = sync.OnceValue(func() *SubAccountService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	return &SubAccountService{db: db}
+})
 
 // GetUserSubAccounts 获取用户的子账号列表
 func (s *SubAccountService) GetUserSubAccounts(ctx context.Context, userID int64) ([]*ent.SubAccount, error) {
@@ -48,7 +40,7 @@ func (s *SubAccountService) GetSubAccountByID(ctx context.Context, id int64) (*e
 
 // CreateSubAccount 创建子账号
 func (s *SubAccountService) CreateSubAccount(ctx context.Context, parentUserID int64, email, name, password string) (*ent.SubAccount, error) {
-	passwordHash, err := utils.GeneratedBcrypt(password)
+	passwordHash, err := bcrypt.Generate(password)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +74,7 @@ func (s *SubAccountService) DeleteSubAccount(ctx context.Context, id int64) erro
 
 // ResetSubAccountPassword 重置子账号密码
 func (s *SubAccountService) ResetSubAccountPassword(ctx context.Context, id int64, newPassword string) error {
-	passwordHash, err := utils.GeneratedBcrypt(newPassword)
+	passwordHash, err := bcrypt.Generate(newPassword)
 	if err != nil {
 		return err
 	}
@@ -142,7 +134,7 @@ func (s *SubAccountService) SubAccountLogin(ctx context.Context, email, password
 		return nil, ErrSubAccountSuspended
 	}
 
-	if !utils.CheckBcrypt(password, subAccount.PasswordHash) {
+	if !bcrypt.Check(password, subAccount.PasswordHash) {
 		return nil, ErrInvalidPassword
 	}
 

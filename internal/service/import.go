@@ -10,23 +10,15 @@ import (
 	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
 )
 
-var (
-	importServiceInstance *ImportService
-	importServiceOnce     sync.Once
-)
-
 type ImportService struct {
 	repo *repository.ImportedRepository
 }
 
-func GetImportService() *ImportService {
-	importServiceOnce.Do(func() {
-		importServiceInstance = &ImportService{
-			repo: repository.GetImportedRepository(),
-		}
-	})
-	return importServiceInstance
-}
+var GetImportService = sync.OnceValue(func() *ImportService {
+	return &ImportService{
+		repo: repository.GetImportedRepository(),
+	}
+})
 
 func (s *ImportService) NextImportID() uint64 {
 	return uint64(time.Now().UnixMilli())

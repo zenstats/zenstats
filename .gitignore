@@ -36,3 +36,8 @@ zenstats.js
 .codegraph/
 .reasonix/
 reasonix.toml
+
+# Swagger auto-generated (run "make swagger" to regenerate)
+docs/docs.go
+docs/swagger.json
+docs/swagger.yaml

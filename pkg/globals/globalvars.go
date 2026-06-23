@@ -3,7 +3,7 @@ package globals
 import (
 	"sync"
 
-	"github.com/zenstats/zenstats/internal/common"
+	"github.com/zenstats/zenstats/internal/model"
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/pkg/generic"
 )
@@ -11,19 +11,19 @@ import (
 var (
 	mu sync.Mutex
 
-	global_queue *generic.DynamicQueue[*common.EventRequest]
+	global_queue *generic.DynamicQueue[*model.EventRequest]
 
 	db *postgresql.Client
 )
 
-func SetQueue(queue *generic.DynamicQueue[*common.EventRequest]) {
+func SetQueue(queue *generic.DynamicQueue[*model.EventRequest]) {
 	mu.Lock()
 	defer mu.Unlock()
 
 	global_queue = queue
 }
 
-func GetQueue() *generic.DynamicQueue[*common.EventRequest] {
+func GetQueue() *generic.DynamicQueue[*model.EventRequest] {
 	mu.Lock()
 	defer mu.Unlock()
 	return global_queue

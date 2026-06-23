@@ -3,7 +3,6 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/zenstats/zenstats/internal/api/admin"
 	"github.com/zenstats/zenstats/internal/api/health"
 )
 
@@ -31,5 +30,5 @@ func RegisterRouter(router *gin.RouterGroup) {
 	// import api (GA4 historical data import)
 	RegisterImportRouter(router)
 	// admin api
-	admin.RegisterAdminRouter(router)
+	RegisterAdminRouter(router)
 }

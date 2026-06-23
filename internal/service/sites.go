@@ -23,12 +23,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
 	"github.com/zenstats/zenstats/pkg/globals"
-	"github.com/zenstats/zenstats/pkg/utils"
-)
-
-var (
-	siteServiceInstance *SiteService
-	siteOnce            sync.Once
+	"github.com/zenstats/zenstats/pkg/iputil"
 )
 
 // 新增：全站列表缓存项结构体
@@ -50,30 +45,27 @@ type SiteService struct {
 }
 
 // GetSiteService 获取 SiteService 单例实例。
-func GetSiteService() *SiteService {
-	siteOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		l := expirable.NewLRU[string, *ent.Site](1000, nil, 30*time.Minute)
-		ipCache := expirable.NewLRU[string, []*ent.ShieldRulesIp](1000, nil, 30*time.Minute)
-		hostnameCache := expirable.NewLRU[string, []*ent.ShieldRulesHostname](1000, nil, 30*time.Minute)
-		countryCache := expirable.NewLRU[string, []*ent.ShieldRulesCountry](1000, nil, 30*time.Minute)
-		membershipCache := expirable.NewLRU[string, *ent.Site](1000, nil, 30*time.Minute)
-		siteServiceInstance = &SiteService{
-			db:                      db,
-			domainCache:             l,
-			shieldRuleIPCache:       ipCache,
-			shieldRuleHostnameCache: hostnameCache,
-			shieldRuleCountryCache:  countryCache,
-			membershipCache:         membershipCache,
-			cache:                   sync.Map{},
-			allSitesCacheKey:        "all_sites",
-		}
-	})
-	return siteServiceInstance
-}
+var GetSiteService = sync.OnceValue(func() *SiteService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	l := expirable.NewLRU[string, *ent.Site](1000, nil, 30*time.Minute)
+	ipCache := expirable.NewLRU[string, []*ent.ShieldRulesIp](1000, nil, 30*time.Minute)
+	hostnameCache := expirable.NewLRU[string, []*ent.ShieldRulesHostname](1000, nil, 30*time.Minute)
+	countryCache := expirable.NewLRU[string, []*ent.ShieldRulesCountry](1000, nil, 30*time.Minute)
+	membershipCache := expirable.NewLRU[string, *ent.Site](1000, nil, 30*time.Minute)
+	return &SiteService{
+		db:                      db,
+		domainCache:             l,
+		shieldRuleIPCache:       ipCache,
+		shieldRuleHostnameCache: hostnameCache,
+		shieldRuleCountryCache:  countryCache,
+		membershipCache:         membershipCache,
+		cache:                   sync.Map{},
+		allSitesCacheKey:        "all_sites",
+	}
+})
 
 // CreateSiteParams 创建站点时的参数。
 type CreateSiteParams struct {
@@ -480,7 +472,7 @@ func (s *SiteService) AdminVerifySite(ctx context.Context, siteID int64) error {
 
 // AddShieldRuleIP 添加IP屏蔽规则
 func (s *SiteService) AddShieldRuleIP(ctx *gin.Context, siteID int64, ip string, action string, description string) (*ent.ShieldRulesIp, error) {
-	ipInet, err := utils.ParseInet(ip)
+	ipInet, err := iputil.ParseInet(ip)
 	if err != nil {
 		return nil, fmt.Errorf("invalid IP format: %w", err)
 	}

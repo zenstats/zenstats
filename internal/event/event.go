@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zenstats/zenstats/internal/common"
+	"github.com/zenstats/zenstats/internal/model"
 	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/internal/session"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
@@ -30,9 +30,9 @@ import (
 
 type EventWork struct {
 	wg             sync.WaitGroup
-	queue          *generic.DynamicQueue[*common.EventRequest]
+	queue          *generic.DynamicQueue[*model.EventRequest]
 	batchSize      int                       // batchSize 表示每次批量处理的任务数量
-	taskChan       chan *common.EventRequest // taskChan 是一个通道，用于接收任务
+	taskChan       chan *model.EventRequest // taskChan 是一个通道，用于接收任务
 	shutdownCtx    context.Context           // shutdownCtx 是一个取消上下文，用于关闭任务
 	shutdownCancel context.CancelFunc        // shutdownCancel 是一个取消函数，用于取消任务
 	pool           *pool.Pool
@@ -50,13 +50,13 @@ type EventWork struct {
 	currentSalt string // 用户ID生成盐值，服务启动时随机生成
 }
 
-func NewEventWork(q *generic.DynamicQueue[*common.EventRequest], batchSize int, historicalThreshold time.Duration) (*EventWork, error) {
+func NewEventWork(q *generic.DynamicQueue[*model.EventRequest], batchSize int, historicalThreshold time.Duration) (*EventWork, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	e := &EventWork{
 		queue:               q,
 		batchSize:           batchSize,
-		taskChan:            make(chan *common.EventRequest, 1000),
+		taskChan:            make(chan *model.EventRequest, 1000),
 		shutdownCtx:         ctx,
 		shutdownCancel:      cancel,
 		pool:                pool.NewPool(),
@@ -138,7 +138,7 @@ func (e *EventWork) dispatch() {
 	}
 }
 
-func (e *EventWork) processEvent(eventRequest *common.EventRequest) *models.Events {
+func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Events {
 	if eventRequest == nil {
 		return nil
 	}
@@ -358,7 +358,7 @@ func (e *EventWork) PutGeolocation(event *models.Events) {
 
 // PutSourceInfo updates the session attributes with source information from the event request.
 // It extracts referrer information and UTM parameters from the request URL and stores them in the session attributes.
-func (e *EventWork) PutSourceInfo(event *models.Events, eventRequest *common.EventRequest) {
+func (e *EventWork) PutSourceInfo(event *models.Events, eventRequest *model.EventRequest) {
 
 	event.Referrer = e.formatReferrer(eventRequest.Referrer)
 	parseReferer, err := url.Parse(eventRequest.Referrer)

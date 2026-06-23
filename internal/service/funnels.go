@@ -13,29 +13,19 @@ import (
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
-var (
-	funnelServiceInstance *FunnelService
-	funnelOnce            sync.Once
-)
-
 // FunnelService 漏斗管理服务，提供漏斗的增删改查功能。
 type FunnelService struct {
 	db *postgresql.Client
 }
 
 // GetFunnelService 获取 FunnelService 单例实例。
-func GetFunnelService() *FunnelService {
-	funnelOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		funnelServiceInstance = &FunnelService{
-			db: db,
-		}
-	})
-	return funnelServiceInstance
-}
+var GetFunnelService = sync.OnceValue(func() *FunnelService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	return &FunnelService{db: db}
+})
 
 // FunnelStep 漏斗步骤数据传输对象。
 type FunnelStep struct {

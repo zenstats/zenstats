@@ -11,27 +11,19 @@ import (
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
-var (
-	customSearchEngineServiceInstance *CustomSearchEngineService
-	customSearchEngineOnce            sync.Once
-)
-
 // CustomSearchEngineService 自定义搜索引擎服务，提供自定义搜索引擎的CRUD操作。
 type CustomSearchEngineService struct {
 	db *postgresql.Client
 }
 
 // GetCustomSearchEngineService 获取 CustomSearchEngineService 单例实例。
-func GetCustomSearchEngineService() *CustomSearchEngineService {
-	customSearchEngineOnce.Do(func() {
-		db := globals.GetDB()
-		if db == nil {
-			panic("DB is not initialized")
-		}
-		customSearchEngineServiceInstance = &CustomSearchEngineService{db: db}
-	})
-	return customSearchEngineServiceInstance
-}
+var GetCustomSearchEngineService = sync.OnceValue(func() *CustomSearchEngineService {
+	db := globals.GetDB()
+	if db == nil {
+		panic("DB is not initialized")
+	}
+	return &CustomSearchEngineService{db: db}
+})
 
 // GetUserSearchEngines 获取用户的自定义搜索引擎列表
 func (s *CustomSearchEngineService) GetUserSearchEngines(ctx context.Context, userID int64) ([]*ent.CustomSearchEngine, error) {
