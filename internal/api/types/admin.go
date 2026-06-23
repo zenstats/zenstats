@@ -78,10 +78,10 @@ type AdminGroupListResponse struct {
 type CreateGroupRequest struct {
 	Name                string  `json:"name" binding:"required,min=1,max=100"`
 	Description         string  `json:"description"`
-	MaxSites            int     `json:"max_sites" binding:"required"`
-	MaxMonthlyEvents    int     `json:"max_monthly_events" binding:"required"`
-	MaxAPIKeys          int     `json:"max_api_keys" binding:"required"`
-	MaxSubAccounts      int     `json:"max_sub_accounts" binding:"required"`
+	MaxSites            int     `json:"max_sites" binding:"omitempty,gte=-1"`
+	MaxMonthlyEvents    int     `json:"max_monthly_events" binding:"omitempty,gte=-1"`
+	MaxAPIKeys          int     `json:"max_api_keys" binding:"omitempty,gte=-1"`
+	MaxSubAccounts      int     `json:"max_sub_accounts" binding:"omitempty,gte=-1"`
 	CustomSearchEngines bool    `json:"custom_search_engines"`
 	IsDefault           bool    `json:"is_default"`
 	Price               float64 `json:"price"`
@@ -91,10 +91,10 @@ type CreateGroupRequest struct {
 type UpdateGroupRequest struct {
 	Name                string  `json:"name" binding:"required,min=1,max=100"`
 	Description         string  `json:"description"`
-	MaxSites            int     `json:"max_sites" binding:"required"`
-	MaxMonthlyEvents    int     `json:"max_monthly_events" binding:"required"`
-	MaxAPIKeys          int     `json:"max_api_keys" binding:"required"`
-	MaxSubAccounts      int     `json:"max_sub_accounts" binding:"required"`
+	MaxSites            int     `json:"max_sites" binding:"omitempty,gte=-1"`
+	MaxMonthlyEvents    int     `json:"max_monthly_events" binding:"omitempty,gte=-1"`
+	MaxAPIKeys          int     `json:"max_api_keys" binding:"omitempty,gte=-1"`
+	MaxSubAccounts      int     `json:"max_sub_accounts" binding:"omitempty,gte=-1"`
 	CustomSearchEngines bool    `json:"custom_search_engines"`
 	IsDefault           bool    `json:"is_default"`
 	Price               float64 `json:"price"`

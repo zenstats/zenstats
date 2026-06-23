@@ -27,7 +27,7 @@ var GetUserGroupService = sync.OnceValue(func() *UserGroupService {
 
 // GetAllGroups 获取所有用户组
 func (s *UserGroupService) GetAllGroups(ctx context.Context) ([]*ent.UserGroup, error) {
-	return s.db.Client.UserGroup.Query().All(ctx)
+	return s.db.Client.UserGroup.Query().Order(ent.Asc(usergroup.FieldID)).All(ctx)
 }
 
 // GetGroupByID 根据ID获取用户组
