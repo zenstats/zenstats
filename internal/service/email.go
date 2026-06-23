@@ -125,6 +125,12 @@ func (s *EmailService) VerifyEmail(ctx context.Context, token string) error {
 		return errors.New("verification token has expired")
 	}
 
+	// 如果用户已经验证过邮箱，直接返回成功（重复点击链接的场景）
+	u, err := s.db.Client.User.Get(ctx, verification.UserID)
+	if err == nil && u.EmailVerified {
+		return nil
+	}
+
 	// 更新用户邮箱验证状态
 	_, err = s.db.Client.User.Update().
 		Where(user.ID(verification.UserID)).
@@ -133,9 +139,6 @@ func (s *EmailService) VerifyEmail(ctx context.Context, token string) error {
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
-
-	// 删除已使用的验证信息
-	_ = s.db.Client.EmailVerificationToken.DeleteOne(verification).Exec(ctx)
 
 	return nil
 }
