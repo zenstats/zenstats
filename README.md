@@ -25,8 +25,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Go-1.24-00ADD8?style=flat&logo=go" alt="Go">
-  <img src="https://img.shields.io/badge/Gin-1.10-00ADD8?style=flat&logo=go" alt="Gin">
+  <img src="https://img.shields.io/badge/Go-1.25-00ADD8?style=flat&logo=go" alt="Go">
+  <img src="https://img.shields.io/badge/Gin-1.12-00ADD8?style=flat&logo=go" alt="Gin">
   <img src="https://img.shields.io/badge/Ent-0.14-4B8BBE?style=flat" alt="Ent">
   <img src="https://img.shields.io/badge/PostgreSQL-18-4169E1?style=flat&logo=postgresql" alt="PostgreSQL">
   <img src="https://img.shields.io/badge/ClickHouse-25.11-FCC624?style=flat&logo=clickhouse" alt="ClickHouse">
@@ -39,7 +39,7 @@
 
 | Tool | Version | Check | Notes |
 |------|---------|-------|-------|
-| **Go** | ≥ 1.24 | `go version` | Required to build & run the API |
+| **Go** | ≥ 1.25 | `go version` | Required to build & run the API |
 | **Docker** | ≥ 24.0 | `docker --version` | For running databases (PG + CH) |
 | **Docker Compose** | ≥ 2.0 | `docker compose version` | Included with Docker Desktop |
 
@@ -226,8 +226,8 @@ Tracker JS  ──▶  POST /api/event  ──▶  Event Buffer
 
 | Component | Version | Purpose |
 |-----------|---------|---------|
-| **Go** | 1.24 | Runtime |
-| **Gin** | 1.10 | HTTP framework |
+| **Go** | 1.25 | Runtime |
+| **Gin** | 1.12 | HTTP framework |
 | **Ent** | 0.14 | PostgreSQL ORM |
 | **ClickHouse Go** | 2.33 | ClickHouse client |
 | **JWT** | 5.2 | Access + refresh token auth |
@@ -278,7 +278,7 @@ zenstats/
 │   ├── utils/          # Hashing, I/O, slice utilities
 │   └── validator/      # Request validation
 ├── sql/                # Database DDL scripts (reference only)
-├── Dockerfile          # Multi-stage build (golang:1.24-alpine → alpine:3.22)
+├── Dockerfile          # Multi-stage build (golang:1.25-alpine → alpine:3.22)
 ├── entrypoint.sh       # Container startup script (auto-migrate)
 └── main.go
 ```
