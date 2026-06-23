@@ -25,9 +25,11 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go" alt="Go">
-  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql" alt="PostgreSQL">
-  <img src="https://img.shields.io/badge/ClickHouse-24.12-FCC624?style=flat&logo=clickhouse" alt="ClickHouse">
+  <img src="https://img.shields.io/badge/Go-1.24-00ADD8?style=flat&logo=go" alt="Go">
+  <img src="https://img.shields.io/badge/Gin-1.10-00ADD8?style=flat&logo=go" alt="Gin">
+  <img src="https://img.shields.io/badge/Ent-0.14-4B8BBE?style=flat" alt="Ent">
+  <img src="https://img.shields.io/badge/PostgreSQL-18-4169E1?style=flat&logo=postgresql" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/ClickHouse-25.11-FCC624?style=flat&logo=clickhouse" alt="ClickHouse">
   <img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License">
 </p>
 
@@ -65,7 +67,7 @@ This starts PostgreSQL (`localhost:5433`) and ClickHouse (`localhost:9001` / HTT
 go run main.go migrate
 ```
 
-This creates all tables in both PostgreSQL and ClickHouse. The dev config (`config/config_dev.yaml`) now defaults to the same ports as `make test-up`, so no extra env vars are needed.
+This creates all tables in both PostgreSQL and ClickHouse. The embedded config defaults match the `make test-up` ports — no extra env vars needed.
 
 ### 3. Start the server
 
@@ -94,7 +96,7 @@ This populates the database with deterministic demo data (users, sites, events) 
 
 ## Local Development
 
-### Backend only (what you just did)
+### Backend only
 
 ```bash
 # Start
@@ -222,7 +224,21 @@ Tracker JS  ──▶  POST /api/event  ──▶  Event Buffer
 
 ## Tech Stack
 
-Go 1.24, Gin, Ent ORM (PostgreSQL), ClickHouse client, JWT (access + refresh tokens), Viper (config), Cobra (CLI), ants (goroutine pool), hashicorp/golang-lru (multi-level cache), GeoIP2, ua-parser
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| **Go** | 1.24 | Runtime |
+| **Gin** | 1.10 | HTTP framework |
+| **Ent** | 0.14 | PostgreSQL ORM |
+| **ClickHouse Go** | 2.33 | ClickHouse client |
+| **JWT** | 5.2 | Access + refresh token auth |
+| **Viper** | 1.20 | Configuration management |
+| **Cobra** | 1.9 | CLI (server / migrate / seed) |
+| **ants** | 1.2 | Goroutine pool for event processing |
+| **golang-lru** | 2.0 | Multi-level LRU cache |
+| **GeoIP2** | 1.11 | IP geolocation (MaxMind) |
+| **ua-parser** | latest | User-Agent parsing |
+
+Databases: **PostgreSQL 18** (business data) + **ClickHouse 25.11** (analytics data)
 
 ---
 
@@ -230,23 +246,39 @@ Go 1.24, Gin, Ent ORM (PostgreSQL), ClickHouse client, JWT (access + refresh tok
 
 ```
 zenstats/
-├── cmd/                # CLI entry points (server, migrate, seed, doc)
+├── cmd/                # CLI entry points (server, migrate, seed)
 ├── config/             # Embedded YAML config with ZENSTATS_ env overrides
 ├── docs/               # Swagger API docs + architecture guides
 ├── internal/
 │   ├── api/            # HTTP handlers + route registration per module
 │   ├── auth/           # JWT (access + refresh token) authentication
 │   ├── bootstrap/      # App initialization (DB, GeoIP, cron, queues)
-│   ├── event/          # Event ingestion pipeline (buffer → pool → write to CH)
-│   ├── middleware/      # Gin middleware (JWT, API key, locale detection)
+│   ├── event/          # Event ingestion pipeline (buffer → pool → batch write)
+│   ├── middleware/     # Gin middleware (JWT, API key, locale detection)
+│   ├── model/          # Shared domain types (EventRequest, etc.)
 │   ├── service/        # Business logic layer with LRU caching
 │   │   ├── funnel/     # Funnel query engine
+│   │   ├── seed/       # Test data generator (devices, geo, referrers)
 │   │   └── stats/      # Stats query engine (SQL builder, ClickHouse runner)
 │   ├── session/        # Session aggregation + deduplication
 │   └── store/          # PG (ent ORM) + CH (hand-written SQL) repositories
-├── pkg/                # Shared utilities (geoip, ua_parser, response helpers)
-├── sql/                # Database DDL scripts
-├── Dockerfile          # API backend Docker image
+├── pkg/                # Shared utilities
+│   ├── bcrypt/         # Password hashing (Generate / Check)
+│   ├── file/           # File copy utilities
+│   ├── generic/        # Generic data structures (DynamicQueue[T])
+│   ├── geoip/          # MaxMind GeoIP lookup
+│   ├── globals/        # Global singletons (DB, Queue)
+│   ├── i18n/           # Internationalization helpers
+│   ├── iputil/         # IP parsing / client IP extraction
+│   ├── log/            # Structured logging
+│   ├── pool/           # Goroutine pool wrapper
+│   ├── response/       # HTTP response helpers
+│   ├── scheduler/      # Cron scheduler
+│   ├── ua_parser/      # User-Agent parsing
+│   ├── utils/          # Hashing, I/O, slice utilities
+│   └── validator/      # Request validation
+├── sql/                # Database DDL scripts (reference only)
+├── Dockerfile          # Multi-stage build (golang:1.24-alpine → alpine:3.22)
 ├── entrypoint.sh       # Container startup script (auto-migrate)
 └── main.go
 ```
@@ -255,7 +287,10 @@ zenstats/
 
 ## Configuration
 
-Settings via embedded YAML + `ZENSTATS_` environment variable overrides.
+Settings come from embedded `config.yaml` + `ZENSTATS_` environment variable overrides.
+
+On startup the effective config is written to `config/config_<env>.yaml` (auto-generated, gitignored).
+You can also manually place a `config/config_<env>.yaml` file to override embedded defaults.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
@@ -274,8 +309,8 @@ Settings via embedded YAML + `ZENSTATS_` environment variable overrides.
 | `ZENSTATS_LOG_LEVEL` | No | `debug` | Log level (debug / info / warn) |
 | `ZENSTATS_POOL_SIZE` | No | `100` | Event goroutine pool size |
 
-> The defaults above reflect the **dev** config after the recent fix. See `config/config_dev.yaml` for all settings.
-> `config/config_test.yaml` is used when `APP_ENV=test`.
+> The defaults above reflect the **dev** environment. See `config/config.yaml` for all settings.
+> Use `APP_ENV=test` or `APP_ENV=prod` for other environments.
 
 ---
 
@@ -303,7 +338,7 @@ Settings via embedded YAML + `ZENSTATS_` environment variable overrides.
 |-------|-----|
 | Databases not started | Run `make test-up` first |
 | Wrong host in config | Set `ZENSTATS_DB_HOST=127.0.0.1 ZENSTATS_DB_PORT=5433` |
-| Old dev config (pre-fix) | Update `config/config_dev.yaml` or create a `.env` file |
+| Config not loading | Create a `.env` file or check `APP_ENV` matches your setup |
 
 ### "connection refused" — ClickHouse not reachable
 
@@ -340,7 +375,7 @@ Verify: `go version`
 | 9001 | ClickHouse native | `clickhouse.addr` |
 | 8124 | ClickHouse HTTP | — |
 
-If these conflict with local services, override via environment variables or edit `config/config_dev.yaml`.
+If these conflict with local services, override via environment variables or a `.env` file.
 
 ---
 
@@ -358,7 +393,7 @@ docker compose up -d
 ### 手动部署
 
 ```bash
-# Prerequisites: Go 1.24+, PostgreSQL 16+, ClickHouse 24.12+
+# Prerequisites: Go 1.24+, PostgreSQL 18+, ClickHouse 25.11+
 go run main.go migrate
 go run main.go server
 ```
@@ -367,7 +402,7 @@ go run main.go server
 
 ## Documentation
 
-- [Swagger API Docs](http://localhost:8081/swagger/index.html) (`go run main.go doc`)
+- [Swagger API Docs](http://localhost:8080/swagger/index.html)
 - [Statistics API](docs/api-stats.md)
 - [系统架构](https://github.com/zenstats/zenstats-deploy/blob/main/docs/architecture.md) (zenstats-deploy)
 - [部署指南](https://github.com/zenstats/zenstats-deploy/blob/main/docs/DEPLOY.md) (zenstats-deploy)
