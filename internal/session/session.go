@@ -135,13 +135,11 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 func (s *SessionManager) newSession(event *models.Events) *models.Sessions {
 
 	hostName := ""
-	entryPage := ""
-	exitPage := ""
+	entryPage := event.PathName  // 始终设置，避免非 pageview 事件导致空白
+	exitPage := event.PathName
 	pageviews := int32(0)
 	if event.Name == "pageview" {
 		hostName = event.HostName
-		entryPage = event.PathName
-		exitPage = event.PathName
 		pageviews += 1
 	}
 	isBounce := uint8(0)

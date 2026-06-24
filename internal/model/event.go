@@ -34,6 +34,7 @@ type TempEventRequest struct {
 	EngagementTime int              `form:"e" json:"e"`   // 页面访问时间
 	ScrollDepth    uint8            `form:"sd" json:"sd"` // 滚动深度
 	Interactive    *json.RawMessage `form:"i" json:"i"`   // 是否交互
+	Events         []TempEventRequest `json:"e"`          // batch 子事件
 	UserAgent      string
 	Ip             string
 }

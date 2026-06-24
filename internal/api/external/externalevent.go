@@ -262,6 +262,52 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			tempReq.Interactive = &trueVal
 		}
 
+		// 处理前端 SDK 批量发送的 batch 事件（n: 'batch', e: [...]）
+		if tempReq.EventName == "batch" && len(tempReq.Events) > 0 {
+			for _, subEvent := range tempReq.Events {
+				// 子事件继承 batch 级别的 domain（如果未单独指定）
+				subDomain := subEvent.Domain
+				if subDomain == "" {
+					subDomain = tempReq.Domain
+				}
+
+				can, err := siteService.IsDomainInList(c, subDomain)
+				if err != nil || !can {
+					continue
+				}
+
+				site, err := siteService.GetVerifiedSiteByDomain(c, subDomain)
+				if err != nil {
+					continue
+				}
+
+				if !verifyRequestOrigin(c, subDomain, site.AllowedOrigins) {
+					continue
+				}
+
+				req := model.EventRequest{
+					Timestamp:      subEvent.Timestamp,
+					Hash:           subEvent.Hash,
+					EventName:      subEvent.EventName,
+					JSVersion:      subEvent.JSVersion,
+					URL:            subEvent.URL,
+					Domain:         subDomain,
+					Referrer:       subEvent.Referrer,
+					Props:          subEvent.Props,
+					EngagementTime: subEvent.EngagementTime,
+					ScrollDepth:    subEvent.ScrollDepth,
+				}
+
+				setEventRequestDefaults(&req, c)
+				parseInteractive(&req, &subEvent)
+
+				queue := globals.GetQueue()
+				_ = queue.Enqueue(&req)
+			}
+			c.JSON(http.StatusAccepted, "ok")
+			return
+		}
+
 		can, err := siteService.IsDomainInList(c, tempReq.Domain)
 		if err != nil {
 			slog.Debug("failed to check domain", "error", err)
