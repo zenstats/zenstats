@@ -25,6 +25,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
@@ -56,6 +57,7 @@ const (
 	TypeShieldRulesCountry     = "ShieldRulesCountry"
 	TypeShieldRulesHostname    = "ShieldRulesHostname"
 	TypeShieldRulesIp          = "ShieldRulesIp"
+	TypeShieldRulesReferrer    = "ShieldRulesReferrer"
 	TypeSite                   = "Site"
 	TypeSiteMembership         = "SiteMembership"
 	TypeSubAccount             = "SubAccount"
@@ -7924,6 +7926,633 @@ func (m *ShieldRulesIpMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ShieldRulesIp edge %s", name)
 }
 
+// ShieldRulesReferrerMutation represents an operation that mutates the ShieldRulesReferrer nodes in the graph.
+type ShieldRulesReferrerMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	hostname      *string
+	action        *string
+	description   *string
+	created_at    *time.Time
+	clearedFields map[string]struct{}
+	site          *int64
+	clearedsite   bool
+	done          bool
+	oldValue      func(context.Context) (*ShieldRulesReferrer, error)
+	predicates    []predicate.ShieldRulesReferrer
+}
+
+var _ ent.Mutation = (*ShieldRulesReferrerMutation)(nil)
+
+// shieldrulesreferrerOption allows management of the mutation configuration using functional options.
+type shieldrulesreferrerOption func(*ShieldRulesReferrerMutation)
+
+// newShieldRulesReferrerMutation creates new mutation for the ShieldRulesReferrer entity.
+func newShieldRulesReferrerMutation(c config, op Op, opts ...shieldrulesreferrerOption) *ShieldRulesReferrerMutation {
+	m := &ShieldRulesReferrerMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeShieldRulesReferrer,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withShieldRulesReferrerID sets the ID field of the mutation.
+func withShieldRulesReferrerID(id int64) shieldrulesreferrerOption {
+	return func(m *ShieldRulesReferrerMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ShieldRulesReferrer
+		)
+		m.oldValue = func(ctx context.Context) (*ShieldRulesReferrer, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ShieldRulesReferrer.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withShieldRulesReferrer sets the old ShieldRulesReferrer of the mutation.
+func withShieldRulesReferrer(node *ShieldRulesReferrer) shieldrulesreferrerOption {
+	return func(m *ShieldRulesReferrerMutation) {
+		m.oldValue = func(context.Context) (*ShieldRulesReferrer, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ShieldRulesReferrerMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ShieldRulesReferrerMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ShieldRulesReferrer entities.
+func (m *ShieldRulesReferrerMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ShieldRulesReferrerMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ShieldRulesReferrerMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ShieldRulesReferrer.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *ShieldRulesReferrerMutation) SetSiteID(i int64) {
+	m.site = &i
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *ShieldRulesReferrerMutation) SiteID() (r int64, exists bool) {
+	v := m.site
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the ShieldRulesReferrer entity.
+// If the ShieldRulesReferrer object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesReferrerMutation) OldSiteID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *ShieldRulesReferrerMutation) ResetSiteID() {
+	m.site = nil
+}
+
+// SetHostname sets the "hostname" field.
+func (m *ShieldRulesReferrerMutation) SetHostname(s string) {
+	m.hostname = &s
+}
+
+// Hostname returns the value of the "hostname" field in the mutation.
+func (m *ShieldRulesReferrerMutation) Hostname() (r string, exists bool) {
+	v := m.hostname
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHostname returns the old "hostname" field's value of the ShieldRulesReferrer entity.
+// If the ShieldRulesReferrer object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesReferrerMutation) OldHostname(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHostname is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHostname requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHostname: %w", err)
+	}
+	return oldValue.Hostname, nil
+}
+
+// ResetHostname resets all changes to the "hostname" field.
+func (m *ShieldRulesReferrerMutation) ResetHostname() {
+	m.hostname = nil
+}
+
+// SetAction sets the "action" field.
+func (m *ShieldRulesReferrerMutation) SetAction(s string) {
+	m.action = &s
+}
+
+// Action returns the value of the "action" field in the mutation.
+func (m *ShieldRulesReferrerMutation) Action() (r string, exists bool) {
+	v := m.action
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAction returns the old "action" field's value of the ShieldRulesReferrer entity.
+// If the ShieldRulesReferrer object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesReferrerMutation) OldAction(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAction is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAction requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAction: %w", err)
+	}
+	return oldValue.Action, nil
+}
+
+// ResetAction resets all changes to the "action" field.
+func (m *ShieldRulesReferrerMutation) ResetAction() {
+	m.action = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *ShieldRulesReferrerMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *ShieldRulesReferrerMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the ShieldRulesReferrer entity.
+// If the ShieldRulesReferrer object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesReferrerMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *ShieldRulesReferrerMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[shieldrulesreferrer.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *ShieldRulesReferrerMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[shieldrulesreferrer.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *ShieldRulesReferrerMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, shieldrulesreferrer.FieldDescription)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ShieldRulesReferrerMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ShieldRulesReferrerMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ShieldRulesReferrer entity.
+// If the ShieldRulesReferrer object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ShieldRulesReferrerMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ShieldRulesReferrerMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearSite clears the "site" edge to the Site entity.
+func (m *ShieldRulesReferrerMutation) ClearSite() {
+	m.clearedsite = true
+	m.clearedFields[shieldrulesreferrer.FieldSiteID] = struct{}{}
+}
+
+// SiteCleared reports if the "site" edge to the Site entity was cleared.
+func (m *ShieldRulesReferrerMutation) SiteCleared() bool {
+	return m.clearedsite
+}
+
+// SiteIDs returns the "site" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SiteID instead. It exists only for internal usage by the builders.
+func (m *ShieldRulesReferrerMutation) SiteIDs() (ids []int64) {
+	if id := m.site; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSite resets all changes to the "site" edge.
+func (m *ShieldRulesReferrerMutation) ResetSite() {
+	m.site = nil
+	m.clearedsite = false
+}
+
+// Where appends a list predicates to the ShieldRulesReferrerMutation builder.
+func (m *ShieldRulesReferrerMutation) Where(ps ...predicate.ShieldRulesReferrer) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ShieldRulesReferrerMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ShieldRulesReferrerMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ShieldRulesReferrer, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ShieldRulesReferrerMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ShieldRulesReferrerMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ShieldRulesReferrer).
+func (m *ShieldRulesReferrerMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ShieldRulesReferrerMutation) Fields() []string {
+	fields := make([]string, 0, 5)
+	if m.site != nil {
+		fields = append(fields, shieldrulesreferrer.FieldSiteID)
+	}
+	if m.hostname != nil {
+		fields = append(fields, shieldrulesreferrer.FieldHostname)
+	}
+	if m.action != nil {
+		fields = append(fields, shieldrulesreferrer.FieldAction)
+	}
+	if m.description != nil {
+		fields = append(fields, shieldrulesreferrer.FieldDescription)
+	}
+	if m.created_at != nil {
+		fields = append(fields, shieldrulesreferrer.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ShieldRulesReferrerMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case shieldrulesreferrer.FieldSiteID:
+		return m.SiteID()
+	case shieldrulesreferrer.FieldHostname:
+		return m.Hostname()
+	case shieldrulesreferrer.FieldAction:
+		return m.Action()
+	case shieldrulesreferrer.FieldDescription:
+		return m.Description()
+	case shieldrulesreferrer.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ShieldRulesReferrerMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case shieldrulesreferrer.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case shieldrulesreferrer.FieldHostname:
+		return m.OldHostname(ctx)
+	case shieldrulesreferrer.FieldAction:
+		return m.OldAction(ctx)
+	case shieldrulesreferrer.FieldDescription:
+		return m.OldDescription(ctx)
+	case shieldrulesreferrer.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ShieldRulesReferrer field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ShieldRulesReferrerMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case shieldrulesreferrer.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case shieldrulesreferrer.FieldHostname:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHostname(v)
+		return nil
+	case shieldrulesreferrer.FieldAction:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAction(v)
+		return nil
+	case shieldrulesreferrer.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case shieldrulesreferrer.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesReferrer field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ShieldRulesReferrerMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ShieldRulesReferrerMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ShieldRulesReferrerMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ShieldRulesReferrer numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ShieldRulesReferrerMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(shieldrulesreferrer.FieldDescription) {
+		fields = append(fields, shieldrulesreferrer.FieldDescription)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ShieldRulesReferrerMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ShieldRulesReferrerMutation) ClearField(name string) error {
+	switch name {
+	case shieldrulesreferrer.FieldDescription:
+		m.ClearDescription()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesReferrer nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ShieldRulesReferrerMutation) ResetField(name string) error {
+	switch name {
+	case shieldrulesreferrer.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case shieldrulesreferrer.FieldHostname:
+		m.ResetHostname()
+		return nil
+	case shieldrulesreferrer.FieldAction:
+		m.ResetAction()
+		return nil
+	case shieldrulesreferrer.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case shieldrulesreferrer.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesReferrer field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ShieldRulesReferrerMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.site != nil {
+		edges = append(edges, shieldrulesreferrer.EdgeSite)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ShieldRulesReferrerMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case shieldrulesreferrer.EdgeSite:
+		if id := m.site; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ShieldRulesReferrerMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ShieldRulesReferrerMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ShieldRulesReferrerMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsite {
+		edges = append(edges, shieldrulesreferrer.EdgeSite)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ShieldRulesReferrerMutation) EdgeCleared(name string) bool {
+	switch name {
+	case shieldrulesreferrer.EdgeSite:
+		return m.clearedsite
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ShieldRulesReferrerMutation) ClearEdge(name string) error {
+	switch name {
+	case shieldrulesreferrer.EdgeSite:
+		m.ClearSite()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesReferrer unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ShieldRulesReferrerMutation) ResetEdge(name string) error {
+	switch name {
+	case shieldrulesreferrer.EdgeSite:
+		m.ResetSite()
+		return nil
+	}
+	return fmt.Errorf("unknown ShieldRulesReferrer edge %s", name)
+}
+
 // SiteMutation represents an operation that mutates the Site nodes in the graph.
 type SiteMutation struct {
 	config
@@ -7944,6 +8573,13 @@ type SiteMutation struct {
 	updated_at                         *time.Time
 	verification_token                 *string
 	is_verified                        *bool
+	email_report_weekly                *bool
+	email_report_monthly               *bool
+	traffic_alert_enabled              *bool
+	traffic_alert_threshold            *int
+	addtraffic_alert_threshold         *int
+	traffic_alert_recipients           *string
+	traffic_alert_interval             *string
 	verified_at                        *time.Time
 	clearedFields                      map[string]struct{}
 	funnels                            map[int64]struct{}
@@ -7967,6 +8603,9 @@ type SiteMutation struct {
 	shield_rules_country               map[int64]struct{}
 	removedshield_rules_country        map[int64]struct{}
 	clearedshield_rules_country        bool
+	shield_rules_referrer              map[int64]struct{}
+	removedshield_rules_referrer       map[int64]struct{}
+	clearedshield_rules_referrer       bool
 	done                               bool
 	oldValue                           func(context.Context) (*Site, error)
 	predicates                         []predicate.Site
@@ -8600,6 +9239,255 @@ func (m *SiteMutation) ResetIsVerified() {
 	m.is_verified = nil
 }
 
+// SetEmailReportWeekly sets the "email_report_weekly" field.
+func (m *SiteMutation) SetEmailReportWeekly(b bool) {
+	m.email_report_weekly = &b
+}
+
+// EmailReportWeekly returns the value of the "email_report_weekly" field in the mutation.
+func (m *SiteMutation) EmailReportWeekly() (r bool, exists bool) {
+	v := m.email_report_weekly
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmailReportWeekly returns the old "email_report_weekly" field's value of the Site entity.
+// If the Site object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SiteMutation) OldEmailReportWeekly(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmailReportWeekly is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmailReportWeekly requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmailReportWeekly: %w", err)
+	}
+	return oldValue.EmailReportWeekly, nil
+}
+
+// ResetEmailReportWeekly resets all changes to the "email_report_weekly" field.
+func (m *SiteMutation) ResetEmailReportWeekly() {
+	m.email_report_weekly = nil
+}
+
+// SetEmailReportMonthly sets the "email_report_monthly" field.
+func (m *SiteMutation) SetEmailReportMonthly(b bool) {
+	m.email_report_monthly = &b
+}
+
+// EmailReportMonthly returns the value of the "email_report_monthly" field in the mutation.
+func (m *SiteMutation) EmailReportMonthly() (r bool, exists bool) {
+	v := m.email_report_monthly
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmailReportMonthly returns the old "email_report_monthly" field's value of the Site entity.
+// If the Site object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SiteMutation) OldEmailReportMonthly(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmailReportMonthly is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmailReportMonthly requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmailReportMonthly: %w", err)
+	}
+	return oldValue.EmailReportMonthly, nil
+}
+
+// ResetEmailReportMonthly resets all changes to the "email_report_monthly" field.
+func (m *SiteMutation) ResetEmailReportMonthly() {
+	m.email_report_monthly = nil
+}
+
+// SetTrafficAlertEnabled sets the "traffic_alert_enabled" field.
+func (m *SiteMutation) SetTrafficAlertEnabled(b bool) {
+	m.traffic_alert_enabled = &b
+}
+
+// TrafficAlertEnabled returns the value of the "traffic_alert_enabled" field in the mutation.
+func (m *SiteMutation) TrafficAlertEnabled() (r bool, exists bool) {
+	v := m.traffic_alert_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTrafficAlertEnabled returns the old "traffic_alert_enabled" field's value of the Site entity.
+// If the Site object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SiteMutation) OldTrafficAlertEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTrafficAlertEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTrafficAlertEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTrafficAlertEnabled: %w", err)
+	}
+	return oldValue.TrafficAlertEnabled, nil
+}
+
+// ResetTrafficAlertEnabled resets all changes to the "traffic_alert_enabled" field.
+func (m *SiteMutation) ResetTrafficAlertEnabled() {
+	m.traffic_alert_enabled = nil
+}
+
+// SetTrafficAlertThreshold sets the "traffic_alert_threshold" field.
+func (m *SiteMutation) SetTrafficAlertThreshold(i int) {
+	m.traffic_alert_threshold = &i
+	m.addtraffic_alert_threshold = nil
+}
+
+// TrafficAlertThreshold returns the value of the "traffic_alert_threshold" field in the mutation.
+func (m *SiteMutation) TrafficAlertThreshold() (r int, exists bool) {
+	v := m.traffic_alert_threshold
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTrafficAlertThreshold returns the old "traffic_alert_threshold" field's value of the Site entity.
+// If the Site object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SiteMutation) OldTrafficAlertThreshold(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTrafficAlertThreshold is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTrafficAlertThreshold requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTrafficAlertThreshold: %w", err)
+	}
+	return oldValue.TrafficAlertThreshold, nil
+}
+
+// AddTrafficAlertThreshold adds i to the "traffic_alert_threshold" field.
+func (m *SiteMutation) AddTrafficAlertThreshold(i int) {
+	if m.addtraffic_alert_threshold != nil {
+		*m.addtraffic_alert_threshold += i
+	} else {
+		m.addtraffic_alert_threshold = &i
+	}
+}
+
+// AddedTrafficAlertThreshold returns the value that was added to the "traffic_alert_threshold" field in this mutation.
+func (m *SiteMutation) AddedTrafficAlertThreshold() (r int, exists bool) {
+	v := m.addtraffic_alert_threshold
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTrafficAlertThreshold resets all changes to the "traffic_alert_threshold" field.
+func (m *SiteMutation) ResetTrafficAlertThreshold() {
+	m.traffic_alert_threshold = nil
+	m.addtraffic_alert_threshold = nil
+}
+
+// SetTrafficAlertRecipients sets the "traffic_alert_recipients" field.
+func (m *SiteMutation) SetTrafficAlertRecipients(s string) {
+	m.traffic_alert_recipients = &s
+}
+
+// TrafficAlertRecipients returns the value of the "traffic_alert_recipients" field in the mutation.
+func (m *SiteMutation) TrafficAlertRecipients() (r string, exists bool) {
+	v := m.traffic_alert_recipients
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTrafficAlertRecipients returns the old "traffic_alert_recipients" field's value of the Site entity.
+// If the Site object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SiteMutation) OldTrafficAlertRecipients(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTrafficAlertRecipients is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTrafficAlertRecipients requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTrafficAlertRecipients: %w", err)
+	}
+	return oldValue.TrafficAlertRecipients, nil
+}
+
+// ClearTrafficAlertRecipients clears the value of the "traffic_alert_recipients" field.
+func (m *SiteMutation) ClearTrafficAlertRecipients() {
+	m.traffic_alert_recipients = nil
+	m.clearedFields[site.FieldTrafficAlertRecipients] = struct{}{}
+}
+
+// TrafficAlertRecipientsCleared returns if the "traffic_alert_recipients" field was cleared in this mutation.
+func (m *SiteMutation) TrafficAlertRecipientsCleared() bool {
+	_, ok := m.clearedFields[site.FieldTrafficAlertRecipients]
+	return ok
+}
+
+// ResetTrafficAlertRecipients resets all changes to the "traffic_alert_recipients" field.
+func (m *SiteMutation) ResetTrafficAlertRecipients() {
+	m.traffic_alert_recipients = nil
+	delete(m.clearedFields, site.FieldTrafficAlertRecipients)
+}
+
+// SetTrafficAlertInterval sets the "traffic_alert_interval" field.
+func (m *SiteMutation) SetTrafficAlertInterval(s string) {
+	m.traffic_alert_interval = &s
+}
+
+// TrafficAlertInterval returns the value of the "traffic_alert_interval" field in the mutation.
+func (m *SiteMutation) TrafficAlertInterval() (r string, exists bool) {
+	v := m.traffic_alert_interval
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTrafficAlertInterval returns the old "traffic_alert_interval" field's value of the Site entity.
+// If the Site object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SiteMutation) OldTrafficAlertInterval(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTrafficAlertInterval is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTrafficAlertInterval requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTrafficAlertInterval: %w", err)
+	}
+	return oldValue.TrafficAlertInterval, nil
+}
+
+// ResetTrafficAlertInterval resets all changes to the "traffic_alert_interval" field.
+func (m *SiteMutation) ResetTrafficAlertInterval() {
+	m.traffic_alert_interval = nil
+}
+
 // SetVerifiedAt sets the "verified_at" field.
 func (m *SiteMutation) SetVerifiedAt(t time.Time) {
 	m.verified_at = &t
@@ -9027,6 +9915,60 @@ func (m *SiteMutation) ResetShieldRulesCountry() {
 	m.removedshield_rules_country = nil
 }
 
+// AddShieldRulesReferrerIDs adds the "shield_rules_referrer" edge to the ShieldRulesReferrer entity by ids.
+func (m *SiteMutation) AddShieldRulesReferrerIDs(ids ...int64) {
+	if m.shield_rules_referrer == nil {
+		m.shield_rules_referrer = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.shield_rules_referrer[ids[i]] = struct{}{}
+	}
+}
+
+// ClearShieldRulesReferrer clears the "shield_rules_referrer" edge to the ShieldRulesReferrer entity.
+func (m *SiteMutation) ClearShieldRulesReferrer() {
+	m.clearedshield_rules_referrer = true
+}
+
+// ShieldRulesReferrerCleared reports if the "shield_rules_referrer" edge to the ShieldRulesReferrer entity was cleared.
+func (m *SiteMutation) ShieldRulesReferrerCleared() bool {
+	return m.clearedshield_rules_referrer
+}
+
+// RemoveShieldRulesReferrerIDs removes the "shield_rules_referrer" edge to the ShieldRulesReferrer entity by IDs.
+func (m *SiteMutation) RemoveShieldRulesReferrerIDs(ids ...int64) {
+	if m.removedshield_rules_referrer == nil {
+		m.removedshield_rules_referrer = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.shield_rules_referrer, ids[i])
+		m.removedshield_rules_referrer[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedShieldRulesReferrer returns the removed IDs of the "shield_rules_referrer" edge to the ShieldRulesReferrer entity.
+func (m *SiteMutation) RemovedShieldRulesReferrerIDs() (ids []int64) {
+	for id := range m.removedshield_rules_referrer {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ShieldRulesReferrerIDs returns the "shield_rules_referrer" edge IDs in the mutation.
+func (m *SiteMutation) ShieldRulesReferrerIDs() (ids []int64) {
+	for id := range m.shield_rules_referrer {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetShieldRulesReferrer resets all changes to the "shield_rules_referrer" edge.
+func (m *SiteMutation) ResetShieldRulesReferrer() {
+	m.shield_rules_referrer = nil
+	m.clearedshield_rules_referrer = false
+	m.removedshield_rules_referrer = nil
+}
+
 // Where appends a list predicates to the SiteMutation builder.
 func (m *SiteMutation) Where(ps ...predicate.Site) {
 	m.predicates = append(m.predicates, ps...)
@@ -9061,7 +10003,7 @@ func (m *SiteMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SiteMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 19)
 	if m.domain != nil {
 		fields = append(fields, site.FieldDomain)
 	}
@@ -9098,6 +10040,24 @@ func (m *SiteMutation) Fields() []string {
 	if m.is_verified != nil {
 		fields = append(fields, site.FieldIsVerified)
 	}
+	if m.email_report_weekly != nil {
+		fields = append(fields, site.FieldEmailReportWeekly)
+	}
+	if m.email_report_monthly != nil {
+		fields = append(fields, site.FieldEmailReportMonthly)
+	}
+	if m.traffic_alert_enabled != nil {
+		fields = append(fields, site.FieldTrafficAlertEnabled)
+	}
+	if m.traffic_alert_threshold != nil {
+		fields = append(fields, site.FieldTrafficAlertThreshold)
+	}
+	if m.traffic_alert_recipients != nil {
+		fields = append(fields, site.FieldTrafficAlertRecipients)
+	}
+	if m.traffic_alert_interval != nil {
+		fields = append(fields, site.FieldTrafficAlertInterval)
+	}
 	if m.verified_at != nil {
 		fields = append(fields, site.FieldVerifiedAt)
 	}
@@ -9133,6 +10093,18 @@ func (m *SiteMutation) Field(name string) (ent.Value, bool) {
 		return m.VerificationToken()
 	case site.FieldIsVerified:
 		return m.IsVerified()
+	case site.FieldEmailReportWeekly:
+		return m.EmailReportWeekly()
+	case site.FieldEmailReportMonthly:
+		return m.EmailReportMonthly()
+	case site.FieldTrafficAlertEnabled:
+		return m.TrafficAlertEnabled()
+	case site.FieldTrafficAlertThreshold:
+		return m.TrafficAlertThreshold()
+	case site.FieldTrafficAlertRecipients:
+		return m.TrafficAlertRecipients()
+	case site.FieldTrafficAlertInterval:
+		return m.TrafficAlertInterval()
 	case site.FieldVerifiedAt:
 		return m.VerifiedAt()
 	}
@@ -9168,6 +10140,18 @@ func (m *SiteMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldVerificationToken(ctx)
 	case site.FieldIsVerified:
 		return m.OldIsVerified(ctx)
+	case site.FieldEmailReportWeekly:
+		return m.OldEmailReportWeekly(ctx)
+	case site.FieldEmailReportMonthly:
+		return m.OldEmailReportMonthly(ctx)
+	case site.FieldTrafficAlertEnabled:
+		return m.OldTrafficAlertEnabled(ctx)
+	case site.FieldTrafficAlertThreshold:
+		return m.OldTrafficAlertThreshold(ctx)
+	case site.FieldTrafficAlertRecipients:
+		return m.OldTrafficAlertRecipients(ctx)
+	case site.FieldTrafficAlertInterval:
+		return m.OldTrafficAlertInterval(ctx)
 	case site.FieldVerifiedAt:
 		return m.OldVerifiedAt(ctx)
 	}
@@ -9263,6 +10247,48 @@ func (m *SiteMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetIsVerified(v)
 		return nil
+	case site.FieldEmailReportWeekly:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmailReportWeekly(v)
+		return nil
+	case site.FieldEmailReportMonthly:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmailReportMonthly(v)
+		return nil
+	case site.FieldTrafficAlertEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTrafficAlertEnabled(v)
+		return nil
+	case site.FieldTrafficAlertThreshold:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTrafficAlertThreshold(v)
+		return nil
+	case site.FieldTrafficAlertRecipients:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTrafficAlertRecipients(v)
+		return nil
+	case site.FieldTrafficAlertInterval:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTrafficAlertInterval(v)
+		return nil
 	case site.FieldVerifiedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -9284,6 +10310,9 @@ func (m *SiteMutation) AddedFields() []string {
 	if m.addingest_limit_per_minute != nil {
 		fields = append(fields, site.FieldIngestLimitPerMinute)
 	}
+	if m.addtraffic_alert_threshold != nil {
+		fields = append(fields, site.FieldTrafficAlertThreshold)
+	}
 	return fields
 }
 
@@ -9296,6 +10325,8 @@ func (m *SiteMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedIngestRateLimitScaleSeconds()
 	case site.FieldIngestLimitPerMinute:
 		return m.AddedIngestLimitPerMinute()
+	case site.FieldTrafficAlertThreshold:
+		return m.AddedTrafficAlertThreshold()
 	}
 	return nil, false
 }
@@ -9319,6 +10350,13 @@ func (m *SiteMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddIngestLimitPerMinute(v)
 		return nil
+	case site.FieldTrafficAlertThreshold:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTrafficAlertThreshold(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Site numeric field %s", name)
 }
@@ -9338,6 +10376,9 @@ func (m *SiteMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(site.FieldVerificationToken) {
 		fields = append(fields, site.FieldVerificationToken)
+	}
+	if m.FieldCleared(site.FieldTrafficAlertRecipients) {
+		fields = append(fields, site.FieldTrafficAlertRecipients)
 	}
 	if m.FieldCleared(site.FieldVerifiedAt) {
 		fields = append(fields, site.FieldVerifiedAt)
@@ -9367,6 +10408,9 @@ func (m *SiteMutation) ClearField(name string) error {
 		return nil
 	case site.FieldVerificationToken:
 		m.ClearVerificationToken()
+		return nil
+	case site.FieldTrafficAlertRecipients:
+		m.ClearTrafficAlertRecipients()
 		return nil
 	case site.FieldVerifiedAt:
 		m.ClearVerifiedAt()
@@ -9415,6 +10459,24 @@ func (m *SiteMutation) ResetField(name string) error {
 	case site.FieldIsVerified:
 		m.ResetIsVerified()
 		return nil
+	case site.FieldEmailReportWeekly:
+		m.ResetEmailReportWeekly()
+		return nil
+	case site.FieldEmailReportMonthly:
+		m.ResetEmailReportMonthly()
+		return nil
+	case site.FieldTrafficAlertEnabled:
+		m.ResetTrafficAlertEnabled()
+		return nil
+	case site.FieldTrafficAlertThreshold:
+		m.ResetTrafficAlertThreshold()
+		return nil
+	case site.FieldTrafficAlertRecipients:
+		m.ResetTrafficAlertRecipients()
+		return nil
+	case site.FieldTrafficAlertInterval:
+		m.ResetTrafficAlertInterval()
+		return nil
 	case site.FieldVerifiedAt:
 		m.ResetVerifiedAt()
 		return nil
@@ -9424,7 +10486,7 @@ func (m *SiteMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SiteMutation) AddedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.funnels != nil {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -9445,6 +10507,9 @@ func (m *SiteMutation) AddedEdges() []string {
 	}
 	if m.shield_rules_country != nil {
 		edges = append(edges, site.EdgeShieldRulesCountry)
+	}
+	if m.shield_rules_referrer != nil {
+		edges = append(edges, site.EdgeShieldRulesReferrer)
 	}
 	return edges
 }
@@ -9495,13 +10560,19 @@ func (m *SiteMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case site.EdgeShieldRulesReferrer:
+		ids := make([]ent.Value, 0, len(m.shield_rules_referrer))
+		for id := range m.shield_rules_referrer {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SiteMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.removedfunnels != nil {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -9522,6 +10593,9 @@ func (m *SiteMutation) RemovedEdges() []string {
 	}
 	if m.removedshield_rules_country != nil {
 		edges = append(edges, site.EdgeShieldRulesCountry)
+	}
+	if m.removedshield_rules_referrer != nil {
+		edges = append(edges, site.EdgeShieldRulesReferrer)
 	}
 	return edges
 }
@@ -9572,13 +10646,19 @@ func (m *SiteMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case site.EdgeShieldRulesReferrer:
+		ids := make([]ent.Value, 0, len(m.removedshield_rules_referrer))
+		for id := range m.removedshield_rules_referrer {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SiteMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.clearedfunnels {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -9599,6 +10679,9 @@ func (m *SiteMutation) ClearedEdges() []string {
 	}
 	if m.clearedshield_rules_country {
 		edges = append(edges, site.EdgeShieldRulesCountry)
+	}
+	if m.clearedshield_rules_referrer {
+		edges = append(edges, site.EdgeShieldRulesReferrer)
 	}
 	return edges
 }
@@ -9621,6 +10704,8 @@ func (m *SiteMutation) EdgeCleared(name string) bool {
 		return m.clearedshield_rules_hostname
 	case site.EdgeShieldRulesCountry:
 		return m.clearedshield_rules_country
+	case site.EdgeShieldRulesReferrer:
+		return m.clearedshield_rules_referrer
 	}
 	return false
 }
@@ -9657,6 +10742,9 @@ func (m *SiteMutation) ResetEdge(name string) error {
 		return nil
 	case site.EdgeShieldRulesCountry:
 		m.ResetShieldRulesCountry()
+		return nil
+	case site.EdgeShieldRulesReferrer:
+		m.ResetShieldRulesReferrer()
 		return nil
 	}
 	return fmt.Errorf("unknown Site edge %s", name)

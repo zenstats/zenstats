@@ -62,6 +62,29 @@ func (Site) Fields() []ent.Field {
 		field.Bool("is_verified").
 			Default(false).
 			Comment("Whether the site domain is verified"),
+		field.Bool("email_report_weekly").
+			Default(true).
+			Comment("Whether to send weekly email reports"),
+		field.Bool("email_report_monthly").
+			Default(true).
+			Comment("Whether to send monthly email reports"),
+		field.Bool("traffic_alert_enabled").
+			Default(false).
+			Comment("Whether traffic anomaly alerts are enabled"),
+		field.Int("traffic_alert_threshold").
+			Default(50).
+			Min(10).
+			Max(500).
+			Comment("Alert threshold percentage (e.g. 50 = 50%% change)"),
+		field.String("traffic_alert_recipients").
+			MaxLen(1024).
+			Optional().
+			Nillable().
+			Comment("Comma-separated additional alert recipients"),
+		field.String("traffic_alert_interval").
+			Default("hourly").
+			MaxLen(10).
+			Comment("Alert comparison interval: hourly or daily"),
 		field.Time("verified_at").
 			Optional().
 			Nillable().
@@ -86,5 +109,7 @@ func (Site) Edges() []ent.Edge {
 		edge.To("shield_rules_ip", ShieldRulesIp.Type),
 		edge.To("shield_rules_hostname", ShieldRulesHostname.Type),
 		edge.To("shield_rules_country", ShieldRulesCountry.Type),
+
+		edge.To("shield_rules_referrer", ShieldRulesReferrer.Type),
 	}
 }

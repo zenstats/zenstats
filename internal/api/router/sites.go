@@ -2,7 +2,9 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/zenstats/zenstats/internal/api/emailreport"
 	"github.com/zenstats/zenstats/internal/api/sites"
+	"github.com/zenstats/zenstats/internal/api/trafficalert"
 	"github.com/zenstats/zenstats/internal/middleware"
 )
 
@@ -12,7 +14,7 @@ import (
 func RegisterSitesRouter(router *gin.RouterGroup) {
 	siteHandle := sites.NewSitesHandler()
 
-	site := router.Use(middleware.JWTAuth())
+	site := router.Group("", middleware.JWTAuth())
 	site.GET("/sites", siteHandle.List())
 	site.GET("/sites/:domain", middleware.SiteMembershipAuth(), siteHandle.Info())
 	site.POST("/sites", middleware.SubAccountReadOnly(), siteHandle.Create())
@@ -40,4 +42,21 @@ func RegisterSitesRouter(router *gin.RouterGroup) {
 	shieldRules.GET("/country", siteHandle.ListShieldRuleCountry())
 	shieldRules.POST("/country", middleware.SubAccountReadOnly(), siteHandle.AddShieldRuleCountry())
 	shieldRules.DELETE("/country/:ruleId", middleware.SubAccountReadOnly(), siteHandle.RemoveShieldRuleCountry())
+
+	// Referrer Rules
+	shieldRules.GET("/referrer", siteHandle.ListShieldRuleReferrer())
+	shieldRules.POST("/referrer", middleware.SubAccountReadOnly(), siteHandle.AddShieldRuleReferrer())
+	shieldRules.DELETE("/referrer/:ruleId", middleware.SubAccountReadOnly(), siteHandle.RemoveShieldRuleReferrer())
+
+	// Email Reports
+	emailReportHandle := emailreport.NewHandler()
+	emailReports := router.Group("sites/:domain/email-reports", middleware.JWTAuth(), middleware.SiteMembershipAuth())
+	emailReports.GET("", emailReportHandle.Get)
+	emailReports.PUT("", middleware.SubAccountReadOnly(), emailReportHandle.Update)
+
+	// Traffic Alerts
+	alertHandle := trafficalert.NewHandler()
+	alerts := router.Group("sites/:domain/traffic-alert", middleware.JWTAuth(), middleware.SiteMembershipAuth())
+	alerts.GET("", alertHandle.Get)
+	alerts.PUT("", middleware.SubAccountReadOnly(), alertHandle.Update)
 }

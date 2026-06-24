@@ -68,6 +68,14 @@ func validateDate(params *types.Params) error {
 		fromDate := strings.TrimSpace(params.From)
 		toDate := strings.TrimSpace(params.To)
 
+		// 支持日期时间格式（如 "2026-06-25 14:00"），提取日期部分校验
+		if idx := strings.Index(fromDate, " "); idx > 0 {
+			fromDate = fromDate[:idx]
+		}
+		if idx := strings.Index(toDate, " "); idx > 0 {
+			toDate = toDate[:idx]
+		}
+
 		if _, err := time.Parse(time.DateOnly, fromDate); err != nil {
 			return &ValidationError{
 				StatusCode: 400,

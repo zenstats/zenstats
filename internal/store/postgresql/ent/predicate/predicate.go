@@ -42,6 +42,9 @@ type ShieldRulesHostname func(*sql.Selector)
 // ShieldRulesIp is the predicate function for shieldrulesip builders.
 type ShieldRulesIp func(*sql.Selector)
 
+// ShieldRulesReferrer is the predicate function for shieldrulesreferrer builders.
+type ShieldRulesReferrer func(*sql.Selector)
+
 // Site is the predicate function for site builders.
 type Site func(*sql.Selector)
 

@@ -115,6 +115,36 @@ func IsVerified(v bool) predicate.Site {
 	return predicate.Site(sql.FieldEQ(FieldIsVerified, v))
 }
 
+// EmailReportWeekly applies equality check predicate on the "email_report_weekly" field. It's identical to EmailReportWeeklyEQ.
+func EmailReportWeekly(v bool) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldEmailReportWeekly, v))
+}
+
+// EmailReportMonthly applies equality check predicate on the "email_report_monthly" field. It's identical to EmailReportMonthlyEQ.
+func EmailReportMonthly(v bool) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldEmailReportMonthly, v))
+}
+
+// TrafficAlertEnabled applies equality check predicate on the "traffic_alert_enabled" field. It's identical to TrafficAlertEnabledEQ.
+func TrafficAlertEnabled(v bool) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldTrafficAlertEnabled, v))
+}
+
+// TrafficAlertThreshold applies equality check predicate on the "traffic_alert_threshold" field. It's identical to TrafficAlertThresholdEQ.
+func TrafficAlertThreshold(v int) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldTrafficAlertThreshold, v))
+}
+
+// TrafficAlertRecipients applies equality check predicate on the "traffic_alert_recipients" field. It's identical to TrafficAlertRecipientsEQ.
+func TrafficAlertRecipients(v string) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertInterval applies equality check predicate on the "traffic_alert_interval" field. It's identical to TrafficAlertIntervalEQ.
+func TrafficAlertInterval(v string) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldTrafficAlertInterval, v))
+}
+
 // VerifiedAt applies equality check predicate on the "verified_at" field. It's identical to VerifiedAtEQ.
 func VerifiedAt(v time.Time) predicate.Site {
 	return predicate.Site(sql.FieldEQ(FieldVerifiedAt, v))
@@ -705,6 +735,216 @@ func IsVerifiedNEQ(v bool) predicate.Site {
 	return predicate.Site(sql.FieldNEQ(FieldIsVerified, v))
 }
 
+// EmailReportWeeklyEQ applies the EQ predicate on the "email_report_weekly" field.
+func EmailReportWeeklyEQ(v bool) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldEmailReportWeekly, v))
+}
+
+// EmailReportWeeklyNEQ applies the NEQ predicate on the "email_report_weekly" field.
+func EmailReportWeeklyNEQ(v bool) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldEmailReportWeekly, v))
+}
+
+// EmailReportMonthlyEQ applies the EQ predicate on the "email_report_monthly" field.
+func EmailReportMonthlyEQ(v bool) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldEmailReportMonthly, v))
+}
+
+// EmailReportMonthlyNEQ applies the NEQ predicate on the "email_report_monthly" field.
+func EmailReportMonthlyNEQ(v bool) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldEmailReportMonthly, v))
+}
+
+// TrafficAlertEnabledEQ applies the EQ predicate on the "traffic_alert_enabled" field.
+func TrafficAlertEnabledEQ(v bool) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldTrafficAlertEnabled, v))
+}
+
+// TrafficAlertEnabledNEQ applies the NEQ predicate on the "traffic_alert_enabled" field.
+func TrafficAlertEnabledNEQ(v bool) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldTrafficAlertEnabled, v))
+}
+
+// TrafficAlertThresholdEQ applies the EQ predicate on the "traffic_alert_threshold" field.
+func TrafficAlertThresholdEQ(v int) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldTrafficAlertThreshold, v))
+}
+
+// TrafficAlertThresholdNEQ applies the NEQ predicate on the "traffic_alert_threshold" field.
+func TrafficAlertThresholdNEQ(v int) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldTrafficAlertThreshold, v))
+}
+
+// TrafficAlertThresholdIn applies the In predicate on the "traffic_alert_threshold" field.
+func TrafficAlertThresholdIn(vs ...int) predicate.Site {
+	return predicate.Site(sql.FieldIn(FieldTrafficAlertThreshold, vs...))
+}
+
+// TrafficAlertThresholdNotIn applies the NotIn predicate on the "traffic_alert_threshold" field.
+func TrafficAlertThresholdNotIn(vs ...int) predicate.Site {
+	return predicate.Site(sql.FieldNotIn(FieldTrafficAlertThreshold, vs...))
+}
+
+// TrafficAlertThresholdGT applies the GT predicate on the "traffic_alert_threshold" field.
+func TrafficAlertThresholdGT(v int) predicate.Site {
+	return predicate.Site(sql.FieldGT(FieldTrafficAlertThreshold, v))
+}
+
+// TrafficAlertThresholdGTE applies the GTE predicate on the "traffic_alert_threshold" field.
+func TrafficAlertThresholdGTE(v int) predicate.Site {
+	return predicate.Site(sql.FieldGTE(FieldTrafficAlertThreshold, v))
+}
+
+// TrafficAlertThresholdLT applies the LT predicate on the "traffic_alert_threshold" field.
+func TrafficAlertThresholdLT(v int) predicate.Site {
+	return predicate.Site(sql.FieldLT(FieldTrafficAlertThreshold, v))
+}
+
+// TrafficAlertThresholdLTE applies the LTE predicate on the "traffic_alert_threshold" field.
+func TrafficAlertThresholdLTE(v int) predicate.Site {
+	return predicate.Site(sql.FieldLTE(FieldTrafficAlertThreshold, v))
+}
+
+// TrafficAlertRecipientsEQ applies the EQ predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsEQ(v string) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertRecipientsNEQ applies the NEQ predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsNEQ(v string) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertRecipientsIn applies the In predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsIn(vs ...string) predicate.Site {
+	return predicate.Site(sql.FieldIn(FieldTrafficAlertRecipients, vs...))
+}
+
+// TrafficAlertRecipientsNotIn applies the NotIn predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsNotIn(vs ...string) predicate.Site {
+	return predicate.Site(sql.FieldNotIn(FieldTrafficAlertRecipients, vs...))
+}
+
+// TrafficAlertRecipientsGT applies the GT predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsGT(v string) predicate.Site {
+	return predicate.Site(sql.FieldGT(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertRecipientsGTE applies the GTE predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsGTE(v string) predicate.Site {
+	return predicate.Site(sql.FieldGTE(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertRecipientsLT applies the LT predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsLT(v string) predicate.Site {
+	return predicate.Site(sql.FieldLT(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertRecipientsLTE applies the LTE predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsLTE(v string) predicate.Site {
+	return predicate.Site(sql.FieldLTE(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertRecipientsContains applies the Contains predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsContains(v string) predicate.Site {
+	return predicate.Site(sql.FieldContains(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertRecipientsHasPrefix applies the HasPrefix predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsHasPrefix(v string) predicate.Site {
+	return predicate.Site(sql.FieldHasPrefix(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertRecipientsHasSuffix applies the HasSuffix predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsHasSuffix(v string) predicate.Site {
+	return predicate.Site(sql.FieldHasSuffix(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertRecipientsIsNil applies the IsNil predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsIsNil() predicate.Site {
+	return predicate.Site(sql.FieldIsNull(FieldTrafficAlertRecipients))
+}
+
+// TrafficAlertRecipientsNotNil applies the NotNil predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsNotNil() predicate.Site {
+	return predicate.Site(sql.FieldNotNull(FieldTrafficAlertRecipients))
+}
+
+// TrafficAlertRecipientsEqualFold applies the EqualFold predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsEqualFold(v string) predicate.Site {
+	return predicate.Site(sql.FieldEqualFold(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertRecipientsContainsFold applies the ContainsFold predicate on the "traffic_alert_recipients" field.
+func TrafficAlertRecipientsContainsFold(v string) predicate.Site {
+	return predicate.Site(sql.FieldContainsFold(FieldTrafficAlertRecipients, v))
+}
+
+// TrafficAlertIntervalEQ applies the EQ predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalEQ(v string) predicate.Site {
+	return predicate.Site(sql.FieldEQ(FieldTrafficAlertInterval, v))
+}
+
+// TrafficAlertIntervalNEQ applies the NEQ predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalNEQ(v string) predicate.Site {
+	return predicate.Site(sql.FieldNEQ(FieldTrafficAlertInterval, v))
+}
+
+// TrafficAlertIntervalIn applies the In predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalIn(vs ...string) predicate.Site {
+	return predicate.Site(sql.FieldIn(FieldTrafficAlertInterval, vs...))
+}
+
+// TrafficAlertIntervalNotIn applies the NotIn predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalNotIn(vs ...string) predicate.Site {
+	return predicate.Site(sql.FieldNotIn(FieldTrafficAlertInterval, vs...))
+}
+
+// TrafficAlertIntervalGT applies the GT predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalGT(v string) predicate.Site {
+	return predicate.Site(sql.FieldGT(FieldTrafficAlertInterval, v))
+}
+
+// TrafficAlertIntervalGTE applies the GTE predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalGTE(v string) predicate.Site {
+	return predicate.Site(sql.FieldGTE(FieldTrafficAlertInterval, v))
+}
+
+// TrafficAlertIntervalLT applies the LT predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalLT(v string) predicate.Site {
+	return predicate.Site(sql.FieldLT(FieldTrafficAlertInterval, v))
+}
+
+// TrafficAlertIntervalLTE applies the LTE predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalLTE(v string) predicate.Site {
+	return predicate.Site(sql.FieldLTE(FieldTrafficAlertInterval, v))
+}
+
+// TrafficAlertIntervalContains applies the Contains predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalContains(v string) predicate.Site {
+	return predicate.Site(sql.FieldContains(FieldTrafficAlertInterval, v))
+}
+
+// TrafficAlertIntervalHasPrefix applies the HasPrefix predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalHasPrefix(v string) predicate.Site {
+	return predicate.Site(sql.FieldHasPrefix(FieldTrafficAlertInterval, v))
+}
+
+// TrafficAlertIntervalHasSuffix applies the HasSuffix predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalHasSuffix(v string) predicate.Site {
+	return predicate.Site(sql.FieldHasSuffix(FieldTrafficAlertInterval, v))
+}
+
+// TrafficAlertIntervalEqualFold applies the EqualFold predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalEqualFold(v string) predicate.Site {
+	return predicate.Site(sql.FieldEqualFold(FieldTrafficAlertInterval, v))
+}
+
+// TrafficAlertIntervalContainsFold applies the ContainsFold predicate on the "traffic_alert_interval" field.
+func TrafficAlertIntervalContainsFold(v string) predicate.Site {
+	return predicate.Site(sql.FieldContainsFold(FieldTrafficAlertInterval, v))
+}
+
 // VerifiedAtEQ applies the EQ predicate on the "verified_at" field.
 func VerifiedAtEQ(v time.Time) predicate.Site {
 	return predicate.Site(sql.FieldEQ(FieldVerifiedAt, v))
@@ -908,6 +1148,29 @@ func HasShieldRulesCountry() predicate.Site {
 func HasShieldRulesCountryWith(preds ...predicate.ShieldRulesCountry) predicate.Site {
 	return predicate.Site(func(s *sql.Selector) {
 		step := newShieldRulesCountryStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasShieldRulesReferrer applies the HasEdge predicate on the "shield_rules_referrer" edge.
+func HasShieldRulesReferrer() predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ShieldRulesReferrerTable, ShieldRulesReferrerColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasShieldRulesReferrerWith applies the HasEdge predicate on the "shield_rules_referrer" edge with a given conditions (other predicates).
+func HasShieldRulesReferrerWith(preds ...predicate.ShieldRulesReferrer) predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := newShieldRulesReferrerStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

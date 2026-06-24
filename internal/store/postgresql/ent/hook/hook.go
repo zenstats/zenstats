@@ -153,6 +153,18 @@ func (f ShieldRulesIpFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Valu
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ShieldRulesIpMutation", m)
 }
 
+// The ShieldRulesReferrerFunc type is an adapter to allow the use of ordinary
+// function as ShieldRulesReferrer mutator.
+type ShieldRulesReferrerFunc func(context.Context, *ent.ShieldRulesReferrerMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ShieldRulesReferrerFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ShieldRulesReferrerMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ShieldRulesReferrerMutation", m)
+}
+
 // The SiteFunc type is an adapter to allow the use of ordinary
 // function as Site mutator.
 type SiteFunc func(context.Context, *ent.SiteMutation) (ent.Value, error)

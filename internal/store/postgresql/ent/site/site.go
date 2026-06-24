@@ -38,6 +38,18 @@ const (
 	FieldVerificationToken = "verification_token"
 	// FieldIsVerified holds the string denoting the is_verified field in the database.
 	FieldIsVerified = "is_verified"
+	// FieldEmailReportWeekly holds the string denoting the email_report_weekly field in the database.
+	FieldEmailReportWeekly = "email_report_weekly"
+	// FieldEmailReportMonthly holds the string denoting the email_report_monthly field in the database.
+	FieldEmailReportMonthly = "email_report_monthly"
+	// FieldTrafficAlertEnabled holds the string denoting the traffic_alert_enabled field in the database.
+	FieldTrafficAlertEnabled = "traffic_alert_enabled"
+	// FieldTrafficAlertThreshold holds the string denoting the traffic_alert_threshold field in the database.
+	FieldTrafficAlertThreshold = "traffic_alert_threshold"
+	// FieldTrafficAlertRecipients holds the string denoting the traffic_alert_recipients field in the database.
+	FieldTrafficAlertRecipients = "traffic_alert_recipients"
+	// FieldTrafficAlertInterval holds the string denoting the traffic_alert_interval field in the database.
+	FieldTrafficAlertInterval = "traffic_alert_interval"
 	// FieldVerifiedAt holds the string denoting the verified_at field in the database.
 	FieldVerifiedAt = "verified_at"
 	// EdgeFunnels holds the string denoting the funnels edge name in mutations.
@@ -54,6 +66,8 @@ const (
 	EdgeShieldRulesHostname = "shield_rules_hostname"
 	// EdgeShieldRulesCountry holds the string denoting the shield_rules_country edge name in mutations.
 	EdgeShieldRulesCountry = "shield_rules_country"
+	// EdgeShieldRulesReferrer holds the string denoting the shield_rules_referrer edge name in mutations.
+	EdgeShieldRulesReferrer = "shield_rules_referrer"
 	// Table holds the table name of the site in the database.
 	Table = "sites"
 	// FunnelsTable is the table that holds the funnels relation/edge.
@@ -105,6 +119,13 @@ const (
 	ShieldRulesCountryInverseTable = "shield_rules_countries"
 	// ShieldRulesCountryColumn is the table column denoting the shield_rules_country relation/edge.
 	ShieldRulesCountryColumn = "site_id"
+	// ShieldRulesReferrerTable is the table that holds the shield_rules_referrer relation/edge.
+	ShieldRulesReferrerTable = "shield_rules_referrers"
+	// ShieldRulesReferrerInverseTable is the table name for the ShieldRulesReferrer entity.
+	// It exists in this package in order to avoid circular dependency with the "shieldrulesreferrer" package.
+	ShieldRulesReferrerInverseTable = "shield_rules_referrers"
+	// ShieldRulesReferrerColumn is the table column denoting the shield_rules_referrer relation/edge.
+	ShieldRulesReferrerColumn = "site_id"
 )
 
 // Columns holds all SQL columns for site fields.
@@ -122,6 +143,12 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldVerificationToken,
 	FieldIsVerified,
+	FieldEmailReportWeekly,
+	FieldEmailReportMonthly,
+	FieldTrafficAlertEnabled,
+	FieldTrafficAlertThreshold,
+	FieldTrafficAlertRecipients,
+	FieldTrafficAlertInterval,
 	FieldVerifiedAt,
 }
 
@@ -162,6 +189,22 @@ var (
 	VerificationTokenValidator func(string) error
 	// DefaultIsVerified holds the default value on creation for the "is_verified" field.
 	DefaultIsVerified bool
+	// DefaultEmailReportWeekly holds the default value on creation for the "email_report_weekly" field.
+	DefaultEmailReportWeekly bool
+	// DefaultEmailReportMonthly holds the default value on creation for the "email_report_monthly" field.
+	DefaultEmailReportMonthly bool
+	// DefaultTrafficAlertEnabled holds the default value on creation for the "traffic_alert_enabled" field.
+	DefaultTrafficAlertEnabled bool
+	// DefaultTrafficAlertThreshold holds the default value on creation for the "traffic_alert_threshold" field.
+	DefaultTrafficAlertThreshold int
+	// TrafficAlertThresholdValidator is a validator for the "traffic_alert_threshold" field. It is called by the builders before save.
+	TrafficAlertThresholdValidator func(int) error
+	// TrafficAlertRecipientsValidator is a validator for the "traffic_alert_recipients" field. It is called by the builders before save.
+	TrafficAlertRecipientsValidator func(string) error
+	// DefaultTrafficAlertInterval holds the default value on creation for the "traffic_alert_interval" field.
+	DefaultTrafficAlertInterval string
+	// TrafficAlertIntervalValidator is a validator for the "traffic_alert_interval" field. It is called by the builders before save.
+	TrafficAlertIntervalValidator func(string) error
 )
 
 // OrderOption defines the ordering options for the Site queries.
@@ -230,6 +273,36 @@ func ByVerificationToken(opts ...sql.OrderTermOption) OrderOption {
 // ByIsVerified orders the results by the is_verified field.
 func ByIsVerified(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIsVerified, opts...).ToFunc()
+}
+
+// ByEmailReportWeekly orders the results by the email_report_weekly field.
+func ByEmailReportWeekly(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEmailReportWeekly, opts...).ToFunc()
+}
+
+// ByEmailReportMonthly orders the results by the email_report_monthly field.
+func ByEmailReportMonthly(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEmailReportMonthly, opts...).ToFunc()
+}
+
+// ByTrafficAlertEnabled orders the results by the traffic_alert_enabled field.
+func ByTrafficAlertEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTrafficAlertEnabled, opts...).ToFunc()
+}
+
+// ByTrafficAlertThreshold orders the results by the traffic_alert_threshold field.
+func ByTrafficAlertThreshold(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTrafficAlertThreshold, opts...).ToFunc()
+}
+
+// ByTrafficAlertRecipients orders the results by the traffic_alert_recipients field.
+func ByTrafficAlertRecipients(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTrafficAlertRecipients, opts...).ToFunc()
+}
+
+// ByTrafficAlertInterval orders the results by the traffic_alert_interval field.
+func ByTrafficAlertInterval(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTrafficAlertInterval, opts...).ToFunc()
 }
 
 // ByVerifiedAt orders the results by the verified_at field.
@@ -334,6 +407,20 @@ func ByShieldRulesCountry(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOptio
 		sqlgraph.OrderByNeighborTerms(s, newShieldRulesCountryStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByShieldRulesReferrerCount orders the results by shield_rules_referrer count.
+func ByShieldRulesReferrerCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newShieldRulesReferrerStep(), opts...)
+	}
+}
+
+// ByShieldRulesReferrer orders the results by shield_rules_referrer terms.
+func ByShieldRulesReferrer(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newShieldRulesReferrerStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newFunnelsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -381,5 +468,12 @@ func newShieldRulesCountryStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ShieldRulesCountryInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ShieldRulesCountryTable, ShieldRulesCountryColumn),
+	)
+}
+func newShieldRulesReferrerStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ShieldRulesReferrerInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ShieldRulesReferrerTable, ShieldRulesReferrerColumn),
 	)
 }

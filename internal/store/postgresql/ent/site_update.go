@@ -17,6 +17,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -199,6 +200,103 @@ func (su *SiteUpdate) SetNillableIsVerified(b *bool) *SiteUpdate {
 	return su
 }
 
+// SetEmailReportWeekly sets the "email_report_weekly" field.
+func (su *SiteUpdate) SetEmailReportWeekly(b bool) *SiteUpdate {
+	su.mutation.SetEmailReportWeekly(b)
+	return su
+}
+
+// SetNillableEmailReportWeekly sets the "email_report_weekly" field if the given value is not nil.
+func (su *SiteUpdate) SetNillableEmailReportWeekly(b *bool) *SiteUpdate {
+	if b != nil {
+		su.SetEmailReportWeekly(*b)
+	}
+	return su
+}
+
+// SetEmailReportMonthly sets the "email_report_monthly" field.
+func (su *SiteUpdate) SetEmailReportMonthly(b bool) *SiteUpdate {
+	su.mutation.SetEmailReportMonthly(b)
+	return su
+}
+
+// SetNillableEmailReportMonthly sets the "email_report_monthly" field if the given value is not nil.
+func (su *SiteUpdate) SetNillableEmailReportMonthly(b *bool) *SiteUpdate {
+	if b != nil {
+		su.SetEmailReportMonthly(*b)
+	}
+	return su
+}
+
+// SetTrafficAlertEnabled sets the "traffic_alert_enabled" field.
+func (su *SiteUpdate) SetTrafficAlertEnabled(b bool) *SiteUpdate {
+	su.mutation.SetTrafficAlertEnabled(b)
+	return su
+}
+
+// SetNillableTrafficAlertEnabled sets the "traffic_alert_enabled" field if the given value is not nil.
+func (su *SiteUpdate) SetNillableTrafficAlertEnabled(b *bool) *SiteUpdate {
+	if b != nil {
+		su.SetTrafficAlertEnabled(*b)
+	}
+	return su
+}
+
+// SetTrafficAlertThreshold sets the "traffic_alert_threshold" field.
+func (su *SiteUpdate) SetTrafficAlertThreshold(i int) *SiteUpdate {
+	su.mutation.ResetTrafficAlertThreshold()
+	su.mutation.SetTrafficAlertThreshold(i)
+	return su
+}
+
+// SetNillableTrafficAlertThreshold sets the "traffic_alert_threshold" field if the given value is not nil.
+func (su *SiteUpdate) SetNillableTrafficAlertThreshold(i *int) *SiteUpdate {
+	if i != nil {
+		su.SetTrafficAlertThreshold(*i)
+	}
+	return su
+}
+
+// AddTrafficAlertThreshold adds i to the "traffic_alert_threshold" field.
+func (su *SiteUpdate) AddTrafficAlertThreshold(i int) *SiteUpdate {
+	su.mutation.AddTrafficAlertThreshold(i)
+	return su
+}
+
+// SetTrafficAlertRecipients sets the "traffic_alert_recipients" field.
+func (su *SiteUpdate) SetTrafficAlertRecipients(s string) *SiteUpdate {
+	su.mutation.SetTrafficAlertRecipients(s)
+	return su
+}
+
+// SetNillableTrafficAlertRecipients sets the "traffic_alert_recipients" field if the given value is not nil.
+func (su *SiteUpdate) SetNillableTrafficAlertRecipients(s *string) *SiteUpdate {
+	if s != nil {
+		su.SetTrafficAlertRecipients(*s)
+	}
+	return su
+}
+
+// ClearTrafficAlertRecipients clears the value of the "traffic_alert_recipients" field.
+func (su *SiteUpdate) ClearTrafficAlertRecipients() *SiteUpdate {
+	su.mutation.ClearTrafficAlertRecipients()
+	return su
+}
+
+// SetTrafficAlertInterval sets the "traffic_alert_interval" field.
+func (su *SiteUpdate) SetTrafficAlertInterval(s string) *SiteUpdate {
+	su.mutation.SetTrafficAlertInterval(s)
+	return su
+}
+
+// SetNillableTrafficAlertInterval sets the "traffic_alert_interval" field if the given value is not nil.
+func (su *SiteUpdate) SetNillableTrafficAlertInterval(s *string) *SiteUpdate {
+	if s != nil {
+		su.SetTrafficAlertInterval(*s)
+	}
+	return su
+}
+
 // SetVerifiedAt sets the "verified_at" field.
 func (su *SiteUpdate) SetVerifiedAt(t time.Time) *SiteUpdate {
 	su.mutation.SetVerifiedAt(t)
@@ -322,6 +420,21 @@ func (su *SiteUpdate) AddShieldRulesCountry(s ...*ShieldRulesCountry) *SiteUpdat
 		ids[i] = s[i].ID
 	}
 	return su.AddShieldRulesCountryIDs(ids...)
+}
+
+// AddShieldRulesReferrerIDs adds the "shield_rules_referrer" edge to the ShieldRulesReferrer entity by IDs.
+func (su *SiteUpdate) AddShieldRulesReferrerIDs(ids ...int64) *SiteUpdate {
+	su.mutation.AddShieldRulesReferrerIDs(ids...)
+	return su
+}
+
+// AddShieldRulesReferrer adds the "shield_rules_referrer" edges to the ShieldRulesReferrer entity.
+func (su *SiteUpdate) AddShieldRulesReferrer(s ...*ShieldRulesReferrer) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.AddShieldRulesReferrerIDs(ids...)
 }
 
 // Mutation returns the SiteMutation object of the builder.
@@ -476,6 +589,27 @@ func (su *SiteUpdate) RemoveShieldRulesCountry(s ...*ShieldRulesCountry) *SiteUp
 	return su.RemoveShieldRulesCountryIDs(ids...)
 }
 
+// ClearShieldRulesReferrer clears all "shield_rules_referrer" edges to the ShieldRulesReferrer entity.
+func (su *SiteUpdate) ClearShieldRulesReferrer() *SiteUpdate {
+	su.mutation.ClearShieldRulesReferrer()
+	return su
+}
+
+// RemoveShieldRulesReferrerIDs removes the "shield_rules_referrer" edge to ShieldRulesReferrer entities by IDs.
+func (su *SiteUpdate) RemoveShieldRulesReferrerIDs(ids ...int64) *SiteUpdate {
+	su.mutation.RemoveShieldRulesReferrerIDs(ids...)
+	return su
+}
+
+// RemoveShieldRulesReferrer removes "shield_rules_referrer" edges to ShieldRulesReferrer entities.
+func (su *SiteUpdate) RemoveShieldRulesReferrer(s ...*ShieldRulesReferrer) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.RemoveShieldRulesReferrerIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (su *SiteUpdate) Save(ctx context.Context) (int, error) {
 	su.defaults()
@@ -532,6 +666,21 @@ func (su *SiteUpdate) check() error {
 	if v, ok := su.mutation.AllowedOrigins(); ok {
 		if err := site.AllowedOriginsValidator(v); err != nil {
 			return &ValidationError{Name: "allowed_origins", err: fmt.Errorf(`ent: validator failed for field "Site.allowed_origins": %w`, err)}
+		}
+	}
+	if v, ok := su.mutation.TrafficAlertThreshold(); ok {
+		if err := site.TrafficAlertThresholdValidator(v); err != nil {
+			return &ValidationError{Name: "traffic_alert_threshold", err: fmt.Errorf(`ent: validator failed for field "Site.traffic_alert_threshold": %w`, err)}
+		}
+	}
+	if v, ok := su.mutation.TrafficAlertRecipients(); ok {
+		if err := site.TrafficAlertRecipientsValidator(v); err != nil {
+			return &ValidationError{Name: "traffic_alert_recipients", err: fmt.Errorf(`ent: validator failed for field "Site.traffic_alert_recipients": %w`, err)}
+		}
+	}
+	if v, ok := su.mutation.TrafficAlertInterval(); ok {
+		if err := site.TrafficAlertIntervalValidator(v); err != nil {
+			return &ValidationError{Name: "traffic_alert_interval", err: fmt.Errorf(`ent: validator failed for field "Site.traffic_alert_interval": %w`, err)}
 		}
 	}
 	return nil
@@ -596,6 +745,30 @@ func (su *SiteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := su.mutation.IsVerified(); ok {
 		_spec.SetField(site.FieldIsVerified, field.TypeBool, value)
+	}
+	if value, ok := su.mutation.EmailReportWeekly(); ok {
+		_spec.SetField(site.FieldEmailReportWeekly, field.TypeBool, value)
+	}
+	if value, ok := su.mutation.EmailReportMonthly(); ok {
+		_spec.SetField(site.FieldEmailReportMonthly, field.TypeBool, value)
+	}
+	if value, ok := su.mutation.TrafficAlertEnabled(); ok {
+		_spec.SetField(site.FieldTrafficAlertEnabled, field.TypeBool, value)
+	}
+	if value, ok := su.mutation.TrafficAlertThreshold(); ok {
+		_spec.SetField(site.FieldTrafficAlertThreshold, field.TypeInt, value)
+	}
+	if value, ok := su.mutation.AddedTrafficAlertThreshold(); ok {
+		_spec.AddField(site.FieldTrafficAlertThreshold, field.TypeInt, value)
+	}
+	if value, ok := su.mutation.TrafficAlertRecipients(); ok {
+		_spec.SetField(site.FieldTrafficAlertRecipients, field.TypeString, value)
+	}
+	if su.mutation.TrafficAlertRecipientsCleared() {
+		_spec.ClearField(site.FieldTrafficAlertRecipients, field.TypeString)
+	}
+	if value, ok := su.mutation.TrafficAlertInterval(); ok {
+		_spec.SetField(site.FieldTrafficAlertInterval, field.TypeString, value)
 	}
 	if value, ok := su.mutation.VerifiedAt(); ok {
 		_spec.SetField(site.FieldVerifiedAt, field.TypeTime, value)
@@ -918,6 +1091,51 @@ func (su *SiteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if su.mutation.ShieldRulesReferrerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesReferrerTable,
+			Columns: []string{site.ShieldRulesReferrerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesreferrer.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.RemovedShieldRulesReferrerIDs(); len(nodes) > 0 && !su.mutation.ShieldRulesReferrerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesReferrerTable,
+			Columns: []string{site.ShieldRulesReferrerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesreferrer.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.ShieldRulesReferrerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesReferrerTable,
+			Columns: []string{site.ShieldRulesReferrerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesreferrer.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, su.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{site.Label}
@@ -1102,6 +1320,103 @@ func (suo *SiteUpdateOne) SetNillableIsVerified(b *bool) *SiteUpdateOne {
 	return suo
 }
 
+// SetEmailReportWeekly sets the "email_report_weekly" field.
+func (suo *SiteUpdateOne) SetEmailReportWeekly(b bool) *SiteUpdateOne {
+	suo.mutation.SetEmailReportWeekly(b)
+	return suo
+}
+
+// SetNillableEmailReportWeekly sets the "email_report_weekly" field if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableEmailReportWeekly(b *bool) *SiteUpdateOne {
+	if b != nil {
+		suo.SetEmailReportWeekly(*b)
+	}
+	return suo
+}
+
+// SetEmailReportMonthly sets the "email_report_monthly" field.
+func (suo *SiteUpdateOne) SetEmailReportMonthly(b bool) *SiteUpdateOne {
+	suo.mutation.SetEmailReportMonthly(b)
+	return suo
+}
+
+// SetNillableEmailReportMonthly sets the "email_report_monthly" field if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableEmailReportMonthly(b *bool) *SiteUpdateOne {
+	if b != nil {
+		suo.SetEmailReportMonthly(*b)
+	}
+	return suo
+}
+
+// SetTrafficAlertEnabled sets the "traffic_alert_enabled" field.
+func (suo *SiteUpdateOne) SetTrafficAlertEnabled(b bool) *SiteUpdateOne {
+	suo.mutation.SetTrafficAlertEnabled(b)
+	return suo
+}
+
+// SetNillableTrafficAlertEnabled sets the "traffic_alert_enabled" field if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableTrafficAlertEnabled(b *bool) *SiteUpdateOne {
+	if b != nil {
+		suo.SetTrafficAlertEnabled(*b)
+	}
+	return suo
+}
+
+// SetTrafficAlertThreshold sets the "traffic_alert_threshold" field.
+func (suo *SiteUpdateOne) SetTrafficAlertThreshold(i int) *SiteUpdateOne {
+	suo.mutation.ResetTrafficAlertThreshold()
+	suo.mutation.SetTrafficAlertThreshold(i)
+	return suo
+}
+
+// SetNillableTrafficAlertThreshold sets the "traffic_alert_threshold" field if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableTrafficAlertThreshold(i *int) *SiteUpdateOne {
+	if i != nil {
+		suo.SetTrafficAlertThreshold(*i)
+	}
+	return suo
+}
+
+// AddTrafficAlertThreshold adds i to the "traffic_alert_threshold" field.
+func (suo *SiteUpdateOne) AddTrafficAlertThreshold(i int) *SiteUpdateOne {
+	suo.mutation.AddTrafficAlertThreshold(i)
+	return suo
+}
+
+// SetTrafficAlertRecipients sets the "traffic_alert_recipients" field.
+func (suo *SiteUpdateOne) SetTrafficAlertRecipients(s string) *SiteUpdateOne {
+	suo.mutation.SetTrafficAlertRecipients(s)
+	return suo
+}
+
+// SetNillableTrafficAlertRecipients sets the "traffic_alert_recipients" field if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableTrafficAlertRecipients(s *string) *SiteUpdateOne {
+	if s != nil {
+		suo.SetTrafficAlertRecipients(*s)
+	}
+	return suo
+}
+
+// ClearTrafficAlertRecipients clears the value of the "traffic_alert_recipients" field.
+func (suo *SiteUpdateOne) ClearTrafficAlertRecipients() *SiteUpdateOne {
+	suo.mutation.ClearTrafficAlertRecipients()
+	return suo
+}
+
+// SetTrafficAlertInterval sets the "traffic_alert_interval" field.
+func (suo *SiteUpdateOne) SetTrafficAlertInterval(s string) *SiteUpdateOne {
+	suo.mutation.SetTrafficAlertInterval(s)
+	return suo
+}
+
+// SetNillableTrafficAlertInterval sets the "traffic_alert_interval" field if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableTrafficAlertInterval(s *string) *SiteUpdateOne {
+	if s != nil {
+		suo.SetTrafficAlertInterval(*s)
+	}
+	return suo
+}
+
 // SetVerifiedAt sets the "verified_at" field.
 func (suo *SiteUpdateOne) SetVerifiedAt(t time.Time) *SiteUpdateOne {
 	suo.mutation.SetVerifiedAt(t)
@@ -1225,6 +1540,21 @@ func (suo *SiteUpdateOne) AddShieldRulesCountry(s ...*ShieldRulesCountry) *SiteU
 		ids[i] = s[i].ID
 	}
 	return suo.AddShieldRulesCountryIDs(ids...)
+}
+
+// AddShieldRulesReferrerIDs adds the "shield_rules_referrer" edge to the ShieldRulesReferrer entity by IDs.
+func (suo *SiteUpdateOne) AddShieldRulesReferrerIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.AddShieldRulesReferrerIDs(ids...)
+	return suo
+}
+
+// AddShieldRulesReferrer adds the "shield_rules_referrer" edges to the ShieldRulesReferrer entity.
+func (suo *SiteUpdateOne) AddShieldRulesReferrer(s ...*ShieldRulesReferrer) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.AddShieldRulesReferrerIDs(ids...)
 }
 
 // Mutation returns the SiteMutation object of the builder.
@@ -1379,6 +1709,27 @@ func (suo *SiteUpdateOne) RemoveShieldRulesCountry(s ...*ShieldRulesCountry) *Si
 	return suo.RemoveShieldRulesCountryIDs(ids...)
 }
 
+// ClearShieldRulesReferrer clears all "shield_rules_referrer" edges to the ShieldRulesReferrer entity.
+func (suo *SiteUpdateOne) ClearShieldRulesReferrer() *SiteUpdateOne {
+	suo.mutation.ClearShieldRulesReferrer()
+	return suo
+}
+
+// RemoveShieldRulesReferrerIDs removes the "shield_rules_referrer" edge to ShieldRulesReferrer entities by IDs.
+func (suo *SiteUpdateOne) RemoveShieldRulesReferrerIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.RemoveShieldRulesReferrerIDs(ids...)
+	return suo
+}
+
+// RemoveShieldRulesReferrer removes "shield_rules_referrer" edges to ShieldRulesReferrer entities.
+func (suo *SiteUpdateOne) RemoveShieldRulesReferrer(s ...*ShieldRulesReferrer) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.RemoveShieldRulesReferrerIDs(ids...)
+}
+
 // Where appends a list predicates to the SiteUpdate builder.
 func (suo *SiteUpdateOne) Where(ps ...predicate.Site) *SiteUpdateOne {
 	suo.mutation.Where(ps...)
@@ -1448,6 +1799,21 @@ func (suo *SiteUpdateOne) check() error {
 	if v, ok := suo.mutation.AllowedOrigins(); ok {
 		if err := site.AllowedOriginsValidator(v); err != nil {
 			return &ValidationError{Name: "allowed_origins", err: fmt.Errorf(`ent: validator failed for field "Site.allowed_origins": %w`, err)}
+		}
+	}
+	if v, ok := suo.mutation.TrafficAlertThreshold(); ok {
+		if err := site.TrafficAlertThresholdValidator(v); err != nil {
+			return &ValidationError{Name: "traffic_alert_threshold", err: fmt.Errorf(`ent: validator failed for field "Site.traffic_alert_threshold": %w`, err)}
+		}
+	}
+	if v, ok := suo.mutation.TrafficAlertRecipients(); ok {
+		if err := site.TrafficAlertRecipientsValidator(v); err != nil {
+			return &ValidationError{Name: "traffic_alert_recipients", err: fmt.Errorf(`ent: validator failed for field "Site.traffic_alert_recipients": %w`, err)}
+		}
+	}
+	if v, ok := suo.mutation.TrafficAlertInterval(); ok {
+		if err := site.TrafficAlertIntervalValidator(v); err != nil {
+			return &ValidationError{Name: "traffic_alert_interval", err: fmt.Errorf(`ent: validator failed for field "Site.traffic_alert_interval": %w`, err)}
 		}
 	}
 	return nil
@@ -1529,6 +1895,30 @@ func (suo *SiteUpdateOne) sqlSave(ctx context.Context) (_node *Site, err error) 
 	}
 	if value, ok := suo.mutation.IsVerified(); ok {
 		_spec.SetField(site.FieldIsVerified, field.TypeBool, value)
+	}
+	if value, ok := suo.mutation.EmailReportWeekly(); ok {
+		_spec.SetField(site.FieldEmailReportWeekly, field.TypeBool, value)
+	}
+	if value, ok := suo.mutation.EmailReportMonthly(); ok {
+		_spec.SetField(site.FieldEmailReportMonthly, field.TypeBool, value)
+	}
+	if value, ok := suo.mutation.TrafficAlertEnabled(); ok {
+		_spec.SetField(site.FieldTrafficAlertEnabled, field.TypeBool, value)
+	}
+	if value, ok := suo.mutation.TrafficAlertThreshold(); ok {
+		_spec.SetField(site.FieldTrafficAlertThreshold, field.TypeInt, value)
+	}
+	if value, ok := suo.mutation.AddedTrafficAlertThreshold(); ok {
+		_spec.AddField(site.FieldTrafficAlertThreshold, field.TypeInt, value)
+	}
+	if value, ok := suo.mutation.TrafficAlertRecipients(); ok {
+		_spec.SetField(site.FieldTrafficAlertRecipients, field.TypeString, value)
+	}
+	if suo.mutation.TrafficAlertRecipientsCleared() {
+		_spec.ClearField(site.FieldTrafficAlertRecipients, field.TypeString)
+	}
+	if value, ok := suo.mutation.TrafficAlertInterval(); ok {
+		_spec.SetField(site.FieldTrafficAlertInterval, field.TypeString, value)
 	}
 	if value, ok := suo.mutation.VerifiedAt(); ok {
 		_spec.SetField(site.FieldVerifiedAt, field.TypeTime, value)
@@ -1844,6 +2234,51 @@ func (suo *SiteUpdateOne) sqlSave(ctx context.Context) (_node *Site, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(shieldrulescountry.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if suo.mutation.ShieldRulesReferrerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesReferrerTable,
+			Columns: []string{site.ShieldRulesReferrerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesreferrer.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.RemovedShieldRulesReferrerIDs(); len(nodes) > 0 && !suo.mutation.ShieldRulesReferrerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesReferrerTable,
+			Columns: []string{site.ShieldRulesReferrerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesreferrer.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.ShieldRulesReferrerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesReferrerTable,
+			Columns: []string{site.ShieldRulesReferrerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesreferrer.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

@@ -412,8 +412,16 @@ func (s *StatsService) getDateRange(req *atypes.StatsRequest, timezone string, o
 		startDate = baseDate.StartOfMonth().StartOfDay().SetTimezone(carbon.UTC).StdTime()
 		endDate = baseDate.EndOfMonth().EndOfDay().SetTimezone(carbon.UTC).StdTime()
 	case "custom":
-		startDate = carbon.Parse(req.From, timezone).StartOfDay().AddDays(offsetDays).SetTimezone(carbon.UTC).StdTime()
-		endDate = carbon.Parse(req.To, timezone).EndOfDay().AddDays(offsetDays).SetTimezone(carbon.UTC).StdTime()
+		if hasTime := len(req.From) > 10 || len(req.To) > 10; hasTime {
+			// 含时间部分（如 "2026-06-25 14:00"），保留精确时间
+			fromCarbon := carbon.Parse(req.From, timezone)
+			toCarbon := carbon.Parse(req.To, timezone)
+			startDate = fromCarbon.AddDays(offsetDays).SetTimezone(carbon.UTC).StdTime()
+			endDate = toCarbon.AddDays(offsetDays).SetTimezone(carbon.UTC).StdTime()
+		} else {
+			startDate = carbon.Parse(req.From, timezone).StartOfDay().AddDays(offsetDays).SetTimezone(carbon.UTC).StdTime()
+			endDate = carbon.Parse(req.To, timezone).EndOfDay().AddDays(offsetDays).SetTimezone(carbon.UTC).StdTime()
+		}
 	}
 
 	return

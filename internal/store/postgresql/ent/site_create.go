@@ -15,6 +15,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -187,6 +188,90 @@ func (sc *SiteCreate) SetNillableIsVerified(b *bool) *SiteCreate {
 	return sc
 }
 
+// SetEmailReportWeekly sets the "email_report_weekly" field.
+func (sc *SiteCreate) SetEmailReportWeekly(b bool) *SiteCreate {
+	sc.mutation.SetEmailReportWeekly(b)
+	return sc
+}
+
+// SetNillableEmailReportWeekly sets the "email_report_weekly" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableEmailReportWeekly(b *bool) *SiteCreate {
+	if b != nil {
+		sc.SetEmailReportWeekly(*b)
+	}
+	return sc
+}
+
+// SetEmailReportMonthly sets the "email_report_monthly" field.
+func (sc *SiteCreate) SetEmailReportMonthly(b bool) *SiteCreate {
+	sc.mutation.SetEmailReportMonthly(b)
+	return sc
+}
+
+// SetNillableEmailReportMonthly sets the "email_report_monthly" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableEmailReportMonthly(b *bool) *SiteCreate {
+	if b != nil {
+		sc.SetEmailReportMonthly(*b)
+	}
+	return sc
+}
+
+// SetTrafficAlertEnabled sets the "traffic_alert_enabled" field.
+func (sc *SiteCreate) SetTrafficAlertEnabled(b bool) *SiteCreate {
+	sc.mutation.SetTrafficAlertEnabled(b)
+	return sc
+}
+
+// SetNillableTrafficAlertEnabled sets the "traffic_alert_enabled" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableTrafficAlertEnabled(b *bool) *SiteCreate {
+	if b != nil {
+		sc.SetTrafficAlertEnabled(*b)
+	}
+	return sc
+}
+
+// SetTrafficAlertThreshold sets the "traffic_alert_threshold" field.
+func (sc *SiteCreate) SetTrafficAlertThreshold(i int) *SiteCreate {
+	sc.mutation.SetTrafficAlertThreshold(i)
+	return sc
+}
+
+// SetNillableTrafficAlertThreshold sets the "traffic_alert_threshold" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableTrafficAlertThreshold(i *int) *SiteCreate {
+	if i != nil {
+		sc.SetTrafficAlertThreshold(*i)
+	}
+	return sc
+}
+
+// SetTrafficAlertRecipients sets the "traffic_alert_recipients" field.
+func (sc *SiteCreate) SetTrafficAlertRecipients(s string) *SiteCreate {
+	sc.mutation.SetTrafficAlertRecipients(s)
+	return sc
+}
+
+// SetNillableTrafficAlertRecipients sets the "traffic_alert_recipients" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableTrafficAlertRecipients(s *string) *SiteCreate {
+	if s != nil {
+		sc.SetTrafficAlertRecipients(*s)
+	}
+	return sc
+}
+
+// SetTrafficAlertInterval sets the "traffic_alert_interval" field.
+func (sc *SiteCreate) SetTrafficAlertInterval(s string) *SiteCreate {
+	sc.mutation.SetTrafficAlertInterval(s)
+	return sc
+}
+
+// SetNillableTrafficAlertInterval sets the "traffic_alert_interval" field if the given value is not nil.
+func (sc *SiteCreate) SetNillableTrafficAlertInterval(s *string) *SiteCreate {
+	if s != nil {
+		sc.SetTrafficAlertInterval(*s)
+	}
+	return sc
+}
+
 // SetVerifiedAt sets the "verified_at" field.
 func (sc *SiteCreate) SetVerifiedAt(t time.Time) *SiteCreate {
 	sc.mutation.SetVerifiedAt(t)
@@ -312,6 +397,21 @@ func (sc *SiteCreate) AddShieldRulesCountry(s ...*ShieldRulesCountry) *SiteCreat
 	return sc.AddShieldRulesCountryIDs(ids...)
 }
 
+// AddShieldRulesReferrerIDs adds the "shield_rules_referrer" edge to the ShieldRulesReferrer entity by IDs.
+func (sc *SiteCreate) AddShieldRulesReferrerIDs(ids ...int64) *SiteCreate {
+	sc.mutation.AddShieldRulesReferrerIDs(ids...)
+	return sc
+}
+
+// AddShieldRulesReferrer adds the "shield_rules_referrer" edges to the ShieldRulesReferrer entity.
+func (sc *SiteCreate) AddShieldRulesReferrer(s ...*ShieldRulesReferrer) *SiteCreate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return sc.AddShieldRulesReferrerIDs(ids...)
+}
+
 // Mutation returns the SiteMutation object of the builder.
 func (sc *SiteCreate) Mutation() *SiteMutation {
 	return sc.mutation
@@ -375,6 +475,26 @@ func (sc *SiteCreate) defaults() {
 		v := site.DefaultIsVerified
 		sc.mutation.SetIsVerified(v)
 	}
+	if _, ok := sc.mutation.EmailReportWeekly(); !ok {
+		v := site.DefaultEmailReportWeekly
+		sc.mutation.SetEmailReportWeekly(v)
+	}
+	if _, ok := sc.mutation.EmailReportMonthly(); !ok {
+		v := site.DefaultEmailReportMonthly
+		sc.mutation.SetEmailReportMonthly(v)
+	}
+	if _, ok := sc.mutation.TrafficAlertEnabled(); !ok {
+		v := site.DefaultTrafficAlertEnabled
+		sc.mutation.SetTrafficAlertEnabled(v)
+	}
+	if _, ok := sc.mutation.TrafficAlertThreshold(); !ok {
+		v := site.DefaultTrafficAlertThreshold
+		sc.mutation.SetTrafficAlertThreshold(v)
+	}
+	if _, ok := sc.mutation.TrafficAlertInterval(); !ok {
+		v := site.DefaultTrafficAlertInterval
+		sc.mutation.SetTrafficAlertInterval(v)
+	}
 }
 
 // check runs all checks and user-defined validators on the builder.
@@ -427,6 +547,36 @@ func (sc *SiteCreate) check() error {
 	}
 	if _, ok := sc.mutation.IsVerified(); !ok {
 		return &ValidationError{Name: "is_verified", err: errors.New(`ent: missing required field "Site.is_verified"`)}
+	}
+	if _, ok := sc.mutation.EmailReportWeekly(); !ok {
+		return &ValidationError{Name: "email_report_weekly", err: errors.New(`ent: missing required field "Site.email_report_weekly"`)}
+	}
+	if _, ok := sc.mutation.EmailReportMonthly(); !ok {
+		return &ValidationError{Name: "email_report_monthly", err: errors.New(`ent: missing required field "Site.email_report_monthly"`)}
+	}
+	if _, ok := sc.mutation.TrafficAlertEnabled(); !ok {
+		return &ValidationError{Name: "traffic_alert_enabled", err: errors.New(`ent: missing required field "Site.traffic_alert_enabled"`)}
+	}
+	if _, ok := sc.mutation.TrafficAlertThreshold(); !ok {
+		return &ValidationError{Name: "traffic_alert_threshold", err: errors.New(`ent: missing required field "Site.traffic_alert_threshold"`)}
+	}
+	if v, ok := sc.mutation.TrafficAlertThreshold(); ok {
+		if err := site.TrafficAlertThresholdValidator(v); err != nil {
+			return &ValidationError{Name: "traffic_alert_threshold", err: fmt.Errorf(`ent: validator failed for field "Site.traffic_alert_threshold": %w`, err)}
+		}
+	}
+	if v, ok := sc.mutation.TrafficAlertRecipients(); ok {
+		if err := site.TrafficAlertRecipientsValidator(v); err != nil {
+			return &ValidationError{Name: "traffic_alert_recipients", err: fmt.Errorf(`ent: validator failed for field "Site.traffic_alert_recipients": %w`, err)}
+		}
+	}
+	if _, ok := sc.mutation.TrafficAlertInterval(); !ok {
+		return &ValidationError{Name: "traffic_alert_interval", err: errors.New(`ent: missing required field "Site.traffic_alert_interval"`)}
+	}
+	if v, ok := sc.mutation.TrafficAlertInterval(); ok {
+		if err := site.TrafficAlertIntervalValidator(v); err != nil {
+			return &ValidationError{Name: "traffic_alert_interval", err: fmt.Errorf(`ent: validator failed for field "Site.traffic_alert_interval": %w`, err)}
+		}
 	}
 	return nil
 }
@@ -507,6 +657,30 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 	if value, ok := sc.mutation.IsVerified(); ok {
 		_spec.SetField(site.FieldIsVerified, field.TypeBool, value)
 		_node.IsVerified = value
+	}
+	if value, ok := sc.mutation.EmailReportWeekly(); ok {
+		_spec.SetField(site.FieldEmailReportWeekly, field.TypeBool, value)
+		_node.EmailReportWeekly = value
+	}
+	if value, ok := sc.mutation.EmailReportMonthly(); ok {
+		_spec.SetField(site.FieldEmailReportMonthly, field.TypeBool, value)
+		_node.EmailReportMonthly = value
+	}
+	if value, ok := sc.mutation.TrafficAlertEnabled(); ok {
+		_spec.SetField(site.FieldTrafficAlertEnabled, field.TypeBool, value)
+		_node.TrafficAlertEnabled = value
+	}
+	if value, ok := sc.mutation.TrafficAlertThreshold(); ok {
+		_spec.SetField(site.FieldTrafficAlertThreshold, field.TypeInt, value)
+		_node.TrafficAlertThreshold = value
+	}
+	if value, ok := sc.mutation.TrafficAlertRecipients(); ok {
+		_spec.SetField(site.FieldTrafficAlertRecipients, field.TypeString, value)
+		_node.TrafficAlertRecipients = &value
+	}
+	if value, ok := sc.mutation.TrafficAlertInterval(); ok {
+		_spec.SetField(site.FieldTrafficAlertInterval, field.TypeString, value)
+		_node.TrafficAlertInterval = value
 	}
 	if value, ok := sc.mutation.VerifiedAt(); ok {
 		_spec.SetField(site.FieldVerifiedAt, field.TypeTime, value)
@@ -617,6 +791,22 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(shieldrulescountry.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := sc.mutation.ShieldRulesReferrerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.ShieldRulesReferrerTable,
+			Columns: []string{site.ShieldRulesReferrerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(shieldrulesreferrer.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

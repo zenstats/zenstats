@@ -24,6 +24,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
@@ -104,6 +105,7 @@ func checkColumn(table, column string) error {
 			shieldrulescountry.Table:     shieldrulescountry.ValidColumn,
 			shieldruleshostname.Table:    shieldruleshostname.ValidColumn,
 			shieldrulesip.Table:          shieldrulesip.ValidColumn,
+			shieldrulesreferrer.Table:    shieldrulesreferrer.ValidColumn,
 			site.Table:                   site.ValidColumn,
 			sitemembership.Table:         sitemembership.ValidColumn,
 			subaccount.Table:             subaccount.ValidColumn,

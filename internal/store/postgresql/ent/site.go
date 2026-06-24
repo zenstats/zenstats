@@ -41,6 +41,18 @@ type Site struct {
 	VerificationToken *string `json:"verification_token,omitempty"`
 	// Whether the site domain is verified
 	IsVerified bool `json:"is_verified,omitempty"`
+	// Whether to send weekly email reports
+	EmailReportWeekly bool `json:"email_report_weekly,omitempty"`
+	// Whether to send monthly email reports
+	EmailReportMonthly bool `json:"email_report_monthly,omitempty"`
+	// Whether traffic anomaly alerts are enabled
+	TrafficAlertEnabled bool `json:"traffic_alert_enabled,omitempty"`
+	// Alert threshold percentage (e.g. 50 = 50%% change)
+	TrafficAlertThreshold int `json:"traffic_alert_threshold,omitempty"`
+	// Comma-separated additional alert recipients
+	TrafficAlertRecipients *string `json:"traffic_alert_recipients,omitempty"`
+	// Alert comparison interval: hourly or daily
+	TrafficAlertInterval string `json:"traffic_alert_interval,omitempty"`
 	// When the site was verified
 	VerifiedAt *time.Time `json:"verified_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -65,9 +77,11 @@ type SiteEdges struct {
 	ShieldRulesHostname []*ShieldRulesHostname `json:"shield_rules_hostname,omitempty"`
 	// ShieldRulesCountry holds the value of the shield_rules_country edge.
 	ShieldRulesCountry []*ShieldRulesCountry `json:"shield_rules_country,omitempty"`
+	// ShieldRulesReferrer holds the value of the shield_rules_referrer edge.
+	ShieldRulesReferrer []*ShieldRulesReferrer `json:"shield_rules_referrer,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [7]bool
+	loadedTypes [8]bool
 }
 
 // FunnelsOrErr returns the Funnels value or an error if the edge
@@ -133,16 +147,25 @@ func (e SiteEdges) ShieldRulesCountryOrErr() ([]*ShieldRulesCountry, error) {
 	return nil, &NotLoadedError{edge: "shield_rules_country"}
 }
 
+// ShieldRulesReferrerOrErr returns the ShieldRulesReferrer value or an error if the edge
+// was not loaded in eager-loading.
+func (e SiteEdges) ShieldRulesReferrerOrErr() ([]*ShieldRulesReferrer, error) {
+	if e.loadedTypes[7] {
+		return e.ShieldRulesReferrer, nil
+	}
+	return nil, &NotLoadedError{edge: "shield_rules_referrer"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Site) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case site.FieldPublic, site.FieldIsVerified:
+		case site.FieldPublic, site.FieldIsVerified, site.FieldEmailReportWeekly, site.FieldEmailReportMonthly, site.FieldTrafficAlertEnabled:
 			values[i] = new(sql.NullBool)
-		case site.FieldID, site.FieldIngestRateLimitScaleSeconds, site.FieldIngestLimitPerMinute:
+		case site.FieldID, site.FieldIngestRateLimitScaleSeconds, site.FieldIngestLimitPerMinute, site.FieldTrafficAlertThreshold:
 			values[i] = new(sql.NullInt64)
-		case site.FieldDomain, site.FieldRemark, site.FieldTimezone, site.FieldAllowedOrigins, site.FieldVerificationToken:
+		case site.FieldDomain, site.FieldRemark, site.FieldTimezone, site.FieldAllowedOrigins, site.FieldVerificationToken, site.FieldTrafficAlertRecipients, site.FieldTrafficAlertInterval:
 			values[i] = new(sql.NullString)
 		case site.FieldStatsStartDate, site.FieldCreatedAt, site.FieldUpdatedAt, site.FieldVerifiedAt:
 			values[i] = new(sql.NullTime)
@@ -241,6 +264,43 @@ func (s *Site) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				s.IsVerified = value.Bool
 			}
+		case site.FieldEmailReportWeekly:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field email_report_weekly", values[i])
+			} else if value.Valid {
+				s.EmailReportWeekly = value.Bool
+			}
+		case site.FieldEmailReportMonthly:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field email_report_monthly", values[i])
+			} else if value.Valid {
+				s.EmailReportMonthly = value.Bool
+			}
+		case site.FieldTrafficAlertEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field traffic_alert_enabled", values[i])
+			} else if value.Valid {
+				s.TrafficAlertEnabled = value.Bool
+			}
+		case site.FieldTrafficAlertThreshold:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field traffic_alert_threshold", values[i])
+			} else if value.Valid {
+				s.TrafficAlertThreshold = int(value.Int64)
+			}
+		case site.FieldTrafficAlertRecipients:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field traffic_alert_recipients", values[i])
+			} else if value.Valid {
+				s.TrafficAlertRecipients = new(string)
+				*s.TrafficAlertRecipients = value.String
+			}
+		case site.FieldTrafficAlertInterval:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field traffic_alert_interval", values[i])
+			} else if value.Valid {
+				s.TrafficAlertInterval = value.String
+			}
 		case site.FieldVerifiedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field verified_at", values[i])
@@ -294,6 +354,11 @@ func (s *Site) QueryShieldRulesHostname() *ShieldRulesHostnameQuery {
 // QueryShieldRulesCountry queries the "shield_rules_country" edge of the Site entity.
 func (s *Site) QueryShieldRulesCountry() *ShieldRulesCountryQuery {
 	return NewSiteClient(s.config).QueryShieldRulesCountry(s)
+}
+
+// QueryShieldRulesReferrer queries the "shield_rules_referrer" edge of the Site entity.
+func (s *Site) QueryShieldRulesReferrer() *ShieldRulesReferrerQuery {
+	return NewSiteClient(s.config).QueryShieldRulesReferrer(s)
 }
 
 // Update returns a builder for updating this Site.
@@ -358,6 +423,26 @@ func (s *Site) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("is_verified=")
 	builder.WriteString(fmt.Sprintf("%v", s.IsVerified))
+	builder.WriteString(", ")
+	builder.WriteString("email_report_weekly=")
+	builder.WriteString(fmt.Sprintf("%v", s.EmailReportWeekly))
+	builder.WriteString(", ")
+	builder.WriteString("email_report_monthly=")
+	builder.WriteString(fmt.Sprintf("%v", s.EmailReportMonthly))
+	builder.WriteString(", ")
+	builder.WriteString("traffic_alert_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", s.TrafficAlertEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("traffic_alert_threshold=")
+	builder.WriteString(fmt.Sprintf("%v", s.TrafficAlertThreshold))
+	builder.WriteString(", ")
+	if v := s.TrafficAlertRecipients; v != nil {
+		builder.WriteString("traffic_alert_recipients=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("traffic_alert_interval=")
+	builder.WriteString(s.TrafficAlertInterval)
 	builder.WriteString(", ")
 	if v := s.VerifiedAt; v != nil {
 		builder.WriteString("verified_at=")

@@ -19,6 +19,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -981,4 +982,43 @@ func (s *SiteService) VerifySite(ctx context.Context, domain string, userID int6
 	s.cache.Delete(s.allSitesCacheKey)
 
 	return nil
+}
+
+// ============================================================================
+// Shield Rules — Referrer (垃圾 referrer 域名黑名单)
+// ============================================================================
+
+// AddShieldRuleReferrer 添加垃圾 referrer 域名屏蔽规则。
+func (s *SiteService) AddShieldRuleReferrer(ctx context.Context, siteID int64, hostname, action, description string) (*ent.ShieldRulesReferrer, error) {
+	return s.db.Client.ShieldRulesReferrer.Create().
+		SetSiteID(siteID).
+		SetHostname(hostname).
+		SetAction(action).
+		SetDescription(description).
+		Save(ctx)
+}
+
+// ListShieldRuleReferrer 列出指定站点的垃圾 referrer 屏蔽规则。
+func (s *SiteService) ListShieldRuleReferrer(ctx context.Context, siteID int64) ([]*ent.ShieldRulesReferrer, error) {
+	return s.db.Client.ShieldRulesReferrer.Query().
+		Where(shieldrulesreferrer.SiteID(siteID)).
+		Order(ent.Desc(shieldrulesreferrer.FieldCreatedAt)).
+		All(ctx)
+}
+
+// RemoveShieldRuleReferrer 删除垃圾 referrer 屏蔽规则。
+func (s *SiteService) RemoveShieldRuleReferrer(ctx context.Context, siteID int64, ruleID int64) error {
+	count, err := s.db.Client.ShieldRulesReferrer.Query().
+		Where(
+			shieldrulesreferrer.ID(ruleID),
+			shieldrulesreferrer.SiteID(siteID),
+		).
+		Count(ctx)
+	if err != nil {
+		return fmt.Errorf("query shield rule referrer failed: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("shield rule referrer not found")
+	}
+	return s.db.Client.ShieldRulesReferrer.DeleteOneID(ruleID).Exec(ctx)
 }

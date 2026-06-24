@@ -190,24 +190,56 @@ make test-integration
 ```
 API 请求  ──▶  Gin Router  ──▶  Service Layer (LRU Cache)
                                     │
-                           ┌────────┴────────┐
-                           ▼                 ▼
-                    PostgreSQL (ent)    ClickHouse (SQL)
-                     业务数据             事件/分析数据
+                           ┌────────┼────────┐
+                           ▼        ▼        ▼
+                    PostgreSQL  PostgreSQL  ClickHouse (SQL)
+                    (业务数据)   (系统配置     (事件/分析数据)
+                                 event_salt)
 ```
 
 ### Data Flow (Event Ingestion)
 
 ```
-Tracker JS  ──▶  POST /api/event  ──▶  Event Buffer
+Tracker JS  ──▶  POST /api/event  ──▶  Origin 校验
                                            │
                                     ┌──────┴──────┐
                                     ▼              ▼
-                              Rate Limiter    Shield Rules
-                                              (UA/IP/Geo)
+                              Datacenter/Threat   域名白名单
+                                IP 过滤 (新)
                                     │              │
                                     ▼              ▼
-                              Session Aggregation
+                              Rate Limiter    Shield Rules
+                                              (UA/IP/Geo/Country)
+                                    │              │
+                                    ▼              ▼
+                              字段长度校验          │
+                              (事件名≤120 字符      │
+                              /URL≤2000 字符        │
+                              /Props≤30 项) (新)     │
+                                    │              │
+                                    ▼              ▼
+                          事件缓冲 → 协程池处理
+                                    │
+                           ┌────────┴────────┐
+                           ▼                  ▼
+                     UA 解析              GeoIP 定位
+                     (Bot 过滤)            (城市/国家)
+                           │                  │
+                           └────────┬─────────┘
+                                    ▼
+                           ┌────────────────┐
+                           │  SPA Hash 路由  │ (新)
+                           │  h=1 时 pathname │
+                           │  拼接 fragment  │
+                           └────────────────┘
+                                    │
+                                    ▼
+                              Source 解析
+                              (UTM/Referrer)
+                                    │
+                                    ▼
+                           Session 聚合
+                           (30min 缓存 / 幂等写)
                                     │
                                     ▼
                            Batch Write ──▶ ClickHouse
@@ -218,6 +250,7 @@ Tracker JS  ──▶  POST /api/event  ──▶  Event Buffer
 | Database | Role | Technology |
 |---|---|---|
 | **PostgreSQL** | Business data (users, sites, goals, funnels, API keys, settings) | Ent ORM |
+| **PostgreSQL** | System config (event_salt, etc.) | Ent ORM |
 | **ClickHouse** | Analytics data (events, sessions, geolocation) | Hand-written SQL |
 
 ---
@@ -404,6 +437,8 @@ go run main.go server
 
 - [Swagger API Docs](http://localhost:8080/swagger/index.html)
 - [Statistics API](docs/api-stats.md)
+- [IP Classification Configuration](docs/ip-classification.md)
+- [Optimization Roadmap](docs/optimization-roadmap.md)
 - [系统架构](https://github.com/zenstats/zenstats-deploy/blob/main/docs/architecture.md) (zenstats-deploy)
 - [部署指南](https://github.com/zenstats/zenstats-deploy/blob/main/docs/DEPLOY.md) (zenstats-deploy)
 

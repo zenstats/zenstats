@@ -27,6 +27,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
@@ -66,6 +67,8 @@ type Client struct {
 	ShieldRulesHostname *ShieldRulesHostnameClient
 	// ShieldRulesIp is the client for interacting with the ShieldRulesIp builders.
 	ShieldRulesIp *ShieldRulesIpClient
+	// ShieldRulesReferrer is the client for interacting with the ShieldRulesReferrer builders.
+	ShieldRulesReferrer *ShieldRulesReferrerClient
 	// Site is the client for interacting with the Site builders.
 	Site *SiteClient
 	// SiteMembership is the client for interacting with the SiteMembership builders.
@@ -105,6 +108,7 @@ func (c *Client) init() {
 	c.ShieldRulesCountry = NewShieldRulesCountryClient(c.config)
 	c.ShieldRulesHostname = NewShieldRulesHostnameClient(c.config)
 	c.ShieldRulesIp = NewShieldRulesIpClient(c.config)
+	c.ShieldRulesReferrer = NewShieldRulesReferrerClient(c.config)
 	c.Site = NewSiteClient(c.config)
 	c.SiteMembership = NewSiteMembershipClient(c.config)
 	c.SubAccount = NewSubAccountClient(c.config)
@@ -217,6 +221,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ShieldRulesCountry:     NewShieldRulesCountryClient(cfg),
 		ShieldRulesHostname:    NewShieldRulesHostnameClient(cfg),
 		ShieldRulesIp:          NewShieldRulesIpClient(cfg),
+		ShieldRulesReferrer:    NewShieldRulesReferrerClient(cfg),
 		Site:                   NewSiteClient(cfg),
 		SiteMembership:         NewSiteMembershipClient(cfg),
 		SubAccount:             NewSubAccountClient(cfg),
@@ -256,6 +261,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ShieldRulesCountry:     NewShieldRulesCountryClient(cfg),
 		ShieldRulesHostname:    NewShieldRulesHostnameClient(cfg),
 		ShieldRulesIp:          NewShieldRulesIpClient(cfg),
+		ShieldRulesReferrer:    NewShieldRulesReferrerClient(cfg),
 		Site:                   NewSiteClient(cfg),
 		SiteMembership:         NewSiteMembershipClient(cfg),
 		SubAccount:             NewSubAccountClient(cfg),
@@ -296,8 +302,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.APIKey, c.CustomSearchEngine, c.EmailVerificationToken, c.Funnel,
 		c.FunnelStep, c.Goal, c.MonthlyEventCount, c.PasswordResetToken,
 		c.SearchEngines, c.ShieldRulesCountry, c.ShieldRulesHostname, c.ShieldRulesIp,
-		c.Site, c.SiteMembership, c.SubAccount, c.SystemConfig, c.User, c.UserConfig,
-		c.UserGroup, c.UserSession,
+		c.ShieldRulesReferrer, c.Site, c.SiteMembership, c.SubAccount, c.SystemConfig,
+		c.User, c.UserConfig, c.UserGroup, c.UserSession,
 	} {
 		n.Use(hooks...)
 	}
@@ -310,8 +316,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.APIKey, c.CustomSearchEngine, c.EmailVerificationToken, c.Funnel,
 		c.FunnelStep, c.Goal, c.MonthlyEventCount, c.PasswordResetToken,
 		c.SearchEngines, c.ShieldRulesCountry, c.ShieldRulesHostname, c.ShieldRulesIp,
-		c.Site, c.SiteMembership, c.SubAccount, c.SystemConfig, c.User, c.UserConfig,
-		c.UserGroup, c.UserSession,
+		c.ShieldRulesReferrer, c.Site, c.SiteMembership, c.SubAccount, c.SystemConfig,
+		c.User, c.UserConfig, c.UserGroup, c.UserSession,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -344,6 +350,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ShieldRulesHostname.mutate(ctx, m)
 	case *ShieldRulesIpMutation:
 		return c.ShieldRulesIp.mutate(ctx, m)
+	case *ShieldRulesReferrerMutation:
+		return c.ShieldRulesReferrer.mutate(ctx, m)
 	case *SiteMutation:
 		return c.Site.mutate(ctx, m)
 	case *SiteMembershipMutation:
@@ -2185,6 +2193,155 @@ func (c *ShieldRulesIpClient) mutate(ctx context.Context, m *ShieldRulesIpMutati
 	}
 }
 
+// ShieldRulesReferrerClient is a client for the ShieldRulesReferrer schema.
+type ShieldRulesReferrerClient struct {
+	config
+}
+
+// NewShieldRulesReferrerClient returns a client for the ShieldRulesReferrer from the given config.
+func NewShieldRulesReferrerClient(c config) *ShieldRulesReferrerClient {
+	return &ShieldRulesReferrerClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `shieldrulesreferrer.Hooks(f(g(h())))`.
+func (c *ShieldRulesReferrerClient) Use(hooks ...Hook) {
+	c.hooks.ShieldRulesReferrer = append(c.hooks.ShieldRulesReferrer, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `shieldrulesreferrer.Intercept(f(g(h())))`.
+func (c *ShieldRulesReferrerClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ShieldRulesReferrer = append(c.inters.ShieldRulesReferrer, interceptors...)
+}
+
+// Create returns a builder for creating a ShieldRulesReferrer entity.
+func (c *ShieldRulesReferrerClient) Create() *ShieldRulesReferrerCreate {
+	mutation := newShieldRulesReferrerMutation(c.config, OpCreate)
+	return &ShieldRulesReferrerCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ShieldRulesReferrer entities.
+func (c *ShieldRulesReferrerClient) CreateBulk(builders ...*ShieldRulesReferrerCreate) *ShieldRulesReferrerCreateBulk {
+	return &ShieldRulesReferrerCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ShieldRulesReferrerClient) MapCreateBulk(slice any, setFunc func(*ShieldRulesReferrerCreate, int)) *ShieldRulesReferrerCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ShieldRulesReferrerCreateBulk{err: fmt.Errorf("calling to ShieldRulesReferrerClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ShieldRulesReferrerCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ShieldRulesReferrerCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ShieldRulesReferrer.
+func (c *ShieldRulesReferrerClient) Update() *ShieldRulesReferrerUpdate {
+	mutation := newShieldRulesReferrerMutation(c.config, OpUpdate)
+	return &ShieldRulesReferrerUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ShieldRulesReferrerClient) UpdateOne(srr *ShieldRulesReferrer) *ShieldRulesReferrerUpdateOne {
+	mutation := newShieldRulesReferrerMutation(c.config, OpUpdateOne, withShieldRulesReferrer(srr))
+	return &ShieldRulesReferrerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ShieldRulesReferrerClient) UpdateOneID(id int64) *ShieldRulesReferrerUpdateOne {
+	mutation := newShieldRulesReferrerMutation(c.config, OpUpdateOne, withShieldRulesReferrerID(id))
+	return &ShieldRulesReferrerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ShieldRulesReferrer.
+func (c *ShieldRulesReferrerClient) Delete() *ShieldRulesReferrerDelete {
+	mutation := newShieldRulesReferrerMutation(c.config, OpDelete)
+	return &ShieldRulesReferrerDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ShieldRulesReferrerClient) DeleteOne(srr *ShieldRulesReferrer) *ShieldRulesReferrerDeleteOne {
+	return c.DeleteOneID(srr.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ShieldRulesReferrerClient) DeleteOneID(id int64) *ShieldRulesReferrerDeleteOne {
+	builder := c.Delete().Where(shieldrulesreferrer.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ShieldRulesReferrerDeleteOne{builder}
+}
+
+// Query returns a query builder for ShieldRulesReferrer.
+func (c *ShieldRulesReferrerClient) Query() *ShieldRulesReferrerQuery {
+	return &ShieldRulesReferrerQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeShieldRulesReferrer},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ShieldRulesReferrer entity by its id.
+func (c *ShieldRulesReferrerClient) Get(ctx context.Context, id int64) (*ShieldRulesReferrer, error) {
+	return c.Query().Where(shieldrulesreferrer.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ShieldRulesReferrerClient) GetX(ctx context.Context, id int64) *ShieldRulesReferrer {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySite queries the site edge of a ShieldRulesReferrer.
+func (c *ShieldRulesReferrerClient) QuerySite(srr *ShieldRulesReferrer) *SiteQuery {
+	query := (&SiteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := srr.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(shieldrulesreferrer.Table, shieldrulesreferrer.FieldID, id),
+			sqlgraph.To(site.Table, site.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, shieldrulesreferrer.SiteTable, shieldrulesreferrer.SiteColumn),
+		)
+		fromV = sqlgraph.Neighbors(srr.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ShieldRulesReferrerClient) Hooks() []Hook {
+	return c.hooks.ShieldRulesReferrer
+}
+
+// Interceptors returns the client interceptors.
+func (c *ShieldRulesReferrerClient) Interceptors() []Interceptor {
+	return c.inters.ShieldRulesReferrer
+}
+
+func (c *ShieldRulesReferrerClient) mutate(ctx context.Context, m *ShieldRulesReferrerMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ShieldRulesReferrerCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ShieldRulesReferrerUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ShieldRulesReferrerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ShieldRulesReferrerDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ShieldRulesReferrer mutation op: %q", m.Op())
+	}
+}
+
 // SiteClient is a client for the Site schema.
 type SiteClient struct {
 	config
@@ -2398,6 +2555,22 @@ func (c *SiteClient) QueryShieldRulesCountry(s *Site) *ShieldRulesCountryQuery {
 			sqlgraph.From(site.Table, site.FieldID, id),
 			sqlgraph.To(shieldrulescountry.Table, shieldrulescountry.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesCountryTable, site.ShieldRulesCountryColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryShieldRulesReferrer queries the shield_rules_referrer edge of a Site.
+func (c *SiteClient) QueryShieldRulesReferrer(s *Site) *ShieldRulesReferrerQuery {
+	query := (&ShieldRulesReferrerClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, id),
+			sqlgraph.To(shieldrulesreferrer.Table, shieldrulesreferrer.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesReferrerTable, site.ShieldRulesReferrerColumn),
 		)
 		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
 		return fromV, nil
@@ -3590,13 +3763,14 @@ type (
 	hooks struct {
 		APIKey, CustomSearchEngine, EmailVerificationToken, Funnel, FunnelStep, Goal,
 		MonthlyEventCount, PasswordResetToken, SearchEngines, ShieldRulesCountry,
-		ShieldRulesHostname, ShieldRulesIp, Site, SiteMembership, SubAccount,
-		SystemConfig, User, UserConfig, UserGroup, UserSession []ent.Hook
+		ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer, Site, SiteMembership,
+		SubAccount, SystemConfig, User, UserConfig, UserGroup, UserSession []ent.Hook
 	}
 	inters struct {
 		APIKey, CustomSearchEngine, EmailVerificationToken, Funnel, FunnelStep, Goal,
 		MonthlyEventCount, PasswordResetToken, SearchEngines, ShieldRulesCountry,
-		ShieldRulesHostname, ShieldRulesIp, Site, SiteMembership, SubAccount,
-		SystemConfig, User, UserConfig, UserGroup, UserSession []ent.Interceptor
+		ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer, Site, SiteMembership,
+		SubAccount, SystemConfig, User, UserConfig, UserGroup,
+		UserSession []ent.Interceptor
 	}
 )

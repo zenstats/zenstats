@@ -29,6 +29,7 @@ func Init() {
 
 func InitServer() {
 	Init()
+	bootstrap.InitBlocklist() // 初始化垃圾 referrer 列表（优先远程拉取）
 	bootstrap.InitCron()
 }
 

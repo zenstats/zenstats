@@ -18,6 +18,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -37,6 +38,7 @@ type SiteQuery struct {
 	withShieldRulesIP       *ShieldRulesIpQuery
 	withShieldRulesHostname *ShieldRulesHostnameQuery
 	withShieldRulesCountry  *ShieldRulesCountryQuery
+	withShieldRulesReferrer *ShieldRulesReferrerQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -220,6 +222,28 @@ func (sq *SiteQuery) QueryShieldRulesCountry() *ShieldRulesCountryQuery {
 			sqlgraph.From(site.Table, site.FieldID, selector),
 			sqlgraph.To(shieldrulescountry.Table, shieldrulescountry.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesCountryTable, site.ShieldRulesCountryColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryShieldRulesReferrer chains the current query on the "shield_rules_referrer" edge.
+func (sq *SiteQuery) QueryShieldRulesReferrer() *ShieldRulesReferrerQuery {
+	query := (&ShieldRulesReferrerClient{config: sq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, selector),
+			sqlgraph.To(shieldrulesreferrer.Table, shieldrulesreferrer.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesReferrerTable, site.ShieldRulesReferrerColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
 		return fromU, nil
@@ -426,6 +450,7 @@ func (sq *SiteQuery) Clone() *SiteQuery {
 		withShieldRulesIP:       sq.withShieldRulesIP.Clone(),
 		withShieldRulesHostname: sq.withShieldRulesHostname.Clone(),
 		withShieldRulesCountry:  sq.withShieldRulesCountry.Clone(),
+		withShieldRulesReferrer: sq.withShieldRulesReferrer.Clone(),
 		// clone intermediate query.
 		sql:  sq.sql.Clone(),
 		path: sq.path,
@@ -509,6 +534,17 @@ func (sq *SiteQuery) WithShieldRulesCountry(opts ...func(*ShieldRulesCountryQuer
 	return sq
 }
 
+// WithShieldRulesReferrer tells the query-builder to eager-load the nodes that are connected to
+// the "shield_rules_referrer" edge. The optional arguments are used to configure the query builder of the edge.
+func (sq *SiteQuery) WithShieldRulesReferrer(opts ...func(*ShieldRulesReferrerQuery)) *SiteQuery {
+	query := (&ShieldRulesReferrerClient{config: sq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withShieldRulesReferrer = query
+	return sq
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -587,7 +623,7 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 	var (
 		nodes       = []*Site{}
 		_spec       = sq.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [8]bool{
 			sq.withFunnels != nil,
 			sq.withMembers != nil,
 			sq.withGoals != nil,
@@ -595,6 +631,7 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 			sq.withShieldRulesIP != nil,
 			sq.withShieldRulesHostname != nil,
 			sq.withShieldRulesCountry != nil,
+			sq.withShieldRulesReferrer != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -664,6 +701,15 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 			func(n *Site) { n.Edges.ShieldRulesCountry = []*ShieldRulesCountry{} },
 			func(n *Site, e *ShieldRulesCountry) {
 				n.Edges.ShieldRulesCountry = append(n.Edges.ShieldRulesCountry, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := sq.withShieldRulesReferrer; query != nil {
+		if err := sq.loadShieldRulesReferrer(ctx, query, nodes,
+			func(n *Site) { n.Edges.ShieldRulesReferrer = []*ShieldRulesReferrer{} },
+			func(n *Site, e *ShieldRulesReferrer) {
+				n.Edges.ShieldRulesReferrer = append(n.Edges.ShieldRulesReferrer, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -867,6 +913,36 @@ func (sq *SiteQuery) loadShieldRulesCountry(ctx context.Context, query *ShieldRu
 	}
 	query.Where(predicate.ShieldRulesCountry(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(site.ShieldRulesCountryColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SiteID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "site_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (sq *SiteQuery) loadShieldRulesReferrer(ctx context.Context, query *ShieldRulesReferrerQuery, nodes []*Site, init func(*Site), assign func(*Site, *ShieldRulesReferrer)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Site)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(shieldrulesreferrer.FieldSiteID)
+	}
+	query.Where(predicate.ShieldRulesReferrer(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(site.ShieldRulesReferrerColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

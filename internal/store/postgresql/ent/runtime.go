@@ -16,6 +16,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/systemconfig"
@@ -219,6 +220,26 @@ func init() {
 	shieldrulesip.DefaultUpdatedAt = shieldrulesipDescUpdatedAt.Default.(func() time.Time)
 	// shieldrulesip.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	shieldrulesip.UpdateDefaultUpdatedAt = shieldrulesipDescUpdatedAt.UpdateDefault.(func() time.Time)
+	shieldrulesreferrerFields := schema.ShieldRulesReferrer{}.Fields()
+	_ = shieldrulesreferrerFields
+	// shieldrulesreferrerDescHostname is the schema descriptor for hostname field.
+	shieldrulesreferrerDescHostname := shieldrulesreferrerFields[2].Descriptor()
+	// shieldrulesreferrer.HostnameValidator is a validator for the "hostname" field. It is called by the builders before save.
+	shieldrulesreferrer.HostnameValidator = shieldrulesreferrerDescHostname.Validators[0].(func(string) error)
+	// shieldrulesreferrerDescAction is the schema descriptor for action field.
+	shieldrulesreferrerDescAction := shieldrulesreferrerFields[3].Descriptor()
+	// shieldrulesreferrer.DefaultAction holds the default value on creation for the action field.
+	shieldrulesreferrer.DefaultAction = shieldrulesreferrerDescAction.Default.(string)
+	// shieldrulesreferrer.ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	shieldrulesreferrer.ActionValidator = shieldrulesreferrerDescAction.Validators[0].(func(string) error)
+	// shieldrulesreferrerDescDescription is the schema descriptor for description field.
+	shieldrulesreferrerDescDescription := shieldrulesreferrerFields[4].Descriptor()
+	// shieldrulesreferrer.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
+	shieldrulesreferrer.DescriptionValidator = shieldrulesreferrerDescDescription.Validators[0].(func(string) error)
+	// shieldrulesreferrerDescCreatedAt is the schema descriptor for created_at field.
+	shieldrulesreferrerDescCreatedAt := shieldrulesreferrerFields[5].Descriptor()
+	// shieldrulesreferrer.DefaultCreatedAt holds the default value on creation for the created_at field.
+	shieldrulesreferrer.DefaultCreatedAt = shieldrulesreferrerDescCreatedAt.Default.(func() time.Time)
 	siteFields := schema.Site{}.Fields()
 	_ = siteFields
 	// siteDescDomain is the schema descriptor for domain field.
@@ -283,6 +304,48 @@ func init() {
 	siteDescIsVerified := siteFields[12].Descriptor()
 	// site.DefaultIsVerified holds the default value on creation for the is_verified field.
 	site.DefaultIsVerified = siteDescIsVerified.Default.(bool)
+	// siteDescEmailReportWeekly is the schema descriptor for email_report_weekly field.
+	siteDescEmailReportWeekly := siteFields[13].Descriptor()
+	// site.DefaultEmailReportWeekly holds the default value on creation for the email_report_weekly field.
+	site.DefaultEmailReportWeekly = siteDescEmailReportWeekly.Default.(bool)
+	// siteDescEmailReportMonthly is the schema descriptor for email_report_monthly field.
+	siteDescEmailReportMonthly := siteFields[14].Descriptor()
+	// site.DefaultEmailReportMonthly holds the default value on creation for the email_report_monthly field.
+	site.DefaultEmailReportMonthly = siteDescEmailReportMonthly.Default.(bool)
+	// siteDescTrafficAlertEnabled is the schema descriptor for traffic_alert_enabled field.
+	siteDescTrafficAlertEnabled := siteFields[15].Descriptor()
+	// site.DefaultTrafficAlertEnabled holds the default value on creation for the traffic_alert_enabled field.
+	site.DefaultTrafficAlertEnabled = siteDescTrafficAlertEnabled.Default.(bool)
+	// siteDescTrafficAlertThreshold is the schema descriptor for traffic_alert_threshold field.
+	siteDescTrafficAlertThreshold := siteFields[16].Descriptor()
+	// site.DefaultTrafficAlertThreshold holds the default value on creation for the traffic_alert_threshold field.
+	site.DefaultTrafficAlertThreshold = siteDescTrafficAlertThreshold.Default.(int)
+	// site.TrafficAlertThresholdValidator is a validator for the "traffic_alert_threshold" field. It is called by the builders before save.
+	site.TrafficAlertThresholdValidator = func() func(int) error {
+		validators := siteDescTrafficAlertThreshold.Validators
+		fns := [...]func(int) error{
+			validators[0].(func(int) error),
+			validators[1].(func(int) error),
+		}
+		return func(traffic_alert_threshold int) error {
+			for _, fn := range fns {
+				if err := fn(traffic_alert_threshold); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// siteDescTrafficAlertRecipients is the schema descriptor for traffic_alert_recipients field.
+	siteDescTrafficAlertRecipients := siteFields[17].Descriptor()
+	// site.TrafficAlertRecipientsValidator is a validator for the "traffic_alert_recipients" field. It is called by the builders before save.
+	site.TrafficAlertRecipientsValidator = siteDescTrafficAlertRecipients.Validators[0].(func(string) error)
+	// siteDescTrafficAlertInterval is the schema descriptor for traffic_alert_interval field.
+	siteDescTrafficAlertInterval := siteFields[18].Descriptor()
+	// site.DefaultTrafficAlertInterval holds the default value on creation for the traffic_alert_interval field.
+	site.DefaultTrafficAlertInterval = siteDescTrafficAlertInterval.Default.(string)
+	// site.TrafficAlertIntervalValidator is a validator for the "traffic_alert_interval" field. It is called by the builders before save.
+	site.TrafficAlertIntervalValidator = siteDescTrafficAlertInterval.Validators[0].(func(string) error)
 	sitemembershipFields := schema.SiteMembership{}.Fields()
 	_ = sitemembershipFields
 	subaccountFields := schema.SubAccount{}.Fields()

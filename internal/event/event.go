@@ -251,6 +251,12 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	// parse source
 	e.PutSourceInfo(&eventResult, eventRequest)
 
+	// 垃圾 referrer 过滤
+	if IsSpamReferrer(eventResult.ReferrerSource) {
+		slog.Debug("dropping spam referrer", "referrer_source", eventResult.ReferrerSource)
+		return nil
+	}
+
 	// compute acquisition channel based on referrer and UTM parameters
 	e.PutChannel(&eventResult)
 

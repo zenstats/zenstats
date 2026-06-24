@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/robfig/cron/v3"
 )
@@ -12,7 +13,7 @@ var instance *CronManager
 
 func init() {
 	instance = &CronManager{
-		cronInstance: cron.New(cron.WithSeconds()),
+		cronInstance: cron.New(cron.WithSeconds(), cron.WithLocation(time.UTC)),
 		jobs:         make(map[int]*CronJob),
 		jobCounter:   0,
 	}

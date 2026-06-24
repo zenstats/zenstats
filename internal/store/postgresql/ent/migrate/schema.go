@@ -390,6 +390,29 @@ var (
 			},
 		},
 	}
+	// ShieldRulesReferrersColumns holds the columns for the "shield_rules_referrers" table.
+	ShieldRulesReferrersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "hostname", Type: field.TypeString, Size: 255},
+		{Name: "action", Type: field.TypeString, Size: 10, Default: "deny"},
+		{Name: "description", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "site_id", Type: field.TypeInt64},
+	}
+	// ShieldRulesReferrersTable holds the schema information for the "shield_rules_referrers" table.
+	ShieldRulesReferrersTable = &schema.Table{
+		Name:       "shield_rules_referrers",
+		Columns:    ShieldRulesReferrersColumns,
+		PrimaryKey: []*schema.Column{ShieldRulesReferrersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "shield_rules_referrers_sites_shield_rules_referrer",
+				Columns:    []*schema.Column{ShieldRulesReferrersColumns[5]},
+				RefColumns: []*schema.Column{SitesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// SitesColumns holds the columns for the "sites" table.
 	SitesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -405,6 +428,12 @@ var (
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "verification_token", Type: field.TypeString, Nullable: true, Size: 64},
 		{Name: "is_verified", Type: field.TypeBool, Default: false},
+		{Name: "email_report_weekly", Type: field.TypeBool, Default: true},
+		{Name: "email_report_monthly", Type: field.TypeBool, Default: true},
+		{Name: "traffic_alert_enabled", Type: field.TypeBool, Default: false},
+		{Name: "traffic_alert_threshold", Type: field.TypeInt, Default: 50},
+		{Name: "traffic_alert_recipients", Type: field.TypeString, Nullable: true, Size: 1024},
+		{Name: "traffic_alert_interval", Type: field.TypeString, Size: 10, Default: "hourly"},
 		{Name: "verified_at", Type: field.TypeTime, Nullable: true},
 	}
 	// SitesTable holds the schema information for the "sites" table.
@@ -648,6 +677,7 @@ var (
 		ShieldRulesCountriesTable,
 		ShieldRulesHostnamesTable,
 		ShieldRulesIpsTable,
+		ShieldRulesReferrersTable,
 		SitesTable,
 		SiteMembershipsTable,
 		SubAccountsTable,
@@ -672,6 +702,7 @@ func init() {
 	ShieldRulesCountriesTable.ForeignKeys[0].RefTable = SitesTable
 	ShieldRulesHostnamesTable.ForeignKeys[0].RefTable = SitesTable
 	ShieldRulesIpsTable.ForeignKeys[0].RefTable = SitesTable
+	ShieldRulesReferrersTable.ForeignKeys[0].RefTable = SitesTable
 	SiteMembershipsTable.ForeignKeys[0].RefTable = SitesTable
 	SiteMembershipsTable.ForeignKeys[1].RefTable = UsersTable
 	SubAccountsTable.ForeignKeys[0].RefTable = UsersTable
