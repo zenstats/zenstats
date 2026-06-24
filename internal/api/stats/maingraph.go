@@ -7,7 +7,7 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
-// GetMainGraph 获取主图表时序数据（对标 Plausible /api/v1/stats/timeseries）
+// GetMainGraph 获取主图表时序数据
 //
 //	@Summary		获取主图表时序数据
 //	@Description	获取指定域名的主图表时序统计数据，支持多个指标

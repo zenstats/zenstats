@@ -49,6 +49,7 @@ var configDefinitions = map[string]struct {
 }{
 	"general.base_url":              {Description: "站点地址，用于生成邮箱验证链接等", Group: "general"},
 	"general.registration_enabled":  {Description: "是否允许新用户注册", Group: "general", Default: "true"},
+	"general.event_salt":            {Description: "事件用户ID哈希盐值，用于生成匿名用户标识", Group: "general"},
 	"smtp.host":                     {Description: "SMTP 服务器地址", Group: "smtp"},
 	"smtp.port":                     {Description: "SMTP 端口 (587/465/25)", Group: "smtp"},
 	"smtp.username":                 {Description: "SMTP 用户名", Group: "smtp"},

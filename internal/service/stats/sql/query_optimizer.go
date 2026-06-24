@@ -19,7 +19,7 @@ type SplitQuery struct {
 	Query     *types.Query
 }
 
-// QueryOptimizer handles Plausible-style query pipeline and table splitting logic.
+// QueryOptimizer handles query pipeline and table splitting logic.
 type QueryOptimizer struct{}
 
 // Optimize applies a series of transformations to the query.

@@ -7,7 +7,7 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
-// GetCurrentVisitors 获取实时在线访客数（对标 Plausible /api/v1/stats/realtime/visitors）
+// GetCurrentVisitors 获取实时在线访客数
 //
 //	@Summary		获取实时在线访客数
 //	@Description	获取当前站点最近5分钟内的实时在线访客和会话数

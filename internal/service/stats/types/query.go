@@ -29,7 +29,6 @@ type Query struct {
 	Pagination             *Pagination    `json:"pagination,omitempty"`                 // 分页配置
 	OrderBy                []*OrderBy     `json:"order_by,omitempty"`                   // 排序配置
 
-	// Pipeline-only fields. These are derived internally from the Plausible-style
 	// query pipeline and are intentionally omitted from the public API contract.
 	SQLJoinType          string    `json:"-"`
 	SmearSessionMetrics  bool      `json:"-"`

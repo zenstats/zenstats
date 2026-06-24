@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zenstats/zenstats/internal/model"
 	"github.com/zenstats/zenstats/internal/event"
+	"github.com/zenstats/zenstats/internal/model"
 	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/pkg/globals"
 	"github.com/zenstats/zenstats/pkg/iputil"
@@ -204,6 +204,18 @@ func matchOriginHost(host, pattern string) bool {
 	return false
 }
 
+// isDatacenterOrThreatIP 检查请求是否来自数据中心或已知威胁 IP。
+// 依赖反向代理（如 Cloudflare）设置的 X-Zenstats-Ip-Type 请求头：
+//   - dc_ip：数据中心/云服务商 IP（阿里云、腾讯云、AWS 等），应丢弃
+//   - threat_ip：已知威胁 IP，应丢弃
+func isDatacenterOrThreatIP(c *gin.Context) bool {
+	ipType := strings.ToLower(c.GetHeader("X-Zenstats-Ip-Type"))
+	if ipType == "" {
+		ipType = strings.ToLower(c.GetHeader("Cf-Ip-Type"))
+	}
+	return ipType == "dc_ip" || ipType == "threat_ip"
+}
+
 // setEventRequestDefaults 设置 EventRequest 的默认值
 func setEventRequestDefaults(req *model.EventRequest, c *gin.Context) {
 	req.Timestamp = time.Now()
@@ -264,6 +276,12 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 
 		// 处理前端 SDK 批量发送的 batch 事件（n: 'batch', e: [...]）
 		if tempReq.EventName == "batch" && len(tempReq.Events) > 0 {
+			// 丢弃来自数据中心/威胁 IP 的 batch 请求
+			if isDatacenterOrThreatIP(c) {
+				slog.Debug("dropping datacenter/threat IP batch event", "ip", iputil.ClientIP(c.Request))
+				c.JSON(http.StatusAccepted, "ok")
+				return
+			}
 			for _, subEvent := range tempReq.Events {
 				// 子事件继承 batch 级别的 domain（如果未单独指定）
 				subDomain := subEvent.Domain
@@ -285,6 +303,14 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 					continue
 				}
 
+				// 子事件长度校验
+				if len(subEvent.EventName) > 120 {
+					subEvent.EventName = subEvent.EventName[:120]
+				}
+				if len(subEvent.URL) > 2000 {
+					subEvent.URL = subEvent.URL[:2000]
+				}
+
 				req := model.EventRequest{
 					Timestamp:      subEvent.Timestamp,
 					Hash:           subEvent.Hash,
@@ -304,6 +330,13 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 				queue := globals.GetQueue()
 				_ = queue.Enqueue(&req)
 			}
+			c.JSON(http.StatusAccepted, "ok")
+			return
+		}
+
+		// 丢弃来自数据中心/威胁 IP 的请求
+		if isDatacenterOrThreatIP(c) {
+			slog.Debug("dropping datacenter/threat IP event", "ip", iputil.ClientIP(c.Request))
 			c.JSON(http.StatusAccepted, "ok")
 			return
 		}
@@ -375,6 +408,19 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 					}
 				}
 			}
+		}
+
+		// 长度校验
+		const maxEventNameLength = 120
+		const maxURLLength = 2000
+
+		if len(tempReq.EventName) > maxEventNameLength {
+			slog.Debug("event name too long, truncating", "name", tempReq.EventName)
+			tempReq.EventName = tempReq.EventName[:maxEventNameLength]
+		}
+		if len(tempReq.URL) > maxURLLength {
+			slog.Debug("url too long, truncating", "url", tempReq.URL)
+			tempReq.URL = tempReq.URL[:maxURLLength]
 		}
 
 		req := model.EventRequest{

@@ -84,7 +84,7 @@ func ParseRawFilter(raw []any) (*Filter, error) {
 }
 
 // ParseRawFiltersJSON 从 GET 查询参数中的 JSON 字符串解析过滤器。
-// 支持 Plausible 风格的两种常用格式：
+// 两种常用格式：
 //   - [["is", "visit:browser", ["Chrome"]]]
 //   - ["and", [["is", "visit:browser", ["Chrome"]], ["is", "visit:country", ["CN"]]]]
 func ParseRawFiltersJSON(raw string) ([]*Filter, error) {

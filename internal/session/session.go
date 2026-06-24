@@ -80,7 +80,7 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 			loadedSession.Duration = uint32(event.Timestamp.Sub(loadedSession.Start).Seconds())
 			loadedSession.Timestamp = event.Timestamp
 			s.writeBuffer.Add(loadedSession)
-			return nil, nil
+			return loadedSession, nil
 		}
 		oldSession := s.CopySession(findSession)
 		oldSession.Sign = -1
@@ -94,7 +94,7 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 		newSession.Sign = 1
 		s.writeBuffer.Add(newSession)
 		s.updateSessionCache(newSession)
-		return nil, nil
+		return newSession, nil
 	}
 
 	// pageview / 自定义事件：缓存未命中时从 ClickHouse 加载
@@ -219,7 +219,7 @@ func (s *SessionManager) updateSession(session *models.Sessions, event *models.E
 		newSession.HostName = event.HostName
 	}
 	if session.IsBounce == 1 {
-		if session.PageViews > 1 || (event.Interactive && !pageview) {
+		if pageviews > 1 || (event.Interactive && !pageview) {
 			newSession.IsBounce = 0
 		}
 	}

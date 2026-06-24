@@ -595,6 +595,6 @@ func MetricFromString(s string) (string, error) {
 	case "visitors", "pageviews", "events", "visits", "bounce_rate", "visit_duration", "time_on_page", "conversion_rate", "views_per_visit", "scroll_depth":
 		return s, nil
 	default:
-		return "", fmt.Errorf("invalid metric: %s. Find valid metrics from the documentation: https://plausible.io/docs/stats-api#metrics", s)
+		return "", fmt.Errorf("invalid metric: %s.", s)
 	}
 }

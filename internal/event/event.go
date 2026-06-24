@@ -19,11 +19,15 @@ import (
 	"github.com/zenstats/zenstats/internal/model"
 	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/internal/session"
+	"golang.org/x/net/publicsuffix"
+
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/systemconfig"
 	"github.com/zenstats/zenstats/pkg/generic"
 	"github.com/zenstats/zenstats/pkg/geoip"
+	"github.com/zenstats/zenstats/pkg/globals"
 	"github.com/zenstats/zenstats/pkg/pool"
 	uaparser "github.com/zenstats/zenstats/pkg/ua_parser"
 )
@@ -31,10 +35,10 @@ import (
 type EventWork struct {
 	wg             sync.WaitGroup
 	queue          *generic.DynamicQueue[*model.EventRequest]
-	batchSize      int                       // batchSize 表示每次批量处理的任务数量
+	batchSize      int                      // batchSize 表示每次批量处理的任务数量
 	taskChan       chan *model.EventRequest // taskChan 是一个通道，用于接收任务
-	shutdownCtx    context.Context           // shutdownCtx 是一个取消上下文，用于关闭任务
-	shutdownCancel context.CancelFunc        // shutdownCancel 是一个取消函数，用于取消任务
+	shutdownCtx    context.Context          // shutdownCtx 是一个取消上下文，用于关闭任务
+	shutdownCancel context.CancelFunc       // shutdownCancel 是一个取消函数，用于取消任务
 	pool           *pool.Pool
 
 	writeBuffer *WriteBuffer
@@ -47,7 +51,7 @@ type EventWork struct {
 
 	hostPatternCache sync.Map // 缓存hostname正则表达式
 
-	currentSalt string // 用户ID生成盐值，服务启动时随机生成
+	currentSalt string // 用户ID生成盐值，从数据库持久化加载，服务重启后保持不变
 }
 
 func NewEventWork(q *generic.DynamicQueue[*model.EventRequest], batchSize int, historicalThreshold time.Duration) (*EventWork, error) {
@@ -64,7 +68,7 @@ func NewEventWork(q *generic.DynamicQueue[*model.EventRequest], batchSize int, h
 		sessionManager:      session.NewSessionManager(ctx, batchSize),
 		siteService:         service.GetSiteService(),
 		historicalThreshold: historicalThreshold,
-		currentSalt:         generateSalt(),
+		currentSalt:         loadOrCreateSalt(ctx),
 	}
 	e.writeBuffer = NewWriteBuffer(ctx, batchSize, time.Second*5)
 
@@ -178,21 +182,42 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	if err == nil {
 		pathname = parsedURL.Path
 		hostname = parsedURL.Host
+		// SPA hash 路由支持：h=1 时 pathname 拼接 URL fragment
+		// 例如 example.com/#/dashboard → /#/dashboard
+		if eventRequest.Hash == 1 && parsedURL.Fragment != "" {
+			pathname = parsedURL.Path + "#" + parsedURL.Fragment
+		}
 	}
 
 	eventResult.UserId = userId
 	eventResult.PathName = pathname
 	eventResult.HostName = hostname
 
-	// parse props
+	// parse props — 限制数量和长度
+	const maxProps = 30
+	const maxPropKeyLength = 256
+	const maxPropValueLength = 1024
+
+	count := 0
 	for key, value := range eventRequest.Props {
+		if count >= maxProps {
+			break
+		}
+		if len(key) == 0 || len(key) > maxPropKeyLength {
+			continue
+		}
+		valueStr := fmt.Sprintf("%v", value)
+		if len(valueStr) > maxPropValueLength {
+			valueStr = valueStr[:maxPropValueLength]
+		}
 		eventResult.MetaKey = append(eventResult.MetaKey, key)
-		eventResult.MetaValue = append(eventResult.MetaValue, fmt.Sprintf("%v", value))
+		eventResult.MetaValue = append(eventResult.MetaValue, valueStr)
+		count++
 	}
 
 	/*
 		1. 对用户UA进行验证 屏蔽非法请求  drop_verification_agent ->done
-		2. 对IP进行验证 删除数据中心IP   drop_datacenter_ip  -> not now
+		2. 对IP进行验证 删除数据中心IP   drop_datacenter_ip  -> done（在 externalevent.go 入口层）
 		3. 对hostname 进行验证 仅允许白名单  drop_shield_rule_hostname ->done
 		4. 对pathname 进行验证 删除需要排除的路径 drop_shield_rule_page ->done
 		5. 对IP进行验证 删除需要排除的ip drop_shield_rule_ip ->done
@@ -286,8 +311,9 @@ func (e *EventWork) generateUserID(ip, user_agent, domain string) (uint64, error
 	return binary.LittleEndian.Uint64(hashBytes[:8]), nil
 }
 
-// getRootDomain 从 hostname 提取根域名（如 www.example.com → example.com）。
-// IPv4 地址和单段 hostname 直接返回原值。
+// getRootDomain 从 hostname 提取注册域名（如 www.example.com → example.com，
+// www.example.co.uk → example.co.uk）。使用公共后缀列表正确处理多级 TLD。
+// IPv4 地址和无法解析的 hostname 直接返回原值。
 func getRootDomain(hostname string) string {
 	if hostname == "" {
 		return ""
@@ -296,12 +322,21 @@ func getRootDomain(hostname string) string {
 	if net.ParseIP(hostname) != nil {
 		return hostname
 	}
-	// 拆分为段，取最后两段作为根域名（如 example.com）
-	parts := strings.Split(strings.TrimRight(hostname, "."), ".")
-	if len(parts) >= 2 {
-		return parts[len(parts)-2] + "." + parts[len(parts)-1]
+	// 去除端口号（如果有）
+	if h, _, err := net.SplitHostPort(hostname); err == nil {
+		hostname = h
 	}
-	return hostname
+	// 使用公共后缀列表提取注册域名
+	rootDomain, err := publicsuffix.EffectiveTLDPlusOne(strings.TrimRight(hostname, "."))
+	if err != nil {
+		// 回退：取最后两段
+		parts := strings.Split(strings.TrimRight(hostname, "."), ".")
+		if len(parts) >= 2 {
+			return parts[len(parts)-2] + "." + parts[len(parts)-1]
+		}
+		return hostname
+	}
+	return rootDomain
 }
 
 // PutUserAgent parses the given user agent string and updates the session attributes
@@ -625,6 +660,54 @@ func createHistoricalSession(event *models.Events) *models.Sessions {
 	}
 
 	return session
+}
+
+// loadOrCreateSalt 从数据库 system_config 表加载 event_salt。
+// 如果数据库中不存在，则生成新的 salt 并持久化存储，确保服务重启后用户 ID 不变。
+// 如果记录存在但 value 为空（如 InitDefaults 初始化的空记录），
+// 则用 Update 填充值，避免 Create 唯一键冲突静默失败导致 salt 永不写入。
+func loadOrCreateSalt(ctx context.Context) string {
+	db := globals.GetDB()
+	if db == nil || db.Client == nil {
+		slog.Warn("DB not available for salt loading, using random salt")
+		return generateSalt()
+	}
+
+	// 尝试从 system_config 读取已持久化的 salt
+	cfg, err := db.Client.SystemConfig.Query().
+		Where(systemconfig.Key("general.event_salt")).
+		Only(ctx)
+	if err == nil {
+		// 记录已存在：value 非空直接返回，为空则更新填充
+		if cfg.Value != "" {
+			return cfg.Value
+		}
+		newSalt := generateSalt()
+		updated, err := db.Client.SystemConfig.UpdateOne(cfg).
+			SetValue(newSalt).
+			Save(ctx)
+		if err != nil {
+			slog.Warn("failed to update empty event_salt, using random salt", "error", err)
+			return newSalt
+		}
+		slog.Info("regenerated empty event_salt in database")
+		return updated.Value
+	}
+
+	// 记录不存在：生成新 salt 并持久化
+	newSalt := generateSalt()
+	created, err := db.Client.SystemConfig.Create().
+		SetKey("general.event_salt").
+		SetValue(newSalt).
+		SetDescription("事件用户ID哈希盐值，用于生成匿名用户标识").
+		SetGroupName("general").
+		Save(ctx)
+	if err != nil {
+		slog.Warn("failed to persist event_salt, using random salt", "error", err)
+		// 即使持久化失败也返回 salt，只是重启后会变化
+		return newSalt
+	}
+	return created.Value
 }
 
 // generateSalt 生成一个 16 字节随机盐值用于用户 ID 哈希。

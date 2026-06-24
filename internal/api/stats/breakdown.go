@@ -9,7 +9,7 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
-// GetBreakdown 获取维度细分数据（对标 Plausible /api/v1/stats/breakdown）
+// GetBreakdown 获取维度细分数据
 //
 //	@Summary		获取维度细分数据
 //	@Description	按指定维度获取细分统计数据，支持 visit:source, visit:country, visit:browser, visit:os, visit:device, visit:entry_page, visit:exit_page, event:page 等维度
