@@ -508,10 +508,14 @@ func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []any,
 	// Use any() since these are session-level attributes and not in GROUP BY.
 	var extraCols []string
 	sessionDimensions := map[string]string{
-		"visit:entry_page":         "entry_page",
+		"visit:entry_page":          "entry_page",
 		"visit:entry_page_hostname": "entry_page_hostname",
-		"visit:exit_page":          "exit_page",
-		"visit:exit_page_hostname": "exit_page_hostname",
+		"visit:exit_page":           "exit_page",
+		"visit:exit_page_hostname":  "exit_page_hostname",
+		// Source/medium/referrer live in sessions, exposed to events JOIN via subquery
+		"visit:source":   "referrer_source",
+		"visit:medium":   "referrer_medium",
+		"visit:referrer": "referrer",
 	}
 	for _, dim := range query.Dimensions {
 		if col, ok := sessionDimensions[dim]; ok {
@@ -709,7 +713,7 @@ func (qb *QueryBuilder) hasDimension(query *types.Query, dimension string) bool 
 
 // shortName generates a short alias for metrics/dimensions
 func (qb *QueryBuilder) shortName(dimension string) string {
-	if dimension == "event:page" || dimension == "visit:entry_page" {
+	if dimension == "event:page" || dimension == "visit:page" || dimension == "visit:entry_page" {
 		return "page"
 	}
 	parts := strings.Split(dimension, ":")
@@ -747,7 +751,7 @@ func (qb *QueryBuilder) DimensionAlias(dimension string) string {
 	switch dimension {
 	case "event:name":
 		return "name"
-	case "event:page":
+	case "event:page", "visit:page":
 		return "page"
 	case "event:hostname":
 		return "hostname"
@@ -851,6 +855,8 @@ func (qb *QueryBuilder) DimensionAlias(dimension string) string {
 var sessionOnlyColumns = map[string]bool{
 	"entry_page": true, "exit_page": true,
 	"entry_page_hostname": true, "exit_page_hostname": true,
+	// visit: source/medium/referrer are stored in sessions, not events
+	"referrer_source": true, "referrer_medium": true, "referrer": true,
 }
 
 func maybePrefix(col, tableType string) string {
@@ -865,7 +871,7 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 	switch dimension {
 	case "event:name":
 		return "name"
-	case "event:page":
+	case "event:page", "visit:page":
 		if purpose == "select" {
 			return "pathname as page"
 		}
@@ -916,18 +922,38 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 		}
 		return "city_name as city"
 	case "visit:source":
+		col := "referrer_source"
 		if purpose == "group" {
-			return "referrer_source"
+			return maybePrefix(col, tableType)
 		}
 		sourceClause, err := qb.getSourceClause(userID)
 		if err != nil {
-			return "referrer_source"
+			return maybePrefix(col, tableType) + " as " + col
+		}
+		if tableType == "events" {
+			// Rewrite bare referrer_source refs to sq.referrer_source for the JOIN alias
+			clause := strings.ReplaceAll(sourceClause, "referrer_source", "sq.referrer_source")
+			return clause + " as referrer_source"
 		}
 		return sourceClause + " as referrer_source"
 	case "visit:medium":
-		return "referrer_medium"
+		col := "referrer_medium"
+		if tableType == "events" {
+			if purpose == "group" {
+				return "sq." + col
+			}
+			return "sq." + col + " as " + col
+		}
+		return col
 	case "visit:referrer":
-		return "referrer"
+		col := "referrer"
+		if tableType == "events" {
+			if purpose == "group" {
+				return "sq." + col
+			}
+			return "sq." + col + " as " + col
+		}
+		return col
 	case "visit:device":
 		return "device"
 	case "visit:browser":

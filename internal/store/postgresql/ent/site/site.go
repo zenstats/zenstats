@@ -68,6 +68,10 @@ const (
 	EdgeShieldRulesCountry = "shield_rules_country"
 	// EdgeShieldRulesReferrer holds the string denoting the shield_rules_referrer edge name in mutations.
 	EdgeShieldRulesReferrer = "shield_rules_referrer"
+	// EdgeSharedLinks holds the string denoting the shared_links edge name in mutations.
+	EdgeSharedLinks = "shared_links"
+	// EdgeSegments holds the string denoting the segments edge name in mutations.
+	EdgeSegments = "segments"
 	// Table holds the table name of the site in the database.
 	Table = "sites"
 	// FunnelsTable is the table that holds the funnels relation/edge.
@@ -126,6 +130,20 @@ const (
 	ShieldRulesReferrerInverseTable = "shield_rules_referrers"
 	// ShieldRulesReferrerColumn is the table column denoting the shield_rules_referrer relation/edge.
 	ShieldRulesReferrerColumn = "site_id"
+	// SharedLinksTable is the table that holds the shared_links relation/edge.
+	SharedLinksTable = "shared_links"
+	// SharedLinksInverseTable is the table name for the SharedLink entity.
+	// It exists in this package in order to avoid circular dependency with the "sharedlink" package.
+	SharedLinksInverseTable = "shared_links"
+	// SharedLinksColumn is the table column denoting the shared_links relation/edge.
+	SharedLinksColumn = "site_id"
+	// SegmentsTable is the table that holds the segments relation/edge.
+	SegmentsTable = "segments"
+	// SegmentsInverseTable is the table name for the Segment entity.
+	// It exists in this package in order to avoid circular dependency with the "segment" package.
+	SegmentsInverseTable = "segments"
+	// SegmentsColumn is the table column denoting the segments relation/edge.
+	SegmentsColumn = "site_id"
 )
 
 // Columns holds all SQL columns for site fields.
@@ -421,6 +439,34 @@ func ByShieldRulesReferrer(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpti
 		sqlgraph.OrderByNeighborTerms(s, newShieldRulesReferrerStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// BySharedLinksCount orders the results by shared_links count.
+func BySharedLinksCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSharedLinksStep(), opts...)
+	}
+}
+
+// BySharedLinks orders the results by shared_links terms.
+func BySharedLinks(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSharedLinksStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// BySegmentsCount orders the results by segments count.
+func BySegmentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSegmentsStep(), opts...)
+	}
+}
+
+// BySegments orders the results by segments terms.
+func BySegments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSegmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newFunnelsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -475,5 +521,19 @@ func newShieldRulesReferrerStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ShieldRulesReferrerInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ShieldRulesReferrerTable, ShieldRulesReferrerColumn),
+	)
+}
+func newSharedLinksStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SharedLinksInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SharedLinksTable, SharedLinksColumn),
+	)
+}
+func newSegmentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SegmentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SegmentsTable, SegmentsColumn),
 	)
 }

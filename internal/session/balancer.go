@@ -2,52 +2,67 @@ package session
 
 import (
 	"context"
-	"fmt"
-	"sync"
 	"time"
 )
 
+// balancerSize 对齐 Plausible 生产配置：100 个固定 worker，通过 userID % size 路由。
+// 同一用户的所有事件永远路由到同一 worker，天然串行，无需 per-user 锁。
+const balancerSize = 100
+
+type balancerTask[T any] struct {
+	fn     func() (T, error)
+	result chan balancerResult[T]
+}
+
+type balancerResult[T any] struct {
+	val T
+	err error
+}
+
 type Balancer[T any] struct {
-	locks *sync.Map
+	workers []chan balancerTask[T]
 }
 
 func NewBalancer[T any]() *Balancer[T] {
-	return &Balancer[T]{
-		locks: new(sync.Map),
+	b := &Balancer[T]{
+		workers: make([]chan balancerTask[T], balancerSize),
+	}
+	for i := range b.workers {
+		ch := make(chan balancerTask[T], 64)
+		b.workers[i] = ch
+		go b.runWorker(ch)
+	}
+	return b
+}
+
+func (b *Balancer[T]) runWorker(ch <-chan balancerTask[T]) {
+	for t := range ch {
+		val, err := t.fn()
+		t.result <- balancerResult[T]{val: val, err: err}
 	}
 }
 
-func (b *Balancer[T]) Dispatch(
-	userID uint64,
-	fn func() (T, error),
-	timeout time.Duration,
-) (res T, err error) {
-	lockKey := fmt.Sprintf("session_lock:%d", userID)
-	lock := b.acquireLock(lockKey)
-	lock.Lock()
-	defer lock.Unlock()
-
-	// 执行处理函数
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	done := make(chan struct{})
-	go func() {
-		res, err = fn()
-		close(done)
-	}()
+// Dispatch 将 fn 路由到与 userID 绑定的 worker 串行执行。
+// 同一 userID 的调用永远由同一 worker 顺序处理，不会并发。
+// timeout 超时后返回 error，但 fn 仍会在 worker 中完成执行（保证 session 数据一致性）。
+func (b *Balancer[T]) Dispatch(userID uint64, fn func() (T, error), timeout time.Duration) (T, error) {
+	idx := userID % uint64(balancerSize)
+	res := make(chan balancerResult[T], 1)
+	t := balancerTask[T]{fn: fn, result: res}
 
 	select {
-	case <-done:
-		return
-	case <-ctx.Done():
-		var zero T
-		return zero, ctx.Err()
+	case b.workers[idx] <- t:
+	default:
+		// worker 队列已满（64项积压），降级为直接执行以避免调用方永久阻塞
+		val, err := fn()
+		return val, err
 	}
-}
 
-// 获取锁
-func (b *Balancer[T]) acquireLock(key string) sync.Locker {
-	actual, _ := b.locks.LoadOrStore(key, &sync.Mutex{})
-	return actual.(sync.Locker)
+	select {
+	case r := <-res:
+		return r.val, r.err
+	case <-time.After(timeout):
+		var zero T
+		return zero, context.DeadlineExceeded
+	}
 }

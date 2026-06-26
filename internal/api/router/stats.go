@@ -11,7 +11,7 @@ func RegisterStatsRouter(router *gin.RouterGroup) {
 
 	handle := stats.NewStatsHandle()
 
-	statsGroup := router.Group("/stats", middleware.APIKeyOrJWTAuth(), middleware.SiteMembershipAndVerificationAuth())
+	statsGroup := router.Group("/stats", middleware.SharedLinkOrAPIKeyOrJWTAuth(), middleware.SharedLinkOrSiteMembershipAndVerificationAuth())
 
 	// 总览指标（聚合数据，含对比）
 	statsGroup.GET("/:domain/aggregate", handle.GetAggregate())
@@ -27,4 +27,8 @@ func RegisterStatsRouter(router *gin.RouterGroup) {
 	statsGroup.GET("/:domain/time_series", handle.GetTimeSeries())
 	// 筛选器建议（自动补全）
 	statsGroup.GET("/:domain/suggestions", handle.GetSuggestions())
+
+	// v2 通用查询 API（POST body，支持多维度 / order_by / offset）
+	v2Group := router.Group("/api/v2", middleware.APIKeyOrJWTAuth(), middleware.SiteMembershipAndVerificationAuth())
+	v2Group.POST("/query/:domain", handle.QueryV2())
 }

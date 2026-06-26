@@ -14,6 +14,8 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
@@ -437,6 +439,36 @@ func (su *SiteUpdate) AddShieldRulesReferrer(s ...*ShieldRulesReferrer) *SiteUpd
 	return su.AddShieldRulesReferrerIDs(ids...)
 }
 
+// AddSharedLinkIDs adds the "shared_links" edge to the SharedLink entity by IDs.
+func (su *SiteUpdate) AddSharedLinkIDs(ids ...int64) *SiteUpdate {
+	su.mutation.AddSharedLinkIDs(ids...)
+	return su
+}
+
+// AddSharedLinks adds the "shared_links" edges to the SharedLink entity.
+func (su *SiteUpdate) AddSharedLinks(s ...*SharedLink) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.AddSharedLinkIDs(ids...)
+}
+
+// AddSegmentIDs adds the "segments" edge to the Segment entity by IDs.
+func (su *SiteUpdate) AddSegmentIDs(ids ...int64) *SiteUpdate {
+	su.mutation.AddSegmentIDs(ids...)
+	return su
+}
+
+// AddSegments adds the "segments" edges to the Segment entity.
+func (su *SiteUpdate) AddSegments(s ...*Segment) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.AddSegmentIDs(ids...)
+}
+
 // Mutation returns the SiteMutation object of the builder.
 func (su *SiteUpdate) Mutation() *SiteMutation {
 	return su.mutation
@@ -608,6 +640,48 @@ func (su *SiteUpdate) RemoveShieldRulesReferrer(s ...*ShieldRulesReferrer) *Site
 		ids[i] = s[i].ID
 	}
 	return su.RemoveShieldRulesReferrerIDs(ids...)
+}
+
+// ClearSharedLinks clears all "shared_links" edges to the SharedLink entity.
+func (su *SiteUpdate) ClearSharedLinks() *SiteUpdate {
+	su.mutation.ClearSharedLinks()
+	return su
+}
+
+// RemoveSharedLinkIDs removes the "shared_links" edge to SharedLink entities by IDs.
+func (su *SiteUpdate) RemoveSharedLinkIDs(ids ...int64) *SiteUpdate {
+	su.mutation.RemoveSharedLinkIDs(ids...)
+	return su
+}
+
+// RemoveSharedLinks removes "shared_links" edges to SharedLink entities.
+func (su *SiteUpdate) RemoveSharedLinks(s ...*SharedLink) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.RemoveSharedLinkIDs(ids...)
+}
+
+// ClearSegments clears all "segments" edges to the Segment entity.
+func (su *SiteUpdate) ClearSegments() *SiteUpdate {
+	su.mutation.ClearSegments()
+	return su
+}
+
+// RemoveSegmentIDs removes the "segments" edge to Segment entities by IDs.
+func (su *SiteUpdate) RemoveSegmentIDs(ids ...int64) *SiteUpdate {
+	su.mutation.RemoveSegmentIDs(ids...)
+	return su
+}
+
+// RemoveSegments removes "segments" edges to Segment entities.
+func (su *SiteUpdate) RemoveSegments(s ...*Segment) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.RemoveSegmentIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -1136,6 +1210,96 @@ func (su *SiteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if su.mutation.SharedLinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SharedLinksTable,
+			Columns: []string{site.SharedLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sharedlink.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.RemovedSharedLinksIDs(); len(nodes) > 0 && !su.mutation.SharedLinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SharedLinksTable,
+			Columns: []string{site.SharedLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sharedlink.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.SharedLinksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SharedLinksTable,
+			Columns: []string{site.SharedLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sharedlink.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if su.mutation.SegmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SegmentsTable,
+			Columns: []string{site.SegmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(segment.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.RemovedSegmentsIDs(); len(nodes) > 0 && !su.mutation.SegmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SegmentsTable,
+			Columns: []string{site.SegmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(segment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.SegmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SegmentsTable,
+			Columns: []string{site.SegmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(segment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, su.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{site.Label}
@@ -1557,6 +1721,36 @@ func (suo *SiteUpdateOne) AddShieldRulesReferrer(s ...*ShieldRulesReferrer) *Sit
 	return suo.AddShieldRulesReferrerIDs(ids...)
 }
 
+// AddSharedLinkIDs adds the "shared_links" edge to the SharedLink entity by IDs.
+func (suo *SiteUpdateOne) AddSharedLinkIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.AddSharedLinkIDs(ids...)
+	return suo
+}
+
+// AddSharedLinks adds the "shared_links" edges to the SharedLink entity.
+func (suo *SiteUpdateOne) AddSharedLinks(s ...*SharedLink) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.AddSharedLinkIDs(ids...)
+}
+
+// AddSegmentIDs adds the "segments" edge to the Segment entity by IDs.
+func (suo *SiteUpdateOne) AddSegmentIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.AddSegmentIDs(ids...)
+	return suo
+}
+
+// AddSegments adds the "segments" edges to the Segment entity.
+func (suo *SiteUpdateOne) AddSegments(s ...*Segment) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.AddSegmentIDs(ids...)
+}
+
 // Mutation returns the SiteMutation object of the builder.
 func (suo *SiteUpdateOne) Mutation() *SiteMutation {
 	return suo.mutation
@@ -1728,6 +1922,48 @@ func (suo *SiteUpdateOne) RemoveShieldRulesReferrer(s ...*ShieldRulesReferrer) *
 		ids[i] = s[i].ID
 	}
 	return suo.RemoveShieldRulesReferrerIDs(ids...)
+}
+
+// ClearSharedLinks clears all "shared_links" edges to the SharedLink entity.
+func (suo *SiteUpdateOne) ClearSharedLinks() *SiteUpdateOne {
+	suo.mutation.ClearSharedLinks()
+	return suo
+}
+
+// RemoveSharedLinkIDs removes the "shared_links" edge to SharedLink entities by IDs.
+func (suo *SiteUpdateOne) RemoveSharedLinkIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.RemoveSharedLinkIDs(ids...)
+	return suo
+}
+
+// RemoveSharedLinks removes "shared_links" edges to SharedLink entities.
+func (suo *SiteUpdateOne) RemoveSharedLinks(s ...*SharedLink) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.RemoveSharedLinkIDs(ids...)
+}
+
+// ClearSegments clears all "segments" edges to the Segment entity.
+func (suo *SiteUpdateOne) ClearSegments() *SiteUpdateOne {
+	suo.mutation.ClearSegments()
+	return suo
+}
+
+// RemoveSegmentIDs removes the "segments" edge to Segment entities by IDs.
+func (suo *SiteUpdateOne) RemoveSegmentIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.RemoveSegmentIDs(ids...)
+	return suo
+}
+
+// RemoveSegments removes "segments" edges to Segment entities.
+func (suo *SiteUpdateOne) RemoveSegments(s ...*Segment) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.RemoveSegmentIDs(ids...)
 }
 
 // Where appends a list predicates to the SiteUpdate builder.
@@ -2279,6 +2515,96 @@ func (suo *SiteUpdateOne) sqlSave(ctx context.Context) (_node *Site, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(shieldrulesreferrer.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if suo.mutation.SharedLinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SharedLinksTable,
+			Columns: []string{site.SharedLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sharedlink.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.RemovedSharedLinksIDs(); len(nodes) > 0 && !suo.mutation.SharedLinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SharedLinksTable,
+			Columns: []string{site.SharedLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sharedlink.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.SharedLinksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SharedLinksTable,
+			Columns: []string{site.SharedLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sharedlink.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if suo.mutation.SegmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SegmentsTable,
+			Columns: []string{site.SegmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(segment.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.RemovedSegmentsIDs(); len(nodes) > 0 && !suo.mutation.SegmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SegmentsTable,
+			Columns: []string{site.SegmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(segment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.SegmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SegmentsTable,
+			Columns: []string{site.SegmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(segment.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

@@ -16,9 +16,38 @@ import (
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
+const (
+	apiKeyCacheTTL   = 10 * time.Minute
+	apiKeyFlushEvery = 5 * time.Minute
+)
+
+type apiKeyCacheEntry struct {
+	keyID     int64
+	userID    int64
+	expiresAt time.Time // key's own expiry (from DB), zero means no expiry
+	cachedAt  time.Time // when this entry was cached
+
+	mu         sync.Mutex
+	lastUsedAt time.Time
+	dirty      bool // true = lastUsedAt not yet flushed to DB
+}
+
+func (e *apiKeyCacheEntry) cacheExpired() bool {
+	return time.Now().After(e.cachedAt.Add(apiKeyCacheTTL))
+}
+
+// touch records the current time as last-used and marks the entry dirty.
+func (e *apiKeyCacheEntry) touch() {
+	e.mu.Lock()
+	e.lastUsedAt = time.Now()
+	e.dirty = true
+	e.mu.Unlock()
+}
+
 // APIKeyService API Key 管理服务，提供 API Key 的创建、查询、删除和鉴权。
 type APIKeyService struct {
-	db *postgresql.Client
+	db    *postgresql.Client
+	cache sync.Map // keyHash -> *apiKeyCacheEntry
 }
 
 // GetAPIKeyService 获取 APIKeyService 单例实例。
@@ -27,8 +56,56 @@ var GetAPIKeyService = sync.OnceValue(func() *APIKeyService {
 	if db == nil {
 		panic("DB is not initialized")
 	}
-	return &APIKeyService{db: db}
+	svc := &APIKeyService{db: db}
+	go svc.flushLoop()
+	return svc
 })
+
+// flushLoop 定期将内存中脏的 lastUsedAt 批量写入数据库。
+func (s *APIKeyService) flushLoop() {
+	ticker := time.NewTicker(apiKeyFlushEvery)
+	defer ticker.Stop()
+	for range ticker.C {
+		s.flushDirty()
+	}
+}
+
+// flushDirty 遍历缓存：flush 脏条目到 DB，同时淘汰已过期且干净的条目。
+func (s *APIKeyService) flushDirty() {
+	type pending struct {
+		keyID      int64
+		lastUsedAt time.Time
+	}
+	var batch []pending
+	var evictKeys []any
+
+	s.cache.Range(func(k, v any) bool {
+		entry := v.(*apiKeyCacheEntry)
+		entry.mu.Lock()
+		expired := entry.cacheExpired()
+		if entry.dirty {
+			batch = append(batch, pending{entry.keyID, entry.lastUsedAt})
+			entry.dirty = false
+		} else if expired {
+			// 已过期且无待写数据，可以淘汰
+			evictKeys = append(evictKeys, k)
+		}
+		entry.mu.Unlock()
+		return true
+	})
+
+	for _, k := range evictKeys {
+		s.cache.Delete(k)
+	}
+
+	ctx := context.Background()
+	for _, p := range batch {
+		t := p.lastUsedAt
+		_ = s.db.Client.APIKey.UpdateOneID(p.keyID).
+			SetNillableLastUsedAt(&t).
+			Exec(ctx)
+	}
+}
 
 // APIKeyInfo API Key 信息（不包含 key_hash）。
 type APIKeyInfo struct {
@@ -104,28 +181,47 @@ func (s *APIKeyService) ListAPIKeys(ctx context.Context, userID int64) ([]*APIKe
 	return result, nil
 }
 
-// DeleteAPIKey 删除指定用户的 API Key。
+// DeleteAPIKey 删除指定用户的 API Key，并清除对应缓存。
 func (s *APIKeyService) DeleteAPIKey(ctx context.Context, userID int64, keyID int64) error {
-	count, err := s.db.Client.APIKey.Query().
+	k, err := s.db.Client.APIKey.Query().
 		Where(
 			apikey.ID(keyID),
 			apikey.UserID(userID),
 		).
-		Count(ctx)
+		Only(ctx)
 	if err != nil {
+		if ent.IsNotFound(err) {
+			return fmt.Errorf("api key not found")
+		}
 		return fmt.Errorf("failed to query api key: %w", err)
 	}
-	if count == 0 {
-		return fmt.Errorf("api key not found")
+
+	if err := s.db.Client.APIKey.DeleteOneID(keyID).Exec(ctx); err != nil {
+		return err
 	}
 
-	return s.db.Client.APIKey.DeleteOneID(keyID).Exec(ctx)
+	s.cache.Delete(k.KeyHash)
+	return nil
 }
 
 // ValidateAPIKey 验证 API Key，返回关联的用户 ID。
-// 同时检查过期时间并更新最后使用时间。
+// 每次调用都记录真实的最后使用时间（内存），由后台 goroutine 定期批量写库。
 func (s *APIKeyService) ValidateAPIKey(ctx context.Context, rawKey string) (int64, error) {
 	keyHash := hashKey(rawKey)
+
+	// 缓存命中
+	if v, ok := s.cache.Load(keyHash); ok {
+		entry := v.(*apiKeyCacheEntry)
+		if !entry.cacheExpired() {
+			if !entry.expiresAt.IsZero() && time.Now().After(entry.expiresAt) {
+				s.cache.Delete(keyHash)
+				return 0, fmt.Errorf("api key has expired")
+			}
+			entry.touch()
+			return entry.userID, nil
+		}
+		s.cache.Delete(keyHash)
+	}
 
 	apiKeyEntity, err := s.db.Client.APIKey.Query().
 		Where(apikey.KeyHash(keyHash)).
@@ -138,16 +234,20 @@ func (s *APIKeyService) ValidateAPIKey(ctx context.Context, rawKey string) (int6
 		return 0, fmt.Errorf("failed to validate api key: %w", err)
 	}
 
-	// 检查是否过期
 	if apiKeyEntity.ExpiresAt != nil && time.Now().After(*apiKeyEntity.ExpiresAt) {
 		return 0, fmt.Errorf("api key has expired")
 	}
 
-	// 更新最后使用时间
-	now := time.Now()
-	_ = s.db.Client.APIKey.UpdateOne(apiKeyEntity).
-		SetNillableLastUsedAt(&now).
-		Exec(ctx)
+	entry := &apiKeyCacheEntry{
+		keyID:    apiKeyEntity.ID,
+		userID:   apiKeyEntity.UserID,
+		cachedAt: time.Now(),
+	}
+	if apiKeyEntity.ExpiresAt != nil {
+		entry.expiresAt = *apiKeyEntity.ExpiresAt
+	}
+	entry.touch()
+	s.cache.Store(keyHash, entry)
 
 	return apiKeyEntity.UserID, nil
 }

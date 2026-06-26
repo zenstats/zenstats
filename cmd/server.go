@@ -80,11 +80,12 @@ the address is defined in config file`,
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 		<-quit
 		slog.Info("Shutdown server...")
-		Release()
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		var wg sync.WaitGroup
-		// Shutdown Http Server
+
+		// Shutdown Http Server first — stop accepting new requests
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -93,7 +94,7 @@ the address is defined in config file`,
 			}
 		}()
 
-		// Shutdown work
+		// Drain event buffer — must complete before closing DB connections
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -101,6 +102,9 @@ the address is defined in config file`,
 		}()
 
 		wg.Wait()
+
+		// Release DB connections only after all writes are done
+		Release()
 		slog.Info("Server exit")
 	},
 }

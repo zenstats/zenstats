@@ -208,6 +208,32 @@ CREATE UNIQUE INDEX idx_password_reset_tokens_token ON public.password_reset_tok
 CREATE INDEX idx_password_reset_tokens_user_id ON public.password_reset_tokens(user_id);
 CREATE INDEX idx_password_reset_tokens_expires_at ON public.password_reset_tokens(expires_at);
 
+-- Shared links (embeddable public dashboard links)
+CREATE TABLE public.shared_links (
+    id BIGSERIAL PRIMARY KEY,
+    site_id bigint NOT NULL REFERENCES public.sites(id) ON DELETE CASCADE,
+    name character varying(255) NOT NULL,
+    slug character varying(64) NOT NULL UNIQUE,
+    password_hash character varying(255),
+    created_at timestamp(0) without time zone NOT NULL DEFAULT now(),
+    updated_at timestamp(0) without time zone NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_shared_links_site_name ON public.shared_links(site_id, name);
+CREATE INDEX idx_shared_links_slug ON public.shared_links(slug);
+
+-- Segments (saved filter sets)
+CREATE TABLE public.segments (
+    id BIGSERIAL PRIMARY KEY,
+    site_id bigint NOT NULL REFERENCES public.sites(id) ON DELETE CASCADE,
+    name character varying(255) NOT NULL,
+    filters text NOT NULL DEFAULT '[]',
+    created_by bigint REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at timestamp(0) without time zone NOT NULL DEFAULT now(),
+    updated_at timestamp(0) without time zone NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX idx_segments_site_name ON public.segments(site_id, name);
+CREATE INDEX idx_segments_site_id ON public.segments(site_id);
+
 -- Monthly event counts (quota tracking)
 CREATE TABLE public.monthly_event_counts (
     id BIGSERIAL PRIMARY KEY,

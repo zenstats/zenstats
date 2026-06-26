@@ -30,6 +30,10 @@ type Tx struct {
 	PasswordResetToken *PasswordResetTokenClient
 	// SearchEngines is the client for interacting with the SearchEngines builders.
 	SearchEngines *SearchEnginesClient
+	// Segment is the client for interacting with the Segment builders.
+	Segment *SegmentClient
+	// SharedLink is the client for interacting with the SharedLink builders.
+	SharedLink *SharedLinkClient
 	// ShieldRulesCountry is the client for interacting with the ShieldRulesCountry builders.
 	ShieldRulesCountry *ShieldRulesCountryClient
 	// ShieldRulesHostname is the client for interacting with the ShieldRulesHostname builders.
@@ -194,6 +198,8 @@ func (tx *Tx) init() {
 	tx.MonthlyEventCount = NewMonthlyEventCountClient(tx.config)
 	tx.PasswordResetToken = NewPasswordResetTokenClient(tx.config)
 	tx.SearchEngines = NewSearchEnginesClient(tx.config)
+	tx.Segment = NewSegmentClient(tx.config)
+	tx.SharedLink = NewSharedLinkClient(tx.config)
 	tx.ShieldRulesCountry = NewShieldRulesCountryClient(tx.config)
 	tx.ShieldRulesHostname = NewShieldRulesHostnameClient(tx.config)
 	tx.ShieldRulesIp = NewShieldRulesIpClient(tx.config)

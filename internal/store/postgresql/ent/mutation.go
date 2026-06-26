@@ -22,6 +22,8 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/schema"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
@@ -54,6 +56,8 @@ const (
 	TypeMonthlyEventCount      = "MonthlyEventCount"
 	TypePasswordResetToken     = "PasswordResetToken"
 	TypeSearchEngines          = "SearchEngines"
+	TypeSegment                = "Segment"
+	TypeSharedLink             = "SharedLink"
 	TypeShieldRulesCountry     = "ShieldRulesCountry"
 	TypeShieldRulesHostname    = "ShieldRulesHostname"
 	TypeShieldRulesIp          = "ShieldRulesIp"
@@ -5737,6 +5741,1475 @@ func (m *SearchEnginesMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown SearchEngines edge %s", name)
 }
 
+// SegmentMutation represents an operation that mutates the Segment nodes in the graph.
+type SegmentMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	name          *string
+	filters       *string
+	description   *string
+	created_by    *int64
+	addcreated_by *int64
+	created_at    *time.Time
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	site          *int64
+	clearedsite   bool
+	done          bool
+	oldValue      func(context.Context) (*Segment, error)
+	predicates    []predicate.Segment
+}
+
+var _ ent.Mutation = (*SegmentMutation)(nil)
+
+// segmentOption allows management of the mutation configuration using functional options.
+type segmentOption func(*SegmentMutation)
+
+// newSegmentMutation creates new mutation for the Segment entity.
+func newSegmentMutation(c config, op Op, opts ...segmentOption) *SegmentMutation {
+	m := &SegmentMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSegment,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSegmentID sets the ID field of the mutation.
+func withSegmentID(id int64) segmentOption {
+	return func(m *SegmentMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Segment
+		)
+		m.oldValue = func(ctx context.Context) (*Segment, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Segment.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSegment sets the old Segment of the mutation.
+func withSegment(node *Segment) segmentOption {
+	return func(m *SegmentMutation) {
+		m.oldValue = func(context.Context) (*Segment, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SegmentMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SegmentMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Segment entities.
+func (m *SegmentMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SegmentMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SegmentMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Segment.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *SegmentMutation) SetSiteID(i int64) {
+	m.site = &i
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *SegmentMutation) SiteID() (r int64, exists bool) {
+	v := m.site
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the Segment entity.
+// If the Segment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SegmentMutation) OldSiteID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *SegmentMutation) ResetSiteID() {
+	m.site = nil
+}
+
+// SetName sets the "name" field.
+func (m *SegmentMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *SegmentMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Segment entity.
+// If the Segment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SegmentMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *SegmentMutation) ResetName() {
+	m.name = nil
+}
+
+// SetFilters sets the "filters" field.
+func (m *SegmentMutation) SetFilters(s string) {
+	m.filters = &s
+}
+
+// Filters returns the value of the "filters" field in the mutation.
+func (m *SegmentMutation) Filters() (r string, exists bool) {
+	v := m.filters
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFilters returns the old "filters" field's value of the Segment entity.
+// If the Segment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SegmentMutation) OldFilters(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFilters is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFilters requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFilters: %w", err)
+	}
+	return oldValue.Filters, nil
+}
+
+// ResetFilters resets all changes to the "filters" field.
+func (m *SegmentMutation) ResetFilters() {
+	m.filters = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *SegmentMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *SegmentMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the Segment entity.
+// If the Segment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SegmentMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *SegmentMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[segment.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *SegmentMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[segment.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *SegmentMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, segment.FieldDescription)
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (m *SegmentMutation) SetCreatedBy(i int64) {
+	m.created_by = &i
+	m.addcreated_by = nil
+}
+
+// CreatedBy returns the value of the "created_by" field in the mutation.
+func (m *SegmentMutation) CreatedBy() (r int64, exists bool) {
+	v := m.created_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "created_by" field's value of the Segment entity.
+// If the Segment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SegmentMutation) OldCreatedBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// AddCreatedBy adds i to the "created_by" field.
+func (m *SegmentMutation) AddCreatedBy(i int64) {
+	if m.addcreated_by != nil {
+		*m.addcreated_by += i
+	} else {
+		m.addcreated_by = &i
+	}
+}
+
+// AddedCreatedBy returns the value that was added to the "created_by" field in this mutation.
+func (m *SegmentMutation) AddedCreatedBy() (r int64, exists bool) {
+	v := m.addcreated_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearCreatedBy clears the value of the "created_by" field.
+func (m *SegmentMutation) ClearCreatedBy() {
+	m.created_by = nil
+	m.addcreated_by = nil
+	m.clearedFields[segment.FieldCreatedBy] = struct{}{}
+}
+
+// CreatedByCleared returns if the "created_by" field was cleared in this mutation.
+func (m *SegmentMutation) CreatedByCleared() bool {
+	_, ok := m.clearedFields[segment.FieldCreatedBy]
+	return ok
+}
+
+// ResetCreatedBy resets all changes to the "created_by" field.
+func (m *SegmentMutation) ResetCreatedBy() {
+	m.created_by = nil
+	m.addcreated_by = nil
+	delete(m.clearedFields, segment.FieldCreatedBy)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SegmentMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SegmentMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Segment entity.
+// If the Segment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SegmentMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SegmentMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *SegmentMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *SegmentMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the Segment entity.
+// If the Segment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SegmentMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *SegmentMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearSite clears the "site" edge to the Site entity.
+func (m *SegmentMutation) ClearSite() {
+	m.clearedsite = true
+	m.clearedFields[segment.FieldSiteID] = struct{}{}
+}
+
+// SiteCleared reports if the "site" edge to the Site entity was cleared.
+func (m *SegmentMutation) SiteCleared() bool {
+	return m.clearedsite
+}
+
+// SiteIDs returns the "site" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SiteID instead. It exists only for internal usage by the builders.
+func (m *SegmentMutation) SiteIDs() (ids []int64) {
+	if id := m.site; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSite resets all changes to the "site" edge.
+func (m *SegmentMutation) ResetSite() {
+	m.site = nil
+	m.clearedsite = false
+}
+
+// Where appends a list predicates to the SegmentMutation builder.
+func (m *SegmentMutation) Where(ps ...predicate.Segment) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SegmentMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SegmentMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Segment, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SegmentMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SegmentMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Segment).
+func (m *SegmentMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SegmentMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.site != nil {
+		fields = append(fields, segment.FieldSiteID)
+	}
+	if m.name != nil {
+		fields = append(fields, segment.FieldName)
+	}
+	if m.filters != nil {
+		fields = append(fields, segment.FieldFilters)
+	}
+	if m.description != nil {
+		fields = append(fields, segment.FieldDescription)
+	}
+	if m.created_by != nil {
+		fields = append(fields, segment.FieldCreatedBy)
+	}
+	if m.created_at != nil {
+		fields = append(fields, segment.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, segment.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SegmentMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case segment.FieldSiteID:
+		return m.SiteID()
+	case segment.FieldName:
+		return m.Name()
+	case segment.FieldFilters:
+		return m.Filters()
+	case segment.FieldDescription:
+		return m.Description()
+	case segment.FieldCreatedBy:
+		return m.CreatedBy()
+	case segment.FieldCreatedAt:
+		return m.CreatedAt()
+	case segment.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SegmentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case segment.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case segment.FieldName:
+		return m.OldName(ctx)
+	case segment.FieldFilters:
+		return m.OldFilters(ctx)
+	case segment.FieldDescription:
+		return m.OldDescription(ctx)
+	case segment.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case segment.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case segment.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Segment field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SegmentMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case segment.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case segment.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case segment.FieldFilters:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFilters(v)
+		return nil
+	case segment.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case segment.FieldCreatedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case segment.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case segment.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Segment field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SegmentMutation) AddedFields() []string {
+	var fields []string
+	if m.addcreated_by != nil {
+		fields = append(fields, segment.FieldCreatedBy)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SegmentMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case segment.FieldCreatedBy:
+		return m.AddedCreatedBy()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SegmentMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case segment.FieldCreatedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreatedBy(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Segment numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SegmentMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(segment.FieldDescription) {
+		fields = append(fields, segment.FieldDescription)
+	}
+	if m.FieldCleared(segment.FieldCreatedBy) {
+		fields = append(fields, segment.FieldCreatedBy)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SegmentMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SegmentMutation) ClearField(name string) error {
+	switch name {
+	case segment.FieldDescription:
+		m.ClearDescription()
+		return nil
+	case segment.FieldCreatedBy:
+		m.ClearCreatedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown Segment nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SegmentMutation) ResetField(name string) error {
+	switch name {
+	case segment.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case segment.FieldName:
+		m.ResetName()
+		return nil
+	case segment.FieldFilters:
+		m.ResetFilters()
+		return nil
+	case segment.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case segment.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case segment.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case segment.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Segment field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SegmentMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.site != nil {
+		edges = append(edges, segment.EdgeSite)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SegmentMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case segment.EdgeSite:
+		if id := m.site; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SegmentMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SegmentMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SegmentMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsite {
+		edges = append(edges, segment.EdgeSite)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SegmentMutation) EdgeCleared(name string) bool {
+	switch name {
+	case segment.EdgeSite:
+		return m.clearedsite
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SegmentMutation) ClearEdge(name string) error {
+	switch name {
+	case segment.EdgeSite:
+		m.ClearSite()
+		return nil
+	}
+	return fmt.Errorf("unknown Segment unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SegmentMutation) ResetEdge(name string) error {
+	switch name {
+	case segment.EdgeSite:
+		m.ResetSite()
+		return nil
+	}
+	return fmt.Errorf("unknown Segment edge %s", name)
+}
+
+// SharedLinkMutation represents an operation that mutates the SharedLink nodes in the graph.
+type SharedLinkMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	name          *string
+	slug          *string
+	password_hash *string
+	created_at    *time.Time
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	site          *int64
+	clearedsite   bool
+	done          bool
+	oldValue      func(context.Context) (*SharedLink, error)
+	predicates    []predicate.SharedLink
+}
+
+var _ ent.Mutation = (*SharedLinkMutation)(nil)
+
+// sharedlinkOption allows management of the mutation configuration using functional options.
+type sharedlinkOption func(*SharedLinkMutation)
+
+// newSharedLinkMutation creates new mutation for the SharedLink entity.
+func newSharedLinkMutation(c config, op Op, opts ...sharedlinkOption) *SharedLinkMutation {
+	m := &SharedLinkMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSharedLink,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSharedLinkID sets the ID field of the mutation.
+func withSharedLinkID(id int64) sharedlinkOption {
+	return func(m *SharedLinkMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SharedLink
+		)
+		m.oldValue = func(ctx context.Context) (*SharedLink, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SharedLink.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSharedLink sets the old SharedLink of the mutation.
+func withSharedLink(node *SharedLink) sharedlinkOption {
+	return func(m *SharedLinkMutation) {
+		m.oldValue = func(context.Context) (*SharedLink, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SharedLinkMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SharedLinkMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of SharedLink entities.
+func (m *SharedLinkMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SharedLinkMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SharedLinkMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SharedLink.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *SharedLinkMutation) SetSiteID(i int64) {
+	m.site = &i
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *SharedLinkMutation) SiteID() (r int64, exists bool) {
+	v := m.site
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the SharedLink entity.
+// If the SharedLink object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SharedLinkMutation) OldSiteID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *SharedLinkMutation) ResetSiteID() {
+	m.site = nil
+}
+
+// SetName sets the "name" field.
+func (m *SharedLinkMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *SharedLinkMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the SharedLink entity.
+// If the SharedLink object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SharedLinkMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *SharedLinkMutation) ResetName() {
+	m.name = nil
+}
+
+// SetSlug sets the "slug" field.
+func (m *SharedLinkMutation) SetSlug(s string) {
+	m.slug = &s
+}
+
+// Slug returns the value of the "slug" field in the mutation.
+func (m *SharedLinkMutation) Slug() (r string, exists bool) {
+	v := m.slug
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSlug returns the old "slug" field's value of the SharedLink entity.
+// If the SharedLink object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SharedLinkMutation) OldSlug(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSlug is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSlug requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSlug: %w", err)
+	}
+	return oldValue.Slug, nil
+}
+
+// ResetSlug resets all changes to the "slug" field.
+func (m *SharedLinkMutation) ResetSlug() {
+	m.slug = nil
+}
+
+// SetPasswordHash sets the "password_hash" field.
+func (m *SharedLinkMutation) SetPasswordHash(s string) {
+	m.password_hash = &s
+}
+
+// PasswordHash returns the value of the "password_hash" field in the mutation.
+func (m *SharedLinkMutation) PasswordHash() (r string, exists bool) {
+	v := m.password_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPasswordHash returns the old "password_hash" field's value of the SharedLink entity.
+// If the SharedLink object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SharedLinkMutation) OldPasswordHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPasswordHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPasswordHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPasswordHash: %w", err)
+	}
+	return oldValue.PasswordHash, nil
+}
+
+// ClearPasswordHash clears the value of the "password_hash" field.
+func (m *SharedLinkMutation) ClearPasswordHash() {
+	m.password_hash = nil
+	m.clearedFields[sharedlink.FieldPasswordHash] = struct{}{}
+}
+
+// PasswordHashCleared returns if the "password_hash" field was cleared in this mutation.
+func (m *SharedLinkMutation) PasswordHashCleared() bool {
+	_, ok := m.clearedFields[sharedlink.FieldPasswordHash]
+	return ok
+}
+
+// ResetPasswordHash resets all changes to the "password_hash" field.
+func (m *SharedLinkMutation) ResetPasswordHash() {
+	m.password_hash = nil
+	delete(m.clearedFields, sharedlink.FieldPasswordHash)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SharedLinkMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SharedLinkMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SharedLink entity.
+// If the SharedLink object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SharedLinkMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SharedLinkMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *SharedLinkMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *SharedLinkMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the SharedLink entity.
+// If the SharedLink object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SharedLinkMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *SharedLinkMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearSite clears the "site" edge to the Site entity.
+func (m *SharedLinkMutation) ClearSite() {
+	m.clearedsite = true
+	m.clearedFields[sharedlink.FieldSiteID] = struct{}{}
+}
+
+// SiteCleared reports if the "site" edge to the Site entity was cleared.
+func (m *SharedLinkMutation) SiteCleared() bool {
+	return m.clearedsite
+}
+
+// SiteIDs returns the "site" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SiteID instead. It exists only for internal usage by the builders.
+func (m *SharedLinkMutation) SiteIDs() (ids []int64) {
+	if id := m.site; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSite resets all changes to the "site" edge.
+func (m *SharedLinkMutation) ResetSite() {
+	m.site = nil
+	m.clearedsite = false
+}
+
+// Where appends a list predicates to the SharedLinkMutation builder.
+func (m *SharedLinkMutation) Where(ps ...predicate.SharedLink) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SharedLinkMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SharedLinkMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SharedLink, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SharedLinkMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SharedLinkMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SharedLink).
+func (m *SharedLinkMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SharedLinkMutation) Fields() []string {
+	fields := make([]string, 0, 6)
+	if m.site != nil {
+		fields = append(fields, sharedlink.FieldSiteID)
+	}
+	if m.name != nil {
+		fields = append(fields, sharedlink.FieldName)
+	}
+	if m.slug != nil {
+		fields = append(fields, sharedlink.FieldSlug)
+	}
+	if m.password_hash != nil {
+		fields = append(fields, sharedlink.FieldPasswordHash)
+	}
+	if m.created_at != nil {
+		fields = append(fields, sharedlink.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, sharedlink.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SharedLinkMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case sharedlink.FieldSiteID:
+		return m.SiteID()
+	case sharedlink.FieldName:
+		return m.Name()
+	case sharedlink.FieldSlug:
+		return m.Slug()
+	case sharedlink.FieldPasswordHash:
+		return m.PasswordHash()
+	case sharedlink.FieldCreatedAt:
+		return m.CreatedAt()
+	case sharedlink.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SharedLinkMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case sharedlink.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case sharedlink.FieldName:
+		return m.OldName(ctx)
+	case sharedlink.FieldSlug:
+		return m.OldSlug(ctx)
+	case sharedlink.FieldPasswordHash:
+		return m.OldPasswordHash(ctx)
+	case sharedlink.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case sharedlink.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SharedLink field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SharedLinkMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case sharedlink.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case sharedlink.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case sharedlink.FieldSlug:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSlug(v)
+		return nil
+	case sharedlink.FieldPasswordHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPasswordHash(v)
+		return nil
+	case sharedlink.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case sharedlink.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SharedLink field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SharedLinkMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SharedLinkMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SharedLinkMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown SharedLink numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SharedLinkMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(sharedlink.FieldPasswordHash) {
+		fields = append(fields, sharedlink.FieldPasswordHash)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SharedLinkMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SharedLinkMutation) ClearField(name string) error {
+	switch name {
+	case sharedlink.FieldPasswordHash:
+		m.ClearPasswordHash()
+		return nil
+	}
+	return fmt.Errorf("unknown SharedLink nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SharedLinkMutation) ResetField(name string) error {
+	switch name {
+	case sharedlink.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case sharedlink.FieldName:
+		m.ResetName()
+		return nil
+	case sharedlink.FieldSlug:
+		m.ResetSlug()
+		return nil
+	case sharedlink.FieldPasswordHash:
+		m.ResetPasswordHash()
+		return nil
+	case sharedlink.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case sharedlink.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SharedLink field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SharedLinkMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.site != nil {
+		edges = append(edges, sharedlink.EdgeSite)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SharedLinkMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case sharedlink.EdgeSite:
+		if id := m.site; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SharedLinkMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SharedLinkMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SharedLinkMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsite {
+		edges = append(edges, sharedlink.EdgeSite)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SharedLinkMutation) EdgeCleared(name string) bool {
+	switch name {
+	case sharedlink.EdgeSite:
+		return m.clearedsite
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SharedLinkMutation) ClearEdge(name string) error {
+	switch name {
+	case sharedlink.EdgeSite:
+		m.ClearSite()
+		return nil
+	}
+	return fmt.Errorf("unknown SharedLink unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SharedLinkMutation) ResetEdge(name string) error {
+	switch name {
+	case sharedlink.EdgeSite:
+		m.ResetSite()
+		return nil
+	}
+	return fmt.Errorf("unknown SharedLink edge %s", name)
+}
+
 // ShieldRulesCountryMutation represents an operation that mutates the ShieldRulesCountry nodes in the graph.
 type ShieldRulesCountryMutation struct {
 	config
@@ -8606,6 +10079,12 @@ type SiteMutation struct {
 	shield_rules_referrer              map[int64]struct{}
 	removedshield_rules_referrer       map[int64]struct{}
 	clearedshield_rules_referrer       bool
+	shared_links                       map[int64]struct{}
+	removedshared_links                map[int64]struct{}
+	clearedshared_links                bool
+	segments                           map[int64]struct{}
+	removedsegments                    map[int64]struct{}
+	clearedsegments                    bool
 	done                               bool
 	oldValue                           func(context.Context) (*Site, error)
 	predicates                         []predicate.Site
@@ -9969,6 +11448,114 @@ func (m *SiteMutation) ResetShieldRulesReferrer() {
 	m.removedshield_rules_referrer = nil
 }
 
+// AddSharedLinkIDs adds the "shared_links" edge to the SharedLink entity by ids.
+func (m *SiteMutation) AddSharedLinkIDs(ids ...int64) {
+	if m.shared_links == nil {
+		m.shared_links = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.shared_links[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSharedLinks clears the "shared_links" edge to the SharedLink entity.
+func (m *SiteMutation) ClearSharedLinks() {
+	m.clearedshared_links = true
+}
+
+// SharedLinksCleared reports if the "shared_links" edge to the SharedLink entity was cleared.
+func (m *SiteMutation) SharedLinksCleared() bool {
+	return m.clearedshared_links
+}
+
+// RemoveSharedLinkIDs removes the "shared_links" edge to the SharedLink entity by IDs.
+func (m *SiteMutation) RemoveSharedLinkIDs(ids ...int64) {
+	if m.removedshared_links == nil {
+		m.removedshared_links = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.shared_links, ids[i])
+		m.removedshared_links[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSharedLinks returns the removed IDs of the "shared_links" edge to the SharedLink entity.
+func (m *SiteMutation) RemovedSharedLinksIDs() (ids []int64) {
+	for id := range m.removedshared_links {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SharedLinksIDs returns the "shared_links" edge IDs in the mutation.
+func (m *SiteMutation) SharedLinksIDs() (ids []int64) {
+	for id := range m.shared_links {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSharedLinks resets all changes to the "shared_links" edge.
+func (m *SiteMutation) ResetSharedLinks() {
+	m.shared_links = nil
+	m.clearedshared_links = false
+	m.removedshared_links = nil
+}
+
+// AddSegmentIDs adds the "segments" edge to the Segment entity by ids.
+func (m *SiteMutation) AddSegmentIDs(ids ...int64) {
+	if m.segments == nil {
+		m.segments = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.segments[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSegments clears the "segments" edge to the Segment entity.
+func (m *SiteMutation) ClearSegments() {
+	m.clearedsegments = true
+}
+
+// SegmentsCleared reports if the "segments" edge to the Segment entity was cleared.
+func (m *SiteMutation) SegmentsCleared() bool {
+	return m.clearedsegments
+}
+
+// RemoveSegmentIDs removes the "segments" edge to the Segment entity by IDs.
+func (m *SiteMutation) RemoveSegmentIDs(ids ...int64) {
+	if m.removedsegments == nil {
+		m.removedsegments = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.segments, ids[i])
+		m.removedsegments[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSegments returns the removed IDs of the "segments" edge to the Segment entity.
+func (m *SiteMutation) RemovedSegmentsIDs() (ids []int64) {
+	for id := range m.removedsegments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SegmentsIDs returns the "segments" edge IDs in the mutation.
+func (m *SiteMutation) SegmentsIDs() (ids []int64) {
+	for id := range m.segments {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSegments resets all changes to the "segments" edge.
+func (m *SiteMutation) ResetSegments() {
+	m.segments = nil
+	m.clearedsegments = false
+	m.removedsegments = nil
+}
+
 // Where appends a list predicates to the SiteMutation builder.
 func (m *SiteMutation) Where(ps ...predicate.Site) {
 	m.predicates = append(m.predicates, ps...)
@@ -10486,7 +12073,7 @@ func (m *SiteMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SiteMutation) AddedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 10)
 	if m.funnels != nil {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -10510,6 +12097,12 @@ func (m *SiteMutation) AddedEdges() []string {
 	}
 	if m.shield_rules_referrer != nil {
 		edges = append(edges, site.EdgeShieldRulesReferrer)
+	}
+	if m.shared_links != nil {
+		edges = append(edges, site.EdgeSharedLinks)
+	}
+	if m.segments != nil {
+		edges = append(edges, site.EdgeSegments)
 	}
 	return edges
 }
@@ -10566,13 +12159,25 @@ func (m *SiteMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case site.EdgeSharedLinks:
+		ids := make([]ent.Value, 0, len(m.shared_links))
+		for id := range m.shared_links {
+			ids = append(ids, id)
+		}
+		return ids
+	case site.EdgeSegments:
+		ids := make([]ent.Value, 0, len(m.segments))
+		for id := range m.segments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SiteMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 10)
 	if m.removedfunnels != nil {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -10596,6 +12201,12 @@ func (m *SiteMutation) RemovedEdges() []string {
 	}
 	if m.removedshield_rules_referrer != nil {
 		edges = append(edges, site.EdgeShieldRulesReferrer)
+	}
+	if m.removedshared_links != nil {
+		edges = append(edges, site.EdgeSharedLinks)
+	}
+	if m.removedsegments != nil {
+		edges = append(edges, site.EdgeSegments)
 	}
 	return edges
 }
@@ -10652,13 +12263,25 @@ func (m *SiteMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case site.EdgeSharedLinks:
+		ids := make([]ent.Value, 0, len(m.removedshared_links))
+		for id := range m.removedshared_links {
+			ids = append(ids, id)
+		}
+		return ids
+	case site.EdgeSegments:
+		ids := make([]ent.Value, 0, len(m.removedsegments))
+		for id := range m.removedsegments {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SiteMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 10)
 	if m.clearedfunnels {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -10683,6 +12306,12 @@ func (m *SiteMutation) ClearedEdges() []string {
 	if m.clearedshield_rules_referrer {
 		edges = append(edges, site.EdgeShieldRulesReferrer)
 	}
+	if m.clearedshared_links {
+		edges = append(edges, site.EdgeSharedLinks)
+	}
+	if m.clearedsegments {
+		edges = append(edges, site.EdgeSegments)
+	}
 	return edges
 }
 
@@ -10706,6 +12335,10 @@ func (m *SiteMutation) EdgeCleared(name string) bool {
 		return m.clearedshield_rules_country
 	case site.EdgeShieldRulesReferrer:
 		return m.clearedshield_rules_referrer
+	case site.EdgeSharedLinks:
+		return m.clearedshared_links
+	case site.EdgeSegments:
+		return m.clearedsegments
 	}
 	return false
 }
@@ -10745,6 +12378,12 @@ func (m *SiteMutation) ResetEdge(name string) error {
 		return nil
 	case site.EdgeShieldRulesReferrer:
 		m.ResetShieldRulesReferrer()
+		return nil
+	case site.EdgeSharedLinks:
+		m.ResetSharedLinks()
+		return nil
+	case site.EdgeSegments:
+		m.ResetSegments()
 		return nil
 	}
 	return fmt.Errorf("unknown Site edge %s", name)

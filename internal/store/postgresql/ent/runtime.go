@@ -13,6 +13,8 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/schema"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
@@ -172,6 +174,96 @@ func init() {
 	searchengines.DefaultUpdatedAt = searchenginesDescUpdatedAt.Default.(func() time.Time)
 	// searchengines.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	searchengines.UpdateDefaultUpdatedAt = searchenginesDescUpdatedAt.UpdateDefault.(func() time.Time)
+	segmentFields := schema.Segment{}.Fields()
+	_ = segmentFields
+	// segmentDescName is the schema descriptor for name field.
+	segmentDescName := segmentFields[2].Descriptor()
+	// segment.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	segment.NameValidator = func() func(string) error {
+		validators := segmentDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// segmentDescFilters is the schema descriptor for filters field.
+	segmentDescFilters := segmentFields[3].Descriptor()
+	// segment.DefaultFilters holds the default value on creation for the filters field.
+	segment.DefaultFilters = segmentDescFilters.Default.(string)
+	// segmentDescDescription is the schema descriptor for description field.
+	segmentDescDescription := segmentFields[4].Descriptor()
+	// segment.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
+	segment.DescriptionValidator = segmentDescDescription.Validators[0].(func(string) error)
+	// segmentDescCreatedAt is the schema descriptor for created_at field.
+	segmentDescCreatedAt := segmentFields[6].Descriptor()
+	// segment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	segment.DefaultCreatedAt = segmentDescCreatedAt.Default.(func() time.Time)
+	// segmentDescUpdatedAt is the schema descriptor for updated_at field.
+	segmentDescUpdatedAt := segmentFields[7].Descriptor()
+	// segment.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	segment.DefaultUpdatedAt = segmentDescUpdatedAt.Default.(func() time.Time)
+	// segment.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	segment.UpdateDefaultUpdatedAt = segmentDescUpdatedAt.UpdateDefault.(func() time.Time)
+	sharedlinkFields := schema.SharedLink{}.Fields()
+	_ = sharedlinkFields
+	// sharedlinkDescName is the schema descriptor for name field.
+	sharedlinkDescName := sharedlinkFields[2].Descriptor()
+	// sharedlink.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	sharedlink.NameValidator = func() func(string) error {
+		validators := sharedlinkDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// sharedlinkDescSlug is the schema descriptor for slug field.
+	sharedlinkDescSlug := sharedlinkFields[3].Descriptor()
+	// sharedlink.SlugValidator is a validator for the "slug" field. It is called by the builders before save.
+	sharedlink.SlugValidator = func() func(string) error {
+		validators := sharedlinkDescSlug.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(slug string) error {
+			for _, fn := range fns {
+				if err := fn(slug); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// sharedlinkDescPasswordHash is the schema descriptor for password_hash field.
+	sharedlinkDescPasswordHash := sharedlinkFields[4].Descriptor()
+	// sharedlink.PasswordHashValidator is a validator for the "password_hash" field. It is called by the builders before save.
+	sharedlink.PasswordHashValidator = sharedlinkDescPasswordHash.Validators[0].(func(string) error)
+	// sharedlinkDescCreatedAt is the schema descriptor for created_at field.
+	sharedlinkDescCreatedAt := sharedlinkFields[5].Descriptor()
+	// sharedlink.DefaultCreatedAt holds the default value on creation for the created_at field.
+	sharedlink.DefaultCreatedAt = sharedlinkDescCreatedAt.Default.(func() time.Time)
+	// sharedlinkDescUpdatedAt is the schema descriptor for updated_at field.
+	sharedlinkDescUpdatedAt := sharedlinkFields[6].Descriptor()
+	// sharedlink.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	sharedlink.DefaultUpdatedAt = sharedlinkDescUpdatedAt.Default.(func() time.Time)
+	// sharedlink.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	sharedlink.UpdateDefaultUpdatedAt = sharedlinkDescUpdatedAt.UpdateDefault.(func() time.Time)
 	shieldrulescountryFields := schema.ShieldRulesCountry{}.Fields()
 	_ = shieldrulescountryFields
 	// shieldrulescountryDescAction is the schema descriptor for action field.

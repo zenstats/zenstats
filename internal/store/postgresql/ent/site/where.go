@@ -1179,6 +1179,52 @@ func HasShieldRulesReferrerWith(preds ...predicate.ShieldRulesReferrer) predicat
 	})
 }
 
+// HasSharedLinks applies the HasEdge predicate on the "shared_links" edge.
+func HasSharedLinks() predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SharedLinksTable, SharedLinksColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSharedLinksWith applies the HasEdge predicate on the "shared_links" edge with a given conditions (other predicates).
+func HasSharedLinksWith(preds ...predicate.SharedLink) predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := newSharedLinksStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasSegments applies the HasEdge predicate on the "segments" edge.
+func HasSegments() predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SegmentsTable, SegmentsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSegmentsWith applies the HasEdge predicate on the "segments" edge with a given conditions (other predicates).
+func HasSegmentsWith(preds ...predicate.Segment) predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := newSegmentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Site) predicate.Site {
 	return predicate.Site(sql.AndPredicates(predicates...))

@@ -66,7 +66,7 @@ func (s *StatsHandle) validate(c *gin.Context) (*types.StatsRequest, error) {
 //	@Param			date		query		string	false	"统计日期，格式 YYYY-MM-DD；非 custom/realtime 周期未传时默认今天"
 //	@Param			from		query		string	false	"自定义开始日期，period=custom 时必填，格式 YYYY-MM-DD"
 //	@Param			to			query		string	false	"自定义结束日期，period=custom 时必填，格式 YYYY-MM-DD"
-//	@Param			metrics		query		string	false	"指标列表，逗号分隔；支持 visitors,pageviews,visits,bounce_rate,visit_duration,events" default(visitors,pageviews,visits,bounce_rate,visit_duration)
+//	@Param			metrics		query		string	false	"指标列表，逗号分隔；支持 visitors,pageviews,visits,bounce_rate,visit_duration,events,views_per_visit,scroll_depth,time_on_page,exit_rate,conversion_rate" default(visitors,pageviews,visits,bounce_rate,visit_duration)
 //	@Param			filters		query		string	false	"过滤条件 JSON 字符串，例如 [[\"is\",\"visit:country\",[\"CN\"]]]"
 //	@Success		200			{object}	response.SuccessResponse{data=any}	"成功响应，data 为聚合指标对象"
 //	@Failure		400			{object}	response.ErrorResponse	"请求参数错误"

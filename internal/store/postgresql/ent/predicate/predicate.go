@@ -33,6 +33,12 @@ type PasswordResetToken func(*sql.Selector)
 // SearchEngines is the predicate function for searchengines builders.
 type SearchEngines func(*sql.Selector)
 
+// Segment is the predicate function for segment builders.
+type Segment func(*sql.Selector)
+
+// SharedLink is the predicate function for sharedlink builders.
+type SharedLink func(*sql.Selector)
+
 // ShieldRulesCountry is the predicate function for shieldrulescountry builders.
 type ShieldRulesCountry func(*sql.Selector)
 

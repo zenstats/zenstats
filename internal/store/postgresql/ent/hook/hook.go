@@ -117,6 +117,30 @@ func (f SearchEnginesFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Valu
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SearchEnginesMutation", m)
 }
 
+// The SegmentFunc type is an adapter to allow the use of ordinary
+// function as Segment mutator.
+type SegmentFunc func(context.Context, *ent.SegmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SegmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SegmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SegmentMutation", m)
+}
+
+// The SharedLinkFunc type is an adapter to allow the use of ordinary
+// function as SharedLink mutator.
+type SharedLinkFunc func(context.Context, *ent.SharedLinkMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SharedLinkFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SharedLinkMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SharedLinkMutation", m)
+}
+
 // The ShieldRulesCountryFunc type is an adapter to allow the use of ordinary
 // function as ShieldRulesCountry mutator.
 type ShieldRulesCountryFunc func(context.Context, *ent.ShieldRulesCountryMutation) (ent.Value, error)

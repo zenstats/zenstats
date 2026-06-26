@@ -3,6 +3,8 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/api/emailreport"
+	"github.com/zenstats/zenstats/internal/api/segments"
+	"github.com/zenstats/zenstats/internal/api/sharedlinks"
 	"github.com/zenstats/zenstats/internal/api/sites"
 	"github.com/zenstats/zenstats/internal/api/trafficalert"
 	"github.com/zenstats/zenstats/internal/middleware"
@@ -59,4 +61,19 @@ func RegisterSitesRouter(router *gin.RouterGroup) {
 	alerts := router.Group("sites/:domain/traffic-alert", middleware.JWTAuth(), middleware.SiteMembershipAuth())
 	alerts.GET("", alertHandle.Get)
 	alerts.PUT("", middleware.SubAccountReadOnly(), alertHandle.Update)
+
+	// Shared Links
+	slHandle := sharedlinks.NewHandler()
+	sharedLinksGroup := router.Group("sites/:domain/shared-links", middleware.JWTAuth(), middleware.SiteMembershipAuth())
+	sharedLinksGroup.GET("", slHandle.List())
+	sharedLinksGroup.POST("", middleware.SubAccountReadOnly(), slHandle.Create())
+	sharedLinksGroup.DELETE("/:linkId", middleware.SubAccountReadOnly(), slHandle.Delete())
+
+	// Segments
+	segHandle := segments.NewHandler()
+	segGroup := router.Group("sites/:domain/segments", middleware.JWTAuth(), middleware.SiteMembershipAuth())
+	segGroup.GET("", segHandle.List())
+	segGroup.POST("", middleware.SubAccountReadOnly(), segHandle.Create())
+	segGroup.PATCH("/:segmentId", middleware.SubAccountReadOnly(), segHandle.Update())
+	segGroup.DELETE("/:segmentId", middleware.SubAccountReadOnly(), segHandle.Delete())
 }

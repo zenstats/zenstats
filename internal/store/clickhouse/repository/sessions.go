@@ -46,6 +46,7 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 		slog.Error("prepare batch", "error", err)
 		return fmt.Errorf("prepare batch: %w", err)
 	}
+	skipped := 0
 	for _, session := range sessions {
 		slog.Debug("insert session", "session", session)
 		coordinates := []float64{session.Coordinates.Latitude, session.Coordinates.Longitude}
@@ -95,10 +96,15 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 		)
 
 		if err != nil {
-			slog.Error("Failed to append", "session", session, "err", err)
+			slog.Error("skip malformed session on append", "err", err)
+			skipped++
+			continue
 		}
 	}
 
+	if skipped > 0 {
+		slog.Warn("sessions batch skipped malformed rows", "skipped", skipped, "total", len(sessions))
+	}
 	return batchInsert.Send()
 }
 

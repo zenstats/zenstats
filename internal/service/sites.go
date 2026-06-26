@@ -105,7 +105,7 @@ func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*en
 		return nil, fmt.Errorf("generating verification token: %w", err)
 	}
 
-	site, err := s.db.Client.Site.Create().
+	site, err := tx.Site.Create().
 		SetDomain(params.Domain).
 		SetTimezone(params.Timezone).
 		SetRemark(params.Remark).
@@ -121,7 +121,7 @@ func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*en
 	}
 
 	// 授权sites 给当前用户
-	_, err = s.db.Client.SiteMembership.Create().
+	_, err = tx.SiteMembership.Create().
 		SetSite(site).
 		SetUserID(ctx.GetInt64("user_id")).
 		SetRole(sitemembership.RoleOwner).

@@ -111,5 +111,7 @@ func (Site) Edges() []ent.Edge {
 		edge.To("shield_rules_country", ShieldRulesCountry.Type),
 
 		edge.To("shield_rules_referrer", ShieldRulesReferrer.Type),
+		edge.To("shared_links", SharedLink.Type),
+		edge.To("segments", Segment.Type),
 	}
 }

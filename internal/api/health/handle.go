@@ -20,9 +20,9 @@ func NewHandler() *Handler {
 	return &Handler{}
 }
 
-// Health 返回服务健康状态，检查 PostgreSQL 和 ClickHouse 连通性。
+// Health 返回服务健康状态，检查 PostgreSQL 和 ClickHouse 连通性（兼容旧接口，等同于 /health/ready）。
 //
-//	@Summary		健康检查
+//	@Summary		健康检查（兼容）
 //	@Description	检查服务及依赖（PostgreSQL、ClickHouse）的连通性
 //	@Tags			健康检查
 //	@Produce		json
@@ -30,6 +30,35 @@ func NewHandler() *Handler {
 //	@Failure		503	{object}	response.ErrorResponse
 //	@Router			/health [get]
 func (h *Handler) Health() gin.HandlerFunc {
+	return h.Ready()
+}
+
+// Live 存活探针：只要进程正在运行就返回 200，不检查依赖。
+// 适用于 Kubernetes liveness probe。
+//
+//	@Summary		存活探针
+//	@Description	进程存活检查，始终返回 200
+//	@Tags			健康检查
+//	@Produce		json
+//	@Success		200	{object}	map[string]bool
+//	@Router			/health/live [get]
+func (h *Handler) Live() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	}
+}
+
+// Ready 就绪探针：检查 PostgreSQL 和 ClickHouse 连通性。
+// 适用于 Kubernetes readiness probe。
+//
+//	@Summary		就绪探针
+//	@Description	检查服务及依赖（PostgreSQL、ClickHouse）的连通性
+//	@Tags			健康检查
+//	@Produce		json
+//	@Success		200	{object}	response.SuccessResponse{data=HealthResponse}
+//	@Failure		503	{object}	response.ErrorResponse
+//	@Router			/health/ready [get]
+func (h *Handler) Ready() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		defer cancel()
@@ -39,13 +68,11 @@ func (h *Handler) Health() gin.HandlerFunc {
 			Timestamp: time.Now().Unix(),
 		}
 
-		// 检查 PostgreSQL：ent ORM 通过 User 表做轻量探测
 		db := globals.GetDB()
 		if db == nil || db.Client == nil {
 			result.Status = "unhealthy"
 			result.Postgres = "disconnected"
 		} else {
-			// 使用轻量 Count 查询验证 DB 连通性，不依赖具体数据
 			if _, err := db.Client.User.Query().Limit(1).Count(ctx); err != nil {
 				result.Status = "unhealthy"
 				result.Postgres = "unreachable"
@@ -54,7 +81,6 @@ func (h *Handler) Health() gin.HandlerFunc {
 			}
 		}
 
-		// 检查 ClickHouse
 		chConn := cl.GetConnection()
 		if chConn == nil {
 			result.Status = "unhealthy"

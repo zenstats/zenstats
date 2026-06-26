@@ -45,6 +45,7 @@ func (e *Events) BatchInsert(ctx context.Context, events []*models.Events) error
 		slog.Error("prepare batch", "error", err)
 		return fmt.Errorf("prepare batch: %w", err)
 	}
+	skipped := 0
 	for _, event := range events {
 		slog.Debug("insert event", "event", event)
 		coords := []any{event.Coordinates.Latitude, event.Coordinates.Longitude}
@@ -85,9 +86,14 @@ func (e *Events) BatchInsert(ctx context.Context, events []*models.Events) error
 		)
 
 		if err != nil {
-			slog.Error("Failed to append", "event", event, "err", err)
+			slog.Error("skip malformed event on append", "err", err)
+			skipped++
+			continue
 		}
 	}
 
+	if skipped > 0 {
+		slog.Warn("events batch skipped malformed rows", "skipped", skipped, "total", len(events))
+	}
 	return batchInsert.Send()
 }

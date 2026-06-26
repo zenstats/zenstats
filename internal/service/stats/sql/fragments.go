@@ -88,6 +88,23 @@ func (g *SQLFragmentGenerator) ScrollDepthForEvent(samplingEnabled bool) SQLFrag
 	}, samplingEnabled)
 }
 
+// TimeOnPageForEvent events 表的页面停留时长，取 engagement 事件的平均 engagement_time（毫秒→秒）。
+func (g *SQLFragmentGenerator) TimeOnPageForEvent(samplingEnabled bool) SQLFragment {
+	return SQLFragment{
+		SQL:  "toInt32(ifNotFinite(avgIf(engagement_time / 1000, name = 'engagement' AND engagement_time > 0), 0))",
+		Args: nil,
+	}
+}
+
+// ExitRateForSession sessions 表的退出率：当前分组的访问数 / 全部访问数 × 100。
+// 使用窗口函数计算总和，适合 GROUP BY exit_page 的场景。
+func (g *SQLFragmentGenerator) ExitRateForSession() SQLFragment {
+	return SQLFragment{
+		SQL:  "toFloat64(round(sum(sign) * 100.0 / nullIf(sum(sum(sign)) OVER (), 0), 2))",
+		Args: nil,
+	}
+}
+
 // EventsForSession events总数
 func (g *SQLFragmentGenerator) EventsForSession(samplingEnabled bool) SQLFragment {
 	return g.ScaleSample(SQLFragment{

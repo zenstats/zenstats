@@ -24,6 +24,8 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
@@ -61,6 +63,10 @@ type Client struct {
 	PasswordResetToken *PasswordResetTokenClient
 	// SearchEngines is the client for interacting with the SearchEngines builders.
 	SearchEngines *SearchEnginesClient
+	// Segment is the client for interacting with the Segment builders.
+	Segment *SegmentClient
+	// SharedLink is the client for interacting with the SharedLink builders.
+	SharedLink *SharedLinkClient
 	// ShieldRulesCountry is the client for interacting with the ShieldRulesCountry builders.
 	ShieldRulesCountry *ShieldRulesCountryClient
 	// ShieldRulesHostname is the client for interacting with the ShieldRulesHostname builders.
@@ -105,6 +111,8 @@ func (c *Client) init() {
 	c.MonthlyEventCount = NewMonthlyEventCountClient(c.config)
 	c.PasswordResetToken = NewPasswordResetTokenClient(c.config)
 	c.SearchEngines = NewSearchEnginesClient(c.config)
+	c.Segment = NewSegmentClient(c.config)
+	c.SharedLink = NewSharedLinkClient(c.config)
 	c.ShieldRulesCountry = NewShieldRulesCountryClient(c.config)
 	c.ShieldRulesHostname = NewShieldRulesHostnameClient(c.config)
 	c.ShieldRulesIp = NewShieldRulesIpClient(c.config)
@@ -218,6 +226,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		MonthlyEventCount:      NewMonthlyEventCountClient(cfg),
 		PasswordResetToken:     NewPasswordResetTokenClient(cfg),
 		SearchEngines:          NewSearchEnginesClient(cfg),
+		Segment:                NewSegmentClient(cfg),
+		SharedLink:             NewSharedLinkClient(cfg),
 		ShieldRulesCountry:     NewShieldRulesCountryClient(cfg),
 		ShieldRulesHostname:    NewShieldRulesHostnameClient(cfg),
 		ShieldRulesIp:          NewShieldRulesIpClient(cfg),
@@ -258,6 +268,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		MonthlyEventCount:      NewMonthlyEventCountClient(cfg),
 		PasswordResetToken:     NewPasswordResetTokenClient(cfg),
 		SearchEngines:          NewSearchEnginesClient(cfg),
+		Segment:                NewSegmentClient(cfg),
+		SharedLink:             NewSharedLinkClient(cfg),
 		ShieldRulesCountry:     NewShieldRulesCountryClient(cfg),
 		ShieldRulesHostname:    NewShieldRulesHostnameClient(cfg),
 		ShieldRulesIp:          NewShieldRulesIpClient(cfg),
@@ -301,9 +313,10 @@ func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.CustomSearchEngine, c.EmailVerificationToken, c.Funnel,
 		c.FunnelStep, c.Goal, c.MonthlyEventCount, c.PasswordResetToken,
-		c.SearchEngines, c.ShieldRulesCountry, c.ShieldRulesHostname, c.ShieldRulesIp,
-		c.ShieldRulesReferrer, c.Site, c.SiteMembership, c.SubAccount, c.SystemConfig,
-		c.User, c.UserConfig, c.UserGroup, c.UserSession,
+		c.SearchEngines, c.Segment, c.SharedLink, c.ShieldRulesCountry,
+		c.ShieldRulesHostname, c.ShieldRulesIp, c.ShieldRulesReferrer, c.Site,
+		c.SiteMembership, c.SubAccount, c.SystemConfig, c.User, c.UserConfig,
+		c.UserGroup, c.UserSession,
 	} {
 		n.Use(hooks...)
 	}
@@ -315,9 +328,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.CustomSearchEngine, c.EmailVerificationToken, c.Funnel,
 		c.FunnelStep, c.Goal, c.MonthlyEventCount, c.PasswordResetToken,
-		c.SearchEngines, c.ShieldRulesCountry, c.ShieldRulesHostname, c.ShieldRulesIp,
-		c.ShieldRulesReferrer, c.Site, c.SiteMembership, c.SubAccount, c.SystemConfig,
-		c.User, c.UserConfig, c.UserGroup, c.UserSession,
+		c.SearchEngines, c.Segment, c.SharedLink, c.ShieldRulesCountry,
+		c.ShieldRulesHostname, c.ShieldRulesIp, c.ShieldRulesReferrer, c.Site,
+		c.SiteMembership, c.SubAccount, c.SystemConfig, c.User, c.UserConfig,
+		c.UserGroup, c.UserSession,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -344,6 +358,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PasswordResetToken.mutate(ctx, m)
 	case *SearchEnginesMutation:
 		return c.SearchEngines.mutate(ctx, m)
+	case *SegmentMutation:
+		return c.Segment.mutate(ctx, m)
+	case *SharedLinkMutation:
+		return c.SharedLink.mutate(ctx, m)
 	case *ShieldRulesCountryMutation:
 		return c.ShieldRulesCountry.mutate(ctx, m)
 	case *ShieldRulesHostnameMutation:
@@ -1746,6 +1764,304 @@ func (c *SearchEnginesClient) mutate(ctx context.Context, m *SearchEnginesMutati
 	}
 }
 
+// SegmentClient is a client for the Segment schema.
+type SegmentClient struct {
+	config
+}
+
+// NewSegmentClient returns a client for the Segment from the given config.
+func NewSegmentClient(c config) *SegmentClient {
+	return &SegmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `segment.Hooks(f(g(h())))`.
+func (c *SegmentClient) Use(hooks ...Hook) {
+	c.hooks.Segment = append(c.hooks.Segment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `segment.Intercept(f(g(h())))`.
+func (c *SegmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Segment = append(c.inters.Segment, interceptors...)
+}
+
+// Create returns a builder for creating a Segment entity.
+func (c *SegmentClient) Create() *SegmentCreate {
+	mutation := newSegmentMutation(c.config, OpCreate)
+	return &SegmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Segment entities.
+func (c *SegmentClient) CreateBulk(builders ...*SegmentCreate) *SegmentCreateBulk {
+	return &SegmentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SegmentClient) MapCreateBulk(slice any, setFunc func(*SegmentCreate, int)) *SegmentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SegmentCreateBulk{err: fmt.Errorf("calling to SegmentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SegmentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SegmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Segment.
+func (c *SegmentClient) Update() *SegmentUpdate {
+	mutation := newSegmentMutation(c.config, OpUpdate)
+	return &SegmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SegmentClient) UpdateOne(s *Segment) *SegmentUpdateOne {
+	mutation := newSegmentMutation(c.config, OpUpdateOne, withSegment(s))
+	return &SegmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SegmentClient) UpdateOneID(id int64) *SegmentUpdateOne {
+	mutation := newSegmentMutation(c.config, OpUpdateOne, withSegmentID(id))
+	return &SegmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Segment.
+func (c *SegmentClient) Delete() *SegmentDelete {
+	mutation := newSegmentMutation(c.config, OpDelete)
+	return &SegmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SegmentClient) DeleteOne(s *Segment) *SegmentDeleteOne {
+	return c.DeleteOneID(s.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SegmentClient) DeleteOneID(id int64) *SegmentDeleteOne {
+	builder := c.Delete().Where(segment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SegmentDeleteOne{builder}
+}
+
+// Query returns a query builder for Segment.
+func (c *SegmentClient) Query() *SegmentQuery {
+	return &SegmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSegment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Segment entity by its id.
+func (c *SegmentClient) Get(ctx context.Context, id int64) (*Segment, error) {
+	return c.Query().Where(segment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SegmentClient) GetX(ctx context.Context, id int64) *Segment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySite queries the site edge of a Segment.
+func (c *SegmentClient) QuerySite(s *Segment) *SiteQuery {
+	query := (&SiteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(segment.Table, segment.FieldID, id),
+			sqlgraph.To(site.Table, site.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, segment.SiteTable, segment.SiteColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SegmentClient) Hooks() []Hook {
+	return c.hooks.Segment
+}
+
+// Interceptors returns the client interceptors.
+func (c *SegmentClient) Interceptors() []Interceptor {
+	return c.inters.Segment
+}
+
+func (c *SegmentClient) mutate(ctx context.Context, m *SegmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SegmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SegmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SegmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SegmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Segment mutation op: %q", m.Op())
+	}
+}
+
+// SharedLinkClient is a client for the SharedLink schema.
+type SharedLinkClient struct {
+	config
+}
+
+// NewSharedLinkClient returns a client for the SharedLink from the given config.
+func NewSharedLinkClient(c config) *SharedLinkClient {
+	return &SharedLinkClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `sharedlink.Hooks(f(g(h())))`.
+func (c *SharedLinkClient) Use(hooks ...Hook) {
+	c.hooks.SharedLink = append(c.hooks.SharedLink, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `sharedlink.Intercept(f(g(h())))`.
+func (c *SharedLinkClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SharedLink = append(c.inters.SharedLink, interceptors...)
+}
+
+// Create returns a builder for creating a SharedLink entity.
+func (c *SharedLinkClient) Create() *SharedLinkCreate {
+	mutation := newSharedLinkMutation(c.config, OpCreate)
+	return &SharedLinkCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SharedLink entities.
+func (c *SharedLinkClient) CreateBulk(builders ...*SharedLinkCreate) *SharedLinkCreateBulk {
+	return &SharedLinkCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SharedLinkClient) MapCreateBulk(slice any, setFunc func(*SharedLinkCreate, int)) *SharedLinkCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SharedLinkCreateBulk{err: fmt.Errorf("calling to SharedLinkClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SharedLinkCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SharedLinkCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SharedLink.
+func (c *SharedLinkClient) Update() *SharedLinkUpdate {
+	mutation := newSharedLinkMutation(c.config, OpUpdate)
+	return &SharedLinkUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SharedLinkClient) UpdateOne(sl *SharedLink) *SharedLinkUpdateOne {
+	mutation := newSharedLinkMutation(c.config, OpUpdateOne, withSharedLink(sl))
+	return &SharedLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SharedLinkClient) UpdateOneID(id int64) *SharedLinkUpdateOne {
+	mutation := newSharedLinkMutation(c.config, OpUpdateOne, withSharedLinkID(id))
+	return &SharedLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SharedLink.
+func (c *SharedLinkClient) Delete() *SharedLinkDelete {
+	mutation := newSharedLinkMutation(c.config, OpDelete)
+	return &SharedLinkDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SharedLinkClient) DeleteOne(sl *SharedLink) *SharedLinkDeleteOne {
+	return c.DeleteOneID(sl.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SharedLinkClient) DeleteOneID(id int64) *SharedLinkDeleteOne {
+	builder := c.Delete().Where(sharedlink.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SharedLinkDeleteOne{builder}
+}
+
+// Query returns a query builder for SharedLink.
+func (c *SharedLinkClient) Query() *SharedLinkQuery {
+	return &SharedLinkQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSharedLink},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SharedLink entity by its id.
+func (c *SharedLinkClient) Get(ctx context.Context, id int64) (*SharedLink, error) {
+	return c.Query().Where(sharedlink.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SharedLinkClient) GetX(ctx context.Context, id int64) *SharedLink {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySite queries the site edge of a SharedLink.
+func (c *SharedLinkClient) QuerySite(sl *SharedLink) *SiteQuery {
+	query := (&SiteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := sl.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(sharedlink.Table, sharedlink.FieldID, id),
+			sqlgraph.To(site.Table, site.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, sharedlink.SiteTable, sharedlink.SiteColumn),
+		)
+		fromV = sqlgraph.Neighbors(sl.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SharedLinkClient) Hooks() []Hook {
+	return c.hooks.SharedLink
+}
+
+// Interceptors returns the client interceptors.
+func (c *SharedLinkClient) Interceptors() []Interceptor {
+	return c.inters.SharedLink
+}
+
+func (c *SharedLinkClient) mutate(ctx context.Context, m *SharedLinkMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SharedLinkCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SharedLinkUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SharedLinkUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SharedLinkDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SharedLink mutation op: %q", m.Op())
+	}
+}
+
 // ShieldRulesCountryClient is a client for the ShieldRulesCountry schema.
 type ShieldRulesCountryClient struct {
 	config
@@ -2571,6 +2887,38 @@ func (c *SiteClient) QueryShieldRulesReferrer(s *Site) *ShieldRulesReferrerQuery
 			sqlgraph.From(site.Table, site.FieldID, id),
 			sqlgraph.To(shieldrulesreferrer.Table, shieldrulesreferrer.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, site.ShieldRulesReferrerTable, site.ShieldRulesReferrerColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySharedLinks queries the shared_links edge of a Site.
+func (c *SiteClient) QuerySharedLinks(s *Site) *SharedLinkQuery {
+	query := (&SharedLinkClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, id),
+			sqlgraph.To(sharedlink.Table, sharedlink.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.SharedLinksTable, site.SharedLinksColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySegments queries the segments edge of a Site.
+func (c *SiteClient) QuerySegments(s *Site) *SegmentQuery {
+	query := (&SegmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, id),
+			sqlgraph.To(segment.Table, segment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.SegmentsTable, site.SegmentsColumn),
 		)
 		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
 		return fromV, nil
@@ -3762,15 +4110,16 @@ func (c *UserSessionClient) mutate(ctx context.Context, m *UserSessionMutation) 
 type (
 	hooks struct {
 		APIKey, CustomSearchEngine, EmailVerificationToken, Funnel, FunnelStep, Goal,
-		MonthlyEventCount, PasswordResetToken, SearchEngines, ShieldRulesCountry,
-		ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer, Site, SiteMembership,
-		SubAccount, SystemConfig, User, UserConfig, UserGroup, UserSession []ent.Hook
+		MonthlyEventCount, PasswordResetToken, SearchEngines, Segment, SharedLink,
+		ShieldRulesCountry, ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer,
+		Site, SiteMembership, SubAccount, SystemConfig, User, UserConfig, UserGroup,
+		UserSession []ent.Hook
 	}
 	inters struct {
 		APIKey, CustomSearchEngine, EmailVerificationToken, Funnel, FunnelStep, Goal,
-		MonthlyEventCount, PasswordResetToken, SearchEngines, ShieldRulesCountry,
-		ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer, Site, SiteMembership,
-		SubAccount, SystemConfig, User, UserConfig, UserGroup,
+		MonthlyEventCount, PasswordResetToken, SearchEngines, Segment, SharedLink,
+		ShieldRulesCountry, ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer,
+		Site, SiteMembership, SubAccount, SystemConfig, User, UserConfig, UserGroup,
 		UserSession []ent.Interceptor
 	}
 )

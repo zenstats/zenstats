@@ -21,6 +21,8 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
@@ -102,6 +104,8 @@ func checkColumn(table, column string) error {
 			monthlyeventcount.Table:      monthlyeventcount.ValidColumn,
 			passwordresettoken.Table:     passwordresettoken.ValidColumn,
 			searchengines.Table:          searchengines.ValidColumn,
+			segment.Table:                segment.ValidColumn,
+			sharedlink.Table:             sharedlink.ValidColumn,
 			shieldrulescountry.Table:     shieldrulescountry.ValidColumn,
 			shieldruleshostname.Table:    shieldruleshostname.ValidColumn,
 			shieldrulesip.Table:          shieldrulesip.ValidColumn,

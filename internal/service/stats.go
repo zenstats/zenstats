@@ -314,6 +314,92 @@ func mergeComparisonTimeSeries(primary, comparison []stats.TimeSeriesPoint, metr
 	return primary
 }
 
+// QueryV2 POST /api/v2/query 通用查询，支持多维度、排序、offset 分页。
+func (s *StatsService) QueryV2(ctx *gin.Context, siteID int64, period, from, to, date,
+	metricsStr, dimensionStr, filtersStr, orderByStr string,
+	limit, offset int, allDimensions []string, sampleThreshold int64) (any, error) {
+
+	site, err := GetSiteService().GetSiteByID(ctx, int(siteID))
+	if err != nil {
+		return nil, fmt.Errorf("site not found")
+	}
+
+	req := &atypes.StatsRequest{
+		Period: period, From: from, To: to, Date: date,
+		Metrics: metricsStr, Filters: filtersStr,
+		Limit: limit, Page: 1,
+		SampleThreshold: sampleThreshold,
+	}
+	start, end := s.getDateRange(req, site.Timezone, 0)
+	filters, err := parseRequestFilters(filtersStr)
+	if err != nil {
+		return nil, err
+	}
+
+	metricsList := parseMetricsWithDefault(metricsStr, []string{"visitors"})
+
+	// 解析 order_by 字符串 "metric:direction,..."
+	orderBy := parseOrderByString(orderByStr, metricsList)
+
+	// 无维度：聚合查询
+	if len(allDimensions) == 0 {
+		params := &types.Params{
+			UserID: ctx.GetInt64("user_id"),
+			SiteID: fmt.Sprintf("%d", site.ID),
+			UTCTimeRange: types.TimeRange{Start: start, End: end},
+			Period: period, Date: date, From: from, To: to,
+			Timezone: site.Timezone,
+			Metrics:  metricsList, Dimensions: []string{},
+			Filters: filters, SampleThreshold: sampleThreshold,
+		}
+		qs := s.getQueryService()
+		agg := stats.NewAggregateService(qs)
+		return agg.GetAggregate(ctx, params)
+	}
+
+	// 单维度：breakdown 查询
+	params := &types.Params{
+		UserID: ctx.GetInt64("user_id"),
+		SiteID: fmt.Sprintf("%d", site.ID),
+		UTCTimeRange: types.TimeRange{Start: start, End: end},
+		Period: period, Date: date, From: from, To: to,
+		Timezone:        site.Timezone,
+		Metrics:         metricsList,
+		Dimensions:      allDimensions,
+		Filters:         filters,
+		SampleThreshold: sampleThreshold,
+		Pagination:      &types.Pagination{Limit: limit, Offset: offset},
+		OrderBy:         orderBy,
+	}
+	qs := s.getQueryService()
+	query, err := qs.CreateQuery(params)
+	if err != nil {
+		return nil, err
+	}
+	psite := &types.Site{ID: query.SiteID, Timezone: query.Timezone}
+	return qs.Execute(ctx, query, psite)
+}
+
+func parseOrderByString(raw string, metrics []string) []*types.OrderBy {
+	if raw == "" {
+		if len(metrics) > 0 {
+			return []*types.OrderBy{{Dimension: metrics[0], Direction: "desc"}}
+		}
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	result := make([]*types.OrderBy, 0, len(parts))
+	for _, p := range parts {
+		kv := strings.SplitN(p, ":", 2)
+		dir := "desc"
+		if len(kv) == 2 {
+			dir = kv[1]
+		}
+		result = append(result, &types.OrderBy{Dimension: kv[0], Direction: dir})
+	}
+	return result
+}
+
 // GetCurrentVisitors 获取实时在线访客数
 func (s *StatsService) GetCurrentVisitors(ctx *gin.Context, siteID int64) (*stats.CurrentVisitors, error) {
 	_, err := GetSiteService().GetSiteByID(ctx, int(siteID))

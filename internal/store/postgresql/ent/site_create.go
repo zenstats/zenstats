@@ -12,6 +12,8 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
@@ -412,6 +414,36 @@ func (sc *SiteCreate) AddShieldRulesReferrer(s ...*ShieldRulesReferrer) *SiteCre
 	return sc.AddShieldRulesReferrerIDs(ids...)
 }
 
+// AddSharedLinkIDs adds the "shared_links" edge to the SharedLink entity by IDs.
+func (sc *SiteCreate) AddSharedLinkIDs(ids ...int64) *SiteCreate {
+	sc.mutation.AddSharedLinkIDs(ids...)
+	return sc
+}
+
+// AddSharedLinks adds the "shared_links" edges to the SharedLink entity.
+func (sc *SiteCreate) AddSharedLinks(s ...*SharedLink) *SiteCreate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return sc.AddSharedLinkIDs(ids...)
+}
+
+// AddSegmentIDs adds the "segments" edge to the Segment entity by IDs.
+func (sc *SiteCreate) AddSegmentIDs(ids ...int64) *SiteCreate {
+	sc.mutation.AddSegmentIDs(ids...)
+	return sc
+}
+
+// AddSegments adds the "segments" edges to the Segment entity.
+func (sc *SiteCreate) AddSegments(s ...*Segment) *SiteCreate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return sc.AddSegmentIDs(ids...)
+}
+
 // Mutation returns the SiteMutation object of the builder.
 func (sc *SiteCreate) Mutation() *SiteMutation {
 	return sc.mutation
@@ -807,6 +839,38 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(shieldrulesreferrer.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := sc.mutation.SharedLinksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SharedLinksTable,
+			Columns: []string{site.SharedLinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(sharedlink.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := sc.mutation.SegmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SegmentsTable,
+			Columns: []string{site.SegmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(segment.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

@@ -15,6 +15,8 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldruleshostname"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
@@ -39,6 +41,8 @@ type SiteQuery struct {
 	withShieldRulesHostname *ShieldRulesHostnameQuery
 	withShieldRulesCountry  *ShieldRulesCountryQuery
 	withShieldRulesReferrer *ShieldRulesReferrerQuery
+	withSharedLinks         *SharedLinkQuery
+	withSegments            *SegmentQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -251,6 +255,50 @@ func (sq *SiteQuery) QueryShieldRulesReferrer() *ShieldRulesReferrerQuery {
 	return query
 }
 
+// QuerySharedLinks chains the current query on the "shared_links" edge.
+func (sq *SiteQuery) QuerySharedLinks() *SharedLinkQuery {
+	query := (&SharedLinkClient{config: sq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, selector),
+			sqlgraph.To(sharedlink.Table, sharedlink.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.SharedLinksTable, site.SharedLinksColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySegments chains the current query on the "segments" edge.
+func (sq *SiteQuery) QuerySegments() *SegmentQuery {
+	query := (&SegmentClient{config: sq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, selector),
+			sqlgraph.To(segment.Table, segment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.SegmentsTable, site.SegmentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first Site entity from the query.
 // Returns a *NotFoundError when no Site was found.
 func (sq *SiteQuery) First(ctx context.Context) (*Site, error) {
@@ -451,6 +499,8 @@ func (sq *SiteQuery) Clone() *SiteQuery {
 		withShieldRulesHostname: sq.withShieldRulesHostname.Clone(),
 		withShieldRulesCountry:  sq.withShieldRulesCountry.Clone(),
 		withShieldRulesReferrer: sq.withShieldRulesReferrer.Clone(),
+		withSharedLinks:         sq.withSharedLinks.Clone(),
+		withSegments:            sq.withSegments.Clone(),
 		// clone intermediate query.
 		sql:  sq.sql.Clone(),
 		path: sq.path,
@@ -545,6 +595,28 @@ func (sq *SiteQuery) WithShieldRulesReferrer(opts ...func(*ShieldRulesReferrerQu
 	return sq
 }
 
+// WithSharedLinks tells the query-builder to eager-load the nodes that are connected to
+// the "shared_links" edge. The optional arguments are used to configure the query builder of the edge.
+func (sq *SiteQuery) WithSharedLinks(opts ...func(*SharedLinkQuery)) *SiteQuery {
+	query := (&SharedLinkClient{config: sq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withSharedLinks = query
+	return sq
+}
+
+// WithSegments tells the query-builder to eager-load the nodes that are connected to
+// the "segments" edge. The optional arguments are used to configure the query builder of the edge.
+func (sq *SiteQuery) WithSegments(opts ...func(*SegmentQuery)) *SiteQuery {
+	query := (&SegmentClient{config: sq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withSegments = query
+	return sq
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -623,7 +695,7 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 	var (
 		nodes       = []*Site{}
 		_spec       = sq.querySpec()
-		loadedTypes = [8]bool{
+		loadedTypes = [10]bool{
 			sq.withFunnels != nil,
 			sq.withMembers != nil,
 			sq.withGoals != nil,
@@ -632,6 +704,8 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 			sq.withShieldRulesHostname != nil,
 			sq.withShieldRulesCountry != nil,
 			sq.withShieldRulesReferrer != nil,
+			sq.withSharedLinks != nil,
+			sq.withSegments != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -711,6 +785,20 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 			func(n *Site, e *ShieldRulesReferrer) {
 				n.Edges.ShieldRulesReferrer = append(n.Edges.ShieldRulesReferrer, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := sq.withSharedLinks; query != nil {
+		if err := sq.loadSharedLinks(ctx, query, nodes,
+			func(n *Site) { n.Edges.SharedLinks = []*SharedLink{} },
+			func(n *Site, e *SharedLink) { n.Edges.SharedLinks = append(n.Edges.SharedLinks, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := sq.withSegments; query != nil {
+		if err := sq.loadSegments(ctx, query, nodes,
+			func(n *Site) { n.Edges.Segments = []*Segment{} },
+			func(n *Site, e *Segment) { n.Edges.Segments = append(n.Edges.Segments, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -943,6 +1031,66 @@ func (sq *SiteQuery) loadShieldRulesReferrer(ctx context.Context, query *ShieldR
 	}
 	query.Where(predicate.ShieldRulesReferrer(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(site.ShieldRulesReferrerColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SiteID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "site_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (sq *SiteQuery) loadSharedLinks(ctx context.Context, query *SharedLinkQuery, nodes []*Site, init func(*Site), assign func(*Site, *SharedLink)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Site)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(sharedlink.FieldSiteID)
+	}
+	query.Where(predicate.SharedLink(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(site.SharedLinksColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SiteID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "site_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (sq *SiteQuery) loadSegments(ctx context.Context, query *SegmentQuery, nodes []*Site, init func(*Site), assign func(*Site, *Segment)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Site)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(segment.FieldSiteID)
+	}
+	query.Where(predicate.Segment(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(site.SegmentsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

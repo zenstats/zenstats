@@ -26,8 +26,10 @@ func initialize() {
 			Username: config.Conf.Clickhouse.Username,
 			Password: config.Conf.Clickhouse.Password,
 		},
-		DialTimeout: time.Second * 60,
-		ReadTimeout: time.Second * 60,
+		DialTimeout:  time.Second * 60,
+		ReadTimeout:  time.Second * 60,
+		MaxIdleConns: 5,
+		MaxOpenConns: 10,
 	}
 	// 开启ssl
 	if config.Conf.Clickhouse.Ssl {

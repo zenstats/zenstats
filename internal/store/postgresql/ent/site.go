@@ -79,9 +79,13 @@ type SiteEdges struct {
 	ShieldRulesCountry []*ShieldRulesCountry `json:"shield_rules_country,omitempty"`
 	// ShieldRulesReferrer holds the value of the shield_rules_referrer edge.
 	ShieldRulesReferrer []*ShieldRulesReferrer `json:"shield_rules_referrer,omitempty"`
+	// SharedLinks holds the value of the shared_links edge.
+	SharedLinks []*SharedLink `json:"shared_links,omitempty"`
+	// Segments holds the value of the segments edge.
+	Segments []*Segment `json:"segments,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [8]bool
+	loadedTypes [10]bool
 }
 
 // FunnelsOrErr returns the Funnels value or an error if the edge
@@ -154,6 +158,24 @@ func (e SiteEdges) ShieldRulesReferrerOrErr() ([]*ShieldRulesReferrer, error) {
 		return e.ShieldRulesReferrer, nil
 	}
 	return nil, &NotLoadedError{edge: "shield_rules_referrer"}
+}
+
+// SharedLinksOrErr returns the SharedLinks value or an error if the edge
+// was not loaded in eager-loading.
+func (e SiteEdges) SharedLinksOrErr() ([]*SharedLink, error) {
+	if e.loadedTypes[8] {
+		return e.SharedLinks, nil
+	}
+	return nil, &NotLoadedError{edge: "shared_links"}
+}
+
+// SegmentsOrErr returns the Segments value or an error if the edge
+// was not loaded in eager-loading.
+func (e SiteEdges) SegmentsOrErr() ([]*Segment, error) {
+	if e.loadedTypes[9] {
+		return e.Segments, nil
+	}
+	return nil, &NotLoadedError{edge: "segments"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -359,6 +381,16 @@ func (s *Site) QueryShieldRulesCountry() *ShieldRulesCountryQuery {
 // QueryShieldRulesReferrer queries the "shield_rules_referrer" edge of the Site entity.
 func (s *Site) QueryShieldRulesReferrer() *ShieldRulesReferrerQuery {
 	return NewSiteClient(s.config).QueryShieldRulesReferrer(s)
+}
+
+// QuerySharedLinks queries the "shared_links" edge of the Site entity.
+func (s *Site) QuerySharedLinks() *SharedLinkQuery {
+	return NewSiteClient(s.config).QuerySharedLinks(s)
+}
+
+// QuerySegments queries the "segments" edge of the Site entity.
+func (s *Site) QuerySegments() *SegmentQuery {
+	return NewSiteClient(s.config).QuerySegments(s)
 }
 
 // Update returns a builder for updating this Site.

@@ -295,6 +295,74 @@ var (
 		Columns:    SearchEnginesColumns,
 		PrimaryKey: []*schema.Column{SearchEnginesColumns[0]},
 	}
+	// SegmentsColumns holds the columns for the "segments" table.
+	SegmentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 255},
+		{Name: "filters", Type: field.TypeString, Size: 2147483647, Default: "[]"},
+		{Name: "description", Type: field.TypeString, Nullable: true, Size: 500},
+		{Name: "created_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "site_id", Type: field.TypeInt64},
+	}
+	// SegmentsTable holds the schema information for the "segments" table.
+	SegmentsTable = &schema.Table{
+		Name:       "segments",
+		Columns:    SegmentsColumns,
+		PrimaryKey: []*schema.Column{SegmentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "segments_sites_segments",
+				Columns:    []*schema.Column{SegmentsColumns[7]},
+				RefColumns: []*schema.Column{SitesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "segment_site_id",
+				Unique:  false,
+				Columns: []*schema.Column{SegmentsColumns[7]},
+			},
+		},
+	}
+	// SharedLinksColumns holds the columns for the "shared_links" table.
+	SharedLinksColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 255},
+		{Name: "slug", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "password_hash", Type: field.TypeString, Nullable: true, Size: 255},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "site_id", Type: field.TypeInt64},
+	}
+	// SharedLinksTable holds the schema information for the "shared_links" table.
+	SharedLinksTable = &schema.Table{
+		Name:       "shared_links",
+		Columns:    SharedLinksColumns,
+		PrimaryKey: []*schema.Column{SharedLinksColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "shared_links_sites_shared_links",
+				Columns:    []*schema.Column{SharedLinksColumns[6]},
+				RefColumns: []*schema.Column{SitesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "sharedlink_site_id",
+				Unique:  false,
+				Columns: []*schema.Column{SharedLinksColumns[6]},
+			},
+			{
+				Name:    "sharedlink_slug",
+				Unique:  true,
+				Columns: []*schema.Column{SharedLinksColumns[2]},
+			},
+		},
+	}
 	// ShieldRulesCountriesColumns holds the columns for the "shield_rules_countries" table.
 	ShieldRulesCountriesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -674,6 +742,8 @@ var (
 		MonthlyEventCountsTable,
 		PasswordResetTokensTable,
 		SearchEnginesTable,
+		SegmentsTable,
+		SharedLinksTable,
 		ShieldRulesCountriesTable,
 		ShieldRulesHostnamesTable,
 		ShieldRulesIpsTable,
@@ -699,6 +769,8 @@ func init() {
 	GoalsTable.ForeignKeys[0].RefTable = SitesTable
 	MonthlyEventCountsTable.ForeignKeys[0].RefTable = UsersTable
 	PasswordResetTokensTable.ForeignKeys[0].RefTable = UsersTable
+	SegmentsTable.ForeignKeys[0].RefTable = SitesTable
+	SharedLinksTable.ForeignKeys[0].RefTable = SitesTable
 	ShieldRulesCountriesTable.ForeignKeys[0].RefTable = SitesTable
 	ShieldRulesHostnamesTable.ForeignKeys[0].RefTable = SitesTable
 	ShieldRulesIpsTable.ForeignKeys[0].RefTable = SitesTable

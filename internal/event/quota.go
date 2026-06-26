@@ -31,9 +31,7 @@ func GetMonthlyQuota() *MonthlyQuota {
 			year:   now.Year(),
 			month:  int(now.Month()),
 		}
-		// 从数据库加载当月数据
 		monthlyQuotaInstance.loadFromDB(context.Background())
-		// 启动定时持久化（每小时）
 		go monthlyQuotaInstance.startFlusher()
 	})
 	return monthlyQuotaInstance
@@ -42,33 +40,38 @@ func GetMonthlyQuota() *MonthlyQuota {
 // Increment 增加用户当月事件计数，返回新值
 func (q *MonthlyQuota) Increment(userID int64) int64 {
 	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	q.rotateIfNewMonth()
-
+	oldCounts, oldYear, oldMonth, rotated := q.checkAndRotate()
 	q.counts[userID]++
-	return q.counts[userID]
+	count := q.counts[userID]
+	q.mu.Unlock()
+
+	// flushSnapshot 在锁外异步执行，不阻塞 Increment
+	if rotated {
+		go q.flushSnapshot(oldCounts, oldYear, oldMonth)
+	}
+	return count
 }
 
 // Get 获取用户当月事件计数
 func (q *MonthlyQuota) Get(userID int64) int64 {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
-
 	return q.counts[userID]
 }
 
-// rotateIfNewMonth 检查是否跨月，跨月则归零
-func (q *MonthlyQuota) rotateIfNewMonth() {
+// checkAndRotate 检测是否跨月并重置状态，必须在 q.mu.Lock() 持有期间调用。
+// 若跨月，返回旧月份数据供调用方在锁外持久化。
+func (q *MonthlyQuota) checkAndRotate() (oldCounts map[int64]int64, oldYear, oldMonth int, rotated bool) {
 	now := time.Now()
-	if now.Year() != q.year || int(now.Month()) != q.month {
-		// 先持久化旧月份数据
-		q.flushToDB()
-		// 归零
-		q.counts = make(map[int64]int64)
-		q.year = now.Year()
-		q.month = int(now.Month())
+	if now.Year() == q.year && int(now.Month()) == q.month {
+		return nil, 0, 0, false
 	}
+	oldCounts = q.counts
+	oldYear, oldMonth = q.year, q.month
+	q.counts = make(map[int64]int64)
+	q.year = now.Year()
+	q.month = int(now.Month())
+	return oldCounts, oldYear, oldMonth, true
 }
 
 // loadFromDB 从数据库加载当月数据
@@ -93,27 +96,28 @@ func (q *MonthlyQuota) loadFromDB(ctx context.Context) {
 	}
 }
 
-// flushToDB 将内存计数持久化到数据库
+// flushToDB 将当前内存计数快照持久化到数据库（在锁外调用）
 func (q *MonthlyQuota) flushToDB() {
+	q.mu.RLock()
+	snapshot := make(map[int64]int64, len(q.counts))
+	for k, v := range q.counts {
+		snapshot[k] = v
+	}
+	year, month := q.year, q.month
+	q.mu.RUnlock()
+
+	q.flushSnapshot(snapshot, year, month)
+}
+
+// flushSnapshot 将给定快照写入数据库，不持有任何锁
+func (q *MonthlyQuota) flushSnapshot(snapshot map[int64]int64, year, month int) {
 	db := globals.GetDB()
 	if db == nil {
 		return
 	}
 
 	ctx := context.Background()
-
-	q.mu.RLock()
-	// 复制数据以减少锁持有时间
-	snapshot := make(map[int64]int64, len(q.counts))
-	for k, v := range q.counts {
-		snapshot[k] = v
-	}
-	year := q.year
-	month := q.month
-	q.mu.RUnlock()
-
 	for userID, count := range snapshot {
-		// 查找是否已有记录
 		existing, _ := db.Client.MonthlyEventCount.Query().
 			Where(
 				monthlyeventcount.UserID(userID),
@@ -123,12 +127,10 @@ func (q *MonthlyQuota) flushToDB() {
 			Only(ctx)
 
 		if existing != nil {
-			// 更新已有记录
 			_, _ = db.Client.MonthlyEventCount.UpdateOne(existing).
 				SetCount(count).
 				Save(ctx)
 		} else {
-			// 创建新记录
 			_, _ = db.Client.MonthlyEventCount.Create().
 				SetUserID(userID).
 				SetYear(year).
@@ -146,9 +148,12 @@ func (q *MonthlyQuota) startFlusher() {
 
 	for range ticker.C {
 		q.mu.Lock()
-		q.rotateIfNewMonth()
+		oldCounts, oldYear, oldMonth, rotated := q.checkAndRotate()
 		q.mu.Unlock()
 
+		if rotated {
+			q.flushSnapshot(oldCounts, oldYear, oldMonth)
+		}
 		q.flushToDB()
 	}
 }
@@ -156,8 +161,11 @@ func (q *MonthlyQuota) startFlusher() {
 // Flush 手动触发持久化（用于优雅关闭）
 func (q *MonthlyQuota) Flush() {
 	q.mu.Lock()
-	q.rotateIfNewMonth()
+	oldCounts, oldYear, oldMonth, rotated := q.checkAndRotate()
 	q.mu.Unlock()
 
+	if rotated {
+		q.flushSnapshot(oldCounts, oldYear, oldMonth)
+	}
 	q.flushToDB()
 }

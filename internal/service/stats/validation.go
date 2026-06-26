@@ -342,6 +342,7 @@ func isValidDimension(dimension string) bool {
 		"visit:region":              true,
 		"visit:city":                true,
 		"visit:screen_size":         true,
+		"visit:page":                 true, // alias for event:page
 		"visit:entry_page":          true,
 		"visit:entry_page_hostname": true,
 		"visit:exit_page":           true,
@@ -600,7 +601,7 @@ func GetToplevelFilter(params *types.Params, prefix string) []any {
 func MetricFromString(s string) (string, error) {
 	s = strings.TrimSpace(s)
 	switch s {
-	case "visitors", "pageviews", "events", "visits", "bounce_rate", "visit_duration", "time_on_page", "conversion_rate", "views_per_visit", "scroll_depth":
+	case "visitors", "pageviews", "events", "visits", "bounce_rate", "visit_duration", "time_on_page", "exit_rate", "conversion_rate", "views_per_visit", "scroll_depth":
 		return s, nil
 	default:
 		return "", fmt.Errorf("invalid metric: %s.", s)

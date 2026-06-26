@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	_ "github.com/lib/pq"
+	_ "github.com/lib/pq" // register "postgres" driver for ent
 	"github.com/zenstats/zenstats/config"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
 )

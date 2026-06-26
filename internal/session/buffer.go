@@ -16,16 +16,13 @@ type WriteBuffer struct {
 	batchSize     int
 	flushInterval time.Duration
 
-	buffer    []*models.Sessions
-	flushChan chan []*models.Sessions
+	buffer []*models.Sessions
 
 	shutdownChan chan struct{}
 	ctx          context.Context
 	cancel       context.CancelFunc
 
 	batchPool sync.Pool
-
-	sequenceNumber uint64
 }
 
 func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Duration) *WriteBuffer {
@@ -35,7 +32,6 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 		batchSize:     batchSize,
 		flushInterval: flushInterval,
 		buffer:        make([]*models.Sessions, 0, batchSize),
-		flushChan:     make(chan []*models.Sessions, 10),
 		shutdownChan:  make(chan struct{}),
 		ctx:           ctx,
 		cancel:        cancel,
@@ -48,35 +44,41 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 	return wb
 }
 
-func (wb *WriteBuffer) Add(event *models.Sessions) {
+func (wb *WriteBuffer) Add(session *models.Sessions) {
 	wb.mu.Lock()
-	wb.buffer = append(wb.buffer, event)
+	wb.buffer = append(wb.buffer, session)
 	shouldFlush := len(wb.buffer) >= wb.batchSize
 	wb.mu.Unlock()
-	slog.Debug("add event to buffer", "event", event)
+
+	slog.Debug("add session to buffer", "session", session)
 	if shouldFlush {
-		wb.flush()
+		// 独立 goroutine 写入，不阻塞调用方（session manager 的 balancer worker）
+		wb.wg.Add(1)
+		go func() {
+			defer wb.wg.Done()
+			wb.flushAndWrite()
+		}()
 	}
 }
 
-func (wb *WriteBuffer) flush() {
+// flushAndWrite 从 buffer 取出数据并直接写入 ClickHouse，无需 channel 中转。
+// 并发调用安全：只有第一个能取到数据，其余见空 buffer 立即返回。
+func (wb *WriteBuffer) flushAndWrite() {
 	wb.mu.Lock()
 	if len(wb.buffer) == 0 {
 		wb.mu.Unlock()
 		return
 	}
-
 	batch := wb.batchPool.Get().(*[]*models.Sessions)
 	*batch = append(*batch, wb.buffer...)
 	wb.buffer = wb.buffer[:0]
-
 	wb.mu.Unlock()
 
-	select {
-	case wb.flushChan <- *batch:
-	case <-wb.shutdownChan:
-	case <-wb.ctx.Done():
+	if err := wb.writeBatch(*batch); err != nil {
+		slog.Error("failed to write session batch", "error", err)
 	}
+	*batch = (*batch)[:0]
+	wb.batchPool.Put(batch)
 }
 
 func (wb *WriteBuffer) Start() {
@@ -93,21 +95,14 @@ func (wb *WriteBuffer) flushWorker() {
 	for {
 		select {
 		case <-ticker.C:
-			wb.flush()
-
-		case batch := <-wb.flushChan:
-			if err := wb.writeBatch(batch); err != nil {
-				slog.Error("failed to write batch after retries", "error", err)
-			}
-			batch = batch[:0]
-			wb.batchPool.Put(&batch)
+			wb.flushAndWrite()
 
 		case <-wb.shutdownChan:
-			wb.drainBuffer()
+			wb.flushAndWrite()
 			return
 
 		case <-wb.ctx.Done():
-			wb.drainBuffer()
+			wb.flushAndWrite()
 			return
 		}
 	}
@@ -129,34 +124,6 @@ func (wb *WriteBuffer) writeBatch(batch []*models.Sessions) error {
 		}
 	}
 	return err
-}
-
-func (wb *WriteBuffer) drainBuffer() {
-	wb.mu.Lock()
-	if len(wb.buffer) > 0 {
-		batchPtr := wb.batchPool.Get().(*[]*models.Sessions)
-		*batchPtr = append(*batchPtr, wb.buffer...)
-		wb.buffer = wb.buffer[:0]
-
-		select {
-		case wb.flushChan <- *batchPtr:
-		default:
-			// 如果通道已满，直接处理并归还
-			_ = wb.writeBatch(*batchPtr)
-			*batchPtr = (*batchPtr)[:0]
-			wb.batchPool.Put(batchPtr)
-		}
-
-	}
-	wb.mu.Unlock()
-
-	close(wb.flushChan)
-	for batch := range wb.flushChan {
-		_ = wb.writeBatch(batch)
-
-		batch = batch[:0]
-		wb.batchPool.Put(&batch)
-	}
 }
 
 func (wb *WriteBuffer) Shutdown() {
