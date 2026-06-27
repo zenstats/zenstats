@@ -290,7 +290,7 @@ func (s *TrafficAlertService) sendAlert(email, domain string, alert *alertData) 
 		alert.PreviousVisitors, alert.PreviousPageviews,
 		alert.CurrentVisitors, alert.CurrentPageviews,
 		// link
-		cfg.BaseURL+"/"+domain,
+		cfg.BaseURL+"/sites/"+domain+"/stats",
 		// threshold
 		alert.Threshold,
 	)
@@ -400,4 +400,76 @@ Threshold: %.0f%%`,
 		alert.Hour,
 		threshold*100,
 	), nil
+}
+
+// TrafficAlertTestResult 管理员测试接口返回结果。
+type TrafficAlertTestResult struct {
+	Domain            string  `json:"domain"`
+	Interval          string  `json:"interval"`
+	Period            string  `json:"period"`
+	Threshold         float64 `json:"threshold"`
+	AnomalyDetected   bool    `json:"anomaly_detected"`
+	IsSpike           bool    `json:"is_spike,omitempty"`
+	CurrentVisitors   float64 `json:"current_visitors"`
+	PreviousVisitors  float64 `json:"previous_visitors"`
+	VisitorsChange    float64 `json:"visitors_change"`
+	CurrentPageviews  float64 `json:"current_pageviews"`
+	PreviousPageviews float64 `json:"previous_pageviews"`
+	PageviewsChange   float64 `json:"pageviews_change"`
+	EmailSent         bool    `json:"email_sent"`
+	EmailRecipient    string  `json:"email_recipient,omitempty"`
+}
+
+// RunTestForSite 对指定站点执行一次检测，不受 enabled 开关限制。
+// 若 email 非空则发送测试邮件。供管理员 API 调用。
+func (s *TrafficAlertService) RunTestForSite(ctx context.Context, siteID int64, email string) (*TrafficAlertTestResult, error) {
+	siteEnt, err := s.db.Site.Query().
+		Where(site.ID(siteID)).
+		Only(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("site not found: %d", siteID)
+	}
+
+	ownerID, err := s.siteService.GetSiteOwnerUserID(ctx, siteEnt.ID)
+	if err != nil || ownerID == 0 {
+		return nil, fmt.Errorf("site owner not found")
+	}
+
+	threshold := float64(siteEnt.TrafficAlertThreshold) / 100.0
+	if threshold <= 0 {
+		threshold = 0.5
+	}
+
+	alert, err := s.detectAnomaly(ctx, siteEnt, ownerID, threshold)
+	if err != nil {
+		return nil, fmt.Errorf("anomaly detection failed: %w", err)
+	}
+
+	result := &TrafficAlertTestResult{
+		Domain:    siteEnt.Domain,
+		Interval:  siteEnt.TrafficAlertInterval,
+		Threshold: threshold * 100,
+	}
+
+	if alert == nil {
+		return result, nil
+	}
+
+	result.AnomalyDetected = true
+	result.IsSpike = alert.IsSpike
+	result.Period = alert.Hour
+	result.CurrentVisitors = alert.CurrentVisitors
+	result.PreviousVisitors = alert.PreviousVisitors
+	result.VisitorsChange = alert.VisitorsChange
+	result.CurrentPageviews = alert.CurrentPageviews
+	result.PreviousPageviews = alert.PreviousPageviews
+	result.PageviewsChange = alert.PageviewsChange
+
+	if email != "" {
+		s.sendAlert(email, siteEnt.Domain, alert)
+		result.EmailSent = true
+		result.EmailRecipient = email
+	}
+
+	return result, nil
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/api/types"
+	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
@@ -102,6 +103,49 @@ func (h *AdminHandler) DeleteSite() gin.HandlerFunc {
 		}
 
 		response.Success(c, nil)
+	}
+}
+
+// TestTrafficAlert 管理员触发站点流量告警检测
+//
+//	@Summary		测试流量告警检测
+//	@Description	对指定站点执行一次流量异常检测，返回检测结果。不受告警开关限制，可指定收件人发送测试邮件。
+//	@Tags			管理员
+//	@Security		BearerAuth
+//	@Accept			json
+//	@Produce		json
+//	@Param			siteId	path		int		true	"站点ID"
+//	@Param			email	query		string	false	"收件人邮箱（指定时发送测试邮件）"
+//	@Success		200		{object}	response.SuccessResponse	"检测结果"
+//	@Failure		400		{object}	response.ErrorResponse	"站点不存在或检测失败"
+//	@Failure		401		{object}	response.ErrorResponse	"未授权"
+//	@Failure		500		{object}	response.ErrorResponse	"服务器内部错误"
+//	@Router			/admin/sites/{siteId}/traffic-alert/test [post]
+func (h *AdminHandler) TestTrafficAlert() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		siteIdStr := c.Param("siteId")
+		siteId, err := strconv.ParseInt(siteIdStr, 10, 64)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, err)
+			return
+		}
+
+		email := c.Query("email")
+
+		siteEnt, err := h.siteService.GetSiteByID(c, int(siteId))
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, err)
+			return
+		}
+
+		alertSvc := service.GetTrafficAlertService()
+		result, err := alertSvc.RunTestForSite(c.Request.Context(), siteEnt.ID, email)
+		if err != nil {
+			response.Error(c, http.StatusBadRequest, err)
+			return
+		}
+
+		response.Success(c, result)
 	}
 }
 

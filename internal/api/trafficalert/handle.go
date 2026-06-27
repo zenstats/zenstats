@@ -65,6 +65,20 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
+	// 校验参数
+	if req.Threshold != nil && (*req.Threshold < 10 || *req.Threshold > 500) {
+		response.Error(c, http.StatusBadRequest, fmt.Errorf("threshold must be between 10 and 500"))
+		return
+	}
+	if req.Interval != nil && *req.Interval != "hourly" && *req.Interval != "daily" {
+		response.Error(c, http.StatusBadRequest, fmt.Errorf("interval must be 'hourly' or 'daily'"))
+		return
+	}
+	if err := validateRecipients(req.Recipients); err != nil {
+		response.Error(c, http.StatusBadRequest, err)
+		return
+	}
+
 	db := globals.GetDB()
 	if db == nil || db.Client == nil {
 		response.Error(c, http.StatusInternalServerError, nil)
@@ -83,12 +97,6 @@ func (h *Handler) Update(c *gin.Context) {
 	}
 	if req.Interval != nil {
 		update = update.SetTrafficAlertInterval(*req.Interval)
-	}
-
-	// 校验收件人邮箱格式
-	if err := validateRecipients(req.Recipients); err != nil {
-		response.Error(c, http.StatusBadRequest, err)
-		return
 	}
 
 	site, err := update.Save(c)

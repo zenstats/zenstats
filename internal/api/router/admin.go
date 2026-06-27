@@ -33,6 +33,7 @@ func RegisterAdminRouter(router *gin.RouterGroup) {
 	adminGroup.GET("/sites", adminHandler.ListSites())
 	adminGroup.DELETE("/sites/:siteId", adminHandler.DeleteSite())
 	adminGroup.PUT("/sites/:siteId/verify", adminHandler.VerifySite())
+	adminGroup.POST("/sites/:siteId/traffic-alert/test", adminHandler.TestTrafficAlert())
 
 	// 系统配置
 	adminGroup.GET("/configs", configHandler.GetConfigs())
