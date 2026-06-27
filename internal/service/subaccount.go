@@ -38,11 +38,17 @@ func (s *SubAccountService) GetSubAccountByID(ctx context.Context, id int64) (*e
 	return s.db.Client.SubAccount.Get(ctx, id)
 }
 
-// CreateSubAccount 创建子账号
-func (s *SubAccountService) CreateSubAccount(ctx context.Context, parentUserID int64, email, name, password string) (*ent.SubAccount, error) {
+// CreateSubAccount 创建子账号。role 为空时默认 viewer；permissions 为 nil 时默认空列表。
+func (s *SubAccountService) CreateSubAccount(ctx context.Context, parentUserID int64, email, name, password, role string, permissions []string) (*ent.SubAccount, error) {
 	passwordHash, err := bcrypt.Generate(password)
 	if err != nil {
 		return nil, err
+	}
+	if role == "" {
+		role = "viewer"
+	}
+	if permissions == nil {
+		permissions = []string{}
 	}
 
 	return s.db.Client.SubAccount.Create().
@@ -50,19 +56,26 @@ func (s *SubAccountService) CreateSubAccount(ctx context.Context, parentUserID i
 		SetEmail(email).
 		SetName(name).
 		SetPasswordHash(passwordHash).
-		SetRole("viewer").
+		SetRole(role).
+		SetPermissions(permissions).
 		SetStatus("active").
 		Save(ctx)
 }
 
-// UpdateSubAccount 更新子账号
-func (s *SubAccountService) UpdateSubAccount(ctx context.Context, id int64, name, status string) (*ent.SubAccount, error) {
+// UpdateSubAccount 更新子账号。role/permissions 为空/nil 时不修改对应字段。
+func (s *SubAccountService) UpdateSubAccount(ctx context.Context, id int64, name, status, role string, permissions []string) (*ent.SubAccount, error) {
 	update := s.db.Client.SubAccount.UpdateOneID(id)
 	if name != "" {
 		update = update.SetName(name)
 	}
 	if status != "" {
 		update = update.SetStatus(status)
+	}
+	if role != "" {
+		update = update.SetRole(role)
+	}
+	if permissions != nil {
+		update = update.SetPermissions(permissions)
 	}
 	return update.Save(ctx)
 }

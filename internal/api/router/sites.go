@@ -31,49 +31,49 @@ func RegisterSitesRouter(router *gin.RouterGroup) {
 	shieldRules := router.Group("sites/:domain/shield", middleware.JWTAuth(), middleware.SiteMembershipAuth())
 
 	// IP Rules
-	shieldRules.GET("/ip", siteHandle.ListShieldRuleIP())
-	shieldRules.POST("/ip", middleware.SubAccountReadOnly(), siteHandle.AddShieldRuleIP())
-	shieldRules.DELETE("/ip/:ruleId", middleware.SubAccountReadOnly(), siteHandle.RemoveShieldRuleIP())
+	shieldRules.GET("/ip", middleware.SubAccountHasPerm("shields:write"), siteHandle.ListShieldRuleIP())
+	shieldRules.POST("/ip", middleware.SubAccountHasPerm("shields:write"), siteHandle.AddShieldRuleIP())
+	shieldRules.DELETE("/ip/:ruleId", middleware.SubAccountHasPerm("shields:write"), siteHandle.RemoveShieldRuleIP())
 
 	// Hostname Rules
-	shieldRules.GET("/hostname", siteHandle.ListShieldRuleHostname())
-	shieldRules.POST("/hostname", middleware.SubAccountReadOnly(), siteHandle.AddShieldRuleHostname())
-	shieldRules.DELETE("/hostname/:ruleId", middleware.SubAccountReadOnly(), siteHandle.RemoveShieldRuleHostname())
+	shieldRules.GET("/hostname", middleware.SubAccountHasPerm("shields:write"), siteHandle.ListShieldRuleHostname())
+	shieldRules.POST("/hostname", middleware.SubAccountHasPerm("shields:write"), siteHandle.AddShieldRuleHostname())
+	shieldRules.DELETE("/hostname/:ruleId", middleware.SubAccountHasPerm("shields:write"), siteHandle.RemoveShieldRuleHostname())
 
 	// Country Rules
-	shieldRules.GET("/country", siteHandle.ListShieldRuleCountry())
-	shieldRules.POST("/country", middleware.SubAccountReadOnly(), siteHandle.AddShieldRuleCountry())
-	shieldRules.DELETE("/country/:ruleId", middleware.SubAccountReadOnly(), siteHandle.RemoveShieldRuleCountry())
+	shieldRules.GET("/country", middleware.SubAccountHasPerm("shields:write"), siteHandle.ListShieldRuleCountry())
+	shieldRules.POST("/country", middleware.SubAccountHasPerm("shields:write"), siteHandle.AddShieldRuleCountry())
+	shieldRules.DELETE("/country/:ruleId", middleware.SubAccountHasPerm("shields:write"), siteHandle.RemoveShieldRuleCountry())
 
 	// Referrer Rules
-	shieldRules.GET("/referrer", siteHandle.ListShieldRuleReferrer())
-	shieldRules.POST("/referrer", middleware.SubAccountReadOnly(), siteHandle.AddShieldRuleReferrer())
-	shieldRules.DELETE("/referrer/:ruleId", middleware.SubAccountReadOnly(), siteHandle.RemoveShieldRuleReferrer())
+	shieldRules.GET("/referrer", middleware.SubAccountHasPerm("shields:write"), siteHandle.ListShieldRuleReferrer())
+	shieldRules.POST("/referrer", middleware.SubAccountHasPerm("shields:write"), siteHandle.AddShieldRuleReferrer())
+	shieldRules.DELETE("/referrer/:ruleId", middleware.SubAccountHasPerm("shields:write"), siteHandle.RemoveShieldRuleReferrer())
 
 	// Email Reports
 	emailReportHandle := emailreport.NewHandler()
 	emailReports := router.Group("sites/:domain/email-reports", middleware.JWTAuth(), middleware.SiteMembershipAuth())
-	emailReports.GET("", emailReportHandle.Get)
-	emailReports.PUT("", middleware.SubAccountReadOnly(), emailReportHandle.Update)
+	emailReports.GET("", middleware.SubAccountHasPerm("email_reports:write"), emailReportHandle.Get)
+	emailReports.PUT("", middleware.SubAccountHasPerm("email_reports:write"), emailReportHandle.Update)
 
 	// Traffic Alerts
 	alertHandle := trafficalert.NewHandler()
 	alerts := router.Group("sites/:domain/traffic-alert", middleware.JWTAuth(), middleware.SiteMembershipAuth())
-	alerts.GET("", alertHandle.Get)
-	alerts.PUT("", middleware.SubAccountReadOnly(), alertHandle.Update)
+	alerts.GET("", middleware.SubAccountHasPerm("traffic_alerts:write"), alertHandle.Get)
+	alerts.PUT("", middleware.SubAccountHasPerm("traffic_alerts:write"), alertHandle.Update)
 
 	// Shared Links
 	slHandle := sharedlinks.NewHandler()
 	sharedLinksGroup := router.Group("sites/:domain/shared-links", middleware.JWTAuth(), middleware.SiteMembershipAuth())
 	sharedLinksGroup.GET("", slHandle.List())
-	sharedLinksGroup.POST("", middleware.SubAccountReadOnly(), slHandle.Create())
-	sharedLinksGroup.DELETE("/:linkId", middleware.SubAccountReadOnly(), slHandle.Delete())
+	sharedLinksGroup.POST("", middleware.SubAccountHasPerm("shared_links:write"), slHandle.Create())
+	sharedLinksGroup.DELETE("/:linkId", middleware.SubAccountHasPerm("shared_links:write"), slHandle.Delete())
 
 	// Segments
 	segHandle := segments.NewHandler()
 	segGroup := router.Group("sites/:domain/segments", middleware.JWTAuth(), middleware.SiteMembershipAuth())
 	segGroup.GET("", segHandle.List())
-	segGroup.POST("", middleware.SubAccountReadOnly(), segHandle.Create())
-	segGroup.PATCH("/:segmentId", middleware.SubAccountReadOnly(), segHandle.Update())
-	segGroup.DELETE("/:segmentId", middleware.SubAccountReadOnly(), segHandle.Delete())
+	segGroup.POST("", middleware.SubAccountHasPerm("segments:write"), segHandle.Create())
+	segGroup.PATCH("/:segmentId", middleware.SubAccountHasPerm("segments:write"), segHandle.Update())
+	segGroup.DELETE("/:segmentId", middleware.SubAccountHasPerm("segments:write"), segHandle.Delete())
 }

@@ -13,7 +13,7 @@ func RegisterGoalsRouter(router *gin.RouterGroup) {
 
 	goalsGroup := router.Group("/sites/:domain/goals", middleware.JWTAuth(), middleware.SiteMembershipAuth())
 	goalsGroup.GET("", goalHandle.List())
-	goalsGroup.POST("", middleware.SubAccountReadOnly(), goalHandle.Create())
-	goalsGroup.PUT("/:goalId", middleware.SubAccountReadOnly(), goalHandle.Update())
-	goalsGroup.DELETE("/:goalId", middleware.SubAccountReadOnly(), goalHandle.Delete())
+	goalsGroup.POST("", middleware.SubAccountHasPerm("goals:write"), goalHandle.Create())
+	goalsGroup.PUT("/:goalId", middleware.SubAccountHasPerm("goals:write"), goalHandle.Update())
+	goalsGroup.DELETE("/:goalId", middleware.SubAccountHasPerm("goals:write"), goalHandle.Delete())
 }

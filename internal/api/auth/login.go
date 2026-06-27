@@ -41,6 +41,7 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 			response.Error(c, http.StatusBadRequest, err)
 			return
 		}
+
 		// 验证密码
 		if !h.service.CheckPassword(c, user, req.Password) {
 			response.Error(c, http.StatusUnauthorized, errors.New("invalid password"))

@@ -45,6 +45,11 @@ func JWTAuth() gin.HandlerFunc {
 		c.Set("user_type", claims.UserType)
 		c.Set("sub_account_id", claims.SubAccountID)
 		c.Set("role", claims.Role)
+		perms := claims.Permissions
+		if perms == nil {
+			perms = []string{}
+		}
+		c.Set("permissions", perms)
 		c.Next()
 	}
 }
@@ -85,7 +90,8 @@ func AdminAuth() gin.HandlerFunc {
 	}
 }
 
-// SubAccountReadOnly 子账号只读中间件，阻止子账号执行写操作
+// SubAccountReadOnly 子账号只读中间件，阻止所有子账号（不论角色）执行写操作。
+// 用于父账号专属接口（站点创建/删除、API Key 管理、子账号管理等）。
 func SubAccountReadOnly() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userType, _ := c.Get("user_type")
@@ -95,6 +101,29 @@ func SubAccountReadOnly() gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+// SubAccountHasPerm 细粒度权限中间件。
+// 父账号直接通过；子账号需在 permissions 列表中包含 perm 才能访问。
+func SubAccountHasPerm(perm string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userType, _ := c.Get("user_type")
+		if userType != "sub_account" {
+			c.Next()
+			return
+		}
+		permsVal, _ := c.Get("permissions")
+		if permsVal != nil {
+			for _, p := range permsVal.([]string) {
+				if p == perm {
+					c.Next()
+					return
+				}
+			}
+		}
+		response.ErrorWithKey(c, http.StatusForbidden, "auth.sub_account_insufficient_role")
+		c.Abort()
 	}
 }
 

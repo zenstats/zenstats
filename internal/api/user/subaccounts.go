@@ -41,14 +41,15 @@ func (h *UserHandler) ListSubAccounts() gin.HandlerFunc {
 		for _, sa := range subAccounts {
 			lastSeen := sa.LastSeen
 			subAccountList = append(subAccountList, &types.SubAccount{
-				ID:           sa.ID,
-				Email:        sa.Email,
-				Name:         sa.Name,
-				Role:         sa.Role,
-				Status:       sa.Status,
-				LastSeen:     &lastSeen,
-				CreatedAt:    sa.CreatedAt,
-				UpdatedAt:    sa.UpdatedAt,
+				ID:          sa.ID,
+				Email:       sa.Email,
+				Name:        sa.Name,
+				Role:        sa.Role,
+				Permissions: sa.Permissions,
+				Status:      sa.Status,
+				LastSeen:    &lastSeen,
+				CreatedAt:   sa.CreatedAt,
+				UpdatedAt:   sa.UpdatedAt,
 			})
 		}
 
@@ -121,20 +122,21 @@ func (h *UserHandler) CreateSubAccount() gin.HandlerFunc {
 			return
 		}
 
-		subAccount, err := h.subAccountService.CreateSubAccount(c.Request.Context(), userID, req.Email, req.Name, req.Password)
+		subAccount, err := h.subAccountService.CreateSubAccount(c.Request.Context(), userID, req.Email, req.Name, req.Password, req.Role, req.Permissions)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return
 		}
 
 		response.Success(c, &types.SubAccount{
-			ID:        subAccount.ID,
-			Email:     subAccount.Email,
-			Name:      subAccount.Name,
-			Role:      subAccount.Role,
-			Status:    subAccount.Status,
-			CreatedAt: subAccount.CreatedAt,
-			UpdatedAt: subAccount.UpdatedAt,
+			ID:          subAccount.ID,
+			Email:       subAccount.Email,
+			Name:        subAccount.Name,
+			Role:        subAccount.Role,
+			Permissions: subAccount.Permissions,
+			Status:      subAccount.Status,
+			CreatedAt:   subAccount.CreatedAt,
+			UpdatedAt:   subAccount.UpdatedAt,
 		})
 	}
 }
@@ -181,7 +183,7 @@ func (h *UserHandler) UpdateSubAccount() gin.HandlerFunc {
 			return
 		}
 
-		_, err = h.subAccountService.UpdateSubAccount(c.Request.Context(), subAccountID, req.Name, req.Status)
+		_, err = h.subAccountService.UpdateSubAccount(c.Request.Context(), subAccountID, req.Name, req.Status, req.Role, req.Permissions)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return

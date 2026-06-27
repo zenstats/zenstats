@@ -558,6 +558,7 @@ var (
 		{Name: "password_hash", Type: field.TypeString, Size: 255},
 		{Name: "name", Type: field.TypeString, Nullable: true, Size: 100},
 		{Name: "role", Type: field.TypeString, Size: 20, Default: "viewer"},
+		{Name: "permissions", Type: field.TypeJSON},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "last_seen", Type: field.TypeTime, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
@@ -572,7 +573,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sub_accounts_users_sub_accounts",
-				Columns:    []*schema.Column{SubAccountsColumns[9]},
+				Columns:    []*schema.Column{SubAccountsColumns[10]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -581,7 +582,7 @@ var (
 			{
 				Name:    "subaccount_parent_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{SubAccountsColumns[9]},
+				Columns: []*schema.Column{SubAccountsColumns[10]},
 			},
 			{
 				Name:    "subaccount_email",

@@ -142,14 +142,15 @@ type UpdateSearchEngineRequest struct {
 
 // SubAccount 子账号信息
 type SubAccount struct {
-	ID        int64     `json:"id"`
-	Email     string    `json:"email"`
-	Name      string    `json:"name"`
-	Role      string    `json:"role"`
-	Status    string    `json:"status"`
-	LastSeen  *time.Time `json:"last_seen"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          int64      `json:"id"`
+	Email       string     `json:"email"`
+	Name        string     `json:"name"`
+	Role        string     `json:"role"`
+	Permissions []string   `json:"permissions"`
+	Status      string     `json:"status"`
+	LastSeen    *time.Time `json:"last_seen"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // SubAccountListResponse 子账号列表响应
@@ -162,15 +163,19 @@ type SubAccountListResponse struct {
 
 // CreateSubAccountRequest 创建子账号请求
 type CreateSubAccountRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Name     string `json:"name" binding:"required,min=1,max=100"`
-	Password string `json:"password" binding:"required,min=8,max=128"`
+	Email       string   `json:"email" binding:"required,email"`
+	Name        string   `json:"name" binding:"required,min=1,max=100"`
+	Password    string   `json:"password" binding:"required,min=8,max=128"`
+	Role        string   `json:"role" binding:"omitempty,oneof=viewer editor admin custom"`
+	Permissions []string `json:"permissions" binding:"omitempty"`
 }
 
 // UpdateSubAccountRequest 更新子账号请求
 type UpdateSubAccountRequest struct {
-	Name   string `json:"name" binding:"required,min=1,max=100"`
-	Status string `json:"status" binding:"required,oneof=active suspended"`
+	Name        string   `json:"name" binding:"required,min=1,max=100"`
+	Status      string   `json:"status" binding:"required,oneof=active suspended"`
+	Role        string   `json:"role" binding:"omitempty,oneof=viewer editor admin custom"`
+	Permissions []string `json:"permissions" binding:"omitempty"`
 }
 
 // ResetSubAccountPasswordRequest 重置子账号密码请求

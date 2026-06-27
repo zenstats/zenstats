@@ -42,18 +42,22 @@ func (h *AuthHandler) SubLogin() gin.HandlerFunc {
 		}
 
 		// 生成子账号 Token
-		token, err := auth.GenerateSubAccountToken(subAccount.ID, subAccount.ParentUserID, subAccount.Role)
+		token, err := auth.GenerateSubAccountToken(subAccount.ID, subAccount.ParentUserID, subAccount.Role, subAccount.Permissions)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return
 		}
 
-		refreshToken, err := auth.GenerateSubAccountRefreshToken(subAccount.ID, subAccount.ParentUserID, subAccount.Role)
+		refreshToken, err := auth.GenerateSubAccountRefreshToken(subAccount.ID, subAccount.ParentUserID, subAccount.Role, subAccount.Permissions)
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return
 		}
 
+		perms := subAccount.Permissions
+		if perms == nil {
+			perms = []string{}
+		}
 		response.Success(c, &types.SubAccountLoginResponse{
 			Token:        token,
 			RefreshToken: refreshToken,
@@ -62,6 +66,7 @@ func (h *AuthHandler) SubLogin() gin.HandlerFunc {
 				Email:        subAccount.Email,
 				Name:         subAccount.Name,
 				Role:         subAccount.Role,
+				Permissions:  perms,
 				ParentUserID: parentUser.ID,
 			},
 		})

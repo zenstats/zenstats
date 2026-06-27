@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -26,8 +27,10 @@ type SubAccount struct {
 	PasswordHash string `json:"password_hash,omitempty"`
 	// 名称
 	Name string `json:"name,omitempty"`
-	// 角色：viewer（只读）
+	// 角色标签：viewer / editor / admin / custom（自定义）
 	Role string `json:"role,omitempty"`
+	// 细粒度权限列表，如 goals:write, funnels:write 等
+	Permissions []string `json:"permissions,omitempty"`
 	// 状态：active, suspended
 	Status string `json:"status,omitempty"`
 	// 最后登录时间
@@ -67,6 +70,8 @@ func (*SubAccount) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case subaccount.FieldPermissions:
+			values[i] = new([]byte)
 		case subaccount.FieldID, subaccount.FieldParentUserID:
 			values[i] = new(sql.NullInt64)
 		case subaccount.FieldEmail, subaccount.FieldPasswordHash, subaccount.FieldName, subaccount.FieldRole, subaccount.FieldStatus:
@@ -123,6 +128,14 @@ func (sa *SubAccount) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field role", values[i])
 			} else if value.Valid {
 				sa.Role = value.String
+			}
+		case subaccount.FieldPermissions:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field permissions", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &sa.Permissions); err != nil {
+					return fmt.Errorf("unmarshal field permissions: %w", err)
+				}
 			}
 		case subaccount.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -203,6 +216,9 @@ func (sa *SubAccount) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("role=")
 	builder.WriteString(sa.Role)
+	builder.WriteString(", ")
+	builder.WriteString("permissions=")
+	builder.WriteString(fmt.Sprintf("%v", sa.Permissions))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(sa.Status)

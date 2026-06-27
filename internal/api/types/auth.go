@@ -77,11 +77,12 @@ type SubAccountLoginResponse struct {
 
 // SubAccountUser 子账号用户信息
 type SubAccountUser struct {
-	ID           int64  `json:"id"`
-	Email        string `json:"email"`
-	Name         string `json:"name"`
-	Role         string `json:"role"`
-	ParentUserID int64  `json:"parent_user_id"`
+	ID           int64    `json:"id"`
+	Email        string   `json:"email"`
+	Name         string   `json:"name"`
+	Role         string   `json:"role"`
+	Permissions  []string `json:"permissions"`
+	ParentUserID int64    `json:"parent_user_id"`
 }
 
 // UpdateProfileRequest 更新用户资料请求参数

@@ -12,10 +12,11 @@ func jwtSecret() []byte {
 }
 
 type CustomClaims struct {
-	UserID       int64  `json:"user_id"`
-	UserType     string `json:"user_type"`      // "user" or "sub_account"
-	SubAccountID int64  `json:"sub_account_id"` // only set when UserType == "sub_account"
-	Role         string `json:"role"`           // sub-account role: "viewer", "admin", etc.
+	UserID       int64    `json:"user_id"`
+	UserType     string   `json:"user_type"`        // "user" or "sub_account"
+	SubAccountID int64    `json:"sub_account_id"`   // only set when UserType == "sub_account"
+	Role         string   `json:"role"`             // display label: viewer / editor / admin / custom
+	Permissions  []string `json:"permissions"`      // fine-grained permission list
 	jwt.RegisteredClaims
 }
 
@@ -47,12 +48,16 @@ func GenerateToken(userID int64) (string, error) {
 	return token.SignedString(jwtSecret())
 }
 
-func GenerateSubAccountToken(subAccountID, parentUserID int64, role string) (string, error) {
+func GenerateSubAccountToken(subAccountID, parentUserID int64, role string, permissions []string) (string, error) {
+	if permissions == nil {
+		permissions = []string{}
+	}
 	claims := CustomClaims{
 		UserID:       parentUserID,
 		UserType:     "sub_account",
 		SubAccountID: subAccountID,
 		Role:         role,
+		Permissions:  permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 			Issuer:    "zenstats",
@@ -63,12 +68,16 @@ func GenerateSubAccountToken(subAccountID, parentUserID int64, role string) (str
 	return token.SignedString(jwtSecret())
 }
 
-func GenerateSubAccountRefreshToken(subAccountID, parentUserID int64, role string) (string, error) {
+func GenerateSubAccountRefreshToken(subAccountID, parentUserID int64, role string, permissions []string) (string, error) {
+	if permissions == nil {
+		permissions = []string{}
+	}
 	claims := CustomClaims{
 		UserID:       parentUserID,
 		UserType:     "sub_account",
 		SubAccountID: subAccountID,
 		Role:         role,
+		Permissions:  permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			Issuer:    "zenstats",

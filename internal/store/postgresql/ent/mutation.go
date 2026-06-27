@@ -12942,6 +12942,8 @@ type SubAccountMutation struct {
 	password_hash      *string
 	name               *string
 	role               *string
+	permissions        *[]string
+	appendpermissions  []string
 	status             *string
 	last_seen          *time.Time
 	created_at         *time.Time
@@ -13251,6 +13253,57 @@ func (m *SubAccountMutation) ResetRole() {
 	m.role = nil
 }
 
+// SetPermissions sets the "permissions" field.
+func (m *SubAccountMutation) SetPermissions(s []string) {
+	m.permissions = &s
+	m.appendpermissions = nil
+}
+
+// Permissions returns the value of the "permissions" field in the mutation.
+func (m *SubAccountMutation) Permissions() (r []string, exists bool) {
+	v := m.permissions
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPermissions returns the old "permissions" field's value of the SubAccount entity.
+// If the SubAccount object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubAccountMutation) OldPermissions(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPermissions is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPermissions requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPermissions: %w", err)
+	}
+	return oldValue.Permissions, nil
+}
+
+// AppendPermissions adds s to the "permissions" field.
+func (m *SubAccountMutation) AppendPermissions(s []string) {
+	m.appendpermissions = append(m.appendpermissions, s...)
+}
+
+// AppendedPermissions returns the list of values that were appended to the "permissions" field in this mutation.
+func (m *SubAccountMutation) AppendedPermissions() ([]string, bool) {
+	if len(m.appendpermissions) == 0 {
+		return nil, false
+	}
+	return m.appendpermissions, true
+}
+
+// ResetPermissions resets all changes to the "permissions" field.
+func (m *SubAccountMutation) ResetPermissions() {
+	m.permissions = nil
+	m.appendpermissions = nil
+}
+
 // SetStatus sets the "status" field.
 func (m *SubAccountMutation) SetStatus(s string) {
 	m.status = &s
@@ -13469,7 +13522,7 @@ func (m *SubAccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SubAccountMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.parent_user != nil {
 		fields = append(fields, subaccount.FieldParentUserID)
 	}
@@ -13484,6 +13537,9 @@ func (m *SubAccountMutation) Fields() []string {
 	}
 	if m.role != nil {
 		fields = append(fields, subaccount.FieldRole)
+	}
+	if m.permissions != nil {
+		fields = append(fields, subaccount.FieldPermissions)
 	}
 	if m.status != nil {
 		fields = append(fields, subaccount.FieldStatus)
@@ -13515,6 +13571,8 @@ func (m *SubAccountMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case subaccount.FieldRole:
 		return m.Role()
+	case subaccount.FieldPermissions:
+		return m.Permissions()
 	case subaccount.FieldStatus:
 		return m.Status()
 	case subaccount.FieldLastSeen:
@@ -13542,6 +13600,8 @@ func (m *SubAccountMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldName(ctx)
 	case subaccount.FieldRole:
 		return m.OldRole(ctx)
+	case subaccount.FieldPermissions:
+		return m.OldPermissions(ctx)
 	case subaccount.FieldStatus:
 		return m.OldStatus(ctx)
 	case subaccount.FieldLastSeen:
@@ -13593,6 +13653,13 @@ func (m *SubAccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRole(v)
+		return nil
+	case subaccount.FieldPermissions:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPermissions(v)
 		return nil
 	case subaccount.FieldStatus:
 		v, ok := value.(string)
@@ -13703,6 +13770,9 @@ func (m *SubAccountMutation) ResetField(name string) error {
 		return nil
 	case subaccount.FieldRole:
 		m.ResetRole()
+		return nil
+	case subaccount.FieldPermissions:
+		m.ResetPermissions()
 		return nil
 	case subaccount.FieldStatus:
 		m.ResetStatus()

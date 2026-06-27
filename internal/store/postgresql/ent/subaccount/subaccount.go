@@ -24,6 +24,8 @@ const (
 	FieldName = "name"
 	// FieldRole holds the string denoting the role field in the database.
 	FieldRole = "role"
+	// FieldPermissions holds the string denoting the permissions field in the database.
+	FieldPermissions = "permissions"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldLastSeen holds the string denoting the last_seen field in the database.
@@ -53,6 +55,7 @@ var Columns = []string{
 	FieldPasswordHash,
 	FieldName,
 	FieldRole,
+	FieldPermissions,
 	FieldStatus,
 	FieldLastSeen,
 	FieldCreatedAt,
@@ -80,6 +83,8 @@ var (
 	DefaultRole string
 	// RoleValidator is a validator for the "role" field. It is called by the builders before save.
 	RoleValidator func(string) error
+	// DefaultPermissions holds the default value on creation for the "permissions" field.
+	DefaultPermissions []string
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.

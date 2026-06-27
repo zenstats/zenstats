@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
@@ -102,6 +103,18 @@ func (sau *SubAccountUpdate) SetNillableRole(s *string) *SubAccountUpdate {
 	if s != nil {
 		sau.SetRole(*s)
 	}
+	return sau
+}
+
+// SetPermissions sets the "permissions" field.
+func (sau *SubAccountUpdate) SetPermissions(s []string) *SubAccountUpdate {
+	sau.mutation.SetPermissions(s)
+	return sau
+}
+
+// AppendPermissions appends s to the "permissions" field.
+func (sau *SubAccountUpdate) AppendPermissions(s []string) *SubAccountUpdate {
+	sau.mutation.AppendPermissions(s)
 	return sau
 }
 
@@ -257,6 +270,14 @@ func (sau *SubAccountUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := sau.mutation.Role(); ok {
 		_spec.SetField(subaccount.FieldRole, field.TypeString, value)
 	}
+	if value, ok := sau.mutation.Permissions(); ok {
+		_spec.SetField(subaccount.FieldPermissions, field.TypeJSON, value)
+	}
+	if value, ok := sau.mutation.AppendedPermissions(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, subaccount.FieldPermissions, value)
+		})
+	}
 	if value, ok := sau.mutation.Status(); ok {
 		_spec.SetField(subaccount.FieldStatus, field.TypeString, value)
 	}
@@ -391,6 +412,18 @@ func (sauo *SubAccountUpdateOne) SetNillableRole(s *string) *SubAccountUpdateOne
 	if s != nil {
 		sauo.SetRole(*s)
 	}
+	return sauo
+}
+
+// SetPermissions sets the "permissions" field.
+func (sauo *SubAccountUpdateOne) SetPermissions(s []string) *SubAccountUpdateOne {
+	sauo.mutation.SetPermissions(s)
+	return sauo
+}
+
+// AppendPermissions appends s to the "permissions" field.
+func (sauo *SubAccountUpdateOne) AppendPermissions(s []string) *SubAccountUpdateOne {
+	sauo.mutation.AppendPermissions(s)
 	return sauo
 }
 
@@ -575,6 +608,14 @@ func (sauo *SubAccountUpdateOne) sqlSave(ctx context.Context) (_node *SubAccount
 	}
 	if value, ok := sauo.mutation.Role(); ok {
 		_spec.SetField(subaccount.FieldRole, field.TypeString, value)
+	}
+	if value, ok := sauo.mutation.Permissions(); ok {
+		_spec.SetField(subaccount.FieldPermissions, field.TypeJSON, value)
+	}
+	if value, ok := sauo.mutation.AppendedPermissions(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, subaccount.FieldPermissions, value)
+		})
 	}
 	if value, ok := sauo.mutation.Status(); ok {
 		_spec.SetField(subaccount.FieldStatus, field.TypeString, value)

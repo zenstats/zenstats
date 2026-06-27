@@ -487,19 +487,37 @@ func init() {
 	// subaccount.DefaultRole holds the default value on creation for the role field.
 	subaccount.DefaultRole = subaccountDescRole.Default.(string)
 	// subaccount.RoleValidator is a validator for the "role" field. It is called by the builders before save.
-	subaccount.RoleValidator = subaccountDescRole.Validators[0].(func(string) error)
+	subaccount.RoleValidator = func() func(string) error {
+		validators := subaccountDescRole.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(role string) error {
+			for _, fn := range fns {
+				if err := fn(role); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// subaccountDescPermissions is the schema descriptor for permissions field.
+	subaccountDescPermissions := subaccountFields[6].Descriptor()
+	// subaccount.DefaultPermissions holds the default value on creation for the permissions field.
+	subaccount.DefaultPermissions = subaccountDescPermissions.Default.([]string)
 	// subaccountDescStatus is the schema descriptor for status field.
-	subaccountDescStatus := subaccountFields[6].Descriptor()
+	subaccountDescStatus := subaccountFields[7].Descriptor()
 	// subaccount.DefaultStatus holds the default value on creation for the status field.
 	subaccount.DefaultStatus = subaccountDescStatus.Default.(string)
 	// subaccount.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	subaccount.StatusValidator = subaccountDescStatus.Validators[0].(func(string) error)
 	// subaccountDescCreatedAt is the schema descriptor for created_at field.
-	subaccountDescCreatedAt := subaccountFields[8].Descriptor()
+	subaccountDescCreatedAt := subaccountFields[9].Descriptor()
 	// subaccount.DefaultCreatedAt holds the default value on creation for the created_at field.
 	subaccount.DefaultCreatedAt = subaccountDescCreatedAt.Default.(func() time.Time)
 	// subaccountDescUpdatedAt is the schema descriptor for updated_at field.
-	subaccountDescUpdatedAt := subaccountFields[9].Descriptor()
+	subaccountDescUpdatedAt := subaccountFields[10].Descriptor()
 	// subaccount.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	subaccount.DefaultUpdatedAt = subaccountDescUpdatedAt.Default.(func() time.Time)
 	// subaccount.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

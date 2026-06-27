@@ -67,6 +67,12 @@ func (sac *SubAccountCreate) SetNillableRole(s *string) *SubAccountCreate {
 	return sac
 }
 
+// SetPermissions sets the "permissions" field.
+func (sac *SubAccountCreate) SetPermissions(s []string) *SubAccountCreate {
+	sac.mutation.SetPermissions(s)
+	return sac
+}
+
 // SetStatus sets the "status" field.
 func (sac *SubAccountCreate) SetStatus(s string) *SubAccountCreate {
 	sac.mutation.SetStatus(s)
@@ -173,6 +179,10 @@ func (sac *SubAccountCreate) defaults() {
 		v := subaccount.DefaultRole
 		sac.mutation.SetRole(v)
 	}
+	if _, ok := sac.mutation.Permissions(); !ok {
+		v := subaccount.DefaultPermissions
+		sac.mutation.SetPermissions(v)
+	}
 	if _, ok := sac.mutation.Status(); !ok {
 		v := subaccount.DefaultStatus
 		sac.mutation.SetStatus(v)
@@ -220,6 +230,9 @@ func (sac *SubAccountCreate) check() error {
 		if err := subaccount.RoleValidator(v); err != nil {
 			return &ValidationError{Name: "role", err: fmt.Errorf(`ent: validator failed for field "SubAccount.role": %w`, err)}
 		}
+	}
+	if _, ok := sac.mutation.Permissions(); !ok {
+		return &ValidationError{Name: "permissions", err: errors.New(`ent: missing required field "SubAccount.permissions"`)}
 	}
 	if _, ok := sac.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "SubAccount.status"`)}
@@ -285,6 +298,10 @@ func (sac *SubAccountCreate) createSpec() (*SubAccount, *sqlgraph.CreateSpec) {
 	if value, ok := sac.mutation.Role(); ok {
 		_spec.SetField(subaccount.FieldRole, field.TypeString, value)
 		_node.Role = value
+	}
+	if value, ok := sac.mutation.Permissions(); ok {
+		_spec.SetField(subaccount.FieldPermissions, field.TypeJSON, value)
+		_node.Permissions = value
 	}
 	if value, ok := sac.mutation.Status(); ok {
 		_spec.SetField(subaccount.FieldStatus, field.TypeString, value)

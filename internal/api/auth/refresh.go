@@ -47,7 +47,12 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 			return
 		}
 
-		token, err := authJwt.GenerateToken(claims.UserID)
+		var token string
+		if claims.UserType == "sub_account" {
+			token, err = authJwt.GenerateSubAccountToken(claims.SubAccountID, claims.UserID, claims.Role, claims.Permissions)
+		} else {
+			token, err = authJwt.GenerateToken(claims.UserID)
+		}
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return

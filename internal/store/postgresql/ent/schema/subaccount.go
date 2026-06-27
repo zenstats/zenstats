@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent"
@@ -38,7 +39,17 @@ func (SubAccount) Fields() []ent.Field {
 		field.String("role").
 			Default("viewer").
 			MaxLen(20).
-			Comment("角色：viewer（只读）"),
+			Validate(func(s string) error {
+				switch s {
+				case "viewer", "editor", "admin", "custom":
+					return nil
+				}
+				return fmt.Errorf("invalid role %q: must be viewer, editor, admin, or custom", s)
+			}).
+			Comment("角色标签：viewer / editor / admin / custom（自定义）"),
+		field.JSON("permissions", []string{}).
+			Default([]string{}).
+			Comment("细粒度权限列表，如 goals:write, funnels:write 等"),
 		field.String("status").
 			Default("active").
 			MaxLen(20).
