@@ -194,7 +194,6 @@ func (s *SystemConfigService) UpdateConfigs(ctx context.Context, items []ConfigI
 }
 
 // IsRegistrationEnabled 检查注册功能是否开启。
-// 查询失败时 fail-closed（返回 false），防止配置读取异常时放行注册。
 func (s *SystemConfigService) IsRegistrationEnabled(ctx context.Context) bool {
 	cfg, err := s.db.Client.SystemConfig.Query().
 		Where(systemconfig.Key("general.registration_enabled")).
