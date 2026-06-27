@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/zenstats/zenstats/pkg/bcrypt"
 
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
@@ -75,8 +76,11 @@ func (s *SharedLinkService) Create(ctx context.Context, siteID int64, name, slug
 		SetName(name).
 		SetSlug(slug)
 	if password != "" {
-		h := sha256.Sum256([]byte(password))
-		q = q.SetPasswordHash(fmt.Sprintf("%x", h))
+		h, err := bcrypt.Generate(password)
+		if err != nil {
+			return nil, fmt.Errorf("hashing password: %w", err)
+		}
+		q = q.SetPasswordHash(h)
 	}
 	row, err := q.Save(ctx)
 	if err != nil {

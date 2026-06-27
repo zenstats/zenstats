@@ -21,6 +21,7 @@ type WriteBuffer struct {
 	maxBatchSize  int
 	eventCounter  int64
 	writeTimes    []time.Duration
+	closed        int32 // atomic; set to 1 by Shutdown to stop new flush goroutines
 
 	buffer []*models.Events
 
@@ -55,7 +56,7 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 		writeTimes:    make([]time.Duration, 0, 5),
 	}
 	wb.batchPool.New = func() any {
-		s := make([]*models.Events, 0, int(wb.batchSize))
+		s := make([]*models.Events, 0, int(atomic.LoadInt32(&wb.batchSize)))
 		return &s
 	}
 
@@ -63,6 +64,11 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 }
 
 func (wb *WriteBuffer) Add(event *models.Events) {
+	// Reject new events after Shutdown() is called to prevent wg.Add races.
+	if atomic.LoadInt32(&wb.closed) == 1 {
+		return
+	}
+
 	wb.mu.Lock()
 	wb.buffer = append(wb.buffer, event)
 	shouldFlush := len(wb.buffer) >= int(atomic.LoadInt32(&wb.batchSize))
@@ -96,7 +102,7 @@ func (wb *WriteBuffer) flushAndWrite() {
 	wb.mu.Unlock()
 
 	if err := wb.writeBatch(*batch); err != nil {
-		slog.Error("failed to write batch", "error", err)
+		slog.Error("failed to write event batch, events dropped", "error", err, "dropped_count", len(*batch))
 	}
 	*batch = (*batch)[:0]
 	wb.batchPool.Put(batch)
@@ -130,13 +136,18 @@ func (wb *WriteBuffer) flushWorker() {
 }
 
 func (wb *WriteBuffer) writeBatch(batch []*models.Events) error {
+	repo := repository.GetEventsRepository()
+	if repo == nil {
+		return fmt.Errorf("events repository not initialized")
+	}
+
 	retries := 5
 	var err error
 	backoff := []time.Duration{100 * time.Millisecond, 300 * time.Millisecond, 1 * time.Second, 3 * time.Second, 5 * time.Second}
 
 	startTime := time.Now()
 	for i := 0; i < retries; i++ {
-		if err = repository.GetEventsRepository().BatchInsert(wb.ctx, batch); err == nil {
+		if err = repo.BatchInsert(wb.ctx, batch); err == nil {
 			wb.recordWriteTime(time.Since(startTime))
 			return nil
 		}
@@ -160,6 +171,8 @@ func (wb *WriteBuffer) recordWriteTime(duration time.Duration) {
 }
 
 func (wb *WriteBuffer) Shutdown() {
+	// Set closed first so no new flush goroutines call wg.Add after wg.Wait returns.
+	atomic.StoreInt32(&wb.closed, 1)
 	close(wb.shutdownChan)
 	wb.wg.Wait()
 	wb.cancel()

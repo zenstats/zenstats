@@ -62,7 +62,7 @@ func (h *Handler) List() gin.HandlerFunc {
 		}
 		result := make([]SharedLinkResponse, len(links))
 		for i, l := range links {
-			result[i] = toResponse(l, c.Request.Host)
+			result[i] = toResponse(l, schemeFromContext(c), c.Request.Host)
 		}
 		response.Success(c, result)
 	}
@@ -104,7 +104,7 @@ func (h *Handler) Create() gin.HandlerFunc {
 			return
 		}
 
-		response.Success(c, toResponse(link, c.Request.Host))
+		response.Success(c, toResponse(link, schemeFromContext(c), c.Request.Host))
 	}
 }
 
@@ -188,8 +188,17 @@ func generateSlug() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func toResponse(l *service.SharedLink, host string) SharedLinkResponse {
-	scheme := "https"
+func schemeFromContext(c *gin.Context) string {
+	if proto := c.GetHeader("X-Forwarded-Proto"); proto != "" {
+		return proto
+	}
+	if c.Request.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
+func toResponse(l *service.SharedLink, scheme, host string) SharedLinkResponse {
 	url := fmt.Sprintf("%s://%s/share/%s", scheme, host, l.Slug)
 	return SharedLinkResponse{
 		ID:               l.ID,

@@ -75,6 +75,12 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 				slog.Debug("session not found in cache or DB", "user_id", event.UserId, "site_id", event.SiteId)
 				return nil, nil
 			}
+			// Write Sign=-1 tombstone for the existing DB row before mutating.
+			// Without this, ClickHouse ends up with two Sign=1 rows → double-counting.
+			tombstone := s.CopySession(loadedSession)
+			tombstone.Sign = -1
+			s.writeBuffer.Add(tombstone)
+
 			s.updateSessionCache(loadedSession)
 			s.refreshSessionCache(loadedSession, event.Timestamp)
 			loadedSession.Duration = uint32(event.Timestamp.Sub(loadedSession.Start).Seconds())
@@ -146,7 +152,9 @@ func (s *SessionManager) newSession(event *models.Events) *models.Sessions {
 	if event.Name == "pageview" || !event.Interactive {
 		isBounce = uint8(1)
 	}
-	sessionId := (uint64(time.Now().UnixNano()) << 24) | (s.machineID << 16) | uint64(rand.Uint32()&0xFFFF)
+	// Layout: bits[63:24]=timestamp(40b) | bits[23:16]=machineID(8b) | bits[15:0]=random(16b)
+	// Mask machineID to 8 bits; without the mask a full-range uint64 would corrupt the timestamp bits.
+	sessionId := (uint64(time.Now().UnixNano()) << 24) | ((s.machineID & 0xFF) << 16) | uint64(rand.Uint32()&0xFFFF)
 
 	session := &models.Sessions{
 		Version:        s.nextVersion(),
@@ -264,9 +272,10 @@ func (s *SessionManager) WriteSession(session *models.Sessions) {
 
 func (s *SessionManager) Shutdown() {
 	slog.Info("Shutdown session manager")
-	s.shutdownCancel()
-
+	// Flush remaining sessions before cancelling the context.
+	// Cancelling first would make wb.ctx done, causing writeBatch to fail mid-flush.
 	s.writeBuffer.Shutdown()
+	s.shutdownCancel()
 }
 
 // nextVersion returns the next monotonically increasing version number

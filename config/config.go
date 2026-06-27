@@ -121,7 +121,9 @@ func Load(env string) error {
 	// 7. ClickHouse addr: support comma-separated or JSON array env override.
 	if addrStr := os.Getenv("ZENSTATS_CLICKHOUSE_ADDR"); addrStr != "" {
 		if strings.HasPrefix(strings.TrimSpace(addrStr), "[") {
-			yaml.Unmarshal([]byte(addrStr), &cfg.Clickhouse.Addr)
+			if err := yaml.Unmarshal([]byte(addrStr), &cfg.Clickhouse.Addr); err != nil {
+				return fmt.Errorf("config: ZENSTATS_CLICKHOUSE_ADDR is not valid YAML: %w", err)
+			}
 		} else {
 			cfg.Clickhouse.Addr = strings.Split(addrStr, ",")
 		}

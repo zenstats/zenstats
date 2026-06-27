@@ -133,6 +133,9 @@ func (s *Sessions) GetMostRecentActiveSession(ctx context.Context, userId, siteI
 	defer rows.Close()
 
 	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("query session rows: %w", err)
+		}
 		return nil, fmt.Errorf("session not found")
 	}
 

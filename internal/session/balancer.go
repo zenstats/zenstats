@@ -50,18 +50,23 @@ func (b *Balancer[T]) Dispatch(userID uint64, fn func() (T, error), timeout time
 	res := make(chan balancerResult[T], 1)
 	t := balancerTask[T]{fn: fn, result: res}
 
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	// Block until the worker queue has room, or timeout. Direct-execute fallback was removed:
+	// it bypassed per-userId serialization and could cause concurrent session mutations.
 	select {
 	case b.workers[idx] <- t:
-	default:
-		// worker 队列已满（64项积压），降级为直接执行以避免调用方永久阻塞
-		val, err := fn()
-		return val, err
+	case <-timer.C:
+		var zero T
+		return zero, context.DeadlineExceeded
 	}
 
 	select {
 	case r := <-res:
 		return r.val, r.err
-	case <-time.After(timeout):
+	case <-timer.C:
+		// fn is still queued and will complete in the worker (data consistency preserved).
 		var zero T
 		return zero, context.DeadlineExceeded
 	}

@@ -303,6 +303,30 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 					continue
 				}
 
+				// 限频检查
+				if !limiter.allow(subDomain, site.IngestRateLimitScaleSeconds, site.IngestLimitPerMinute) {
+					continue
+				}
+
+				// 月事件数配额检查
+				ownerUserID, ownerErr := siteService.GetSiteOwnerUserID(c, site.ID)
+				if ownerErr == nil && ownerUserID > 0 {
+					userService := service.GetUserService()
+					if user, userErr := userService.GetUserWithConfig(c, ownerUserID); userErr == nil &&
+						user.Edges.UserConfig != nil && user.Edges.UserConfig.Edges.Group != nil {
+						maxEvents := user.Edges.UserConfig.Edges.Group.MaxMonthlyEvents
+						if maxEvents != -1 {
+							quota := event.GetMonthlyQuota()
+							if quota.Get(ownerUserID) >= int64(maxEvents) {
+								continue
+							}
+							quota.Increment(ownerUserID)
+						} else {
+							event.GetMonthlyQuota().Increment(ownerUserID)
+						}
+					}
+				}
+
 				// 子事件长度校验
 				if len(subEvent.EventName) > 120 {
 					subEvent.EventName = subEvent.EventName[:120]
@@ -395,16 +419,15 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 					maxEvents := user.Edges.UserConfig.Edges.Group.MaxMonthlyEvents
 					if maxEvents != -1 {
 						quota := event.GetMonthlyQuota()
-						currentCount := quota.Increment(ownerUserID)
-						if currentCount > int64(maxEvents) {
-							// 超限，丢弃事件
+						// Check before incrementing so rejected events don't inflate the count.
+						if quota.Get(ownerUserID) >= int64(maxEvents) {
 							c.JSON(http.StatusTooManyRequests, "monthly event limit exceeded")
 							return
 						}
+						quota.Increment(ownerUserID)
 					} else {
 						// 无限制但仍需计数
-						quota := event.GetMonthlyQuota()
-						quota.Increment(ownerUserID)
+						event.GetMonthlyQuota().Increment(ownerUserID)
 					}
 				}
 			}

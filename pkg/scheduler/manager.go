@@ -59,9 +59,6 @@ func (cm *CronManager) AddJob(spec string, jobFunc JobFunction, params any) (int
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	cm.jobCounter++
-	jobID := cm.jobCounter
-
 	wrappedJobFunc := func() {
 		jobFunc(params)
 	}
@@ -70,6 +67,9 @@ func (cm *CronManager) AddJob(spec string, jobFunc JobFunction, params any) (int
 	if err != nil {
 		return 0, fmt.Errorf("failed to add job to cron: %w", err)
 	}
+
+	cm.jobCounter++
+	jobID := cm.jobCounter
 
 	cronJob := &CronJob{
 		ID:      jobID,

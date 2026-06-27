@@ -203,6 +203,9 @@ func (wb *WhereBuilder) addFilterCondition(fieldExpr string, filter *types.Filte
 
 // 实现各种过滤条件的方法...
 func (wb *WhereBuilder) addNotFilter(table string, filter *types.Filter) error {
+	if len(filter.SubFilters) == 0 {
+		return fmt.Errorf("'not' filter requires at least one sub-filter")
+	}
 	subBuilder := NewWhereBuilder(wb.siteID)
 	if err := subBuilder.AddFilter(table, filter.SubFilters[0]); err != nil {
 		return err
@@ -255,6 +258,9 @@ func (wb *WhereBuilder) addOrFilter(table string, filter *types.Filter) error {
 }
 
 func (wb *WhereBuilder) addHasDoneFilter(table string, filter *types.Filter) error {
+	if len(filter.SubFilters) == 0 {
+		return fmt.Errorf("'has_done' filter requires at least one sub-filter")
+	}
 	subBuilder := NewWhereBuilder(wb.siteID)
 	subFilter := filter.SubFilters[0]
 	if err := subBuilder.AddFilter("events", subFilter); err != nil {
@@ -265,12 +271,14 @@ func (wb *WhereBuilder) addHasDoneFilter(table string, filter *types.Filter) err
 		return nil
 	}
 	subQuery := fmt.Sprintf("SELECT session_id FROM events WHERE %s", condition)
-	params = append([]any{wb.siteID}, params...)
 	wb.AddCondition(fmt.Sprintf("session_id IN (%s)", subQuery), params...)
 	return nil
 }
 
 func (wb *WhereBuilder) addHasNotDoneFilter(table string, filter *types.Filter) error {
+	if len(filter.SubFilters) == 0 {
+		return fmt.Errorf("'has_not_done' filter requires at least one sub-filter")
+	}
 	subBuilder := NewWhereBuilder(wb.siteID)
 	subFilter := filter.SubFilters[0]
 	if err := subBuilder.AddFilter("events", subFilter); err != nil {
@@ -281,7 +289,6 @@ func (wb *WhereBuilder) addHasNotDoneFilter(table string, filter *types.Filter) 
 		return nil
 	}
 	subQuery := fmt.Sprintf("SELECT session_id FROM events WHERE %s", condition)
-	params = append([]any{wb.siteID}, params...)
 	wb.AddCondition(fmt.Sprintf("session_id NOT IN (%s)", subQuery), params...)
 	return nil
 }
@@ -497,6 +504,10 @@ func (wb *WhereBuilder) addIsFilter(field string, values any, modifiers map[stri
 		return fmt.Errorf("invalid values type for 'is' filter: %T", values)
 	}
 
+	if len(list) == 0 {
+		return fmt.Errorf("'is' filter requires at least one value")
+	}
+
 	placeholders := make([]string, len(list))
 	params := make([]any, len(list))
 
@@ -527,6 +538,10 @@ func (wb *WhereBuilder) addIsNotFilter(field string, values any, modifiers map[s
 	list, ok := values.([]any)
 	if !ok {
 		return fmt.Errorf("invalid values type for 'is_not' filter: %T", values)
+	}
+
+	if len(list) == 0 {
+		return fmt.Errorf("'is_not' filter requires at least one value")
 	}
 
 	placeholders := make([]string, len(list))
@@ -655,7 +670,7 @@ func (wb *WhereBuilder) addMatchesFilter(fieldExpr string, patterns any, modifie
 	}
 
 	// 添加多模式匹配条件
-	wb.AddCondition(fmt.Sprintf("multiMatchAny(%s, ?)", fieldExpr), strings.Join(patternList, ","))
+	wb.AddCondition(fmt.Sprintf("multiMatchAny(%s, ?)", fieldExpr), patternList)
 	return nil
 }
 
@@ -673,7 +688,7 @@ func (wb *WhereBuilder) addMatchesNotFilter(field string, patterns any, modifier
 		}
 	}
 
-	wb.AddCondition(fmt.Sprintf("NOT multiMatchAny(%s, ?)", fieldExpr), strings.Join(patternList, ","))
+	wb.AddCondition(fmt.Sprintf("NOT multiMatchAny(%s, ?)", fieldExpr), patternList)
 	return nil
 }
 
@@ -693,7 +708,7 @@ func (wb *WhereBuilder) addMatchesWildcardFilter(field string, patterns any, mod
 		fieldExpr = fmt.Sprintf("lower(%s)", field)
 	}
 
-	wb.AddCondition(fmt.Sprintf("multiMatchAny(%s, ?)", fieldExpr), strings.Join(regexPatterns, ","))
+	wb.AddCondition(fmt.Sprintf("multiMatchAny(%s, ?)", fieldExpr), regexPatterns)
 	return nil
 }
 
@@ -713,7 +728,7 @@ func (wb *WhereBuilder) addMatchesWildcardNotFilter(field string, patterns any, 
 		fieldExpr = fmt.Sprintf("lower(%s)", field)
 	}
 
-	wb.AddCondition(fmt.Sprintf("NOT multiMatchAny(%s, ?)", fieldExpr), strings.Join(regexPatterns, ","))
+	wb.AddCondition(fmt.Sprintf("NOT multiMatchAny(%s, ?)", fieldExpr), regexPatterns)
 	return nil
 }
 
@@ -738,17 +753,31 @@ func toStringSlice(value any) ([]string, bool) {
 	}
 }
 
-// wildcardToRegex converts a wildcard pattern to a regex pattern
+// wildcardToRegex converts a wildcard pattern to a regex pattern.
+// Interior * and ? are converted to .* and . before QuoteMeta escaping so that
+// only the non-wildcard segments are escaped.
 func wildcardToRegex(wildcard string) string {
-	// 移除前导和尾随通配符以匹配Elixir实现
+	// Strip leading/trailing * anchors first (they become the ^/$ anchors).
 	wildcard = strings.TrimPrefix(wildcard, "*")
 	wildcard = strings.TrimSuffix(wildcard, "*")
 
-	// 转义特殊字符
-	wildcard = regexp.QuoteMeta(wildcard)
-	// 替换通配符
-	wildcard = strings.ReplaceAll(wildcard, "*", ".*")
-	wildcard = strings.ReplaceAll(wildcard, "?", ".")
-	// 添加开始和结束锚点
-	return "^" + wildcard + "$"
+	// Split on wildcard characters, escape each literal segment, then rejoin.
+	var buf strings.Builder
+	buf.WriteString("^")
+	for len(wildcard) > 0 {
+		idx := strings.IndexAny(wildcard, "*?")
+		if idx < 0 {
+			buf.WriteString(regexp.QuoteMeta(wildcard))
+			break
+		}
+		buf.WriteString(regexp.QuoteMeta(wildcard[:idx]))
+		if wildcard[idx] == '*' {
+			buf.WriteString(".*")
+		} else {
+			buf.WriteString(".")
+		}
+		wildcard = wildcard[idx+1:]
+	}
+	buf.WriteString("$")
+	return buf.String()
 }

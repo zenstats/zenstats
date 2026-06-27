@@ -57,7 +57,8 @@ func shiftToWeekday(date time.Time, weekday time.Weekday) time.Time {
 // 构建对比查询（伪代码，具体实现需结合你的 Query 结构）
 func GetComparisonQuery(sourceQuery *types.Query, opts ComparisonOptions) *types.Query {
 	compRange := GetComparisonDateRange(sourceQuery.UTCTimeRange, opts)
-	compQuery := sourceQuery
+	compQueryVal := *sourceQuery
+	compQuery := &compQueryVal
 	compQuery.ComparisonUTCTimeRange = &compRange
 
 	return compQuery

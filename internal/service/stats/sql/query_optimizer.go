@@ -33,6 +33,7 @@ func (qo *QueryOptimizer) Optimize(query *types.Query) *types.Query {
 		qo.addMissingOrderBy,
 		qo.updateTimeInOrderBy,
 		qo.extendHostnameFiltersToVisit,
+		qo.trimRelativeDateRange,
 		qo.setTimeOnPageData,
 		qo.removeTimeOnPageIfUnavailable,
 		qo.setSQLJoinType,

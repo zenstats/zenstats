@@ -16,10 +16,12 @@ func CheckInitialization() gin.HandlerFunc {
 		count, err := db.Client.User.Query().Count(c.Request.Context())
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, errors.New("failed to query user table"))
+			c.Abort()
 			return
 		}
 		if count > 0 {
 			response.ErrorWithKey(c, http.StatusForbidden, "auth.system_initialized")
+			c.Abort()
 			return
 		}
 

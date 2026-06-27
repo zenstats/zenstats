@@ -174,7 +174,9 @@ func (bs *BreakdownService) processBreakdownResult(result *types.QueryResult, di
 	return values, total, nil
 }
 
-// getDimensionColumnName 获取维度对应的列名
+// getDimensionColumnName 获取维度对应的列名。
+// processResults 将单维度查询的列重命名为 "name"，因此命名空间维度（如 visit:country）
+// 在结果集中始终以 "name" 作为列名返回。
 func getDimensionColumnName(dimension string) string {
 	switch dimension {
 	case "date":
@@ -186,7 +188,8 @@ func getDimensionColumnName(dimension string) string {
 	case "device":
 		return "device"
 	default:
-		return dimension
+		// 命名空间维度（visit:xxx / event:xxx）经 processResults 重命名为 "name"
+		return "name"
 	}
 }
 
@@ -205,9 +208,9 @@ func calculateTotal(values []BreakdownValue, metrics []string) map[string]any {
 			}
 		}
 
-		// 对于比率指标，计算加权平均
-		if strings.HasSuffix(metric, "_rate") && count > 0 {
-			total[metric] = sum / float64(count)
+		if strings.HasSuffix(metric, "_rate") {
+			// Weighted average requires per-row visitor counts; set nil to signal unavailability.
+			total[metric] = nil
 		} else if count > 0 {
 			total[metric] = sum
 		} else {

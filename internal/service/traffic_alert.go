@@ -98,14 +98,15 @@ func (s *TrafficAlertService) checkAndAlertSite(ctx context.Context, siteEnt *en
 
 // alertData 告警数据。
 type alertData struct {
-	CurrentVisitors  float64
-	PreviousVisitors float64
-	CurrentPageviews float64
+	CurrentVisitors   float64
+	PreviousVisitors  float64
+	CurrentPageviews  float64
 	PreviousPageviews float64
-	VisitorsChange   float64 // 百分比，正=上升
-	PageviewsChange  float64
-	IsSpike          bool   // true=激增, false=骤降
-	Hour             string
+	VisitorsChange    float64 // 百分比，正=上升
+	PageviewsChange   float64
+	IsSpike           bool    // true=激增, false=骤降
+	Hour              string
+	Threshold         float64 // 触发告警的阈值百分比（如 50）
 }
 
 // detectAnomaly 检测单个站点的流量异常。
@@ -185,6 +186,7 @@ func (s *TrafficAlertService) detectAnomaly(ctx context.Context, siteEnt *ent.Si
 		PageviewsChange:   pageviewsChange,
 		IsSpike:           visitorsChange > 0,
 		Hour:              timeLabel,
+		Threshold:         threshold * 100,
 	}, nil
 }
 
@@ -290,7 +292,7 @@ func (s *TrafficAlertService) sendAlert(email, domain string, alert *alertData) 
 		// link
 		cfg.BaseURL+"/"+domain,
 		// threshold
-		thresholdValue(),
+		alert.Threshold,
 	)
 
 	m := gomail.NewMessage()
@@ -318,10 +320,6 @@ func alertColor(isSpike bool) string {
 	return "#3182ce" // 蓝色：骤降
 }
 
-func thresholdValue() float64 {
-	return 50 // 默认 50% 阈值，与 HourlyTrafficCheck 一致
-}
-
 // HourlyTrafficCheck 定时任务入口（每小时整点执行）。
 // 对比上一完整小时与上周同小时的 PV/UV，每次检查不同时段，无重复告警。
 func (s *TrafficAlertService) HourlyTrafficCheck(_ any) {
@@ -345,7 +343,7 @@ func splitRecipients(s string) []string {
 func RegisterTrafficAlertCron() {
 	cron := scheduler.GetCronManager()
 	svc := GetTrafficAlertService()
-	cron.AddJob("0 * * * *", svc.HourlyTrafficCheck, nil)
+	cron.AddJob("0 0 * * * *", svc.HourlyTrafficCheck, nil)
 	slog.Info("registered traffic anomaly alert cron job (hourly, UTC)")
 }
 

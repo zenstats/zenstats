@@ -18,6 +18,9 @@ func (td *TableDecider) JoinType(eventQuery, sessionQuery *types.Query) string {
 	if sessionQuery != nil && sessionQuery.SQLJoinType != "" {
 		return sessionQuery.SQLJoinType
 	}
+	if eventQuery == nil || sessionQuery == nil {
+		return "LEFT"
+	}
 	if len(eventQuery.Dimensions) > 0 && len(sessionQuery.Dimensions) > 0 {
 		// 如果两个查询都有维度，使用内连接
 		return "INNER"

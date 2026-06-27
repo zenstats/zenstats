@@ -115,15 +115,17 @@ func (h *ResetPasswordHandler) ResetPassword() gin.HandlerFunc {
 			return
 		}
 
-		// 更新密码
-		err = h.userService.UpdatePassword(c.Request.Context(), resetToken.UserID, req.NewPassword)
-		if err != nil {
-			response.Error(c, http.StatusInternalServerError, err)
+		// Mark token used first to prevent concurrent reuse (TOCTOU).
+		if err := h.emailService.MarkPasswordResetTokenUsed(c.Request.Context(), resetToken.ID); err != nil {
+			response.Error(c, http.StatusInternalServerError, errors.New("failed to invalidate reset token"))
 			return
 		}
 
-		// 标记 token 已使用
-		_ = h.emailService.MarkPasswordResetTokenUsed(c.Request.Context(), resetToken.ID)
+		// 更新密码
+		if err := h.userService.UpdatePassword(c.Request.Context(), resetToken.UserID, req.NewPassword); err != nil {
+			response.Error(c, http.StatusInternalServerError, err)
+			return
+		}
 
 		response.Success(c, gin.H{"message": "password reset successful"})
 	}

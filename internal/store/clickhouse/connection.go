@@ -33,9 +33,7 @@ func initialize() {
 	}
 	// 开启ssl
 	if config.Conf.Clickhouse.Ssl {
-		clickhouseCfg.TLS = &tls.Config{
-			InsecureSkipVerify: true,
-		}
+		clickhouseCfg.TLS = &tls.Config{}
 	}
 
 	conn, err := clickhouse.Open(clickhouseCfg)

@@ -87,6 +87,7 @@ func (h *gcid) Sum(b []byte) []byte {
 func (h *gcid) Reset() {
 	h.hash.Reset()
 	h.hashState.Reset()
+	h.offset = 0
 }
 
 func (h *gcid) Size() int {

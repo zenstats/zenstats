@@ -45,7 +45,7 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 
 	// 执行查询
 	rows, err := qr.conn.Query(ctx, sqlStr, args...)
-	slog.Debug("query sql", sqlStr, args)
+	slog.Debug("query sql", "sql", sqlStr, "args", args)
 
 	if err != nil {
 		return nil, fmt.Errorf("query execution failed: %v", err)

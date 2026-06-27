@@ -78,10 +78,14 @@ func (q *DynamicQueue[T]) Peek() (T, bool) {
 }
 
 func (q *DynamicQueue[T]) IsEmpty() bool {
+	q.lock.Lock()
+	defer q.lock.Unlock()
 	return len(q.queue) == 0
 }
 
 func (q *DynamicQueue[T]) Size() int {
+	q.lock.Lock()
+	defer q.lock.Unlock()
 	return len(q.queue)
 }
 

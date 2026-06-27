@@ -15,6 +15,7 @@ type MonthlyQuota struct {
 	counts map[int64]int64 // user_id -> event count
 	year   int
 	month  int
+	stopCh chan struct{}
 }
 
 var (
@@ -30,6 +31,7 @@ func GetMonthlyQuota() *MonthlyQuota {
 			counts: make(map[int64]int64),
 			year:   now.Year(),
 			month:  int(now.Month()),
+			stopCh: make(chan struct{}),
 		}
 		monthlyQuotaInstance.loadFromDB(context.Background())
 		go monthlyQuotaInstance.startFlusher()
@@ -146,16 +148,25 @@ func (q *MonthlyQuota) startFlusher() {
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		q.mu.Lock()
-		oldCounts, oldYear, oldMonth, rotated := q.checkAndRotate()
-		q.mu.Unlock()
-
-		if rotated {
-			q.flushSnapshot(oldCounts, oldYear, oldMonth)
+	for {
+		select {
+		case <-ticker.C:
+			q.mu.Lock()
+			oldCounts, oldYear, oldMonth, rotated := q.checkAndRotate()
+			q.mu.Unlock()
+			if rotated {
+				q.flushSnapshot(oldCounts, oldYear, oldMonth)
+			}
+			q.flushToDB()
+		case <-q.stopCh:
+			return
 		}
-		q.flushToDB()
 	}
+}
+
+// Stop shuts down the background flusher goroutine.
+func (q *MonthlyQuota) Stop() {
+	close(q.stopCh)
 }
 
 // Flush 手动触发持久化（用于优雅关闭）

@@ -121,6 +121,7 @@ func (g *GeoIP) downloadFromMaxMind() (string, error) {
 		return "", err
 	}
 	if _, err := io.Copy(outFile, resp.Body); err != nil {
+		outFile.Close()
 		slog.Error("failed to write file: " + err.Error())
 		return "", err
 	}
@@ -157,9 +158,9 @@ func (g *GeoIP) downloadFromFallback() (string, error) {
 			slog.Warn("Fallback download failed", "url", url, "error", err)
 			continue
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
 			lastErr = fmt.Errorf("fallback download returned status %d from %s", resp.StatusCode, url)
 			slog.Warn("Fallback download returned non-200", "url", url, "status", resp.StatusCode)
 			continue
@@ -168,13 +169,16 @@ func (g *GeoIP) downloadFromFallback() (string, error) {
 		outputPath := filepath.Join(config.Conf.DataPath, "GeoLite2-City-fallback.mmdb")
 		outFile, err := os.Create(outputPath)
 		if err != nil {
+			resp.Body.Close()
 			return "", fmt.Errorf("failed to create fallback file: %v", err)
 		}
 		if _, err := io.Copy(outFile, resp.Body); err != nil {
 			outFile.Close()
+			resp.Body.Close()
 			return "", fmt.Errorf("failed to write fallback file: %v", err)
 		}
 		outFile.Close()
+		resp.Body.Close()
 
 		slog.Info("Successfully downloaded fallback GeoIP database", "url", url)
 		return outputPath, nil

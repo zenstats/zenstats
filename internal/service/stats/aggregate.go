@@ -3,6 +3,7 @@ package stats
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"time"
 
@@ -94,11 +95,12 @@ func (as *AggregateService) GetAggregate(ctx context.Context, params *types.Para
 			Interval:     "",
 		}
 		compQuery, err := as.qs.CreateQuery(compParams)
-		if err == nil {
-			compResult, err := as.qs.runner.RunQuery(ctx, compQuery, site)
-			if err == nil {
-				comparisonData = compResult.Data
-			}
+		if err != nil {
+			slog.Warn("failed to create comparison query", "error", err)
+		} else if compResult, err := as.qs.runner.RunQuery(ctx, compQuery, site); err != nil {
+			slog.Warn("failed to run comparison query", "error", err)
+		} else {
+			comparisonData = compResult.Data
 		}
 	}
 

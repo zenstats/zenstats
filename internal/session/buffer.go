@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -109,11 +110,16 @@ func (wb *WriteBuffer) flushWorker() {
 }
 
 func (wb *WriteBuffer) writeBatch(batch []*models.Sessions) error {
+	repo := repository.GetSessionsRepository()
+	if repo == nil {
+		return fmt.Errorf("sessions repository not initialized")
+	}
+
 	retries := 3
 	var err error
 
 	for i := range retries {
-		if err = repository.GetSessionsRepository().BatchInsert(wb.ctx, batch); err == nil {
+		if err = repo.BatchInsert(wb.ctx, batch); err == nil {
 			return nil
 		}
 

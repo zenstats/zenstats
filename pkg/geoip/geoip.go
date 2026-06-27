@@ -19,7 +19,7 @@ type GeoIP struct {
 	geoDBPath string
 	geoDB     *geoip2.Reader
 	ttl       time.Duration
-	mu        sync.Mutex
+	mu        sync.RWMutex
 }
 
 type GeoData struct {
@@ -100,14 +100,21 @@ func (g *GeoIP) GetCountryAndRegion(ip string) (GeoData, error) {
 		return val, nil
 	}
 
+	g.mu.RLock()
+	db := g.geoDB
+	g.mu.RUnlock()
+
 	// 如果 GeoIP 数据库未初始化，返回空数据
-	if g.geoDB == nil {
+	if db == nil {
 		return GeoData{}, errors.New("GeoIP database not initialized")
 	}
 
 	// Lookup IP in GeoIP database
 	ipAddr := net.ParseIP(ip)
-	record, err := g.geoDB.City(ipAddr)
+	if ipAddr == nil {
+		return GeoData{}, nil
+	}
+	record, err := db.City(ipAddr)
 	if err != nil {
 		return GeoData{}, err
 	}

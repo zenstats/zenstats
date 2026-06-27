@@ -31,10 +31,10 @@ type TempEventRequest struct {
 	Domain         string           `form:"d" json:"d"`   // 域名
 	Referrer       string           `form:"r" json:"r"`   // 来源
 	Props          map[string]any   `form:"p" json:"p"`   // 属性
-	EngagementTime int              `form:"e" json:"e"`   // 页面访问时间
-	ScrollDepth    uint8            `form:"sd" json:"sd"` // 滚动深度
-	Interactive    *json.RawMessage `form:"i" json:"i"`   // 是否交互
-	Events         []TempEventRequest `json:"e"`          // batch 子事件
+	EngagementTime int              `form:"e" json:"e"`       // 页面访问时间
+	ScrollDepth    uint8            `form:"sd" json:"sd"`     // 滚动深度
+	Interactive    *json.RawMessage `form:"i" json:"i"`       // 是否交互
+	Events         []TempEventRequest `json:"events"`         // batch 子事件
 	UserAgent      string
 	Ip             string
 }

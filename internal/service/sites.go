@@ -596,7 +596,10 @@ func (s *SiteService) RemoveShieldRuleHostname(ctx *gin.Context, siteID int64, r
 
 // AddShieldRuleCountry 添加Country屏蔽规则
 func (s *SiteService) AddShieldRuleCountry(ctx *gin.Context, siteID int64, countryCode string, action string) (*ent.ShieldRulesCountry, error) {
-	user, _ := GetUserService().GetUserByID(ctx, ctx.GetInt64("user_id"))
+	user, err := GetUserService().GetUserByID(ctx, ctx.GetInt64("user_id"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
 	rule, err := s.db.Client.ShieldRulesCountry.Create().
 		SetSiteID(siteID).
 		SetCountryCode(countryCode).
