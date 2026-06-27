@@ -4,15 +4,16 @@ import "time"
 
 // AdminUser 管理员用户信息
 type AdminUser struct {
-	ID        int64     `json:"id"`
-	Email     string    `json:"email"`
-	Name      string    `json:"name"`
-	IsAdmin   bool      `json:"is_admin"`
-	Status    string    `json:"status"`
-	GroupID   int64     `json:"group_id"`
-	GroupName string    `json:"group_name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        int64      `json:"id"`
+	Email     string     `json:"email"`
+	Name      string     `json:"name"`
+	IsAdmin   bool       `json:"is_admin"`
+	Status    string     `json:"status"`
+	GroupID   int64      `json:"group_id"`
+	GroupName string     `json:"group_name"`
+	LastSeen  *time.Time `json:"last_seen"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 // AdminUserDetail 管理员用户详情

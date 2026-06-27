@@ -59,6 +59,9 @@ func (h *AdminHandler) ListUsers() gin.HandlerFunc {
 				CreatedAt: u.CreatedAt,
 				UpdatedAt: u.UpdatedAt,
 			}
+			if !u.LastSeen.IsZero() {
+				adminUser.LastSeen = &u.LastSeen
+			}
 
 			// 获取用户配置
 			if u.Edges.UserConfig != nil {
