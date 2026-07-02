@@ -17,7 +17,7 @@ type SubAccountService struct {
 	db *postgresql.Client
 }
 
-// GetSubAccountService 获取 SubAccountService 单例实例。
+// GetSubAccountService 获取 SubAccountService 单例instance.
 var GetSubAccountService = sync.OnceValue(func() *SubAccountService {
 	db := globals.GetDB()
 	if db == nil {

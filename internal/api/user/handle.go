@@ -14,7 +14,7 @@ type UserHandler struct {
 	apiKeyService            *service.APIKeyService
 }
 
-// NewUserHandler 创建并返回一个新的 UserHandler 实例
+// NewUserHandler creates and returns a new UserHandler 实例
 func NewUserHandler() *UserHandler {
 	return &UserHandler{
 		userService:              service.GetUserService(),

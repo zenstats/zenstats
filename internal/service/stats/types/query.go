@@ -34,6 +34,10 @@ type Query struct {
 	SmearSessionMetrics  bool      `json:"-"`
 	DropTimeOnPageMetric bool      `json:"-"`
 	InputUTCTimeRange    TimeRange `json:"-"`
+	// SessionPageColumn 覆盖 page 代理维度（visit:entry_page）在会话查询中实际使用的列。
+	// exit_rate 按退出页归组时置为 "exit_page"，其余情况为空（默认 entry_page）。
+	// 维度名仍保持 visit:entry_page，以便别名/JOIN/结果列名统一为 "page"。
+	SessionPageColumn string `json:"-"`
 }
 
 // Validate 验证查询参数合法性

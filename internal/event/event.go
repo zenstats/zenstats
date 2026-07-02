@@ -34,6 +34,7 @@ import (
 
 type EventWork struct {
 	wg             sync.WaitGroup
+	processWG      sync.WaitGroup // 跟踪协程池中在途的 processEvent 任务，确保关闭时全部落入缓冲后再刷写
 	queue          *generic.DynamicQueue[*model.EventRequest]
 	batchSize      int                      // batchSize 表示每次批量处理的任务数量
 	taskChan       chan *model.EventRequest // taskChan 是一个通道，用于接收任务
@@ -102,8 +103,10 @@ func (e *EventWork) processWorker() {
 			if item == nil {
 				continue
 			}
-			// 分发到协程池处理
+			// 分发到协程池处理；processWG 跟踪在途任务，保证关闭时先全部处理完再刷写缓冲
+			e.processWG.Add(1)
 			e.pool.Submit(func() {
+				defer e.processWG.Done()
 				processed := e.processEvent(item)
 				if processed == nil {
 					return
@@ -120,24 +123,31 @@ func (e *EventWork) processWorker() {
 }
 
 // dispatch 负责将任务分发到任务通道中。
+// 关闭时：queue.Close() 后继续排空队列中剩余元素，排空且队列已关闭才退出，
+// 保证已入队事件不被丢弃；队列为空但未关闭时短暂休眠避免空转烧 CPU。
 func (e *EventWork) dispatch() {
 	defer e.wg.Done()
 	defer close(e.taskChan)
 
 	for {
-		select {
-		case <-e.shutdownCtx.Done():
-			return
-		default:
-			item := e.queue.Dequeue()
-			if item == nil {
-				continue
-			}
-			select {
-			case e.taskChan <- item:
-			case <-e.shutdownCtx.Done():
+		item := e.queue.Dequeue()
+		if item == nil {
+			// 队列已关闭且排空 → 正常退出
+			if e.queue.IsClosed() {
 				return
 			}
+			// 队列暂空，等待新元素或关闭信号，避免忙等
+			select {
+			case <-e.shutdownCtx.Done():
+				return
+			case <-time.After(2 * time.Millisecond):
+			}
+			continue
+		}
+		select {
+		case e.taskChan <- item:
+		case <-e.shutdownCtx.Done():
+			return
 		}
 	}
 }
@@ -284,16 +294,20 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 }
 
 func (e *EventWork) Shutdown() {
-	e.shutdownCancel()
-
 	done := make(chan struct{})
 	go func() {
+		// 1. 关闭队列，停止接收新事件；dispatch 会排空剩余队列后退出并关闭 taskChan
 		e.queue.Close()
+		// 2. 等待 dispatch + processWorker 退出（taskChan 中的任务已全部提交到协程池）
 		e.wg.Wait()
-
+		// 3. 等待协程池中在途的 processEvent 全部完成，确保事件都已落入写缓冲/会话管理
+		e.processWG.Wait()
+		e.pool.Release()
+		// 4. 刷写剩余缓冲。此时 shutdownCtx 仍存活，最终 flush 使用的是有效 context
 		e.writeBuffer.Shutdown()
 		e.sessionManager.Shutdown()
-		e.pool.Release()
+		// 5. 最后才取消 context
+		e.shutdownCancel()
 		close(done)
 	}()
 

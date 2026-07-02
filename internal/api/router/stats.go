@@ -6,29 +6,29 @@ import (
 	"github.com/zenstats/zenstats/internal/middleware"
 )
 
-// RegisterStatsRouter 注册统计分析相关路由。
+// RegisterStatsRouter Register stats analysis routes.
 func RegisterStatsRouter(router *gin.RouterGroup) {
 
 	handle := stats.NewStatsHandle()
 
 	statsGroup := router.Group("/stats", middleware.SharedLinkOrAPIKeyOrJWTAuth(), middleware.SharedLinkOrSiteMembershipAndVerificationAuth())
 
-	// 总览指标（聚合数据，含对比）
+	// Overview metrics (aggregate data with comparison)
 	statsGroup.GET("/:domain/aggregate", handle.GetAggregate())
-	// 时间序列（主图表）
+	// Time series (main graph)
 	statsGroup.GET("/:domain/main-graph", handle.GetMainGraph())
-	// 维度细分（来源/页面/设备/国家等排行）
+	// Dimension breakdown (source/page/device/country rankings)
 	statsGroup.GET("/:domain/breakdown", handle.GetBreakdown())
-	// 维度细分导出 CSV
+	// Export breakdown as CSV
 	statsGroup.GET("/:domain/export", handle.ExportBreakdown())
-	// 实时在线访客数
+	// Real-time current visitors
 	statsGroup.GET("/:domain/current-visitors", handle.GetCurrentVisitors())
-	// 时间序列（别名）
+	// Time series (alias)
 	statsGroup.GET("/:domain/time_series", handle.GetTimeSeries())
-	// 筛选器建议（自动补全）
+	// Filter suggestions (autocomplete)
 	statsGroup.GET("/:domain/suggestions", handle.GetSuggestions())
 
-	// v2 通用查询 API（POST body，支持多维度 / order_by / offset）
-	v2Group := router.Group("/api/v2", middleware.APIKeyOrJWTAuth(), middleware.SiteMembershipAndVerificationAuth())
+	// v2 unified query API (POST body, multi-dimension / order_by / offset)
+	v2Group := router.Group("/v2", middleware.APIKeyOrJWTAuth(), middleware.SiteMembershipAndVerificationAuth())
 	v2Group.POST("/query/:domain", handle.QueryV2())
 }

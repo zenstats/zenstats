@@ -82,8 +82,10 @@ func (g *SQLFragmentGenerator) VisitsForEvent(samplingEnabled bool) SQLFragment 
 
 // ScrollDepthForEvent events 表的滚动深度统计，取 engagement 事件的平均滚动深度。
 func (g *SQLFragmentGenerator) ScrollDepthForEvent(samplingEnabled bool) SQLFragment {
+	// ifNotFinite 兜底：无 engagement 事件的分组 avgIf 返回 NaN，
+	// 未处理会使结果 JSON 序列化失败（NaN 非法）并返回空响应体。
 	return g.ScaleSample(SQLFragment{
-		SQL:  "toFloat64(avgIf(scroll_depth, name = 'engagement'))",
+		SQL:  "toFloat64(ifNotFinite(avgIf(scroll_depth, name = 'engagement'), 0))",
 		Args: nil,
 	}, samplingEnabled)
 }

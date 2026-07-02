@@ -10,6 +10,7 @@ type DynamicQueue[T any] struct {
 	queue   chan T
 	lock    sync.Mutex
 	maxSize int
+	closed  bool
 }
 
 func NewQueue[T any](initialSize, maxSize int) *DynamicQueue[T] {
@@ -25,6 +26,11 @@ func (q *DynamicQueue[T]) Enqueue(item T) error {
 	defer q.lock.Unlock()
 
 	slog.Debug("Enqueue")
+
+	// 队列已关闭时拒绝入队，避免向已关闭的 channel 发送导致 panic
+	if q.closed {
+		return fmt.Errorf("queue is closed")
+	}
 
 	select {
 	case q.queue <- item:
@@ -83,6 +89,13 @@ func (q *DynamicQueue[T]) IsEmpty() bool {
 	return len(q.queue) == 0
 }
 
+// IsClosed 返回队列是否已关闭。
+func (q *DynamicQueue[T]) IsClosed() bool {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	return q.closed
+}
+
 func (q *DynamicQueue[T]) Size() int {
 	q.lock.Lock()
 	defer q.lock.Unlock()
@@ -92,6 +105,10 @@ func (q *DynamicQueue[T]) Size() int {
 func (q *DynamicQueue[T]) Close() error {
 	q.lock.Lock()
 	defer q.lock.Unlock()
+	if q.closed {
+		return nil
+	}
+	q.closed = true
 	close(q.queue)
 	return nil
 }

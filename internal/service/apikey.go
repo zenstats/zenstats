@@ -50,7 +50,7 @@ type APIKeyService struct {
 	cache sync.Map // keyHash -> *apiKeyCacheEntry
 }
 
-// GetAPIKeyService 获取 APIKeyService 单例实例。
+// GetAPIKeyService 获取 APIKeyService 单例instance.
 var GetAPIKeyService = sync.OnceValue(func() *APIKeyService {
 	db := globals.GetDB()
 	if db == nil {

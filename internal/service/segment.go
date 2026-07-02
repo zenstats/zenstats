@@ -29,7 +29,7 @@ type SegmentService struct {
 	db *postgresql.Client
 }
 
-// GetSegmentService 获取 SegmentService 单例实例。
+// GetSegmentService 获取 SegmentService 单例instance.
 var GetSegmentService = sync.OnceValue(func() *SegmentService {
 	db := globals.GetDB()
 	if db == nil {

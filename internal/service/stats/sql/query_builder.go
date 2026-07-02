@@ -234,6 +234,9 @@ func (qb *QueryBuilder) selectSessionMetrics(query *types.Query) string {
 	dimensions := make([]string, 0, len(query.Dimensions))
 	for _, dim := range query.Dimensions {
 		column := qb.DimensionToColumn(dim, "sessions", "select", query.UserID)
+		if override := sessionPageColumnSelect(dim, query); override != "" {
+			column = override
+		}
 		if column != "" {
 			dimensions = append(dimensions, column)
 		}
@@ -243,6 +246,23 @@ func (qb *QueryBuilder) selectSessionMetrics(query *types.Query) string {
 	metrics = append(dimensions, metrics...)
 
 	return strings.Join(metrics, ", ")
+}
+
+// sessionPageColumnSelect 当 query 设置了 SessionPageColumn 覆盖（如 exit_rate 按退出页归组）时，
+// 返回 page 代理维度的 SELECT 列（"<col> as page"），否则返回空串表示不覆盖。
+func sessionPageColumnSelect(dim string, query *types.Query) string {
+	if query.SessionPageColumn != "" && dim == "visit:entry_page" {
+		return query.SessionPageColumn + " as page"
+	}
+	return ""
+}
+
+// sessionPageColumnGroup 同 sessionPageColumnSelect，返回 GROUP BY 用的列名（不带别名）。
+func sessionPageColumnGroup(dim string, query *types.Query) string {
+	if query.SessionPageColumn != "" && dim == "visit:entry_page" {
+		return query.SessionPageColumn
+	}
+	return ""
 }
 
 // selectSessionMetricsWithJoinAlias 生成带 JOIN 别名前缀的 session SELECT 子句。
@@ -294,6 +314,11 @@ func (qb *QueryBuilder) buildGroupBy(tableType string, query *types.Query) strin
 
 	for _, dim := range query.Dimensions {
 		column := qb.DimensionToColumn(dim, tableType, "group", query.UserID)
+		if tableType == "sessions" {
+			if override := sessionPageColumnGroup(dim, query); override != "" {
+				column = override
+			}
+		}
 		if column != "" {
 			groups = append(groups, column)
 		}
@@ -607,16 +632,27 @@ func (qb *QueryBuilder) buildOrderBy(sql string, query *types.Query) string {
 		return sql
 	}
 
-	orderClauses := make([]string, len(query.OrderBy))
-	for i, ob := range query.OrderBy {
-		dimension := ob.Dimension
-		direction := ob.Direction
-		orderClauses[i] = fmt.Sprintf("%s %s", qb.shortName(dimension), direction)
+	orderClauses := make([]string, 0, len(query.OrderBy))
+	for _, ob := range query.OrderBy {
+		// 方向仅允许 asc/desc，防止注入
+		direction := "desc"
+		if strings.EqualFold(strings.TrimSpace(ob.Direction), "asc") {
+			direction = "asc"
+		}
+		// 排序字段必须是本次查询的 metric 或 dimension，否则丢弃
+		if !qb.isOrderableField(ob.Dimension, query) {
+			continue
+		}
+		orderClauses = append(orderClauses, fmt.Sprintf("%s %s", qb.shortName(ob.Dimension), direction))
+	}
+	if len(orderClauses) == 0 {
+		return sql
 	}
 
-	if strings.Contains(sql, "ORDER BY") {
-		return sql + ", " + strings.Join(orderClauses, ", ")
-	}
+	// 始终追加独立的 ORDER BY 子句。不能用 strings.Contains(sql, "ORDER BY") 判断，
+	// 因为窗口函数 OVER (... ORDER BY ...) 会误命中，导致把外层排序当成延续已有 ORDER BY
+	// 而以逗号拼接，生成非法 SQL（如 "... ON e.page = s.page, visitors desc"）。
+	// 当前所有调用点传入的外层 SQL 均无顶层 ORDER BY，直接追加即可。
 	return sql + " ORDER BY " + strings.Join(orderClauses, ", ")
 }
 
@@ -712,6 +748,22 @@ func (qb *QueryBuilder) hasDimension(query *types.Query, dimension string) bool 
 }
 
 // shortName generates a short alias for metrics/dimensions
+// isOrderableField 校验排序字段是否为本次查询声明的 metric 或 dimension，
+// 防止 order_by 注入任意表达式。
+func (qb *QueryBuilder) isOrderableField(field string, query *types.Query) bool {
+	for _, m := range query.Metrics {
+		if m == field {
+			return true
+		}
+	}
+	for _, d := range query.Dimensions {
+		if d == field {
+			return true
+		}
+	}
+	return false
+}
+
 func (qb *QueryBuilder) shortName(dimension string) string {
 	if dimension == "event:page" || dimension == "visit:page" || dimension == "visit:entry_page" {
 		return "page"
@@ -1040,19 +1092,19 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 	default:
 		if strings.HasPrefix(dimension, "event:props:") {
 			propName := strings.TrimPrefix(dimension, "event:props:")
-			expr := fmt.Sprintf("meta.value[indexOf(meta.key, '%s')]", propName)
+			expr := fmt.Sprintf("meta.value[indexOf(meta.key, '%s')]", escapeCHString(propName))
 			if purpose == "group" {
 				return expr
 			}
-			return fmt.Sprintf("%s as %s", expr, propName)
+			return fmt.Sprintf("%s as %s", expr, safeAlias(propName))
 		}
 		if strings.HasPrefix(dimension, "visit:entry_props:") {
 			propName := strings.TrimPrefix(dimension, "visit:entry_props:")
-			expr := fmt.Sprintf("entry_meta.value[indexOf(entry_meta.key, '%s')]", propName)
+			expr := fmt.Sprintf("entry_meta.value[indexOf(entry_meta.key, '%s')]", escapeCHString(propName))
 			if purpose == "group" {
 				return expr
 			}
-			return fmt.Sprintf("%s as %s", expr, propName)
+			return fmt.Sprintf("%s as %s", expr, safeAlias(propName))
 		}
 		// if strings.HasPrefix(dimension, "visit:props:") {
 		// 	propName := strings.TrimPrefix(dimension, "visit:props:")
@@ -1062,20 +1114,12 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 	}
 }
 
-// addTimeOnPageMetrics adds time on page calculations to the query
+// addTimeOnPageMetrics 现为 no-op。
+// time_on_page 指标已由 TimeOnPageForEvent 直接基于 engagement_time 计算
+// （avgIf(engagement_time/1000, name='engagement' ...)），无需再用 LEAD 窗口子查询包裹。
+// 旧的 LEAD 子查询包裹既未被任何指标使用（next_event_time / 子查询 time_on_page 列无引用），
+// 又因 `SELECT e.* FROM events`（内层表未别名为 e）在 ClickHouse 报错，故移除。
 func (qb *QueryBuilder) addTimeOnPageMetrics(sql string, query *types.Query) string {
-	for _, metric := range query.Metrics {
-		if metric == "time_on_page" || metric == "avg_time_on_page" {
-			// Add time on page subquery
-			return strings.Replace(sql, "FROM events e", `FROM (
-				SELECT
-					e.*,
-					LEAD(timestamp) OVER (PARTITION BY session_id ORDER BY timestamp) as next_event_time,
-					TIMESTAMPDIFF(SECOND, timestamp, LEAD(timestamp) OVER (PARTITION BY session_id ORDER BY timestamp)) as time_on_page
-				FROM events
-			) e`, 1)
-		}
-	}
 	return sql
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
@@ -16,6 +17,7 @@ type WriteBuffer struct {
 	wg            sync.WaitGroup
 	batchSize     int
 	flushInterval time.Duration
+	closed        int32 // atomic; Shutdown 置 1，阻止新的 flush goroutine 在 wg.Wait 后再 wg.Add
 
 	buffer []*models.Sessions
 
@@ -46,6 +48,11 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 }
 
 func (wb *WriteBuffer) Add(session *models.Sessions) {
+	// Shutdown 后拒绝新 session，避免 wg.Add 与 wg.Wait 竞态导致 panic
+	if atomic.LoadInt32(&wb.closed) == 1 {
+		return
+	}
+
 	wb.mu.Lock()
 	wb.buffer = append(wb.buffer, session)
 	shouldFlush := len(wb.buffer) >= wb.batchSize
@@ -133,6 +140,8 @@ func (wb *WriteBuffer) writeBatch(batch []*models.Sessions) error {
 }
 
 func (wb *WriteBuffer) Shutdown() {
+	// 先置 closed，确保 wg.Wait 之后不再有新的 flush goroutine 调用 wg.Add
+	atomic.StoreInt32(&wb.closed, 1)
 	close(wb.shutdownChan)
 	wb.wg.Wait()
 	wb.cancel()

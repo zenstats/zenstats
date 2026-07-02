@@ -49,7 +49,18 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 
 		var token string
 		if claims.UserType == "sub_account" {
-			token, err = authJwt.GenerateSubAccountToken(claims.SubAccountID, claims.UserID, claims.Role, claims.Permissions)
+			// 刷新时重新校验子账号状态并取最新权限，
+			// 防止已停用/删除或权限被撤销的子账号在刷新有效期内继续获得有效令牌。
+			subAccount, saErr := h.subAccountService.GetSubAccountByID(c.Request.Context(), claims.SubAccountID)
+			if saErr != nil || subAccount == nil {
+				response.Error(c, http.StatusUnauthorized, errors.New("invalid refresh token"))
+				return
+			}
+			if subAccount.Status != "active" {
+				response.ErrorWithKey(c, http.StatusForbidden, "auth.sub_account_suspended")
+				return
+			}
+			token, err = authJwt.GenerateSubAccountToken(subAccount.ID, subAccount.ParentUserID, subAccount.Role, subAccount.Permissions)
 		} else {
 			token, err = authJwt.GenerateToken(claims.UserID)
 		}

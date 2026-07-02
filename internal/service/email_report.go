@@ -22,7 +22,7 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-// EmailReportService 邮件报告服务，定期发送周报/月报。
+// EmailReportService sends periodic weekly/monthly email reports.
 type EmailReportService struct {
 	db          *ent.Client
 	siteService *SiteService
@@ -42,7 +42,7 @@ func GetEmailReportService() *EmailReportService {
 	return getEmailReportService()
 }
 
-// sendMail 发送 HTML 邮件。
+// sendMail sends an HTML email.
 func (s *EmailReportService) sendMail(to, subject, html string) error {
 	cfg := config.Conf
 
@@ -72,21 +72,21 @@ func (s *EmailReportService) sendMail(to, subject, html string) error {
 	return d.DialAndSend(m)
 }
 
-// SendWeeklyReports 发送已认证且开启周报的站点的周报（每周一调用）。
+// SendWeeklyReports sends weekly reports for verified sites with weekly reports enabled.
 func (s *EmailReportService) SendWeeklyReports(_ any) {
 	ctx := context.Background()
 	slog.Info("sending weekly email reports")
 	s.processReports(ctx, "weekly", site.EmailReportWeekly(true))
 }
 
-// SendMonthlyReports 发送已认证且开启月报的站点的月报（每月 1 日调用）。
+// SendMonthlyReports sends monthly reports for verified sites with monthly reports enabled.
 func (s *EmailReportService) SendMonthlyReports(_ any) {
 	ctx := context.Background()
 	slog.Info("sending monthly email reports")
 	s.processReports(ctx, "monthly", site.EmailReportMonthly(true))
 }
 
-// processReports 遍历已验证且开启对应开关的站点，向站点所有者发送报告。
+// processReports iterates verified sites with the given flag enabled and sends reports to their owners.
 func (s *EmailReportService) processReports(ctx context.Context, interval string, filter predicate.Site) {
 	sites, err := s.db.Site.Query().
 		Where(site.IsVerified(true)).
@@ -125,10 +125,10 @@ func (s *EmailReportService) processReports(ctx context.Context, interval string
 }
 
 // ============================================================================
-// 报告内容构建
+// Report Content Builder
 // ============================================================================
 
-// reportStats 报告统计数据。
+// reportStats holds the statistics for a report.
 type reportStats struct {
 	Visitors      metricWithChange
 	Pageviews     metricWithChange
@@ -140,7 +140,7 @@ type reportStats struct {
 
 type metricWithChange struct {
 	Value  float64
-	Change *float64 // 百分比变化，nil 表示无对比数据
+	Change *float64 // Percentage change, nil means no comparison data
 }
 
 type rankedItem struct {
@@ -148,7 +148,7 @@ type rankedItem struct {
 	Visitors float64
 }
 
-// buildReportHTML 构建报告 HTML。
+// buildReportHTML builds the report HTML.
 func (s *EmailReportService) buildReportHTML(ctx context.Context, siteEnt *ent.Site, ownerID int64, interval string) (string, error) {
 	from, to := calcDateRange(siteEnt.Timezone, interval)
 
@@ -163,7 +163,7 @@ func (s *EmailReportService) buildReportHTML(ctx context.Context, siteEnt *ent.S
 		displayName = siteEnt.Remark
 	}
 
-	// 用站点本地时间格式化日期标签
+	// Format date label in site local time
 	loc, _ := time.LoadLocation(siteEnt.Timezone)
 	if loc == nil {
 		loc = time.UTC
@@ -184,7 +184,7 @@ func (s *EmailReportService) buildReportHTML(ctx context.Context, siteEnt *ent.S
 		Stats:           stats,
 		HasStats:        stats != nil,
 		StatsError:      statsError,
-		UnsubscribeNote: "如需退订，请在站点设置中关闭邮件报告功能。",
+		UnsubscribeNote: "To unsubscribe, disable email reports in site settings.",
 	}), nil
 }
 
@@ -200,7 +200,7 @@ type reportViewData struct {
 	UnsubscribeNote string
 }
 
-// queryStats 查询报告所需的所有统计数据。
+// queryStats queries all statistics needed for the report.
 func (s *EmailReportService) queryStats(ctx context.Context, siteEnt *ent.Site, ownerID int64, from, to time.Time) (stats *reportStats, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -232,7 +232,7 @@ func (s *EmailReportService) queryStats(ctx context.Context, siteEnt *ent.Site, 
 
 	result := &reportStats{}
 
-	// 当前周期聚合
+	// Current period aggregate
 	agg, err := statsSvc.GetAggregate(ginCtx, siteEnt.ID, req)
 	if err != nil {
 		return nil, fmt.Errorf("aggregate query: %w", err)
@@ -250,7 +250,7 @@ func (s *EmailReportService) queryStats(ctx context.Context, siteEnt *ent.Site, 
 		result.VisitDuration = metricWithChange{Value: toFloat(v.Value)}
 	}
 
-	// 上一周期聚合（手动计算对比）
+	// Previous period aggregate (manual comparison)
 	days := int(to.Sub(from).Hours()/24) + 1
 	prevFrom := from.AddDate(0, 0, -days)
 	prevTo := to.AddDate(0, 0, -days)
@@ -274,7 +274,7 @@ func (s *EmailReportService) queryStats(ctx context.Context, siteEnt *ent.Site, 
 		}
 	}
 
-	// Top 5 页面
+	// Top 5 pages
 	if pages, err := statsSvc.GetBreakdown(ginCtx, siteEnt.ID, req, "event:page", "visitors"); err == nil {
 		for i, row := range pages.Data {
 			if i >= 5 {
@@ -287,7 +287,7 @@ func (s *EmailReportService) queryStats(ctx context.Context, siteEnt *ent.Site, 
 		}
 	}
 
-	// Top 5 来源（排除 Direct / None）
+	// Top 5 sources (excluding Direct / None)
 	if sources, err := statsSvc.GetBreakdown(ginCtx, siteEnt.ID, req, "visit:source", "visitors"); err == nil {
 		for _, row := range sources.Data {
 			if len(result.TopSources) >= 5 {
@@ -307,7 +307,7 @@ func (s *EmailReportService) queryStats(ctx context.Context, siteEnt *ent.Site, 
 	return result, nil
 }
 
-// calcChange 计算变化百分比。prev=0 时返回 nil。
+// calcChange computes percentage change. Returns nil when prev=0.
 func calcChange(current, prev float64) *float64 {
 	if prev == 0 {
 		return nil
@@ -317,12 +317,12 @@ func calcChange(current, prev float64) *float64 {
 }
 
 // ============================================================================
-// 辅助函数
+// Helpers
 // ============================================================================
 
-// calcDateRange 根据站点时区和报告周期计算日期范围。
-// weekly: 上周一 ~ 上周日
-// monthly: 上个月 1 日 ~ 上个月最后一天
+// calcDateRange computes the date range based on site timezone and report interval.
+// w weekly: last Monday ~ last Sunday
+// m monthly: 1st ~ last day of previous month
 func calcDateRange(timezone, interval string) (from, to time.Time) {
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
@@ -354,7 +354,7 @@ func calcDateRange(timezone, interval string) (from, to time.Time) {
 		to = now
 	}
 
-	// 返回站点本地时间，不做 UTC 转换（StatsService.getDateRange 会根据站点时区再处理）
+	// Return site-local time; getDateRange handles timezone conversion
 	return
 }
 
@@ -363,7 +363,7 @@ func reportName(interval string) string {
 	case "weekly":
 		return "Weekly"
 	case "monthly":
-		// 返回上个月的英文名，如 "June"
+		// Return last month English name, e.g. "June"
 		now := time.Now()
 		lastMonth := now.AddDate(0, -1, 0)
 		return lastMonth.Format("January")
@@ -373,7 +373,7 @@ func reportName(interval string) string {
 }
 
 func toMetricWithChange(v any) metricWithChange {
-	// 处理 stats.MetricResult 结构体
+	// Handle stats.MetricResult struct
 	if mr, ok := v.(stats.MetricResult); ok {
 		mc := metricWithChange{Value: toFloat(mr.Value)}
 		if mr.Change != nil {
@@ -428,7 +428,7 @@ func toFloatSafe(v any) (float64, bool) {
 }
 
 // ============================================================================
-// HTML 渲染
+// HTML Rendering
 // ============================================================================
 
 func formatLargeNumber(v float64) string {
@@ -465,17 +465,17 @@ func changeColorClass(v float64, positiveIsGood bool) string {
 	return "#b91c1c"
 }
 
-// renderReportHTML 渲染最终 HTML 报告。
+// renderReportHTML renders the final HTML report.
 func renderReportHTML(d reportViewData) string {
 	var statsHTML string
 	if d.StatsError != "" {
 		statsHTML = fmt.Sprintf(`<p style="color:#b91c1c; text-align:center; padding:24px; background:#fef2f2; border-radius:8px; margin:16px 0;">
-⚠️ 统计数据加载失败：%s<br>
-<small>报告框架正常，请联系管理员检查 ClickHouse 连接和站点数据。</small></p>`, d.StatsError)
+⚠️ Stats data load failed：%s<br>
+<small>The report framework is working. Contact the admin to check ClickHouse connection and site data.</small></p>`, d.StatsError)
 	} else if d.HasStats && d.Stats != nil {
 		statsHTML = renderStatsSection(d.Stats)
 	} else {
-		statsHTML = `<p style="color:#999; text-align:center; padding:24px;">本周期暂无统计数据。</p>`
+		statsHTML = `<p style="color:#999; text-align:center; padding:24px;">No statistics data for this period.</p>`
 	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
@@ -494,7 +494,7 @@ func renderReportHTML(d reportViewData) string {
     <!-- Footer -->
     <div style="border-top:1px solid #e5e7eb; margin-top:24px; padding-top:16px; text-align:center;">
       <p style="font-size:12px; color:#9ca3af; line-height:1.6;">
-        本报告由 Zenstats 自动生成。<br>
+        This report was automatically generated by Zenstats.<br>
         %s
       </p>
     </div>
@@ -504,7 +504,7 @@ func renderReportHTML(d reportViewData) string {
 }
 
 func renderStatsSection(s *reportStats) string {
-	// 指标卡片行
+	// Metric card row
 	cards := fmt.Sprintf(`
   <div style="margin-bottom:24px;">
     <table width="100%%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
@@ -549,7 +549,7 @@ func renderMetricCard(label string, m metricWithChange, positiveIsGood bool) str
 
 	changeHTML := ""
 	if m.Change != nil {
-		r := math.Round(*m.Change*10) / 10 // 保留一位小数
+		r := math.Round(*m.Change*10) / 10 // Keep one decimal place
 		color := changeColorClass(r, positiveIsGood)
 		sign := ""
 		if r > 0 {
@@ -589,13 +589,13 @@ func renderRankTable(title string, items []rankedItem) string {
 }
 
 // ============================================================================
-// Cron 注册 + 测试 API
+// Cron Registration + Test API
 // ============================================================================
 
-// RegisterReportCron 在 cron 调度器中注册邮件报告定时任务。
-// 所有 cron 表达式使用 UTC 时间。
-// 周报：每周一 00:00 UTC（北京时间 08:00）
-// 月报：每月 1 日 01:00 UTC（北京时间 09:00）
+// RegisterReportCron registers the email report cron jobs.
+// All cron expressions use UTC.
+// Weekly: Monday 00:00 UTC (08:00 CST)
+// Monthly: 1st of month 01:00 UTC (09:00 CST)
 func RegisterReportCron() {
 	cron := scheduler.GetCronManager()
 	svc := GetEmailReportService()
@@ -605,30 +605,30 @@ func RegisterReportCron() {
 	slog.Info("registered email report cron jobs (weekly Mon 00:00 UTC / monthly 1st 01:00 UTC)")
 }
 
-// BuildTestReportHTML 生成测试报告 HTML（公开方法，供 CLI 调用）。
-// interval: "weekly" 或 "monthly"
+// BuildTestReportHTML generates a test report HTML for CLI use.
+// interval: "weekly" or "monthly"
 func BuildTestReportHTML(domain, interval string) string {
 	svc := GetEmailReportService()
 	ctx := context.Background()
 
 	siteEnt, err := svc.siteService.GetSiteByDomain(ctx, domain)
 	if err != nil {
-		return fmt.Sprintf("<p>站点未找到: %s</p>", domain)
+		return fmt.Sprintf("<p>Site not found: %s</p>", domain)
 	}
 
 	ownerID, err := svc.siteService.GetSiteOwnerUserID(ctx, siteEnt.ID)
 	if err != nil || ownerID == 0 {
-		return "<p>无法找到站点所有者</p>"
+		return "<p>Site owner not found</p>"
 	}
 
 	html, err := svc.buildReportHTML(ctx, siteEnt, ownerID, interval)
 	if err != nil {
-		return fmt.Sprintf("<p>构建报告失败: %v</p>", err)
+		return fmt.Sprintf("<p>Failed to build report: %v</p>", err)
 	}
 	return html
 }
 
-// SendTestReportMail 发送测试报告邮件（公开方法，供 CLI 调用）。
+// SendTestReportMail sends a test report email for CLI use.
 func SendTestReportMail(to, subject, html string) error {
 	svc := GetEmailReportService()
 	return svc.sendMail(to, subject, html)

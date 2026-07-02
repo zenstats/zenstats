@@ -54,6 +54,28 @@ func (q *MonthlyQuota) Increment(userID int64) int64 {
 	return count
 }
 
+// TryIncrement 原子地检查配额并递增：仅当当前计数 < max 时递增并返回 true，
+// 否则不递增返回 false。max < 0 表示无限制，始终递增。
+// 将检查与递增放在同一把锁下，避免并发请求在 max-1 处同时通过检查而超发。
+func (q *MonthlyQuota) TryIncrement(userID int64, max int64) bool {
+	q.mu.Lock()
+	oldCounts, oldYear, oldMonth, rotated := q.checkAndRotate()
+	if max >= 0 && q.counts[userID] >= max {
+		q.mu.Unlock()
+		if rotated {
+			go q.flushSnapshot(oldCounts, oldYear, oldMonth)
+		}
+		return false
+	}
+	q.counts[userID]++
+	q.mu.Unlock()
+
+	if rotated {
+		go q.flushSnapshot(oldCounts, oldYear, oldMonth)
+	}
+	return true
+}
+
 // Get 获取用户当月事件计数
 func (q *MonthlyQuota) Get(userID int64) int64 {
 	q.mu.RLock()

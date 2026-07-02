@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// EventRequest 前端 SDK 上报的事件数据结构，字段使用短 key 以减少传输体积。
+// EventRequest Event data structure reported by the tracker SDK. Fields use short keys to reduce transmission size.
 type EventRequest struct {
 	Timestamp      time.Time      `json:"t" example:"2025-01-01T00:00:00Z"`
 	Hash           int8           `form:"h" json:"h" example:"0"`
@@ -24,19 +24,28 @@ type EventRequest struct {
 
 type TempEventRequest struct {
 	Timestamp      time.Time        `json:"t"`
-	Hash           int8             `form:"h" json:"h"`   // 哈希
-	EventName      string           `form:"n" json:"n"`   // 事件名称
-	JSVersion      string           `form:"v" json:"v"`   // JS版本
+	Hash           int8             `form:"h" json:"h"`   // Hash
+	EventName      string           `form:"n" json:"n"`   // Event name
+	JSVersion      string           `form:"v" json:"v"`   // JS version
 	URL            string           `form:"u" json:"u"`   // URL
-	Domain         string           `form:"d" json:"d"`   // 域名
-	Referrer       string           `form:"r" json:"r"`   // 来源
-	Props          map[string]any   `form:"p" json:"p"`   // 属性
-	EngagementTime int              `form:"e" json:"e"`       // 页面访问时间
-	ScrollDepth    uint8            `form:"sd" json:"sd"`     // 滚动深度
-	Interactive    *json.RawMessage `form:"i" json:"i"`       // 是否交互
-	Events         []TempEventRequest `json:"events"`         // batch 子事件
+	Domain         string           `form:"d" json:"d"`   // Domain
+	Referrer       string           `form:"r" json:"r"`   // Referrer
+	Props          map[string]any   `form:"p" json:"p"`   // Properties
+	EngagementTime int              `form:"e" json:"e"`       // Page view time
+	ScrollDepth    uint8            `form:"sd" json:"sd"`     // Scroll depth
+	Interactive    *json.RawMessage `form:"i" json:"i"`       // Whether the event is interactive
 	UserAgent      string
 	Ip             string
+}
+
+// BatchEventRequest Batch event structure reported by the tracker SDK.
+// 顶层 payload 形如 {"n":"batch","e":[<子事件>...],"v":...}，
+// where "e" is an array of sub-events (different from single-event "e" = engagement time, hence a separate struct).
+type BatchEventRequest struct {
+	EventName string             `json:"n"` // Always "batch"
+	JSVersion string             `json:"v"` // JS version
+	Domain    string             `json:"d"` // batch 级别Domain（子事件可覆盖）
+	Events    []TempEventRequest `json:"e"` // Array of sub-events
 }
 
 // {

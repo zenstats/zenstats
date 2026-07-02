@@ -15,7 +15,7 @@ type AnalysisService struct {
 	conn driver.Conn
 }
 
-// NewAnalysisService 创建漏斗分析服务实例。
+// NewAnalysisService 创建漏斗分析服务instance.
 func NewAnalysisService() *AnalysisService {
 	return &AnalysisService{
 		conn: cl.GetConnection(),

@@ -14,7 +14,7 @@ import (
 // Handler Segment 处理器。
 type Handler struct{}
 
-// NewHandler 创建 Segment 处理器实例。
+// NewHandler 创建 Segment 处理器instance.
 func NewHandler() *Handler { return &Handler{} }
 
 // CreateSegmentRequest 创建 Segment 请求。

@@ -45,7 +45,7 @@ type SiteService struct {
 	membershipCache         *expirable.LRU[string, *ent.Site]
 }
 
-// GetSiteService 获取 SiteService 单例实例。
+// GetSiteService 获取 SiteService 单例instance.
 var GetSiteService = sync.OnceValue(func() *SiteService {
 	db := globals.GetDB()
 	if db == nil {
@@ -91,8 +91,8 @@ func generateVerificationToken() (string, error) {
 	return fmt.Sprintf("%x", b), nil
 }
 
-// CreateSite 创建新站点并为当前用户分配 Owner 角色，使用事务保证原子性。
-// 多个用户可以创建相同域名的站点，但只能有一个被验证。
+// CreateSite Create new site并为当前用户分配 Owner 角色，使用事务保证原子性。
+// 多个用户可以创建相同Domain的站点，但只能有一个被验证。
 func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*ent.Site, error) {
 	tx, err := s.db.Client.Tx(ctx)
 	if err != nil {
@@ -143,9 +143,9 @@ func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*en
 	return site, nil
 }
 
-// GetSiteByDomain 根据域名查询站点，优先从 LRU 缓存中获取。
-// 当存在多个同名域名站点时，优先返回已验证的站点。
-// 若缓存命中但该站点未验证，会回源确认是否已有其他用户验证了该域名。
+// GetSiteByDomain 根据Domain查询站点，优先从 LRU 缓存中获取。
+// 当存在多个同名Domain站点时，优先返回已验证的站点。
+// 若缓存命中但该站点未验证，会回源确认是否已有其他用户验证了该Domain。
 func (s *SiteService) GetSiteByDomain(ctx context.Context, domain string) (*ent.Site, error) {
 	if cached, ok := s.domainCache.Get(domain); ok {
 		// 缓存命中：若已验证则直接返回，若未验证则回源检查是否有已验证站点
@@ -231,7 +231,7 @@ func (s *SiteService) GetUserSiteList(ctx *gin.Context) ([]*SiteWithRemark, erro
 	return sites, nil
 }
 
-// GetUserSiteByDomain 根据域名模糊查询当前用户的站点列表。
+// GetUserSiteByDomain 根据Domain模糊查询当前用户的站点列表。
 func (s *SiteService) GetUserSiteByDomain(ctx *gin.Context, domain string) ([]*SiteWithRemark, error) {
 	siteMemberships, err := s.db.Client.SiteMembership.Query().
 		Where(sitemembership.UserID(ctx.GetInt64("user_id"))).
@@ -268,14 +268,14 @@ func (s *SiteService) GetUserSiteByDomain(ctx *gin.Context, domain string) ([]*S
 	return sites, nil
 }
 
-// CheckSiteMembership 检查用户是否为指定域名站点的成员，并返回该用户所属的具体站点。
+// CheckSiteMembership 检查用户是否为指定Domain站点的成员，并返回该用户所属的具体站点。
 func (s *SiteService) CheckSiteMembership(ctx context.Context, userID int64, domain string) (*ent.Site, error) {
 	cacheKey := fmt.Sprintf("%d:%s", userID, domain)
 	if cached, ok := s.membershipCache.Get(cacheKey); ok {
 		return cached, nil
 	}
 
-	// 查找该域名下所有站点
+	// 查找该Domain下所有站点
 	sites, err := s.db.Client.Site.Query().Where(site.Domain(domain)).All(ctx)
 	if err != nil || len(sites) == 0 {
 		return nil, fmt.Errorf("site not found")
@@ -324,7 +324,7 @@ func (s *SiteService) GetSiteList(ctx *gin.Context) ([]*ent.Site, error) {
 	return sites, nil
 }
 
-// AdminSiteItem 管理员站点列表项（含站点所有者信息）。
+// AdminSiteItem 管理员站点列表项（含Site owner信息）。
 type AdminSiteItem struct {
 	ID         int64
 	Domain     string
@@ -336,7 +336,7 @@ type AdminSiteItem struct {
 	CreatedAt  time.Time
 }
 
-// GetAllSitesWithOwner 分页查询所有站点，附带站点所有者用户名。
+// GetAllSitesWithOwner 分页查询所有站点，附带Site owner用户名。
 func (s *SiteService) GetAllSitesWithOwner(ctx context.Context, offset, pageSize int) ([]*AdminSiteItem, error) {
 	siteMemberships, err := s.db.Client.SiteMembership.Query().
 		Where(sitemembership.RoleEQ("owner")).
@@ -402,7 +402,7 @@ func (s *SiteService) GetSiteByID(ctx *gin.Context, id int) (*ent.Site, error) {
 	return site, nil
 }
 
-// AdminVerifySite 管理员手动验证站点（跳过域名所有权验证）。
+// AdminVerifySite 管理员手动验证站点（跳过Domain所有权验证）。
 func (s *SiteService) AdminVerifySite(ctx context.Context, siteID int64) error {
 	// 直接查询站点
 	siteEntity, err := s.db.Client.Site.Query().Where(site.ID(siteID)).Only(ctx)
@@ -414,7 +414,7 @@ func (s *SiteService) AdminVerifySite(ctx context.Context, siteID int64) error {
 		return errors.New("site already verified")
 	}
 
-	// 启动事务，检查是否有其他同域名站点已验证
+	// 启动事务，检查是否有其他同Domain站点已验证
 	tx, err := s.db.Client.Tx(ctx)
 	if err != nil {
 		return fmt.Errorf("starting a transaction: %w", err)
@@ -431,7 +431,7 @@ func (s *SiteService) AdminVerifySite(ctx context.Context, siteID int64) error {
 		return errors.New("site already verified")
 	}
 
-	// 检查是否有其他同域名站点已验证
+	// 检查是否有其他同Domain站点已验证
 	domain := siteEntity.Domain
 	otherVerified, err := tx.Site.Query().
 		Where(
@@ -656,7 +656,7 @@ func (s *SiteService) RemoveShieldRuleCountry(ctx *gin.Context, siteID int64, ru
 	return nil
 }
 
-// UpdateSite 更新站点信息
+// UpdateSite Update site info
 func (s *SiteService) UpdateSite(ctx *gin.Context, siteID int64, req types.UpdateSiteRequest) (*ent.Site, error) {
 	tx, err := s.db.Client.Tx(ctx)
 	if err != nil {
@@ -721,7 +721,7 @@ func (s *SiteService) UpdateSite(ctx *gin.Context, siteID int64, req types.Updat
 	return siteEntity, nil
 }
 
-// DeleteSite 删除站点
+// DeleteSite Delete site
 func (s *SiteService) DeleteSite(ctx *gin.Context, id int) error {
 	tx, err := s.db.Client.Tx(ctx)
 	if err != nil {
@@ -735,13 +735,13 @@ func (s *SiteService) DeleteSite(ctx *gin.Context, id int) error {
 		return fmt.Errorf("site not found: %w", err)
 	}
 
-	// 删除站点成员关系
+	// Delete site成员关系
 	if _, err := tx.SiteMembership.Delete().Where(sitemembership.SiteID(int64(id))).Exec(ctx); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("deleting site memberships: %w", err)
 	}
 
-	// 删除站点
+	// Delete site
 	if err := tx.Site.DeleteOne(site).Exec(ctx); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("deleting site: %w", err)
@@ -760,8 +760,8 @@ func (s *SiteService) DeleteSite(ctx *gin.Context, id int) error {
 	return nil
 }
 
-// IsDomainInList 检查指定域名是否已注册到系统中。
-// IsDomainInList 检查域名是否在系统中且已验证。
+// IsDomainInList 检查指定Domain是否已注册到系统中。
+// IsDomainInList 检查Domain是否在系统中且已验证。
 func (s *SiteService) IsDomainInList(ctx *gin.Context, domain string) (bool, error) {
 	_, err := s.GetVerifiedSiteByDomain(ctx, domain)
 	if err != nil {
@@ -778,7 +778,7 @@ func (s *SiteService) GetUserSiteCount(ctx context.Context, userID int64) (int, 
 		Count(ctx)
 }
 
-// GetSiteOwnerUserID 获取站点所有者的 user_id
+// GetSiteOwnerUserID 获取Site owner的 user_id
 func (s *SiteService) GetSiteOwnerUserID(ctx context.Context, siteID int64) (int64, error) {
 	membership, err := s.db.Client.SiteMembership.Query().
 		Where(
@@ -792,12 +792,12 @@ func (s *SiteService) GetSiteOwnerUserID(ctx context.Context, siteID int64) (int
 	return membership.UserID, nil
 }
 
-// InvalidateDomainCache 清除指定域名的缓存。
+// InvalidateDomainCache 清除指定Domain的缓存。
 func (s *SiteService) InvalidateDomainCache(domain string) {
 	s.domainCache.Remove(domain)
 }
 
-// GetVerifiedSiteByDomain 根据域名获取已验证的站点。
+// GetVerifiedSiteByDomain 根据DomainGet verified site。
 // 仅当站点已验证时返回，否则返回错误。
 func (s *SiteService) GetVerifiedSiteByDomain(ctx context.Context, domain string) (*ent.Site, error) {
 	site, err := s.GetSiteByDomain(ctx, domain)
@@ -810,7 +810,7 @@ func (s *SiteService) GetVerifiedSiteByDomain(ctx context.Context, domain string
 	return site, nil
 }
 
-// GetUserSiteByDomainForUser 获取当前用户在指定域名下的站点（通过 membership 关联）。
+// GetUserSiteByDomainForUser 获取当前用户在指定Domain下的站点（通过 membership 关联）。
 func (s *SiteService) GetUserSiteByDomainForUser(ctx context.Context, userID int64, domain string) (*ent.Site, error) {
 	sites, err := s.db.Client.Site.Query().
 		Where(site.Domain(domain)).
@@ -870,8 +870,8 @@ func (s *SiteService) GetVerificationStatus(ctx context.Context, domain string, 
 	return status, nil
 }
 
-// VerifySite 验证站点域名所有权。
-// 通过获取域名下的验证文件并与 token 比对来确认所有权。
+// VerifySite 验证站点Domain所有权。
+// 通过获取Domain下的验证文件并与 token 比对来确认所有权。
 func (s *SiteService) VerifySite(ctx context.Context, domain string, userID int64) error {
 	siteEntity, err := s.GetUserSiteByDomainForUser(ctx, userID, domain)
 	if err != nil {
@@ -894,7 +894,7 @@ func (s *SiteService) VerifySite(ctx context.Context, domain string, userID int6
 		return errors.New("only site owner can verify")
 	}
 
-	// 启动事务，检查是否有其他同域名站点已验证
+	// 启动事务，检查是否有其他同Domain站点已验证
 	tx, err := s.db.Client.Tx(ctx)
 	if err != nil {
 		return fmt.Errorf("starting a transaction: %w", err)
@@ -911,7 +911,7 @@ func (s *SiteService) VerifySite(ctx context.Context, domain string, userID int6
 		return errors.New("site already verified")
 	}
 
-	// 检查是否有其他同域名站点已验证
+	// 检查是否有其他同Domain站点已验证
 	otherVerified, err := tx.Site.Query().
 		Where(
 			site.Domain(domain),
@@ -988,10 +988,10 @@ func (s *SiteService) VerifySite(ctx context.Context, domain string, userID int6
 }
 
 // ============================================================================
-// Shield Rules — Referrer (垃圾 referrer 域名黑名单)
+// Shield Rules — Referrer (垃圾 referrer Domain黑名单)
 // ============================================================================
 
-// AddShieldRuleReferrer 添加垃圾 referrer 域名屏蔽规则。
+// AddShieldRuleReferrer 添加垃圾 referrer Domain屏蔽规则。
 func (s *SiteService) AddShieldRuleReferrer(ctx context.Context, siteID int64, hostname, action, description string) (*ent.ShieldRulesReferrer, error) {
 	return s.db.Client.ShieldRulesReferrer.Create().
 		SetSiteID(siteID).

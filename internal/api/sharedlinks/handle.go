@@ -18,7 +18,7 @@ type Handler struct {
 	siteService *service.SiteService
 }
 
-// NewHandler 创建共享链接处理器实例。
+// NewHandler 创建共享链接处理器instance.
 func NewHandler() *Handler {
 	return &Handler{
 		siteService: service.GetSiteService(),

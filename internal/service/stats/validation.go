@@ -498,7 +498,9 @@ func validateMetric(metric string, params *types.Params) error {
 	}
 
 	// Basic metrics that don't need special validation
-	if metric == "visitors" || metric == "events" || metric == "percentage" {
+	// conversions 是事件维度指标（uniq user_id），在 goal 过滤下即转化人数，
+	// 必须在此放行，否则会落入 validateSessionMetric 因 event:goal 过滤被误拒。
+	if metric == "visitors" || metric == "events" || metric == "percentage" || metric == "conversions" {
 		return nil
 	}
 
@@ -538,8 +540,12 @@ func validateSessionMetric(metric string, params *types.Params) error {
 // Helper functions
 
 func isFilteringOnDimension(params *types.Params, dimension string) bool {
-	// Implementation would check if query has a filter on the given dimension
-	// This is a placeholder implementation
+	// 递归检测过滤器树中是否存在针对该维度的过滤条件
+	for _, f := range params.Filters {
+		if f.AnyDimension(func(dim string) bool { return dim == dimension }) {
+			return true
+		}
+	}
 	return false
 }
 
@@ -601,7 +607,7 @@ func GetToplevelFilter(params *types.Params, prefix string) []any {
 func MetricFromString(s string) (string, error) {
 	s = strings.TrimSpace(s)
 	switch s {
-	case "visitors", "pageviews", "events", "visits", "bounce_rate", "visit_duration", "time_on_page", "exit_rate", "conversion_rate", "views_per_visit", "scroll_depth":
+	case "visitors", "pageviews", "events", "visits", "bounce_rate", "visit_duration", "time_on_page", "exit_rate", "conversion_rate", "conversions", "views_per_visit", "scroll_depth":
 		return s, nil
 	default:
 		return "", fmt.Errorf("invalid metric: %s.", s)

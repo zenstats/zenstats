@@ -148,7 +148,9 @@ func (qo *QueryOptimizer) metricCategory(metricName string, query *types.Query) 
 		return "either"
 	case "conversions", "revenue", "time_on_page", "scroll_depth", "pageviews", "events":
 		return "event"
-	case "visit_duration", "views_per_visit", "bounce_rate":
+	case "visit_duration", "views_per_visit", "bounce_rate", "exit_rate":
+		// exit_rate 基于 sum(sign)，只能在 sessions 表计算；归为 session 可避免其被错误
+		// 放入 events 表查询而报 "Unknown identifier sign"。
 		return "session"
 	case "total_visitors":
 		return "other"
@@ -187,6 +189,11 @@ func (qo *QueryOptimizer) splitSessionsQuery(query *types.Query, sessionMetrics 
 		if dim == "event:page" {
 			sq.Dimensions[i] = "visit:entry_page"
 		}
+	}
+	// exit_rate 语义是"结束在该页的会话占比"，需按退出页而非入口页归组。
+	// 维度仍用 visit:entry_page（保证别名/JOIN/结果列名统一为 page），仅把底层列换成 exit_page。
+	if containsMetric(sessionMetrics, "exit_rate") {
+		sq.SessionPageColumn = "exit_page"
 	}
 	sq.Filters = qo.updateSessionFilters(sq.Filters)
 	return sq

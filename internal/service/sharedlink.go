@@ -30,7 +30,7 @@ type SharedLinkService struct {
 	db *postgresql.Client
 }
 
-// GetSharedLinkService 获取 SharedLinkService 单例实例。
+// GetSharedLinkService 获取 SharedLinkService 单例instance.
 var GetSharedLinkService = sync.OnceValue(func() *SharedLinkService {
 	db := globals.GetDB()
 	if db == nil {

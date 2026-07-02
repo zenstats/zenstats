@@ -11,10 +11,10 @@ func InitSystemConfig() {
 	ctx := context.Background()
 	configService := service.GetSystemConfigService()
 
-	// 初始化默认配置
+	// Initialize default config
 	configService.InitDefaults(ctx)
 
-	// 从数据库加载配置到内存
+	// Load config from database into memory
 	if err := configService.LoadConfigsFromDB(ctx); err != nil {
 		slog.Warn("failed to load system configs from database", "error", err)
 	} else {

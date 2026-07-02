@@ -16,6 +16,51 @@ func newTestQuota() *MonthlyQuota {
 	}
 }
 
+// TestQuotaTryIncrementRespectsMaxUnderConcurrency 验证并发下 TryIncrement 不会超发配额：
+// 恰好只有 max 次返回 true，计数精确停在 max。
+func TestQuotaTryIncrementRespectsMaxUnderConcurrency(t *testing.T) {
+	q := newTestQuota()
+	const userID = int64(1)
+	const max = int64(100)
+	const attempts = 1000
+
+	var wg sync.WaitGroup
+	var granted int64
+	var mu sync.Mutex
+	for i := 0; i < attempts; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if q.TryIncrement(userID, max) {
+				mu.Lock()
+				granted++
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+
+	if granted != max {
+		t.Fatalf("expected exactly %d grants, got %d", max, granted)
+	}
+	if got := q.Get(userID); got != max {
+		t.Fatalf("expected count %d, got %d", max, got)
+	}
+}
+
+// TestQuotaTryIncrementUnlimited 验证 max<0 时始终递增。
+func TestQuotaTryIncrementUnlimited(t *testing.T) {
+	q := newTestQuota()
+	for i := 0; i < 5; i++ {
+		if !q.TryIncrement(2, -1) {
+			t.Fatal("unlimited quota must always grant")
+		}
+	}
+	if got := q.Get(2); got != 5 {
+		t.Fatalf("expected 5, got %d", got)
+	}
+}
+
 func TestQuotaGetReturnsZeroForNewUser(t *testing.T) {
 	q := newTestQuota()
 	if got := q.Get(1); got != 0 {

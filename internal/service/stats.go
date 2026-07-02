@@ -3,6 +3,8 @@ package service
 import (
 	"fmt"
 	"log/slog"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,7 +26,7 @@ type StatsService struct {
 	cl driver.Conn
 }
 
-// GetStatsService 获取 StatsService 单例实例。
+// GetStatsService 获取 StatsService 单例instance.
 var GetStatsService = sync.OnceValue(func() *StatsService {
 	db := globals.GetDB()
 	if db == nil {
@@ -183,6 +185,11 @@ func (s *StatsService) GetBreakdown(ctx *gin.Context, siteID int64, req *atypes.
 		},
 		OrderBy: orderBy,
 	}
+	// event:goal 维度需服务层编排（CH 事件表无 goal_id，目标定义在 PG）
+	if property == "event:goal" {
+		return s.goalBreakdown(ctx, params)
+	}
+
 	qs := s.getQueryService()
 
 	query, err := qs.CreateQuery(params)
@@ -371,6 +378,10 @@ func (s *StatsService) QueryV2(ctx *gin.Context, siteID int64, period, from, to,
 		Pagination:      &types.Pagination{Limit: limit, Offset: offset},
 		OrderBy:         orderBy,
 	}
+	// event:goal 维度需服务层编排（CH 事件表无 goal_id，目标定义在 PG）
+	if len(allDimensions) == 1 && allDimensions[0] == "event:goal" {
+		return s.goalBreakdown(ctx, params)
+	}
 	qs := s.getQueryService()
 	query, err := qs.CreateQuery(params)
 	if err != nil {
@@ -378,6 +389,107 @@ func (s *StatsService) QueryV2(ctx *gin.Context, siteID int64, period, from, to,
 	}
 	psite := &types.Site{ID: query.SiteID, Timezone: query.Timezone}
 	return qs.Execute(ctx, query, psite)
+}
+
+// goalBreakdown 处理按 event:goal 维度的细分。ClickHouse 事件表没有 goal_id，
+// 目标定义存在 PostgreSQL 且按 name/pathname(+custom_props) 匹配，无法用 SQL JOIN 实现。
+// 因此对站点的每个目标各跑一次带该目标过滤的聚合查询，再组装为细分结果——
+// 复用已验证的 goal 过滤路径（addGoalFilter），避免脆弱的跨库/arrayJoin SQL。
+func (s *StatsService) goalBreakdown(ctx *gin.Context, params *types.Params) (*types.QueryResult, error) {
+	siteID, _ := strconv.ParseInt(params.SiteID, 10, 64)
+	goals, err := GetGoalService().ListGoals(ctx.Request.Context(), siteID)
+	if err != nil {
+		return nil, err
+	}
+
+	qs := s.getQueryService()
+	agg := stats.NewAggregateService(qs)
+
+	rows := make([]map[string]any, 0, len(goals))
+	for _, g := range goals {
+		// 复制 params：去维度/分页/排序/对比，追加该目标的过滤条件
+		p := *params
+		p.Dimensions = []string{}
+		p.Pagination = nil
+		p.OrderBy = nil
+		p.ComparisonUTCTimeRange = nil
+		goalFilter := &types.Filter{Operator: "is", Dimension: "event:goal", Values: []any{g.DisplayName}}
+		p.Filters = append(append([]*types.Filter{}, params.Filters...), goalFilter)
+
+		res, err := agg.GetAggregate(ctx, &p)
+		if err != nil {
+			return nil, err
+		}
+		row := map[string]any{"name": g.DisplayName}
+		for _, m := range params.Metrics {
+			if mr, ok := res.Results[m]; ok {
+				row[m] = mr.Value
+			} else {
+				row[m] = 0
+			}
+		}
+		rows = append(rows, row)
+	}
+
+	// 排序：默认按第一个指标降序，遵循 OrderBy
+	sortMetric := ""
+	desc := true
+	if len(params.OrderBy) > 0 {
+		sortMetric = params.OrderBy[0].Dimension
+		desc = !strings.EqualFold(params.OrderBy[0].Direction, "asc")
+	} else if len(params.Metrics) > 0 {
+		sortMetric = params.Metrics[0]
+	}
+	if sortMetric != "" {
+		sort.SliceStable(rows, func(i, j int) bool {
+			vi, vj := toFloatValue(rows[i][sortMetric]), toFloatValue(rows[j][sortMetric])
+			if desc {
+				return vi > vj
+			}
+			return vi < vj
+		})
+	}
+
+	total := len(rows)
+	// 分页
+	if params.Pagination != nil {
+		off := params.Pagination.Offset
+		if off < 0 {
+			off = 0
+		}
+		if off > len(rows) {
+			off = len(rows)
+		}
+		rows = rows[off:]
+		if lim := params.Pagination.Limit; lim > 0 && lim < len(rows) {
+			rows = rows[:lim]
+		}
+	}
+
+	columns := append([]string{"name"}, params.Metrics...)
+	return &types.QueryResult{Columns: columns, Data: rows, TotalRows: total}, nil
+}
+
+// toFloatValue 将任意数值类型转为 float64，用于排序比较。
+func toFloatValue(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case float32:
+		return float64(n)
+	case int:
+		return float64(n)
+	case int32:
+		return float64(n)
+	case int64:
+		return float64(n)
+	case uint32:
+		return float64(n)
+	case uint64:
+		return float64(n)
+	default:
+		return 0
+	}
 }
 
 func parseOrderByString(raw string, metrics []string) []*types.OrderBy {
@@ -440,7 +552,7 @@ func parseRequestFilters(raw string) ([]*types.Filter, error) {
 	return types.ParseRawFiltersJSON(raw)
 }
 
-// getQueryService 创建并返回查询服务实例。
+// getQueryService 创建并返回查询服务instance.
 func (s *StatsService) getQueryService() *stats.QueryService {
 	runner := stats.NewQueryRunner()
 	return stats.NewQueryService(runner)

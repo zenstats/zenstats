@@ -32,6 +32,8 @@ func TestMetricCategoryRoutesAllMetricsCorrectly(t *testing.T) {
 		{"bounce_rate", "session"},
 		{"visit_duration", "session"},
 		{"views_per_visit", "session"},
+		// exit_rate 基于 sum(sign)，必须归 session 表，否则在 events 表报 "Unknown identifier sign"
+		{"exit_rate", "session"},
 		// either 指标
 		{"visitors", "either"},
 		{"visits", "either"},
@@ -559,4 +561,44 @@ func hasMetric(metrics []string, target string) bool {
 		}
 	}
 	return false
+}
+
+// TestSplitSessionsQueryKeysExitRateByExitPage 验证 exit_rate 的会话拆分按退出页归组：
+// 维度保持 visit:entry_page（page 代理，保证别名/JOIN 统一为 page），
+// 但底层列通过 SessionPageColumn 覆盖为 exit_page。
+func TestSplitSessionsQueryKeysExitRateByExitPage(t *testing.T) {
+	qo := &QueryOptimizer{}
+	q := &types.Query{
+		Metrics:    []string{"visitors", "events", "exit_rate"},
+		Dimensions: []string{"event:page"},
+	}
+	var sess *types.Query
+	for _, s := range qo.Split(q) {
+		if s.TableType == TableSessions {
+			sess = s.Query
+		}
+	}
+	if sess == nil {
+		t.Fatal("expected a sessions split for exit_rate")
+	}
+	if sess.SessionPageColumn != "exit_page" {
+		t.Fatalf("SessionPageColumn = %q, want exit_page", sess.SessionPageColumn)
+	}
+	if len(sess.Dimensions) != 1 || sess.Dimensions[0] != "visit:entry_page" {
+		t.Fatalf("session dims = %v, want [visit:entry_page]", sess.Dimensions)
+	}
+}
+
+// TestSplitSessionsQueryDefaultsToEntryPage 验证不含 exit_rate 时不设置覆盖（仍按入口页）。
+func TestSplitSessionsQueryDefaultsToEntryPage(t *testing.T) {
+	qo := &QueryOptimizer{}
+	q := &types.Query{
+		Metrics:    []string{"visitors", "bounce_rate"},
+		Dimensions: []string{"event:page"},
+	}
+	for _, s := range qo.Split(q) {
+		if s.TableType == TableSessions && s.Query.SessionPageColumn != "" {
+			t.Fatalf("SessionPageColumn should be empty without exit_rate, got %q", s.Query.SessionPageColumn)
+		}
+	}
 }

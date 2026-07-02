@@ -89,8 +89,8 @@ go run main.go seed --test --clean
 
 This populates the database with deterministic demo data (users, sites, events) so you can immediately explore the dashboard.
 
-> **前端面板**: 由独立仓库 [zenstats-web](https://github.com/zenstats/zenstats-web) 维护
-> **部署**: 使用 [zenstats-deploy](https://github.com/zenstats/zenstats-deploy) 一键部署完整服务栈
+> **Dashboard**: maintained in the separate [zenstats-web](https://github.com/zenstats/zenstats-web) repository
+> **Deployment**: use [zenstats-deploy](https://github.com/zenstats/zenstats-deploy) for one-command full-stack setup
 
 ---
 
@@ -158,19 +158,19 @@ Use `zenstats-deploy` to spin up the whole stack at once:
 
 ```bash
 cd ../zenstats-deploy
-cp .env.local .env        # 或 .env.example 用于生产
-make local                # 一键启动全栈（前后端均本地构建）
+cp .env.local .env        # or .env.example for production
+make local                # one-command full-stack startup (local builds)
 ```
 
 For frontend hot-reload during development:
 
 ```bash
-# 终端 1: 仅启动数据库 + API
+# Terminal 1: start database + API
 make db-up
 
-# 终端 2: 启动前端 Vite 开发服务器
+# Terminal 2: start frontend Vite dev server
 cd ../zenstats-web
-pnpm dev                  # → http://localhost:5173, 代理 /api 到 :8080
+pnpm dev                  # → http://localhost:5173, proxies /api to :8080
 ```
 
 ### Running tests
@@ -188,58 +188,54 @@ make test-integration
 ## Architecture
 
 ```
-API 请求  ──▶  Gin Router  ──▶  Service Layer (LRU Cache)
+API request ──▶ Gin Router ──▶ Service Layer (LRU Cache)
                                     │
                            ┌────────┼────────┐
                            ▼        ▼        ▼
                     PostgreSQL  PostgreSQL  ClickHouse (SQL)
-                    (业务数据)   (系统配置     (事件/分析数据)
+                    (business data)   (system config     (analytics data)
                                  event_salt)
 ```
 
 ### Data Flow (Event Ingestion)
 
 ```
-Tracker JS  ──▶  POST /api/event  ──▶  Origin 校验
+Tracker JS  ──▶  POST /api/event  ──▶  Origin check
                                            │
                                     ┌──────┴──────┐
                                     ▼              ▼
-                              Datacenter/Threat   域名白名单
-                                IP 过滤 (新)
+                              Datacenter/Threat   Domain whitelist
+                                IP filtering
                                     │              │
                                     ▼              ▼
                               Rate Limiter    Shield Rules
                                               (UA/IP/Geo/Country)
                                     │              │
                                     ▼              ▼
-                              字段长度校验          │
-                              (事件名≤120 字符      │
-                              /URL≤2000 字符        │
-                              /Props≤30 项) (新)     │
-                                    │              │
+                              Field length validation
                                     ▼              ▼
-                          事件缓冲 → 协程池处理
+                          Event buffer → goroutine pool
                                     │
                            ┌────────┴────────┐
                            ▼                  ▼
-                     UA 解析              GeoIP 定位
-                     (Bot 过滤)            (城市/国家)
+                     UA parsing              GeoIP lookup
+                     (Bot filtering)            (City/Country)
                            │                  │
                            └────────┬─────────┘
                                     ▼
                            ┌────────────────┐
-                           │  SPA Hash 路由  │ (新)
-                           │  h=1 时 pathname │
-                           │  拼接 fragment  │
+                           │  SPA Hash routing
+                           │  h=1 appends pathname │
+                           │  with fragment  │
                            └────────────────┘
                                     │
                                     ▼
-                              Source 解析
+                              Source parsing
                               (UTM/Referrer)
                                     │
                                     ▼
-                           Session 聚合
-                           (30min 缓存 / 幂等写)
+                           Session aggregation
+                           (30min cache / idempotent write)
                                     │
                                     ▼
                            Batch Write ──▶ ClickHouse
@@ -414,7 +410,7 @@ If these conflict with local services, override via environment variables or a `
 
 ## Deployment
 
-使用独立部署项目 [zenstats-deploy](https://github.com/zenstats/zenstats-deploy)：
+Use the dedicated deployment project [zenstats-deploy](https://github.com/zenstats/zenstats-deploy):
 
 ```bash
 git clone https://github.com/zenstats/zenstats-deploy.git
@@ -423,10 +419,10 @@ cp .env.example .env
 docker compose up -d
 ```
 
-### 手动部署
+### Manual deployment
 
 ```bash
-# Prerequisites: Go 1.24+, PostgreSQL 18+, ClickHouse 25.11+
+# Prerequisites: Go 1.25+, PostgreSQL 18+, ClickHouse 25.11+
 go run main.go migrate
 go run main.go server
 ```
@@ -439,8 +435,8 @@ go run main.go server
 - [Statistics API](docs/api-stats.md)
 - [IP Classification Configuration](docs/ip-classification.md)
 - [Optimization Roadmap](docs/optimization-roadmap.md)
-- [系统架构](https://github.com/zenstats/zenstats-deploy/blob/main/docs/architecture.md) (zenstats-deploy)
-- [部署指南](https://github.com/zenstats/zenstats-deploy/blob/main/docs/DEPLOY.md) (zenstats-deploy)
+- [System Architecture](https://github.com/zenstats/zenstats-deploy/blob/main/docs/architecture.md) (zenstats-deploy)
+- [Deployment Guide](https://github.com/zenstats/zenstats-deploy/blob/main/docs/DEPLOY.md) (zenstats-deploy)
 
 ---
 

@@ -7,6 +7,56 @@ import (
 	"github.com/zenstats/zenstats/internal/service/stats/types"
 )
 
+// TestCustomPropNameEscapesSQLInjection 验证自定义属性名中的单引号被转义，
+// 无法越出 ClickHouse 字符串字面量注入 SQL。
+func TestCustomPropNameEscapesSQLInjection(t *testing.T) {
+	wb := NewWhereBuilder("1")
+	err := wb.AddFilter("events", &types.Filter{
+		Operator:  "is",
+		Dimension: "event:props:x')]=1 OR '1'='1",
+		Values:    []any{"v"},
+	})
+	if err != nil {
+		t.Fatalf("AddFilter returned error: %v", err)
+	}
+	where, _ := wb.Build()
+	// 注入用的裸单引号必须被转义为 \'，不能出现未转义的 ')]=1 OR '1'='1 片段
+	if strings.Contains(where, "')]=1 OR '1'='1") {
+		t.Fatalf("prop name not escaped, injection possible: %q", where)
+	}
+	if !strings.Contains(where, `\'`) {
+		t.Fatalf("expected escaped quote in output, got %q", where)
+	}
+}
+
+// TestOrderByRejectsInjection 验证 order_by 只接受本次查询声明的字段与 asc/desc 方向。
+func TestOrderByRejectsInjection(t *testing.T) {
+	qb := NewQueryBuilder()
+	query := &types.Query{
+		Metrics:    []string{"visitors", "pageviews"},
+		Dimensions: []string{"visit:browser"},
+		OrderBy: []*types.OrderBy{
+			{Dimension: "visitors", Direction: "asc)) UNION SELECT 1 --"}, // 恶意方向 → 应回退为 desc
+			{Dimension: "evil_col", Direction: "desc"},                    // 未声明字段 → 应丢弃
+			{Dimension: "pageviews", Direction: "asc"},                    // 合法 → 应保留 asc
+		},
+	}
+	out := qb.buildOrderBy("SELECT 1", query)
+	if strings.Contains(out, "UNION") || strings.Contains(out, "--") {
+		t.Fatalf("order_by injection leaked into SQL: %q", out)
+	}
+	if strings.Contains(out, "evil_col") {
+		t.Fatalf("undeclared order-by field accepted: %q", out)
+	}
+	// 恶意方向被规范化为 desc，合法字段 pageviews 的 asc 被保留
+	if !strings.Contains(out, "visitors desc") {
+		t.Fatalf("malicious direction not normalized to desc: %q", out)
+	}
+	if !strings.Contains(out, "pageviews asc") {
+		t.Fatalf("valid asc direction not applied: %q", out)
+	}
+}
+
 func TestDimensionToColumnUsesExistingDeviceAlias(t *testing.T) {
 	qb := NewQueryBuilder()
 
@@ -201,7 +251,9 @@ func TestWhereBuilderMatchesAcceptsJSONDecodedValues(t *testing.T) {
 	if !strings.Contains(where, "multiMatchAny(pathname, ?)") {
 		t.Fatalf("where = %q", where)
 	}
-	if len(params) != 1 || params[0] != "^/download" {
+	// multiMatchAny 的第二个参数是模式数组，参数应以 []string 绑定
+	patterns, ok := params[0].([]string)
+	if len(params) != 1 || !ok || len(patterns) != 1 || patterns[0] != "^/download" {
 		t.Fatalf("params = %#v", params)
 	}
 }
@@ -223,5 +275,22 @@ func TestWhereBuilderGoalFilterBuildsValidCondition(t *testing.T) {
 	}
 	if len(params) != 0 {
 		t.Fatalf("params = %#v", params)
+	}
+}
+
+// TestBuildOrderByNotFooledByWindowFunction 验证窗口函数内的 ORDER BY 不会让外层排序被误用逗号拼接。
+func TestBuildOrderByNotFooledByWindowFunction(t *testing.T) {
+	qb := NewQueryBuilder()
+	q := &types.Query{
+		Metrics: []string{"visitors"},
+		OrderBy: []*types.OrderBy{{Dimension: "visitors", Direction: "desc"}},
+	}
+	in := "SELECT a, LEAD(x) OVER (PARTITION BY s ORDER BY t) AS n FROM tbl"
+	out := qb.buildOrderBy(in, q)
+	if !strings.Contains(out, " ORDER BY visitors desc") {
+		t.Fatalf("expected a proper ORDER BY clause, got %q", out)
+	}
+	if strings.Contains(out, ", visitors desc") {
+		t.Fatalf("outer order-by was appended with a comma (invalid): %q", out)
 	}
 }

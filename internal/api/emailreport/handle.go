@@ -1,4 +1,4 @@
-// Package emailreport 处理站点邮件报告配置的 HTTP 请求。
+// Package emailreport HTTP request handler。
 package emailreport
 
 import (
@@ -10,19 +10,19 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
-// Handler 邮件报告配置处理器。
+// Handler Email report configuration handler.
 type Handler struct {
 	siteService *service.SiteService
 }
 
-// NewHandler 创建新的 Handler。
+// NewHandler Creates a new Handler.
 func NewHandler() *Handler {
 	return &Handler{
 		siteService: service.GetSiteService(),
 	}
 }
 
-// Get 获取站点邮件报告配置 GET /api/sites/:domain/email-reports
+// Get Get site email report config GET /api/sites/:domain/email-reports
 func (h *Handler) Get(c *gin.Context) {
 	domain := c.Param("domain")
 
@@ -38,7 +38,7 @@ func (h *Handler) Get(c *gin.Context) {
 	})
 }
 
-// Update 更新站点邮件报告配置 PUT /api/sites/:domain/email-reports
+// Update Update site email report config PUT /api/sites/:domain/email-reports
 func (h *Handler) Update(c *gin.Context) {
 	siteID := c.GetInt64("site_id")
 
@@ -71,7 +71,7 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	// 清除域名缓存，避免 GET 返回旧值
+	// Clear domain cache to prevent stale GET values
 	h.siteService.InvalidateDomainCache(site.Domain)
 
 	response.Success(c, gin.H{

@@ -103,7 +103,7 @@ func (l *ingestLimiter) cleanup() {
 	}
 }
 
-// verifyRequestOrigin 验证请求来源是否匹配域名。
+// verifyRequestOrigin Verify request origin是否匹配域名。
 // allowedOrigins 是管理员配置的额外允许来源列表（逗号分隔），支持通配符（如 *.example.com）。
 // 如果 Origin 和 Referer 都不存在（非浏览器客户端），放行。
 func verifyRequestOrigin(c *gin.Context, domain string, allowedOrigins string) bool {
@@ -216,9 +216,15 @@ func isDatacenterOrThreatIP(c *gin.Context) bool {
 	return ipType == "dc_ip" || ipType == "threat_ip"
 }
 
-// setEventRequestDefaults 设置 EventRequest 的默认值
+// setEventRequestDefaults 设置 EventRequest 的默认值。
+// 若客户端提供了合理的时间戳（如 batch 事件在客户端缓存时的真实时间），则保留；
+// 否则回退到服务端接收时间。
 func setEventRequestDefaults(req *model.EventRequest, c *gin.Context) {
-	req.Timestamp = time.Now()
+	now := time.Now()
+	// 仅接受非零且不早于 1 小时前、不晚于当前的客户端时间戳，防止时钟漂移/伪造
+	if req.Timestamp.IsZero() || req.Timestamp.After(now) || req.Timestamp.Before(now.Add(-time.Hour)) {
+		req.Timestamp = now
+	}
 	req.Ip = iputil.ClientIP(c.Request)
 	req.UserAgent = c.Request.UserAgent()
 }
@@ -261,32 +267,41 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 		}
 		slog.Debug("request body", "body", string(body))
 
-		err = json.Unmarshal(body, &tempReq)
-		if err != nil {
-			slog.Debug("failed to unmarshal request body", "error", err)
-			c.JSON(http.StatusBadRequest, "bad")
-			return
+		// 先探测事件类型：batch 事件的 e 字段是数组，与单事件 e=停留时长(int) 冲突，
+		// 需用独立结构解析，否则 json.Unmarshal 会因类型不匹配整包报错 400。
+		var probe struct {
+			EventName string `json:"n"`
 		}
-
-		// Set default value for Interactive if not provided
-		if tempReq.Interactive == nil {
-			trueVal := json.RawMessage("true")
-			tempReq.Interactive = &trueVal
-		}
+		_ = json.Unmarshal(body, &probe)
 
 		// 处理前端 SDK 批量发送的 batch 事件（n: 'batch', e: [...]）
-		if tempReq.EventName == "batch" && len(tempReq.Events) > 0 {
+		if probe.EventName == "batch" {
+			var batchReq model.BatchEventRequest
+			if err = json.Unmarshal(body, &batchReq); err != nil {
+				slog.Debug("failed to unmarshal batch request body", "error", err)
+				c.JSON(http.StatusBadRequest, "bad")
+				return
+			}
+			if len(batchReq.Events) == 0 {
+				c.JSON(http.StatusAccepted, "ok")
+				return
+			}
+			// 限制单次 batch 的子事件数量，防止请求放大攻击
+			const maxBatchEvents = 100
+			if len(batchReq.Events) > maxBatchEvents {
+				batchReq.Events = batchReq.Events[:maxBatchEvents]
+			}
 			// 丢弃来自数据中心/威胁 IP 的 batch 请求
 			if isDatacenterOrThreatIP(c) {
 				slog.Debug("dropping datacenter/threat IP batch event", "ip", iputil.ClientIP(c.Request))
 				c.JSON(http.StatusAccepted, "ok")
 				return
 			}
-			for _, subEvent := range tempReq.Events {
+			for _, subEvent := range batchReq.Events {
 				// 子事件继承 batch 级别的 domain（如果未单独指定）
 				subDomain := subEvent.Domain
 				if subDomain == "" {
-					subDomain = tempReq.Domain
+					subDomain = batchReq.Domain
 				}
 
 				can, err := siteService.IsDomainInList(c, subDomain)
@@ -316,11 +331,9 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 						user.Edges.UserConfig != nil && user.Edges.UserConfig.Edges.Group != nil {
 						maxEvents := user.Edges.UserConfig.Edges.Group.MaxMonthlyEvents
 						if maxEvents != -1 {
-							quota := event.GetMonthlyQuota()
-							if quota.Get(ownerUserID) >= int64(maxEvents) {
+							if !event.GetMonthlyQuota().TryIncrement(ownerUserID, int64(maxEvents)) {
 								continue
 							}
-							quota.Increment(ownerUserID)
 						} else {
 							event.GetMonthlyQuota().Increment(ownerUserID)
 						}
@@ -358,6 +371,19 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			return
 		}
 
+		// 单事件解析
+		if err = json.Unmarshal(body, &tempReq); err != nil {
+			slog.Debug("failed to unmarshal request body", "error", err)
+			c.JSON(http.StatusBadRequest, "bad")
+			return
+		}
+
+		// Set default value for Interactive if not provided
+		if tempReq.Interactive == nil {
+			trueVal := json.RawMessage("true")
+			tempReq.Interactive = &trueVal
+		}
+
 		// 丢弃来自数据中心/威胁 IP 的请求
 		if isDatacenterOrThreatIP(c) {
 			slog.Debug("dropping datacenter/threat IP event", "ip", iputil.ClientIP(c.Request))
@@ -385,7 +411,7 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			return
 		}
 
-		// 验证请求来源
+		// Verify request origin
 		if !verifyRequestOrigin(c, tempReq.Domain, site.AllowedOrigins) {
 			slog.Warn("event rejected: invalid request origin",
 				"domain", tempReq.Domain,
@@ -418,13 +444,11 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 				if err == nil && user.Edges.UserConfig != nil && user.Edges.UserConfig.Edges.Group != nil {
 					maxEvents := user.Edges.UserConfig.Edges.Group.MaxMonthlyEvents
 					if maxEvents != -1 {
-						quota := event.GetMonthlyQuota()
-						// Check before incrementing so rejected events don't inflate the count.
-						if quota.Get(ownerUserID) >= int64(maxEvents) {
+						// 原子检查并递增，避免并发请求超发配额
+						if !event.GetMonthlyQuota().TryIncrement(ownerUserID, int64(maxEvents)) {
 							c.JSON(http.StatusTooManyRequests, "monthly event limit exceeded")
 							return
 						}
-						quota.Increment(ownerUserID)
 					} else {
 						// 无限制但仍需计数
 						event.GetMonthlyQuota().Increment(ownerUserID)

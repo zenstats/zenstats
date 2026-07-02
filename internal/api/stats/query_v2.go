@@ -2,34 +2,36 @@ package stats
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	querystats "github.com/zenstats/zenstats/internal/service/stats"
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
-// QueryV2Request POST /api/v2/query 请求体结构。
+// QueryV2Request is the POST /api/v2/query request body.
 type QueryV2Request struct {
-	// 时间范围：支持 period 简写或 from/to 自定义
+	// Time range: period shorthand or from/to custom
 	Period    string `json:"period"`     // day | p7 | p14 | p30 | custom
-	DateRange string `json:"date_range"` // period 别名，优先使用 period
+	DateRange string `json:"date_range"` // period alias, period takes precedence
 	From      string `json:"from"`
 	To        string `json:"to"`
 	Date      string `json:"date"`
 
-	// 指标与维度
+	// Metrics and dimensions
 	Metrics    []string `json:"metrics"`
 	Dimensions []string `json:"dimensions"`
 
-	// 过滤器：[["is","visit:country",["CN"]]] 或 JSON 字符串
+	// Filters: filter tuple array or JSON string
 	Filters json.RawMessage `json:"filters"`
 
 	// 排序：[["visitors","desc"]]
 	OrderBy [][]string `json:"order_by"`
 
-	// 分页
+	// Pagination
 	Limit  int `json:"limit"`
 	Offset int `json:"offset"`
 
@@ -37,10 +39,10 @@ type QueryV2Request struct {
 	SampleThreshold int64 `json:"sample_threshold"`
 }
 
-// QueryV2 POST /api/v2/query 通用查询入口，支持多维度、排序、offset 分页。
+// QueryV2 POST /api/v2/query 通用查询入口，支持多维度、排序、offset Pagination。
 //
 //	@Summary		通用查询（v2）
-//	@Description	POST 方式提交查询，支持 metrics[]、dimensions[]、filters、order_by、limit/offset 全量参数。比 GET 接口更适合复杂查询和 SDK 集成。
+//	@Description	POST-based query with full parameter support. More suitable for complex queries and SDK integration.
 //	@Tags			统计分析
 //	@Security		BearerAuth
 //	@Security		APIKeyAuth
@@ -63,7 +65,7 @@ func (s *StatsHandle) QueryV2() gin.HandlerFunc {
 			return
 		}
 
-		// date_range 是 period 的别名
+		// date_range is an alias for period
 		period := req.Period
 		if period == "" {
 			period = req.DateRange
@@ -72,13 +74,18 @@ func (s *StatsHandle) QueryV2() gin.HandlerFunc {
 			period = "p30"
 		}
 
-		// 序列化 filters 回字符串交给现有管道
+		// 非 custom/realtime 且未传 date 时默认今天（与 v1 行为一致）
+		if period != "custom" && period != "realtime" && req.Date == "" {
+			req.Date = time.Now().Format("2006-01-02")
+		}
+
+		// Serialize filters back to string for existing pipeline
 		filtersStr := ""
 		if len(req.Filters) > 0 && string(req.Filters) != "null" {
 			filtersStr = string(req.Filters)
 		}
 
-		// 解析 order_by：[["visitors","desc"]] → 排序字符串供服务层使用
+		// Parse order_by into sort string for service layer
 		orderByStr := buildOrderByString(req.OrderBy)
 
 		limit := req.Limit
@@ -89,7 +96,7 @@ func (s *StatsHandle) QueryV2() gin.HandlerFunc {
 		metricsStr := strings.Join(req.Metrics, ",")
 		dimensionsStr := ""
 		if len(req.Dimensions) > 0 {
-			dimensionsStr = req.Dimensions[0] // 当前支持单维度，多维度由维度列表依次查询
+			dimensionsStr = req.Dimensions[0] // Currently supports single dimension; multi-dimension queries iterate over the dimension list
 		}
 
 		result, err := s.statsService.QueryV2(c, siteID, period, req.From, req.To, req.Date,
@@ -124,9 +131,5 @@ func buildOrderByString(orderBy [][]string) string {
 }
 
 func isValidationError(err error, target **querystats.ValidationError) bool {
-	if ve, ok := err.(*querystats.ValidationError); ok {
-		*target = ve
-		return true
-	}
-	return false
+	return errors.As(err, target)
 }

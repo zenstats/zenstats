@@ -18,7 +18,7 @@ type FunnelService struct {
 	db *postgresql.Client
 }
 
-// GetFunnelService 获取 FunnelService 单例实例。
+// GetFunnelService 获取 FunnelService 单例instance.
 var GetFunnelService = sync.OnceValue(func() *FunnelService {
 	db := globals.GetDB()
 	if db == nil {

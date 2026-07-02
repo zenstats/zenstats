@@ -39,6 +39,11 @@ var AvailableMetrics = Metrics{
 		Description: "Total number of events",
 		Valid:       true,
 	},
+	"conversions": {
+		Name:        "conversions",
+		Description: "Unique visitors who completed the goal (numerator of conversion_rate)",
+		Valid:       true,
+	},
 	"bounce_rate": {
 		Name:        "bounce_rate",
 		Description: "Bounce rate percentage",
@@ -110,6 +115,11 @@ func (m Metrics) GetMetricSQL(metric string, samplingEnabled bool) (string, erro
 	case "events":
 		frag := gen.EventsForEvent(samplingEnabled)
 		return fmt.Sprintf("%s as events", frag.ToSql()), nil
+	case "conversions":
+		// 转化人数 = 命中目标的独立访客（查询在 goal 过滤下执行）。作为 conversion_rate 的分子，
+		// 分母（基线访客）由服务层单独查询后在 Go 侧计算比值。
+		frag := gen.Uniq("user_id", samplingEnabled)
+		return fmt.Sprintf("%s as conversions", frag.ToSql()), nil
 	case "bounce_rate":
 		frag := gen.BounceRate()
 		return fmt.Sprintf("%s as bounce_rate", frag.ToSql()), nil
@@ -128,8 +138,6 @@ func (m Metrics) GetMetricSQL(metric string, samplingEnabled bool) (string, erro
 	case "exit_rate":
 		frag := gen.ExitRateForSession()
 		return fmt.Sprintf("%s as exit_rate", frag.ToSql()), nil
-	case "conversion_rate":
-		return "toFloat64(round(uniq(user_id) * 100.0 / nullIf(uniq(user_id), 0), 2)) as conversion_rate", nil
 	default:
 		return "", fmt.Errorf("metric %s is not available", metric)
 	}

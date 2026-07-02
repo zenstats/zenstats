@@ -18,7 +18,7 @@ var (
 var SendReportCmd = &cobra.Command{
 	Use:   "send-report",
 	Short: "手动发送一份邮件报告（测试用）",
-	Long: `手动向指定邮箱发送一份周报或月报，用于测试报告内容和邮件投递。
+	Long: `Send a weekly or monthly report to a specified email for testing.
 
 示例:
   zenstats send-report --site=example.com --period=weekly --email=admin@example.com
@@ -71,7 +71,7 @@ var SendReportCmd = &cobra.Command{
 		fmt.Println("--- 发送中 ---")
 
 		if err := service.SendTestReportMail(recipient, subject, html); err != nil {
-			fmt.Fprintf(os.Stderr, "发送失败: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed to send: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -80,9 +80,9 @@ var SendReportCmd = &cobra.Command{
 }
 
 func init() {
-	SendReportCmd.Flags().StringVar(&sendReportSite, "site", "", "站点域名（必填）")
-	SendReportCmd.Flags().StringVar(&sendReportPeriod, "period", "weekly", "报告周期: weekly 或 monthly")
-	SendReportCmd.Flags().StringVar(&sendReportEmail, "email", "", "收件人邮箱（可选，默认发送给站点所有者）")
+	SendReportCmd.Flags().StringVar(&sendReportSite, "site", "", "Site domain (required)")
+	SendReportCmd.Flags().StringVar(&sendReportPeriod, "period", "weekly", "Report period: weekly or monthly")
+	SendReportCmd.Flags().StringVar(&sendReportEmail, "email", "", "Recipient email(optional, defaults to site owner)")
 	SendReportCmd.MarkFlagRequired("site")
 
 	RootCmd.AddCommand(SendReportCmd)

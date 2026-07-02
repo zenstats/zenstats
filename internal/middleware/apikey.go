@@ -12,9 +12,9 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
-// APIKeyOrJWTAuth 支持 API Key 或 JWT Token 认证的中间件。
-// API Key 通过 Authorization: Bearer zen_xxx 传递，以 "zen_" 前缀区分。
-// JWT Token 通过标准 Bearer token 传递。
+// APIKeyOrJWTAuth supports authentication via API Key or JWT token.
+// API keys use Authorization: Bearer zen_xxx, distinguished by the "zen_" prefix.
+// JWT tokens use the standard Bearer token format.
 func APIKeyOrJWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := c.GetHeader("Authorization")
@@ -30,9 +30,9 @@ func APIKeyOrJWTAuth() gin.HandlerFunc {
 			return
 		}
 
-		// 判断是 API Key 还是 JWT Token
+		// Determine whether it is an API key or JWT token
 		if strings.HasPrefix(tokenString, "zen_") {
-			// API Key 认证
+			// API key authentication
 			apiKeyService := service.GetAPIKeyService()
 			userID, err := apiKeyService.ValidateAPIKey(c, tokenString)
 			if err != nil {
@@ -43,7 +43,7 @@ func APIKeyOrJWTAuth() gin.HandlerFunc {
 			c.Set("user_id", userID)
 			c.Set("auth_type", "api_key")
 		} else {
-			// JWT Token 认证
+			// JWT token authentication
 			claims, err := auth.ParseToken(tokenString)
 			if err != nil {
 				if errors.Is(err, jwt.ErrTokenExpired) {

@@ -46,7 +46,7 @@ func (s *StatsHandle) GetMainGraph() gin.HandlerFunc {
 
 		result, err := s.statsService.GetMainGraph(c, siteID, req, metrics)
 		if err != nil {
-			response.Error(c, http.StatusInternalServerError, err)
+			respondQueryError(c, err)
 			return
 		}
 

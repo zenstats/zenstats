@@ -1,4 +1,4 @@
-// Package goals 处理目标管理相关的 HTTP 请求，包括目标的增删改查。
+// Package goals HTTP request handler，包括目标的增删改查。
 package goals
 
 import (
@@ -16,7 +16,7 @@ type GoalsHandler struct {
 	service *service.GoalService
 }
 
-// NewGoalsHandler 创建并返回一个新的 GoalsHandler 实例。
+// NewGoalsHandler creates and returns a new GoalsHandler instance.
 func NewGoalsHandler() *GoalsHandler {
 	return &GoalsHandler{
 		service: service.GetGoalService(),

@@ -13,7 +13,7 @@ import (
 
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 从 Header 或 Query 中获取 Token
+		// Get token from Header or Query
 		tokenString := c.GetHeader("Authorization")
 		if tokenString == "" {
 			tokenString = c.Query("token")
@@ -27,7 +27,7 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 
-		// 解析 Token
+		// Parse token
 		claims, err := auth.ParseToken(tokenString)
 		if err != nil {
 			if errors.Is(err, jwt.ErrTokenExpired) {
@@ -40,21 +40,23 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 
-		// 将用户信息存入 Context
+		// Store user info in context
 		c.Set("user_id", claims.UserID)
 		c.Set("user_type", claims.UserType)
 		c.Set("sub_account_id", claims.SubAccountID)
 		c.Set("role", claims.Role)
-		perms := claims.Permissions
-		if perms == nil {
-			perms = []string{}
+
+		// Convert to map for O(1) lookup in SubAccountHasPerm
+		permSet := make(map[string]struct{}, len(claims.Permissions))
+		for _, p := range claims.Permissions {
+			permSet[p] = struct{}{}
 		}
-		c.Set("permissions", perms)
+		c.Set("permissions", permSet)
 		c.Next()
 	}
 }
 
-// AdminAuth 管理员权限检查中间件
+// AdminAuth checks whether the current user is an administrator
 func AdminAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
@@ -64,7 +66,7 @@ func AdminAuth() gin.HandlerFunc {
 			return
 		}
 
-		// 子账号不能访问管理员接口
+		// Sub-accounts cannot access admin endpoints
 		userType, _ := c.Get("user_type")
 		if userType == "sub_account" {
 			response.ErrorWithKey(c, http.StatusForbidden, "auth.admin_required")
@@ -90,8 +92,8 @@ func AdminAuth() gin.HandlerFunc {
 	}
 }
 
-// SubAccountReadOnly 子账号只读中间件，阻止所有子账号（不论角色）执行写操作。
-// 用于父账号专属接口（站点创建/删除、API Key 管理、子账号管理等）。
+// SubAccountReadOnly blocks all sub-accounts (regardless of role) from performing write operations.
+// Used for parent-account exclusive endpoints (site create/delete, API key management, sub-account management).
 func SubAccountReadOnly() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userType, _ := c.Get("user_type")
@@ -104,8 +106,8 @@ func SubAccountReadOnly() gin.HandlerFunc {
 	}
 }
 
-// SubAccountHasPerm 细粒度权限中间件。
-// 父账号直接通过；子账号需在 permissions 列表中包含 perm 才能访问。
+// SubAccountHasPerm provides fine-grained permission checking.
+// Parent accounts pass through; sub-accounts require the perm in their permissions set (O(1) map lookup).
 func SubAccountHasPerm(perm string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userType, _ := c.Get("user_type")
@@ -114,21 +116,20 @@ func SubAccountHasPerm(perm string) gin.HandlerFunc {
 			return
 		}
 		permsVal, _ := c.Get("permissions")
-		if permsVal != nil {
-			for _, p := range permsVal.([]string) {
-				if p == perm {
-					c.Next()
-					return
-				}
+		if perms, ok := permsVal.(map[string]struct{}); ok {
+			if _, has := perms[perm]; has {
+				c.Next()
+				return
 			}
 		}
+
 		response.ErrorWithKey(c, http.StatusForbidden, "auth.sub_account_insufficient_role")
 		c.Abort()
 	}
 }
 
-// SiteMembershipAuth 站点成员鉴权中间件，验证当前用户是否为请求站点的成员。
-// 验证通过后将用户所属的具体站点 ID 存入 context（key: "site_id"）。
+// SiteMembershipAuth verifies the current user is a member of the requested site.
+// On success, stores the site ID in context (key: "site_id").
 func SiteMembershipAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
@@ -158,10 +159,10 @@ func SiteMembershipAuth() gin.HandlerFunc {
 	}
 }
 
-// SiteMembershipAndVerificationAuth 站点成员及验证鉴权中间件。
-// 验证当前用户是否为请求站点的成员，且该域名下存在已验证的站点。
-// 用于需要同时检查成员权限和站点验证状态的接口（如统计查询）。
-// 验证通过后将用户所属的具体站点 ID 存入 context（key: "site_id"）。
+// SiteMembershipAndVerificationAuth checks both site membership and verification status.
+// Verifies the user is a member and that a verified site exists for the domain.
+// Used for endpoints requiring both membership and verification (e.g. stats queries).
+// On success, stores the site ID in context (key: "site_id").
 func SiteMembershipAndVerificationAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
@@ -180,7 +181,7 @@ func SiteMembershipAndVerificationAuth() gin.HandlerFunc {
 
 		siteService := service.GetSiteService()
 
-		// 检查成员权限：用户是否为该域名站点的成员
+		// Check membership: is the user a member of this domain
 		site, err := siteService.CheckSiteMembership(c.Request.Context(), userID.(int64), domain)
 		if err != nil {
 			response.ErrorWithKey(c, http.StatusNotFound, "sites.not_found")
@@ -188,7 +189,7 @@ func SiteMembershipAndVerificationAuth() gin.HandlerFunc {
 			return
 		}
 
-		// 检查验证状态：该域名下是否存在已验证的站点
+		// Check verification: does a verified site exist for this domain
 		_, err = siteService.GetVerifiedSiteByDomain(c.Request.Context(), domain)
 		if err != nil {
 			response.ErrorWithKey(c, http.StatusForbidden, "sites.not_verified")

@@ -51,6 +51,18 @@ func (as *AggregateService) GetAggregate(ctx context.Context, params *types.Para
 	needsViewsPerVisit := containsString(params.Metrics, "views_per_visit")
 	queryMetrics := replaceViewsPerVisit(params.Metrics)
 
+	// Handle conversion_rate: replace with conversions (numerator), query denominator (baseline visitors) separately, compute ratio in Go.
+	// Since replacement happens before CreateQuery validation, we explicitly guard against missing goal filter:
+	// Aggregate query (no dimensions) requires goal filter for conversion_rate, otherwise numerator=denominator = 100%.
+	needsConversionRate := containsString(params.Metrics, "conversion_rate")
+	if needsConversionRate && !types.HasEventGoalFilter(params.Filters) {
+		return nil, &ValidationError{
+			StatusCode: 400,
+			Message:    "metric `conversion_rate` can only be queried with a goal filter",
+		}
+	}
+	queryMetrics = replaceConversionRate(queryMetrics)
+
 	// 创建无维度的查询参数
 	aggParams := &types.Params{
 		SiteID:       params.SiteID,
@@ -73,7 +85,7 @@ func (as *AggregateService) GetAggregate(ctx context.Context, params *types.Para
 	// 执行主查询
 	result, err := as.qs.runner.RunQuery(ctx, query, site)
 	if err != nil {
-		return nil, fmt.Errorf("failed to run aggregate query: %v", err)
+		return nil, fmt.Errorf("failed to run aggregate query: %w", err)
 	}
 
 	results := make(map[string]MetricResult)
@@ -104,7 +116,28 @@ func (as *AggregateService) GetAggregate(ctx context.Context, params *types.Para
 		}
 	}
 
+	// conversion_rate denominator: baseline visitors (same site/time window, uniq visitors excluding goal filter).
+	// Consistent with funnel — compute ratio in Go from separate numerator/denominator queries, not a single SQL expression.
+	var baselineVisitors, compBaselineVisitors float64
+	if needsConversionRate {
+		baselineVisitors = as.baselineVisitors(ctx, site, params, params.UTCTimeRange)
+		if params.ComparisonUTCTimeRange != nil {
+			compBaselineVisitors = as.baselineVisitors(ctx, site, params, *params.ComparisonUTCTimeRange)
+		}
+	}
+
 	for _, metric := range params.Metrics {
+		if metric == "conversion_rate" && needsConversionRate {
+			rate := conversionRate(toFloat64(getMetricValue(result.Data, "conversions")), baselineVisitors)
+			mr := MetricResult{Value: rate}
+			if comparisonData != nil && len(comparisonData) > 0 {
+				compRate := conversionRate(toFloat64(getMetricValue(comparisonData, "conversions")), compBaselineVisitors)
+				mr.ComparisonValue = &compRate
+				mr.Change = calculateChange(rate, compRate)
+			}
+			results[metric] = mr
+			continue
+		}
 		if metric == "views_per_visit" && needsViewsPerVisit {
 			// views_per_visit = pageviews / visits，从查询结果中计算
 			pv := getMetricValue(result.Data, "pageviews")
@@ -293,7 +326,7 @@ func (as *AggregateService) GetTimeSeries(ctx context.Context, params *types.Par
 	site := &types.Site{ID: query.SiteID, UserID: query.UserID, Timezone: query.Timezone}
 	result, err := as.qs.runner.RunQuery(ctx, query, site)
 	if err != nil {
-		return nil, fmt.Errorf("failed to run time series query: %v", err)
+		return nil, fmt.Errorf("failed to run time series query: %w", err)
 	}
 
 	points := []TimeSeriesPoint{}
@@ -422,6 +455,74 @@ func containsString(slice []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// replaceConversionRate replaces conversion_rate with its numerator metric conversions (dedup),
+// the ratio is computed in Go using baseline visitors.
+func replaceConversionRate(metrics []string) []string {
+	result := make([]string, 0, len(metrics))
+	for _, m := range metrics {
+		if m == "conversion_rate" {
+			if !containsString(result, "conversions") {
+				result = append(result, "conversions")
+			}
+			continue
+		}
+		if m == "conversions" && containsString(result, "conversions") {
+			continue
+		}
+		result = append(result, m)
+	}
+	return result
+}
+
+// baselineVisitors queries baseline unique visitors for the given time window: keeps original filters but strips goal filters,
+// used as the denominator for conversion_rate. Returns 0 on query failure (ratio becomes 0).
+func (as *AggregateService) baselineVisitors(ctx context.Context, site *types.Site, params *types.Params, tr types.TimeRange) float64 {
+	baseParams := &types.Params{
+		SiteID:       params.SiteID,
+		Period:       params.Period,
+		Date:         params.Date,
+		From:         params.From,
+		To:           params.To,
+		Timezone:     params.Timezone,
+		UTCTimeRange: tr,
+		Metrics:      []string{"visitors"},
+		Dimensions:   []string{},
+		Filters:      stripGoalFilters(params.Filters),
+		Interval:     "",
+	}
+	query, err := as.qs.CreateQuery(baseParams)
+	if err != nil {
+		slog.Warn("failed to create conversion_rate baseline query", "error", err)
+		return 0
+	}
+	res, err := as.qs.runner.RunQuery(ctx, query, site)
+	if err != nil {
+		slog.Warn("failed to run conversion_rate baseline query", "error", err)
+		return 0
+	}
+	return toFloat64(getMetricValue(res.Data, "visitors"))
+}
+
+// conversionRate computes conversion rate (%, 1 decimal place), returns 0 when denominator is 0.
+func conversionRate(conversions, baseline float64) float64 {
+	if baseline <= 0 {
+		return 0
+	}
+	return math.Round(conversions*100/baseline*10) / 10
+}
+
+// stripGoalFilters returns filters with event:goal removed (used for baseline visitor computation).
+func stripGoalFilters(filters []*types.Filter) []*types.Filter {
+	out := make([]*types.Filter, 0, len(filters))
+	for _, f := range filters {
+		if f.AnyDimension(func(d string) bool { return d == "event:goal" }) {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 // replaceViewsPerVisit replaces "views_per_visit" with "visits" in metrics list,

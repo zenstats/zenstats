@@ -34,6 +34,9 @@ func NewSessionManager(ctx context.Context, batchSize int) *SessionManager {
 		balancer:       NewBalancer[*models.Sessions](),
 		cache:          l,
 		machineID:      rand.Uint64(),
+		// 以纳秒墙钟为版本号基准，保证重启后新版本号始终大于历史行，
+		// 避免 ORDER BY version DESC 读到重启前的陈旧行。
+		versionCounter: uint64(time.Now().UnixNano()),
 	}
 
 	s.writeBuffer = NewWriteBuffer(ctx, batchSize, time.Second*5)
@@ -76,28 +79,32 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 				return nil, nil
 			}
 			// Write Sign=-1 tombstone for the existing DB row before mutating.
-			// Without this, ClickHouse ends up with two Sign=1 rows → double-counting.
+			// tombstone 保留 loadedSession 的 version，与 DB 中的 Sign=+1 行配对 collapse。
 			tombstone := s.CopySession(loadedSession)
 			tombstone.Sign = -1
 			s.writeBuffer.Add(tombstone)
 
-			s.updateSessionCache(loadedSession)
-			s.refreshSessionCache(loadedSession, event.Timestamp)
-			loadedSession.Duration = uint32(event.Timestamp.Sub(loadedSession.Start).Seconds())
-			loadedSession.Timestamp = event.Timestamp
-			s.writeBuffer.Add(loadedSession)
-			return loadedSession, nil
+			// 生成新状态行：赋新版本号（必须高于 tombstone），Sign=+1
+			newState := s.CopySession(loadedSession)
+			newState.Version = s.nextVersion()
+			newState.Sign = 1
+			newState.Duration = durationSeconds(newState.Start, event.Timestamp)
+			newState.Timestamp = event.Timestamp
+			newState.Events += 1
+			s.writeBuffer.Add(newState)
+			s.updateSessionCache(newState)
+			return newState, nil
 		}
 		oldSession := s.CopySession(findSession)
 		oldSession.Sign = -1
 		s.writeBuffer.Add(oldSession)
 
-		findSession.Duration = uint32(event.Timestamp.Sub(findSession.Start).Seconds())
-		findSession.Timestamp = event.Timestamp
-		findSession.Events += 1
-
 		newSession := s.CopySession(findSession)
+		newSession.Version = s.nextVersion()
 		newSession.Sign = 1
+		newSession.Duration = durationSeconds(newSession.Start, event.Timestamp)
+		newSession.Timestamp = event.Timestamp
+		newSession.Events += 1
 		s.writeBuffer.Add(newSession)
 		s.updateSessionCache(newSession)
 		return newSession, nil
@@ -202,6 +209,8 @@ func (s *SessionManager) newSession(event *models.Events) *models.Sessions {
 
 func (s *SessionManager) updateSession(session *models.Sessions, event *models.Events) *models.Sessions {
 	newSession := s.CopySession(session)
+	// 新状态行赋新版本号，Sign 由调用方设置为 +1
+	newSession.Version = s.nextVersion()
 
 	slog.Debug("update session", "newSession", newSession.Duration, "session", session.Duration)
 
@@ -232,13 +241,23 @@ func (s *SessionManager) updateSession(session *models.Sessions, event *models.E
 		}
 	}
 
-	newSession.Duration = uint32(event.Timestamp.Sub(session.Start).Seconds())
+	newSession.Duration = durationSeconds(session.Start, event.Timestamp)
 
 	newSession.Events += 1
 
 	slog.Debug("update session", "newSession", newSession.Duration, "session", session.Duration)
 
 	return newSession
+}
+
+// durationSeconds 计算会话时长（秒），对乱序到达（end 早于 start）的事件钳制为 0，
+// 避免 uint32 下溢产生约 42 亿秒的异常时长污染 avg(duration) 聚合。
+func durationSeconds(start, end time.Time) uint32 {
+	d := end.Sub(start).Seconds()
+	if d < 0 {
+		return 0
+	}
+	return uint32(d)
 }
 
 func (s *SessionManager) refreshSessionCache(session *models.Sessions, timestamp time.Time) *models.Sessions {
@@ -283,13 +302,17 @@ func (s *SessionManager) nextVersion() uint64 {
 	return atomic.AddUint64(&s.versionCounter, 1)
 }
 
+// CopySession 忠实复制一个 session，保留原始 version。
+// 用于生成 Sign=-1 抵消行（tombstone）：抵消行必须与它要抵消的 Sign=+1 行
+// 具有相同的 version，VersionedCollapsingMergeTree 才能正确 collapse 这一对。
+// 若需要生成"新状态"行，调用方应在复制后显式调用 nextVersion() 赋新版本号。
 func (s *SessionManager) CopySession(session *models.Sessions) *models.Sessions {
 	if session == nil {
 		return nil
 	}
 
 	copied := &models.Sessions{
-		Version:                s.nextVersion(),
+		Version:                session.Version,
 		Sign:                   session.Sign,
 		Duration:               session.Duration,
 		PageViews:              session.PageViews,

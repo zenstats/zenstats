@@ -14,12 +14,12 @@ func InitCron() {
 	cron := scheduler.GetCronManager()
 	cron.Start()
 
-	// 每7天更新 GeoIP 数据库
+	// Update GeoIP database every 7 days
 	cron.AddJob("0 0 1 */7 * *", func(params any) {
 		geoip.GetGeoIP().UpdateGeoIPDB("")
 	}, nil)
 
-	// 每周一凌晨 3:00 更新垃圾 referrer 列表
+	// Update spam referrer list every Monday at 03:00
 	cron.AddJob("0 0 3 * * 1", func(params any) {
 		ctx := context.Background()
 		if err := event.RefreshSpamBlocklist(ctx); err != nil {
@@ -27,9 +27,9 @@ func InitCron() {
 		}
 	}, nil)
 
-	// 注册邮件报告定时任务（周报 + 月报）
+	// Register email report cron jobs (weekly + monthly)
 	service.RegisterReportCron()
 
-	// 注册流量异常检测定时任务（每小时）
+	// Register traffic anomaly detection cron job (hourly)
 	service.RegisterTrafficAlertCron()
 }

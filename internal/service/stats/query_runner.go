@@ -3,15 +3,48 @@ package stats
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/zenstats/zenstats/internal/service/stats/sql"
 	"github.com/zenstats/zenstats/internal/service/stats/types"
 	cl "github.com/zenstats/zenstats/internal/store/clickhouse"
 )
+
+// malformedQueryCHCodes 是表示"查询构造本身非法"的 ClickHouse 错误码集合。
+// 这类错误意味着请求的指标/维度组合不受支持（而非临时故障），应回 400 友好提示而非 500 泄露 SQL。
+var malformedQueryCHCodes = map[int32]bool{
+	10:  true, // NOT_FOUND_COLUMN_IN_BLOCK
+	42:  true, // NUMBER_OF_ARGUMENTS_DOESNT_MATCH
+	43:  true, // ILLEGAL_TYPE_OF_ARGUMENT
+	44:  true, // ILLEGAL_COLUMN
+	46:  true, // UNKNOWN_FUNCTION
+	47:  true, // UNKNOWN_IDENTIFIER
+	53:  true, // TYPE_MISMATCH
+	60:  true, // UNKNOWN_TABLE
+	184: true, // ILLEGAL_AGGREGATION
+	215: true, // NOT_AN_AGGREGATE
+	62:  true, // SYNTAX_ERROR
+}
+
+// translateQueryError 将 ClickHouse 的"非法查询"异常翻译为 400 校验错误（不支持的查询组合），
+// 其余错误按查询执行失败返回，避免把原始 SQL 错误暴露给客户端。
+func translateQueryError(err error) error {
+	var chErr *clickhouse.Exception
+	if errors.As(err, &chErr) && malformedQueryCHCodes[chErr.Code] {
+		slog.Warn("unsupported query combination", "ch_code", chErr.Code, "ch_message", chErr.Message)
+		return &ValidationError{
+			StatusCode: 400,
+			Message:    "the requested metric/dimension combination is not supported",
+		}
+	}
+	return fmt.Errorf("query execution failed: %v", err)
+}
 
 // QueryRunner 执行统计查询并返回结果
 type QueryRunner struct {
@@ -48,7 +81,7 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 	slog.Debug("query sql", "sql", sqlStr, "args", args)
 
 	if err != nil {
-		return nil, fmt.Errorf("query execution failed: %v", err)
+		return nil, translateQueryError(err)
 	}
 	defer rows.Close()
 	// 处理结果
@@ -266,6 +299,18 @@ func convertValue(val any) any {
 			return jsonVal
 		}
 		return string(v)
+	case float64:
+		// 兜底：NaN/±Inf 无法被 JSON 序列化，会导致响应体为空。归零保证结果始终可序列化。
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return 0.0
+		}
+		return v
+	case float32:
+		f := float64(v)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return 0.0
+		}
+		return v
 	default:
 		return val
 	}

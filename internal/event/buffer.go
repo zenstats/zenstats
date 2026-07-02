@@ -40,8 +40,12 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 		minBatchSize = 50
 	}
 	maxBatchSize := batchSize * 2
-	if maxBatchSize > 500 {
-		maxBatchSize = 500
+	// 保证 max >= 初始 batchSize，且 min <= max，否则自适应调整边界失效
+	if maxBatchSize < batchSize {
+		maxBatchSize = batchSize
+	}
+	if minBatchSize > maxBatchSize {
+		minBatchSize = maxBatchSize
 	}
 
 	wb := &WriteBuffer{

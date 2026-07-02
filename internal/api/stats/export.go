@@ -72,7 +72,7 @@ func (s *StatsHandle) ExportBreakdown() gin.HandlerFunc {
 				response.Error(c, validationErr.StatusCode, err)
 				return
 			}
-			response.Error(c, http.StatusInternalServerError, err)
+			respondQueryError(c, err)
 			return
 		}
 

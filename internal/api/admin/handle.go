@@ -11,7 +11,7 @@ type AdminHandler struct {
 	siteService      *service.SiteService
 }
 
-// NewAdminHandler 创建并返回一个新的 AdminHandler 实例
+// NewAdminHandler creates and returns a new AdminHandler 实例
 func NewAdminHandler() *AdminHandler {
 	return &AdminHandler{
 		userService:      service.GetUserService(),

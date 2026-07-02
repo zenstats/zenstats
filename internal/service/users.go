@@ -18,7 +18,7 @@ type UserService struct {
 	db *postgresql.Client
 }
 
-// GetUserService 获取 UserService 单例实例。
+// GetUserService 获取 UserService 单例instance.
 var GetUserService = sync.OnceValue(func() *UserService {
 	db := globals.GetDB()
 	if db == nil {

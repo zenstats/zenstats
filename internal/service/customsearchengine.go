@@ -16,7 +16,7 @@ type CustomSearchEngineService struct {
 	db *postgresql.Client
 }
 
-// GetCustomSearchEngineService 获取 CustomSearchEngineService 单例实例。
+// GetCustomSearchEngineService 获取 CustomSearchEngineService 单例instance.
 var GetCustomSearchEngineService = sync.OnceValue(func() *CustomSearchEngineService {
 	db := globals.GetDB()
 	if db == nil {

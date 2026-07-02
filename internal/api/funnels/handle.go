@@ -1,4 +1,4 @@
-// Package funnels 处理漏斗管理相关的 HTTP 请求，包括漏斗的增删改查和漏斗分析。
+// Package funnels HTTP request handler，包括漏斗的增删改查和Funnel analysis。
 package funnels
 
 import (
@@ -14,14 +14,14 @@ import (
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
-// FunnelsHandler 漏斗管理处理器。
+// FunnelsHandler Funnel management处理器。
 type FunnelsHandler struct {
 	funnelService   *service.FunnelService
 	goalService     *service.GoalService
 	analysisService *funnel.AnalysisService
 }
 
-// NewFunnelsHandler 创建并返回一个新的 FunnelsHandler 实例。
+// NewFunnelsHandler creates and returns a new FunnelsHandler instance.
 func NewFunnelsHandler() *FunnelsHandler {
 	return &FunnelsHandler{
 		funnelService:   service.GetFunnelService(),
@@ -32,9 +32,9 @@ func NewFunnelsHandler() *FunnelsHandler {
 
 // List 获取站点的所有漏斗。
 //
-//	@Summary		获取漏斗列表
+//	@Summary		Get funnel list
 //	@Description	获取指定站点的所有漏斗。
-//	@Tags			漏斗管理
+//	@Tags			Funnel management
 //	@Security		BearerAuth
 //	@Produce		json
 //	@Param			domain		path		string	true	"站点域名"
@@ -62,9 +62,9 @@ func (h *FunnelsHandler) List() gin.HandlerFunc {
 
 // Get 获取单个漏斗详情。
 //
-//	@Summary		获取漏斗详情
+//	@Summary		Get funnel detail
 //	@Description	获取指定漏斗的详细信息，包含步骤的目标信息。
-//	@Tags			漏斗管理
+//	@Tags			Funnel management
 //	@Security		BearerAuth
 //	@Produce		json
 //	@Param			domain		path		string	true	"站点域名"
@@ -100,14 +100,14 @@ func (h *FunnelsHandler) Get() gin.HandlerFunc {
 
 // Create 创建新漏斗。
 //
-//	@Summary		创建漏斗
+//	@Summary		Create funnel
 //	@Description	为指定站点创建新的转化漏斗。
-//	@Tags			漏斗管理
+//	@Tags			Funnel management
 //	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			domain		path		string						true	"站点域名"
-//	@Param			body		body		service.CreateFunnelRequest	true	"创建漏斗请求"
+//	@Param			body		body		service.CreateFunnelRequest	true	"Create funnel请求"
 //	@Success		200			{object}	response.SuccessResponse{data=service.Funnel}	"成功响应"
 //	@Failure		400			{object}	response.ErrorResponse	"请求参数错误"
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
@@ -137,17 +137,17 @@ func (h *FunnelsHandler) Create() gin.HandlerFunc {
 	}
 }
 
-// Update 更新漏斗。
+// Update Update funnel。
 //
-//	@Summary		更新漏斗
+//	@Summary		Update funnel
 //	@Description	更新指定漏斗的信息和步骤。
-//	@Tags			漏斗管理
+//	@Tags			Funnel management
 //	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			domain		path		string						true	"站点域名"
 //	@Param			funnelId	path		int							true	"漏斗ID"
-//	@Param			body		body		service.UpdateFunnelRequest	true	"更新漏斗请求"
+//	@Param			body		body		service.UpdateFunnelRequest	true	"Update funnel请求"
 //	@Success		200			{object}	response.SuccessResponse{data=service.FunnelDetail}	"成功响应"
 //	@Failure		400			{object}	response.ErrorResponse	"请求参数错误"
 //	@Failure		401			{object}	response.ErrorResponse	"未认证"
@@ -184,11 +184,11 @@ func (h *FunnelsHandler) Update() gin.HandlerFunc {
 	}
 }
 
-// Delete 删除漏斗。
+// Delete Delete funnel。
 //
-//	@Summary		删除漏斗
+//	@Summary		Delete funnel
 //	@Description	删除指定的漏斗。
-//	@Tags			漏斗管理
+//	@Tags			Funnel management
 //	@Security		BearerAuth
 //	@Produce		json
 //	@Param			domain		path		string	true	"站点域名"
@@ -221,11 +221,11 @@ func (h *FunnelsHandler) Delete() gin.HandlerFunc {
 	}
 }
 
-// Analyze 执行漏斗分析。
+// Analyze 执行Funnel analysis。
 //
-//	@Summary		漏斗分析
+//	@Summary		Funnel analysis
 //	@Description	分析指定漏斗在给定时间范围内的转化数据。
-//	@Tags			漏斗分析
+//	@Tags			Funnel analysis
 //	@Security		BearerAuth
 //	@Security		APIKeyAuth
 //	@Produce		json
@@ -255,7 +255,7 @@ func (h *FunnelsHandler) Analyze() gin.HandlerFunc {
 			return
 		}
 
-		// 获取漏斗详情
+		// Get funnel detail
 		f, err := h.funnelService.GetFunnel(c, siteID, funnelID)
 		if err != nil {
 			response.Error(c, http.StatusNotFound, err)
@@ -269,7 +269,7 @@ func (h *FunnelsHandler) Analyze() gin.HandlerFunc {
 			return
 		}
 
-		// 构建漏斗步骤
+		// 构建Funnel steps
 		steps := make([]*funnel.FunnelStep, len(f.Steps))
 		for i, step := range f.Steps {
 			steps[i] = &funnel.FunnelStep{

@@ -136,7 +136,7 @@ func isEventOnlyFilterDimension(dimension string) bool {
 		strings.HasPrefix(dimension, "event:props:")
 }
 
-// 添加自定义属性过滤
+// 添加Custom property filter
 func (wb *WhereBuilder) addCustomPropFilter(filter *types.Filter) error {
 	var column string
 	var propName string
@@ -166,14 +166,14 @@ func (wb *WhereBuilder) addCustomPropFilter(filter *types.Filter) error {
 		}
 	}
 
-	// 根据操作符添加相应条件
-	fieldExpr := fmt.Sprintf("%s.value[indexOf(%s.key, '%s')]", column, column, propName)
+	// Add condition based on operator（propName 转义防注入）
+	fieldExpr := fmt.Sprintf("%s.value[indexOf(%s.key, '%s')]", column, column, escapeCHString(propName))
 	return wb.addFilterCondition(fieldExpr, filter)
 }
 
 // 添加字段过滤条件
 func (wb *WhereBuilder) addFilterField(fieldName string, filter *types.Filter) error {
-	// 根据操作符添加相应条件
+	// Add condition based on operator
 	return wb.addFilterCondition(fieldName, filter)
 }
 
@@ -270,8 +270,9 @@ func (wb *WhereBuilder) addHasDoneFilter(table string, filter *types.Filter) err
 	if condition == "" {
 		return nil
 	}
-	subQuery := fmt.Sprintf("SELECT session_id FROM events WHERE %s", condition)
-	wb.AddCondition(fmt.Sprintf("session_id IN (%s)", subQuery), params...)
+	// Subquery must include site_id to prevent cross-tenant scan，否则会跨租户扫描整个 events 表
+	subQuery := fmt.Sprintf("SELECT session_id FROM events WHERE site_id = ? AND (%s)", condition)
+	wb.AddCondition(fmt.Sprintf("session_id IN (%s)", subQuery), append([]any{wb.siteID}, params...)...)
 	return nil
 }
 
@@ -288,8 +289,9 @@ func (wb *WhereBuilder) addHasNotDoneFilter(table string, filter *types.Filter) 
 	if condition == "" {
 		return nil
 	}
-	subQuery := fmt.Sprintf("SELECT session_id FROM events WHERE %s", condition)
-	wb.AddCondition(fmt.Sprintf("session_id NOT IN (%s)", subQuery), params...)
+	// Subquery must include site_id to prevent cross-tenant scan，否则会跨租户扫描整个 events 表
+	subQuery := fmt.Sprintf("SELECT session_id FROM events WHERE site_id = ? AND (%s)", condition)
+	wb.AddCondition(fmt.Sprintf("session_id NOT IN (%s)", subQuery), append([]any{wb.siteID}, params...)...)
 	return nil
 }
 
@@ -396,11 +398,11 @@ func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
 	default:
 		if strings.HasPrefix(name, "event:props:") {
 			propName := strings.TrimPrefix(name, "event:props:")
-			return fmt.Sprintf("meta.value[indexOf(meta.key, '%s')]", propName), nil
+			return fmt.Sprintf("meta.value[indexOf(meta.key, '%s')]", escapeCHString(propName)), nil
 		}
 		if strings.HasPrefix(name, "visit:entry_props:") {
 			propName := strings.TrimPrefix(name, "visit:entry_props:")
-			return fmt.Sprintf("entry_meta.value[indexOf(entry_meta.key, '%s')]", propName), nil
+			return fmt.Sprintf("entry_meta.value[indexOf(entry_meta.key, '%s')]", escapeCHString(propName)), nil
 		}
 		return name, nil
 	}
@@ -780,4 +782,34 @@ func wildcardToRegex(wildcard string) string {
 	}
 	buf.WriteString("$")
 	return buf.String()
+}
+
+// escapeCHString Escape ClickHouse single-quoted string字面量中的特殊字符，
+// Prevent SQL injection。
+func escapeCHString(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	return s
+}
+
+// safeAlias 将任意属性名转换为安全的 SQL 别名标识符，
+// 仅保留字母、数字和下划线，其余字符替换为下划线。
+func safeAlias(s string) string {
+	var buf strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
+			buf.WriteRune(r)
+		} else {
+			buf.WriteRune('_')
+		}
+	}
+	alias := buf.String()
+	if alias == "" {
+		return "prop"
+	}
+	// 别名不能以数字开头
+	if alias[0] >= '0' && alias[0] <= '9' {
+		alias = "p_" + alias
+	}
+	return alias
 }

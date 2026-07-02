@@ -1,4 +1,4 @@
-// Package auth 处理用户认证相关的 HTTP 请求，包括登录、令牌刷新、系统初始化等。
+// Package auth HTTP request handler，包括登录、令牌刷新、系统初始化等。
 package auth
 
 import (
@@ -11,7 +11,7 @@ type AuthHandler struct {
 	subAccountService *service.SubAccountService
 }
 
-// NewAuthHandler 创建并返回一个新的 AuthHandler 实例。
+// NewAuthHandler creates and returns a new AuthHandler instance.
 func NewAuthHandler() *AuthHandler {
 	userService := service.GetUserService()
 	subAccountService := service.GetSubAccountService()

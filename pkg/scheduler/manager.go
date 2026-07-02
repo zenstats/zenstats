@@ -21,40 +21,40 @@ func init() {
 
 type JobFunction func(params any)
 
-// CronJob 定义一个定时任务的结构
+// CronJob defines a scheduled job
 type CronJob struct {
-	ID      int          // 任务ID，用于唯一标识和管理任务
-	Spec    string       // Cron 表达式
-	JobFunc JobFunction  // 要执行的函数
-	Params  *any         // 新增字段：存储任务参数
-	EntryID cron.EntryID // cron 库返回的任务 Entry ID，用于后续删除任务
+	ID      int          // Job ID, used for unique identification and management
+	Spec    string       // Cron expression
+	JobFunc JobFunction  // Function to execute
+	Params  *any         // Store task parameters
+	EntryID cron.EntryID // Cron library Entry ID, used for job removal
 }
 
-// CronManager 定时任务管理器
+// CronManager is the cron job manager
 type CronManager struct {
-	cronInstance *cron.Cron       // cron 调度器实例
-	jobs         map[int]*CronJob // 存储已注册的任务，使用任务ID作为键
-	jobCounter   int              // 任务 ID 计数器
-	mu           sync.Mutex       // 互斥锁，保护 jobs map 的并发安全
+	cronInstance *cron.Cron       // Cron scheduler instance
+	jobs         map[int]*CronJob // Stores registered jobs, keyed by job ID
+	jobCounter   int              // Job ID counter
+	mu           sync.Mutex       // Mutex for concurrent-safe access to jobs map
 }
 
 func GetCronManager() *CronManager {
 	return instance
 }
 
-// Start 启动 cron 调度器
+// Start Start the cron scheduler
 func (cm *CronManager) Start() {
 	cm.cronInstance.Start()
 	log.Println("Cron scheduler started")
 }
 
-// Stop 停止 cron 调度器
+// Stop Stop the cron scheduler
 func (cm *CronManager) Stop() {
 	cm.cronInstance.Stop()
 	log.Println("Cron scheduler stopped")
 }
 
-// AddJob 动态添加一个定时任务
+// AddJob Dynamically add a scheduled job
 func (cm *CronManager) AddJob(spec string, jobFunc JobFunction, params any) (int, error) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
@@ -78,14 +78,14 @@ func (cm *CronManager) AddJob(spec string, jobFunc JobFunction, params any) (int
 		Params:  &params, // 存储参数
 		EntryID: entryID,
 	}
-	cm.jobs[jobID] = cronJob // 存储任务信息到 map 中
+	cm.jobs[jobID] = cronJob // Store job info in the map
 
 	log.Printf("Job %d added with spec: %s, params: %+v\n", jobID, spec, params)
 
 	return jobID, nil
 }
 
-// RemoveJob 动态移除一个定时任务
+// RemoveJob Dynamically remove a scheduled job
 func (cm *CronManager) RemoveJob(jobID int) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
@@ -95,17 +95,17 @@ func (cm *CronManager) RemoveJob(jobID int) error {
 		return fmt.Errorf("job with ID %d not found", jobID)
 	}
 
-	cm.cronInstance.Remove(cronJob.EntryID) // 从 cron 调度器中移除任务
-	delete(cm.jobs, jobID)                  // 从 jobs map 中删除任务信息
+	cm.cronInstance.Remove(cronJob.EntryID) // Remove job from cron scheduler
+	delete(cm.jobs, jobID)                  // Delete job info from jobs map
 
 	log.Printf("Job %d removed\n", jobID)
 	return nil
 }
 
-// ListJobs 列出所有已注册的定时任务
+// ListJobs List all registered scheduled jobs
 func (cm *CronManager) ListJobs() []*CronJob {
-	cm.mu.Lock()         // 加锁，保护 jobs map 的并发访问
-	defer cm.mu.Unlock() // 函数退出时解锁
+	cm.mu.Lock()         // Lock for concurrent-safe jobs map access
+	defer cm.mu.Unlock() // Unlock on function exit
 
 	jobList := make([]*CronJob, 0, len(cm.jobs))
 	for _, job := range cm.jobs {

@@ -15,8 +15,8 @@ var (
 
 var SendAlertCmd = &cobra.Command{
 	Use:   "send-alert",
-	Short: "手动触发流量异常检测（测试用）",
-	Long: `手动检测指定站点的流量异常，超过阈值时发送告警邮件。
+	Short: "Manually trigger traffic anomaly detection (for testing)",
+	Long: `Check the specified site for traffic anomalies and send alerts if the threshold is exceeded.
 
 示例:
   zenstats send-alert --site=example.com
@@ -25,13 +25,13 @@ var SendAlertCmd = &cobra.Command{
 		Init()
 
 		if alertSite == "" {
-			fmt.Fprintln(os.Stderr, "请用 --site 指定站点域名")
+			fmt.Fprintln(os.Stderr, "Please specify a site domain with --site")
 			os.Exit(1)
 		}
 
 		fmt.Printf("检测站点 %s 的流量异常...\n", alertSite)
 		if alertEmail != "" {
-			fmt.Printf("告警将发送到: %s\n", alertEmail)
+			fmt.Printf("Alert will be sent to: %s\n", alertEmail)
 		}
 
 		result, err := service.TestAlert(alertSite, alertEmail)
@@ -42,16 +42,16 @@ var SendAlertCmd = &cobra.Command{
 
 		fmt.Println(result)
 		if alertEmail != "" {
-			fmt.Println("✅ 告警邮件已发送")
+			fmt.Println("✅ Alert email sent")
 		} else {
-			fmt.Println("💡 使用 --email 参数可发送告警邮件")
+			fmt.Println("💡 Use --email flag to send the alert")
 		}
 	},
 }
 
 func init() {
 	SendAlertCmd.Flags().StringVar(&alertSite, "site", "", "站点域名（必填）")
-	SendAlertCmd.Flags().StringVar(&alertEmail, "email", "", "告警收件人邮箱（可选，不指定仅预览）")
+	SendAlertCmd.Flags().StringVar(&alertEmail, "email", "", "Alert recipient email (optional, preview only if not set)")
 	SendAlertCmd.MarkFlagRequired("site")
 
 	RootCmd.AddCommand(SendAlertCmd)

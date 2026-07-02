@@ -121,9 +121,9 @@ func (s *Sessions) GetMostRecentActiveSession(ctx context.Context, userId, siteI
 				browser, browser_version, user_agent, operating_system_version,
 				ipv4, country_code, continent_geoname_id, city_geoname_id, coordinates,
 				ipv6, channel
-		 FROM sessions 
-		 WHERE site_id = ? AND user_id = ? AND timestamp >= ?
-		 ORDER BY version DESC 
+		 FROM sessions
+		 WHERE site_id = ? AND user_id = ? AND timestamp >= ? AND sign = 1
+		 ORDER BY version DESC
 		 LIMIT 1`,
 		siteId, userId, oneHourAgo,
 	)

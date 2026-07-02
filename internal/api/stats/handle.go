@@ -1,7 +1,8 @@
-// Package stats 处理统计分析相关的 HTTP 请求，包括聚合统计、时间序列、维度细分等。
+// Package stats HTTP request handler，包括聚合统计、时间序列、维度细分等。
 package stats
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -9,15 +10,28 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/api/types"
 	"github.com/zenstats/zenstats/internal/service"
+	querystats "github.com/zenstats/zenstats/internal/service/stats"
 	"github.com/zenstats/zenstats/pkg/response"
 )
+
+// respondQueryError 将服务层错误映射为合适的 HTTP 状态：
+// 不支持的查询组合（ValidationError，如指标/维度非法或 ClickHouse 拒绝的组合）返回 400 友好提示，
+// 其余按 500 处理，避免把原始 SQL 错误暴露给客户端。
+func respondQueryError(c *gin.Context, err error) {
+	var ve *querystats.ValidationError
+	if errors.As(err, &ve) {
+		response.Error(c, ve.StatusCode, err)
+		return
+	}
+	response.Error(c, http.StatusInternalServerError, err)
+}
 
 // StatsHandle 统计分析处理器，基于新版查询引擎处理各类统计查询请求。
 type StatsHandle struct {
 	statsService *service.StatsService
 }
 
-// NewStatsHandle 创建并返回一个新的 StatsHandle 实例。
+// NewStatsHandle creates and returns a new StatsHandle instance.
 func NewStatsHandle() *StatsHandle {
 	return &StatsHandle{
 		statsService: service.GetStatsService(),
@@ -84,7 +98,7 @@ func (s *StatsHandle) GetAggregate() gin.HandlerFunc {
 
 		stats, err := s.statsService.GetAggregate(c, siteID, req)
 		if err != nil {
-			response.Error(c, http.StatusInternalServerError, err)
+			respondQueryError(c, err)
 			return
 		}
 
@@ -126,7 +140,7 @@ func (s *StatsHandle) GetTimeSeries() gin.HandlerFunc {
 
 		stats, err := s.statsService.GetTimeSeries(c, siteID, req)
 		if err != nil {
-			response.Error(c, http.StatusInternalServerError, err)
+			respondQueryError(c, err)
 			return
 		}
 

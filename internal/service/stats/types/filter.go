@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -72,7 +73,18 @@ func ParseRawFilter(raw []any) (*Filter, error) {
 		vals, _ := raw[2].([]any)
 		var mods map[string]string
 		if len(raw) > 3 {
-			mods, _ = raw[3].(map[string]string)
+			// json.Unmarshal 到 any 得到的是 map[string]any，不能直接断言成 map[string]string，
+			// 需逐项转换，否则 case_sensitive 等修饰符对所有 API 请求都会被静默丢弃。
+			if rawMods, ok := raw[3].(map[string]any); ok {
+				mods = make(map[string]string, len(rawMods))
+				for k, v := range rawMods {
+					if sv, ok := v.(string); ok {
+						mods[k] = sv
+					} else {
+						mods[k] = fmt.Sprintf("%v", v)
+					}
+				}
+			}
 		}
 		return &Filter{
 			Operator:  op,

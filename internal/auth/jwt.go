@@ -95,7 +95,7 @@ func ParseToken(tokenString string) (*CustomClaims, error) {
 	if err != nil {
 		return nil, err
 	}
-	// 验证token是否有效
+	// Verify token validity
 	if !token.Valid {
 		return nil, jwt.ErrInvalidKey
 	}

@@ -1,4 +1,4 @@
-// Package trafficalert 处理站点流量异常告警配置的 HTTP 请求。
+// Package trafficalert HTTP request handler。
 package trafficalert
 
 import (
@@ -15,19 +15,19 @@ import (
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
-// Handler 流量告警配置处理器。
+// Handler Traffic alert configuration handler.
 type Handler struct {
 	siteService *service.SiteService
 }
 
-// NewHandler 创建新的 Handler。
+// NewHandler Creates a new Handler.
 func NewHandler() *Handler {
 	return &Handler{
 		siteService: service.GetSiteService(),
 	}
 }
 
-// Get 获取站点流量告警配置 GET /api/sites/:domain/traffic-alert
+// Get Get site traffic alert config GET /api/sites/:domain/traffic-alert
 func (h *Handler) Get(c *gin.Context) {
 	domain := c.Param("domain")
 
@@ -50,7 +50,7 @@ func (h *Handler) Get(c *gin.Context) {
 	})
 }
 
-// Update 更新站点流量告警配置 PUT /api/sites/:domain/traffic-alert
+// Update Update site traffic alert config PUT /api/sites/:domain/traffic-alert
 func (h *Handler) Update(c *gin.Context) {
 	siteID := c.GetInt64("site_id")
 
@@ -120,7 +120,7 @@ func (h *Handler) Update(c *gin.Context) {
 	})
 }
 
-// validateRecipients 校验收件人列表中的每个邮箱格式。
+// validateRecipients Validate email format for each recipient.
 func validateRecipients(recipients *string) error {
 	if recipients == nil || *recipients == "" {
 		return nil

@@ -12,7 +12,7 @@ import (
 func CheckInitialization() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		db := globals.GetDB()
-		// 查询用户表是否为空
+		// Check if the user table is empty
 		count, err := db.Client.User.Query().Count(c.Request.Context())
 		if err != nil {
 			response.Error(c, http.StatusInternalServerError, errors.New("failed to query user table"))

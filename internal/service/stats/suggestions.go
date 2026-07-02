@@ -20,7 +20,7 @@ type SuggestionService struct {
 	conn driver.Conn
 }
 
-// NewSuggestionService 创建建议服务实例。
+// NewSuggestionService 创建建议服务instance.
 func NewSuggestionService() *SuggestionService {
 	return &SuggestionService{conn: cl.GetConnection()}
 }

@@ -122,8 +122,10 @@ func TestCopySessionPreservesAllFields(t *testing.T) {
 	}
 }
 
-// TestCopySessionAssignsNewVersion verifies the copy gets a distinct version.
-func TestCopySessionAssignsNewVersion(t *testing.T) {
+// TestCopySessionPreservesVersion verifies the copy keeps the source version.
+// 抵消行（Sign=-1 tombstone）必须与其抵消的 Sign=+1 行版本一致才能在
+// VersionedCollapsingMergeTree 中正确 collapse；新状态行的版本由调用方显式 bump。
+func TestCopySessionPreservesVersion(t *testing.T) {
 	sm := NewSessionManager(context.Background(), 10)
 	defer sm.Shutdown()
 
@@ -131,11 +133,8 @@ func TestCopySessionAssignsNewVersion(t *testing.T) {
 	orig.Version = sm.nextVersion()
 
 	copied := sm.CopySession(orig)
-	if copied.Version == orig.Version {
-		t.Fatal("CopySession must assign a new (higher) Version to the copy")
-	}
-	if copied.Version <= orig.Version {
-		t.Fatalf("expected copy Version > orig Version, got copy=%d orig=%d", copied.Version, orig.Version)
+	if copied.Version != orig.Version {
+		t.Fatalf("CopySession must preserve Version for tombstone pairing, got copy=%d orig=%d", copied.Version, orig.Version)
 	}
 }
 

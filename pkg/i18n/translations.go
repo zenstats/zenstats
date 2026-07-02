@@ -20,6 +20,10 @@ var enTranslations = map[string]string{
 	"auth.invalid_refresh_token": "invalid refresh token",
 	"auth.refresh_token_expired": "the refresh token has expired",
 	"auth.admin_required":        "admin access required",
+	"auth.invalid_credentials":         "invalid email or password",
+	"auth.sub_account_insufficient_role": "insufficient permission",
+	"auth.sub_account_read_only":         "sub-accounts are not allowed to perform this action",
+	"auth.sub_account_suspended":         "sub-account is suspended",
 
 	// Sites
 	"sites.domain_required": "domain is required",
@@ -136,6 +140,10 @@ var zhCNTranslations = map[string]string{
 	"auth.invalid_refresh_token": "无效的刷新令牌",
 	"auth.refresh_token_expired": "刷新令牌已过期",
 	"auth.admin_required":        "需要管理员权限",
+	"auth.invalid_credentials":           "邮箱或密码错误",
+	"auth.sub_account_insufficient_role": "权限不足",
+	"auth.sub_account_read_only":         "子账号无权执行此操作",
+	"auth.sub_account_suspended":         "子账号已被停用",
 
 	// Sites
 	"sites.domain_required": "域名不能为空",

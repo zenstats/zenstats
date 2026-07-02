@@ -17,7 +17,7 @@ type GoalService struct {
 	db *postgresql.Client
 }
 
-// GetGoalService 获取 GoalService 单例实例。
+// GetGoalService 获取 GoalService 单例instance.
 var GetGoalService = sync.OnceValue(func() *GoalService {
 	db := globals.GetDB()
 	if db == nil {

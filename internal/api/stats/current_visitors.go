@@ -1,8 +1,6 @@
 package stats
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/pkg/response"
 )
@@ -27,7 +25,7 @@ func (s *StatsHandle) GetCurrentVisitors() gin.HandlerFunc {
 
 		result, err := s.statsService.GetCurrentVisitors(c, siteID)
 		if err != nil {
-			response.Error(c, http.StatusInternalServerError, err)
+			respondQueryError(c, err)
 			return
 		}
 

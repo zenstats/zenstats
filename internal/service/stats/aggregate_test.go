@@ -60,3 +60,46 @@ func mustParseTime(t *testing.T, value string) time.Time {
 	}
 	return parsed
 }
+
+// TestConversionRate 验证转化率计算与除零保护。
+func TestConversionRate(t *testing.T) {
+	cases := []struct {
+		conv, base, want float64
+	}{
+		{5, 96, 5.2},   // 5/96*100=5.208 → 5.2
+		{11, 96, 11.5}, // 11/96*100=11.458 → 11.5
+		{0, 100, 0},
+		{5, 0, 0}, // 分母为 0 → 0，不 panic
+		{96, 96, 100},
+	}
+	for _, c := range cases {
+		if got := conversionRate(c.conv, c.base); got != c.want {
+			t.Errorf("conversionRate(%v,%v)=%v want %v", c.conv, c.base, got, c.want)
+		}
+	}
+}
+
+// TestReplaceConversionRate 验证 conversion_rate 被替换为 conversions 且去重。
+func TestReplaceConversionRate(t *testing.T) {
+	got := replaceConversionRate([]string{"visitors", "conversion_rate"})
+	if len(got) != 2 || got[1] != "conversions" {
+		t.Fatalf("expected [visitors conversions], got %v", got)
+	}
+	// 已含 conversions 时不重复添加
+	got = replaceConversionRate([]string{"conversions", "conversion_rate"})
+	if len(got) != 1 || got[0] != "conversions" {
+		t.Fatalf("expected [conversions], got %v", got)
+	}
+}
+
+// TestStripGoalFilters 验证 goal 过滤被剔除、其余过滤保留。
+func TestStripGoalFilters(t *testing.T) {
+	filters := []*types.Filter{
+		{Operator: "is", Dimension: "event:goal", Values: []any{"Signup"}},
+		{Operator: "is", Dimension: "visit:browser", Values: []any{"Chrome"}},
+	}
+	out := stripGoalFilters(filters)
+	if len(out) != 1 || out[0].Dimension != "visit:browser" {
+		t.Fatalf("expected only browser filter retained, got %v", out)
+	}
+}
