@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
@@ -444,6 +445,21 @@ func (sc *SiteCreate) AddSegments(s ...*Segment) *SiteCreate {
 	return sc.AddSegmentIDs(ids...)
 }
 
+// AddSavedPanelIDs adds the "saved_panels" edge to the SavedPanel entity by IDs.
+func (sc *SiteCreate) AddSavedPanelIDs(ids ...int64) *SiteCreate {
+	sc.mutation.AddSavedPanelIDs(ids...)
+	return sc
+}
+
+// AddSavedPanels adds the "saved_panels" edges to the SavedPanel entity.
+func (sc *SiteCreate) AddSavedPanels(s ...*SavedPanel) *SiteCreate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return sc.AddSavedPanelIDs(ids...)
+}
+
 // Mutation returns the SiteMutation object of the builder.
 func (sc *SiteCreate) Mutation() *SiteMutation {
 	return sc.mutation
@@ -871,6 +887,22 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(segment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := sc.mutation.SavedPanelsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SavedPanelsTable,
+			Columns: []string{site.SavedPanelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(savedpanel.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

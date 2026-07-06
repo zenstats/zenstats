@@ -12,6 +12,9 @@ type APIKey func(*sql.Selector)
 // CustomSearchEngine is the predicate function for customsearchengine builders.
 type CustomSearchEngine func(*sql.Selector)
 
+// EmailLog is the predicate function for emaillog builders.
+type EmailLog func(*sql.Selector)
+
 // EmailVerificationToken is the predicate function for emailverificationtoken builders.
 type EmailVerificationToken func(*sql.Selector)
 
@@ -29,6 +32,9 @@ type MonthlyEventCount func(*sql.Selector)
 
 // PasswordResetToken is the predicate function for passwordresettoken builders.
 type PasswordResetToken func(*sql.Selector)
+
+// SavedPanel is the predicate function for savedpanel builders.
+type SavedPanel func(*sql.Selector)
 
 // SearchEngines is the predicate function for searchengines builders.
 type SearchEngines func(*sql.Selector)

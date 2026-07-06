@@ -302,7 +302,9 @@ func (s *TrafficAlertService) sendAlert(email, domain string, alert *alertData) 
 	m.SetBody("text/html", html)
 
 	d := gomail.NewDialer(host, port, username, password)
-	if err := d.DialAndSend(m); err != nil {
+	err := d.DialAndSend(m)
+	GetEmailLogService().RecordSend(context.Background(), email, subject, EmailTypeTrafficAlert, nil, err)
+	if err != nil {
 		slog.Warn("failed to send traffic alert", "email", email, "error", err)
 	} else {
 		slog.Info("traffic alert sent",

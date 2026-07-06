@@ -69,7 +69,9 @@ func (s *EmailReportService) sendMail(to, subject, html string) error {
 	m.SetBody("text/html", html)
 
 	d := gomail.NewDialer(host, port, username, password)
-	return d.DialAndSend(m)
+	err := d.DialAndSend(m)
+	GetEmailLogService().RecordSend(context.Background(), to, subject, EmailTypeReport, nil, err)
+	return err
 }
 
 // SendWeeklyReports sends weekly reports for verified sites with weekly reports enabled.

@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emaillog"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emailverificationtoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
@@ -20,6 +21,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/schema"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
@@ -49,12 +51,14 @@ const (
 	// Node types.
 	TypeAPIKey                 = "APIKey"
 	TypeCustomSearchEngine     = "CustomSearchEngine"
+	TypeEmailLog               = "EmailLog"
 	TypeEmailVerificationToken = "EmailVerificationToken"
 	TypeFunnel                 = "Funnel"
 	TypeFunnelStep             = "FunnelStep"
 	TypeGoal                   = "Goal"
 	TypeMonthlyEventCount      = "MonthlyEventCount"
 	TypePasswordResetToken     = "PasswordResetToken"
+	TypeSavedPanel             = "SavedPanel"
 	TypeSearchEngines          = "SearchEngines"
 	TypeSegment                = "Segment"
 	TypeSharedLink             = "SharedLink"
@@ -1375,6 +1379,740 @@ func (m *CustomSearchEngineMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown CustomSearchEngine edge %s", name)
+}
+
+// EmailLogMutation represents an operation that mutates the EmailLog nodes in the graph.
+type EmailLogMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	recipient     *string
+	subject       *string
+	email_type    *string
+	status        *string
+	error         *string
+	site_id       *int64
+	addsite_id    *int64
+	created_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*EmailLog, error)
+	predicates    []predicate.EmailLog
+}
+
+var _ ent.Mutation = (*EmailLogMutation)(nil)
+
+// emaillogOption allows management of the mutation configuration using functional options.
+type emaillogOption func(*EmailLogMutation)
+
+// newEmailLogMutation creates new mutation for the EmailLog entity.
+func newEmailLogMutation(c config, op Op, opts ...emaillogOption) *EmailLogMutation {
+	m := &EmailLogMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeEmailLog,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withEmailLogID sets the ID field of the mutation.
+func withEmailLogID(id int64) emaillogOption {
+	return func(m *EmailLogMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *EmailLog
+		)
+		m.oldValue = func(ctx context.Context) (*EmailLog, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().EmailLog.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withEmailLog sets the old EmailLog of the mutation.
+func withEmailLog(node *EmailLog) emaillogOption {
+	return func(m *EmailLogMutation) {
+		m.oldValue = func(context.Context) (*EmailLog, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m EmailLogMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m EmailLogMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of EmailLog entities.
+func (m *EmailLogMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *EmailLogMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *EmailLogMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().EmailLog.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetRecipient sets the "recipient" field.
+func (m *EmailLogMutation) SetRecipient(s string) {
+	m.recipient = &s
+}
+
+// Recipient returns the value of the "recipient" field in the mutation.
+func (m *EmailLogMutation) Recipient() (r string, exists bool) {
+	v := m.recipient
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRecipient returns the old "recipient" field's value of the EmailLog entity.
+// If the EmailLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EmailLogMutation) OldRecipient(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRecipient is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRecipient requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRecipient: %w", err)
+	}
+	return oldValue.Recipient, nil
+}
+
+// ResetRecipient resets all changes to the "recipient" field.
+func (m *EmailLogMutation) ResetRecipient() {
+	m.recipient = nil
+}
+
+// SetSubject sets the "subject" field.
+func (m *EmailLogMutation) SetSubject(s string) {
+	m.subject = &s
+}
+
+// Subject returns the value of the "subject" field in the mutation.
+func (m *EmailLogMutation) Subject() (r string, exists bool) {
+	v := m.subject
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubject returns the old "subject" field's value of the EmailLog entity.
+// If the EmailLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EmailLogMutation) OldSubject(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubject is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubject requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubject: %w", err)
+	}
+	return oldValue.Subject, nil
+}
+
+// ResetSubject resets all changes to the "subject" field.
+func (m *EmailLogMutation) ResetSubject() {
+	m.subject = nil
+}
+
+// SetEmailType sets the "email_type" field.
+func (m *EmailLogMutation) SetEmailType(s string) {
+	m.email_type = &s
+}
+
+// EmailType returns the value of the "email_type" field in the mutation.
+func (m *EmailLogMutation) EmailType() (r string, exists bool) {
+	v := m.email_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmailType returns the old "email_type" field's value of the EmailLog entity.
+// If the EmailLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EmailLogMutation) OldEmailType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmailType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmailType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmailType: %w", err)
+	}
+	return oldValue.EmailType, nil
+}
+
+// ResetEmailType resets all changes to the "email_type" field.
+func (m *EmailLogMutation) ResetEmailType() {
+	m.email_type = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *EmailLogMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *EmailLogMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the EmailLog entity.
+// If the EmailLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EmailLogMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *EmailLogMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetError sets the "error" field.
+func (m *EmailLogMutation) SetError(s string) {
+	m.error = &s
+}
+
+// Error returns the value of the "error" field in the mutation.
+func (m *EmailLogMutation) Error() (r string, exists bool) {
+	v := m.error
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldError returns the old "error" field's value of the EmailLog entity.
+// If the EmailLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EmailLogMutation) OldError(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldError: %w", err)
+	}
+	return oldValue.Error, nil
+}
+
+// ClearError clears the value of the "error" field.
+func (m *EmailLogMutation) ClearError() {
+	m.error = nil
+	m.clearedFields[emaillog.FieldError] = struct{}{}
+}
+
+// ErrorCleared returns if the "error" field was cleared in this mutation.
+func (m *EmailLogMutation) ErrorCleared() bool {
+	_, ok := m.clearedFields[emaillog.FieldError]
+	return ok
+}
+
+// ResetError resets all changes to the "error" field.
+func (m *EmailLogMutation) ResetError() {
+	m.error = nil
+	delete(m.clearedFields, emaillog.FieldError)
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *EmailLogMutation) SetSiteID(i int64) {
+	m.site_id = &i
+	m.addsite_id = nil
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *EmailLogMutation) SiteID() (r int64, exists bool) {
+	v := m.site_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the EmailLog entity.
+// If the EmailLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EmailLogMutation) OldSiteID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// AddSiteID adds i to the "site_id" field.
+func (m *EmailLogMutation) AddSiteID(i int64) {
+	if m.addsite_id != nil {
+		*m.addsite_id += i
+	} else {
+		m.addsite_id = &i
+	}
+}
+
+// AddedSiteID returns the value that was added to the "site_id" field in this mutation.
+func (m *EmailLogMutation) AddedSiteID() (r int64, exists bool) {
+	v := m.addsite_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSiteID clears the value of the "site_id" field.
+func (m *EmailLogMutation) ClearSiteID() {
+	m.site_id = nil
+	m.addsite_id = nil
+	m.clearedFields[emaillog.FieldSiteID] = struct{}{}
+}
+
+// SiteIDCleared returns if the "site_id" field was cleared in this mutation.
+func (m *EmailLogMutation) SiteIDCleared() bool {
+	_, ok := m.clearedFields[emaillog.FieldSiteID]
+	return ok
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *EmailLogMutation) ResetSiteID() {
+	m.site_id = nil
+	m.addsite_id = nil
+	delete(m.clearedFields, emaillog.FieldSiteID)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *EmailLogMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *EmailLogMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the EmailLog entity.
+// If the EmailLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EmailLogMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *EmailLogMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the EmailLogMutation builder.
+func (m *EmailLogMutation) Where(ps ...predicate.EmailLog) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the EmailLogMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *EmailLogMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.EmailLog, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *EmailLogMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *EmailLogMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (EmailLog).
+func (m *EmailLogMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *EmailLogMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.recipient != nil {
+		fields = append(fields, emaillog.FieldRecipient)
+	}
+	if m.subject != nil {
+		fields = append(fields, emaillog.FieldSubject)
+	}
+	if m.email_type != nil {
+		fields = append(fields, emaillog.FieldEmailType)
+	}
+	if m.status != nil {
+		fields = append(fields, emaillog.FieldStatus)
+	}
+	if m.error != nil {
+		fields = append(fields, emaillog.FieldError)
+	}
+	if m.site_id != nil {
+		fields = append(fields, emaillog.FieldSiteID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, emaillog.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *EmailLogMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case emaillog.FieldRecipient:
+		return m.Recipient()
+	case emaillog.FieldSubject:
+		return m.Subject()
+	case emaillog.FieldEmailType:
+		return m.EmailType()
+	case emaillog.FieldStatus:
+		return m.Status()
+	case emaillog.FieldError:
+		return m.Error()
+	case emaillog.FieldSiteID:
+		return m.SiteID()
+	case emaillog.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *EmailLogMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case emaillog.FieldRecipient:
+		return m.OldRecipient(ctx)
+	case emaillog.FieldSubject:
+		return m.OldSubject(ctx)
+	case emaillog.FieldEmailType:
+		return m.OldEmailType(ctx)
+	case emaillog.FieldStatus:
+		return m.OldStatus(ctx)
+	case emaillog.FieldError:
+		return m.OldError(ctx)
+	case emaillog.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case emaillog.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown EmailLog field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *EmailLogMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case emaillog.FieldRecipient:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRecipient(v)
+		return nil
+	case emaillog.FieldSubject:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubject(v)
+		return nil
+	case emaillog.FieldEmailType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmailType(v)
+		return nil
+	case emaillog.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case emaillog.FieldError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetError(v)
+		return nil
+	case emaillog.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case emaillog.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown EmailLog field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *EmailLogMutation) AddedFields() []string {
+	var fields []string
+	if m.addsite_id != nil {
+		fields = append(fields, emaillog.FieldSiteID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *EmailLogMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case emaillog.FieldSiteID:
+		return m.AddedSiteID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *EmailLogMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case emaillog.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSiteID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown EmailLog numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *EmailLogMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(emaillog.FieldError) {
+		fields = append(fields, emaillog.FieldError)
+	}
+	if m.FieldCleared(emaillog.FieldSiteID) {
+		fields = append(fields, emaillog.FieldSiteID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *EmailLogMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *EmailLogMutation) ClearField(name string) error {
+	switch name {
+	case emaillog.FieldError:
+		m.ClearError()
+		return nil
+	case emaillog.FieldSiteID:
+		m.ClearSiteID()
+		return nil
+	}
+	return fmt.Errorf("unknown EmailLog nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *EmailLogMutation) ResetField(name string) error {
+	switch name {
+	case emaillog.FieldRecipient:
+		m.ResetRecipient()
+		return nil
+	case emaillog.FieldSubject:
+		m.ResetSubject()
+		return nil
+	case emaillog.FieldEmailType:
+		m.ResetEmailType()
+		return nil
+	case emaillog.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case emaillog.FieldError:
+		m.ResetError()
+		return nil
+	case emaillog.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case emaillog.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown EmailLog field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *EmailLogMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *EmailLogMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *EmailLogMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *EmailLogMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *EmailLogMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *EmailLogMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *EmailLogMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown EmailLog unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *EmailLogMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown EmailLog edge %s", name)
 }
 
 // EmailVerificationTokenMutation represents an operation that mutates the EmailVerificationToken nodes in the graph.
@@ -5223,6 +5961,902 @@ func (m *PasswordResetTokenMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown PasswordResetToken edge %s", name)
+}
+
+// SavedPanelMutation represents an operation that mutates the SavedPanel nodes in the graph.
+type SavedPanelMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *int64
+	name          *string
+	description   *string
+	_config       *string
+	pinned        *bool
+	layout        *string
+	created_by    *int64
+	addcreated_by *int64
+	created_at    *time.Time
+	updated_at    *time.Time
+	clearedFields map[string]struct{}
+	site          *int64
+	clearedsite   bool
+	done          bool
+	oldValue      func(context.Context) (*SavedPanel, error)
+	predicates    []predicate.SavedPanel
+}
+
+var _ ent.Mutation = (*SavedPanelMutation)(nil)
+
+// savedpanelOption allows management of the mutation configuration using functional options.
+type savedpanelOption func(*SavedPanelMutation)
+
+// newSavedPanelMutation creates new mutation for the SavedPanel entity.
+func newSavedPanelMutation(c config, op Op, opts ...savedpanelOption) *SavedPanelMutation {
+	m := &SavedPanelMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSavedPanel,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSavedPanelID sets the ID field of the mutation.
+func withSavedPanelID(id int64) savedpanelOption {
+	return func(m *SavedPanelMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SavedPanel
+		)
+		m.oldValue = func(ctx context.Context) (*SavedPanel, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SavedPanel.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSavedPanel sets the old SavedPanel of the mutation.
+func withSavedPanel(node *SavedPanel) savedpanelOption {
+	return func(m *SavedPanelMutation) {
+		m.oldValue = func(context.Context) (*SavedPanel, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SavedPanelMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SavedPanelMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of SavedPanel entities.
+func (m *SavedPanelMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SavedPanelMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SavedPanelMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SavedPanel.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *SavedPanelMutation) SetSiteID(i int64) {
+	m.site = &i
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *SavedPanelMutation) SiteID() (r int64, exists bool) {
+	v := m.site
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the SavedPanel entity.
+// If the SavedPanel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SavedPanelMutation) OldSiteID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *SavedPanelMutation) ResetSiteID() {
+	m.site = nil
+}
+
+// SetName sets the "name" field.
+func (m *SavedPanelMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *SavedPanelMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the SavedPanel entity.
+// If the SavedPanel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SavedPanelMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *SavedPanelMutation) ResetName() {
+	m.name = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *SavedPanelMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *SavedPanelMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the SavedPanel entity.
+// If the SavedPanel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SavedPanelMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *SavedPanelMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[savedpanel.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *SavedPanelMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[savedpanel.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *SavedPanelMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, savedpanel.FieldDescription)
+}
+
+// SetConfig sets the "config" field.
+func (m *SavedPanelMutation) SetConfig(s string) {
+	m._config = &s
+}
+
+// Config returns the value of the "config" field in the mutation.
+func (m *SavedPanelMutation) Config() (r string, exists bool) {
+	v := m._config
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfig returns the old "config" field's value of the SavedPanel entity.
+// If the SavedPanel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SavedPanelMutation) OldConfig(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConfig is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConfig requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfig: %w", err)
+	}
+	return oldValue.Config, nil
+}
+
+// ResetConfig resets all changes to the "config" field.
+func (m *SavedPanelMutation) ResetConfig() {
+	m._config = nil
+}
+
+// SetPinned sets the "pinned" field.
+func (m *SavedPanelMutation) SetPinned(b bool) {
+	m.pinned = &b
+}
+
+// Pinned returns the value of the "pinned" field in the mutation.
+func (m *SavedPanelMutation) Pinned() (r bool, exists bool) {
+	v := m.pinned
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPinned returns the old "pinned" field's value of the SavedPanel entity.
+// If the SavedPanel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SavedPanelMutation) OldPinned(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPinned is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPinned requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPinned: %w", err)
+	}
+	return oldValue.Pinned, nil
+}
+
+// ResetPinned resets all changes to the "pinned" field.
+func (m *SavedPanelMutation) ResetPinned() {
+	m.pinned = nil
+}
+
+// SetLayout sets the "layout" field.
+func (m *SavedPanelMutation) SetLayout(s string) {
+	m.layout = &s
+}
+
+// Layout returns the value of the "layout" field in the mutation.
+func (m *SavedPanelMutation) Layout() (r string, exists bool) {
+	v := m.layout
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLayout returns the old "layout" field's value of the SavedPanel entity.
+// If the SavedPanel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SavedPanelMutation) OldLayout(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLayout is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLayout requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLayout: %w", err)
+	}
+	return oldValue.Layout, nil
+}
+
+// ResetLayout resets all changes to the "layout" field.
+func (m *SavedPanelMutation) ResetLayout() {
+	m.layout = nil
+}
+
+// SetCreatedBy sets the "created_by" field.
+func (m *SavedPanelMutation) SetCreatedBy(i int64) {
+	m.created_by = &i
+	m.addcreated_by = nil
+}
+
+// CreatedBy returns the value of the "created_by" field in the mutation.
+func (m *SavedPanelMutation) CreatedBy() (r int64, exists bool) {
+	v := m.created_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "created_by" field's value of the SavedPanel entity.
+// If the SavedPanel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SavedPanelMutation) OldCreatedBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// AddCreatedBy adds i to the "created_by" field.
+func (m *SavedPanelMutation) AddCreatedBy(i int64) {
+	if m.addcreated_by != nil {
+		*m.addcreated_by += i
+	} else {
+		m.addcreated_by = &i
+	}
+}
+
+// AddedCreatedBy returns the value that was added to the "created_by" field in this mutation.
+func (m *SavedPanelMutation) AddedCreatedBy() (r int64, exists bool) {
+	v := m.addcreated_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearCreatedBy clears the value of the "created_by" field.
+func (m *SavedPanelMutation) ClearCreatedBy() {
+	m.created_by = nil
+	m.addcreated_by = nil
+	m.clearedFields[savedpanel.FieldCreatedBy] = struct{}{}
+}
+
+// CreatedByCleared returns if the "created_by" field was cleared in this mutation.
+func (m *SavedPanelMutation) CreatedByCleared() bool {
+	_, ok := m.clearedFields[savedpanel.FieldCreatedBy]
+	return ok
+}
+
+// ResetCreatedBy resets all changes to the "created_by" field.
+func (m *SavedPanelMutation) ResetCreatedBy() {
+	m.created_by = nil
+	m.addcreated_by = nil
+	delete(m.clearedFields, savedpanel.FieldCreatedBy)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SavedPanelMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SavedPanelMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SavedPanel entity.
+// If the SavedPanel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SavedPanelMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SavedPanelMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *SavedPanelMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *SavedPanelMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the SavedPanel entity.
+// If the SavedPanel object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SavedPanelMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *SavedPanelMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearSite clears the "site" edge to the Site entity.
+func (m *SavedPanelMutation) ClearSite() {
+	m.clearedsite = true
+	m.clearedFields[savedpanel.FieldSiteID] = struct{}{}
+}
+
+// SiteCleared reports if the "site" edge to the Site entity was cleared.
+func (m *SavedPanelMutation) SiteCleared() bool {
+	return m.clearedsite
+}
+
+// SiteIDs returns the "site" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SiteID instead. It exists only for internal usage by the builders.
+func (m *SavedPanelMutation) SiteIDs() (ids []int64) {
+	if id := m.site; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSite resets all changes to the "site" edge.
+func (m *SavedPanelMutation) ResetSite() {
+	m.site = nil
+	m.clearedsite = false
+}
+
+// Where appends a list predicates to the SavedPanelMutation builder.
+func (m *SavedPanelMutation) Where(ps ...predicate.SavedPanel) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SavedPanelMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SavedPanelMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SavedPanel, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SavedPanelMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SavedPanelMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SavedPanel).
+func (m *SavedPanelMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SavedPanelMutation) Fields() []string {
+	fields := make([]string, 0, 9)
+	if m.site != nil {
+		fields = append(fields, savedpanel.FieldSiteID)
+	}
+	if m.name != nil {
+		fields = append(fields, savedpanel.FieldName)
+	}
+	if m.description != nil {
+		fields = append(fields, savedpanel.FieldDescription)
+	}
+	if m._config != nil {
+		fields = append(fields, savedpanel.FieldConfig)
+	}
+	if m.pinned != nil {
+		fields = append(fields, savedpanel.FieldPinned)
+	}
+	if m.layout != nil {
+		fields = append(fields, savedpanel.FieldLayout)
+	}
+	if m.created_by != nil {
+		fields = append(fields, savedpanel.FieldCreatedBy)
+	}
+	if m.created_at != nil {
+		fields = append(fields, savedpanel.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, savedpanel.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SavedPanelMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case savedpanel.FieldSiteID:
+		return m.SiteID()
+	case savedpanel.FieldName:
+		return m.Name()
+	case savedpanel.FieldDescription:
+		return m.Description()
+	case savedpanel.FieldConfig:
+		return m.Config()
+	case savedpanel.FieldPinned:
+		return m.Pinned()
+	case savedpanel.FieldLayout:
+		return m.Layout()
+	case savedpanel.FieldCreatedBy:
+		return m.CreatedBy()
+	case savedpanel.FieldCreatedAt:
+		return m.CreatedAt()
+	case savedpanel.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SavedPanelMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case savedpanel.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case savedpanel.FieldName:
+		return m.OldName(ctx)
+	case savedpanel.FieldDescription:
+		return m.OldDescription(ctx)
+	case savedpanel.FieldConfig:
+		return m.OldConfig(ctx)
+	case savedpanel.FieldPinned:
+		return m.OldPinned(ctx)
+	case savedpanel.FieldLayout:
+		return m.OldLayout(ctx)
+	case savedpanel.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case savedpanel.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case savedpanel.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SavedPanel field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SavedPanelMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case savedpanel.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case savedpanel.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case savedpanel.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case savedpanel.FieldConfig:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfig(v)
+		return nil
+	case savedpanel.FieldPinned:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPinned(v)
+		return nil
+	case savedpanel.FieldLayout:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLayout(v)
+		return nil
+	case savedpanel.FieldCreatedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case savedpanel.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case savedpanel.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SavedPanel field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SavedPanelMutation) AddedFields() []string {
+	var fields []string
+	if m.addcreated_by != nil {
+		fields = append(fields, savedpanel.FieldCreatedBy)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SavedPanelMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case savedpanel.FieldCreatedBy:
+		return m.AddedCreatedBy()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SavedPanelMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case savedpanel.FieldCreatedBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreatedBy(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SavedPanel numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SavedPanelMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(savedpanel.FieldDescription) {
+		fields = append(fields, savedpanel.FieldDescription)
+	}
+	if m.FieldCleared(savedpanel.FieldCreatedBy) {
+		fields = append(fields, savedpanel.FieldCreatedBy)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SavedPanelMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SavedPanelMutation) ClearField(name string) error {
+	switch name {
+	case savedpanel.FieldDescription:
+		m.ClearDescription()
+		return nil
+	case savedpanel.FieldCreatedBy:
+		m.ClearCreatedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown SavedPanel nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SavedPanelMutation) ResetField(name string) error {
+	switch name {
+	case savedpanel.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case savedpanel.FieldName:
+		m.ResetName()
+		return nil
+	case savedpanel.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case savedpanel.FieldConfig:
+		m.ResetConfig()
+		return nil
+	case savedpanel.FieldPinned:
+		m.ResetPinned()
+		return nil
+	case savedpanel.FieldLayout:
+		m.ResetLayout()
+		return nil
+	case savedpanel.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case savedpanel.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case savedpanel.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SavedPanel field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SavedPanelMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.site != nil {
+		edges = append(edges, savedpanel.EdgeSite)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SavedPanelMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case savedpanel.EdgeSite:
+		if id := m.site; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SavedPanelMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SavedPanelMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SavedPanelMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsite {
+		edges = append(edges, savedpanel.EdgeSite)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SavedPanelMutation) EdgeCleared(name string) bool {
+	switch name {
+	case savedpanel.EdgeSite:
+		return m.clearedsite
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SavedPanelMutation) ClearEdge(name string) error {
+	switch name {
+	case savedpanel.EdgeSite:
+		m.ClearSite()
+		return nil
+	}
+	return fmt.Errorf("unknown SavedPanel unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SavedPanelMutation) ResetEdge(name string) error {
+	switch name {
+	case savedpanel.EdgeSite:
+		m.ResetSite()
+		return nil
+	}
+	return fmt.Errorf("unknown SavedPanel edge %s", name)
 }
 
 // SearchEnginesMutation represents an operation that mutates the SearchEngines nodes in the graph.
@@ -10085,6 +11719,9 @@ type SiteMutation struct {
 	segments                           map[int64]struct{}
 	removedsegments                    map[int64]struct{}
 	clearedsegments                    bool
+	saved_panels                       map[int64]struct{}
+	removedsaved_panels                map[int64]struct{}
+	clearedsaved_panels                bool
 	done                               bool
 	oldValue                           func(context.Context) (*Site, error)
 	predicates                         []predicate.Site
@@ -11556,6 +13193,60 @@ func (m *SiteMutation) ResetSegments() {
 	m.removedsegments = nil
 }
 
+// AddSavedPanelIDs adds the "saved_panels" edge to the SavedPanel entity by ids.
+func (m *SiteMutation) AddSavedPanelIDs(ids ...int64) {
+	if m.saved_panels == nil {
+		m.saved_panels = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.saved_panels[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSavedPanels clears the "saved_panels" edge to the SavedPanel entity.
+func (m *SiteMutation) ClearSavedPanels() {
+	m.clearedsaved_panels = true
+}
+
+// SavedPanelsCleared reports if the "saved_panels" edge to the SavedPanel entity was cleared.
+func (m *SiteMutation) SavedPanelsCleared() bool {
+	return m.clearedsaved_panels
+}
+
+// RemoveSavedPanelIDs removes the "saved_panels" edge to the SavedPanel entity by IDs.
+func (m *SiteMutation) RemoveSavedPanelIDs(ids ...int64) {
+	if m.removedsaved_panels == nil {
+		m.removedsaved_panels = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.saved_panels, ids[i])
+		m.removedsaved_panels[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSavedPanels returns the removed IDs of the "saved_panels" edge to the SavedPanel entity.
+func (m *SiteMutation) RemovedSavedPanelsIDs() (ids []int64) {
+	for id := range m.removedsaved_panels {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SavedPanelsIDs returns the "saved_panels" edge IDs in the mutation.
+func (m *SiteMutation) SavedPanelsIDs() (ids []int64) {
+	for id := range m.saved_panels {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSavedPanels resets all changes to the "saved_panels" edge.
+func (m *SiteMutation) ResetSavedPanels() {
+	m.saved_panels = nil
+	m.clearedsaved_panels = false
+	m.removedsaved_panels = nil
+}
+
 // Where appends a list predicates to the SiteMutation builder.
 func (m *SiteMutation) Where(ps ...predicate.Site) {
 	m.predicates = append(m.predicates, ps...)
@@ -12073,7 +13764,7 @@ func (m *SiteMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SiteMutation) AddedEdges() []string {
-	edges := make([]string, 0, 10)
+	edges := make([]string, 0, 11)
 	if m.funnels != nil {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -12103,6 +13794,9 @@ func (m *SiteMutation) AddedEdges() []string {
 	}
 	if m.segments != nil {
 		edges = append(edges, site.EdgeSegments)
+	}
+	if m.saved_panels != nil {
+		edges = append(edges, site.EdgeSavedPanels)
 	}
 	return edges
 }
@@ -12171,13 +13865,19 @@ func (m *SiteMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case site.EdgeSavedPanels:
+		ids := make([]ent.Value, 0, len(m.saved_panels))
+		for id := range m.saved_panels {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SiteMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 10)
+	edges := make([]string, 0, 11)
 	if m.removedfunnels != nil {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -12207,6 +13907,9 @@ func (m *SiteMutation) RemovedEdges() []string {
 	}
 	if m.removedsegments != nil {
 		edges = append(edges, site.EdgeSegments)
+	}
+	if m.removedsaved_panels != nil {
+		edges = append(edges, site.EdgeSavedPanels)
 	}
 	return edges
 }
@@ -12275,13 +13978,19 @@ func (m *SiteMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case site.EdgeSavedPanels:
+		ids := make([]ent.Value, 0, len(m.removedsaved_panels))
+		for id := range m.removedsaved_panels {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SiteMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 10)
+	edges := make([]string, 0, 11)
 	if m.clearedfunnels {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -12312,6 +14021,9 @@ func (m *SiteMutation) ClearedEdges() []string {
 	if m.clearedsegments {
 		edges = append(edges, site.EdgeSegments)
 	}
+	if m.clearedsaved_panels {
+		edges = append(edges, site.EdgeSavedPanels)
+	}
 	return edges
 }
 
@@ -12339,6 +14051,8 @@ func (m *SiteMutation) EdgeCleared(name string) bool {
 		return m.clearedshared_links
 	case site.EdgeSegments:
 		return m.clearedsegments
+	case site.EdgeSavedPanels:
+		return m.clearedsaved_panels
 	}
 	return false
 }
@@ -12384,6 +14098,9 @@ func (m *SiteMutation) ResetEdge(name string) error {
 		return nil
 	case site.EdgeSegments:
 		m.ResetSegments()
+		return nil
+	case site.EdgeSavedPanels:
+		m.ResetSavedPanels()
 		return nil
 	}
 	return fmt.Errorf("unknown Site edge %s", name)

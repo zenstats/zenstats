@@ -7,10 +7,12 @@ import (
 
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emaillog"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emailverificationtoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/schema"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
@@ -90,6 +92,30 @@ func init() {
 	customsearchengine.DefaultUpdatedAt = customsearchengineDescUpdatedAt.Default.(func() time.Time)
 	// customsearchengine.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	customsearchengine.UpdateDefaultUpdatedAt = customsearchengineDescUpdatedAt.UpdateDefault.(func() time.Time)
+	emaillogFields := schema.EmailLog{}.Fields()
+	_ = emaillogFields
+	// emaillogDescRecipient is the schema descriptor for recipient field.
+	emaillogDescRecipient := emaillogFields[1].Descriptor()
+	// emaillog.RecipientValidator is a validator for the "recipient" field. It is called by the builders before save.
+	emaillog.RecipientValidator = emaillogDescRecipient.Validators[0].(func(string) error)
+	// emaillogDescSubject is the schema descriptor for subject field.
+	emaillogDescSubject := emaillogFields[2].Descriptor()
+	// emaillog.SubjectValidator is a validator for the "subject" field. It is called by the builders before save.
+	emaillog.SubjectValidator = emaillogDescSubject.Validators[0].(func(string) error)
+	// emaillogDescEmailType is the schema descriptor for email_type field.
+	emaillogDescEmailType := emaillogFields[3].Descriptor()
+	// emaillog.DefaultEmailType holds the default value on creation for the email_type field.
+	emaillog.DefaultEmailType = emaillogDescEmailType.Default.(string)
+	// emaillog.EmailTypeValidator is a validator for the "email_type" field. It is called by the builders before save.
+	emaillog.EmailTypeValidator = emaillogDescEmailType.Validators[0].(func(string) error)
+	// emaillogDescStatus is the schema descriptor for status field.
+	emaillogDescStatus := emaillogFields[4].Descriptor()
+	// emaillog.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	emaillog.StatusValidator = emaillogDescStatus.Validators[0].(func(string) error)
+	// emaillogDescCreatedAt is the schema descriptor for created_at field.
+	emaillogDescCreatedAt := emaillogFields[7].Descriptor()
+	// emaillog.DefaultCreatedAt holds the default value on creation for the created_at field.
+	emaillog.DefaultCreatedAt = emaillogDescCreatedAt.Default.(func() time.Time)
 	emailverificationtokenFields := schema.EmailVerificationToken{}.Fields()
 	_ = emailverificationtokenFields
 	// emailverificationtokenDescToken is the schema descriptor for token field.
@@ -140,6 +166,52 @@ func init() {
 	passwordresettokenDescCreatedAt := passwordresettokenFields[6].Descriptor()
 	// passwordresettoken.DefaultCreatedAt holds the default value on creation for the created_at field.
 	passwordresettoken.DefaultCreatedAt = passwordresettokenDescCreatedAt.Default.(func() time.Time)
+	savedpanelFields := schema.SavedPanel{}.Fields()
+	_ = savedpanelFields
+	// savedpanelDescName is the schema descriptor for name field.
+	savedpanelDescName := savedpanelFields[2].Descriptor()
+	// savedpanel.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	savedpanel.NameValidator = func() func(string) error {
+		validators := savedpanelDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// savedpanelDescDescription is the schema descriptor for description field.
+	savedpanelDescDescription := savedpanelFields[3].Descriptor()
+	// savedpanel.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
+	savedpanel.DescriptionValidator = savedpanelDescDescription.Validators[0].(func(string) error)
+	// savedpanelDescConfig is the schema descriptor for config field.
+	savedpanelDescConfig := savedpanelFields[4].Descriptor()
+	// savedpanel.DefaultConfig holds the default value on creation for the config field.
+	savedpanel.DefaultConfig = savedpanelDescConfig.Default.(string)
+	// savedpanelDescPinned is the schema descriptor for pinned field.
+	savedpanelDescPinned := savedpanelFields[5].Descriptor()
+	// savedpanel.DefaultPinned holds the default value on creation for the pinned field.
+	savedpanel.DefaultPinned = savedpanelDescPinned.Default.(bool)
+	// savedpanelDescLayout is the schema descriptor for layout field.
+	savedpanelDescLayout := savedpanelFields[6].Descriptor()
+	// savedpanel.DefaultLayout holds the default value on creation for the layout field.
+	savedpanel.DefaultLayout = savedpanelDescLayout.Default.(string)
+	// savedpanelDescCreatedAt is the schema descriptor for created_at field.
+	savedpanelDescCreatedAt := savedpanelFields[8].Descriptor()
+	// savedpanel.DefaultCreatedAt holds the default value on creation for the created_at field.
+	savedpanel.DefaultCreatedAt = savedpanelDescCreatedAt.Default.(func() time.Time)
+	// savedpanelDescUpdatedAt is the schema descriptor for updated_at field.
+	savedpanelDescUpdatedAt := savedpanelFields[9].Descriptor()
+	// savedpanel.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	savedpanel.DefaultUpdatedAt = savedpanelDescUpdatedAt.Default.(func() time.Time)
+	// savedpanel.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	savedpanel.UpdateDefaultUpdatedAt = savedpanelDescUpdatedAt.UpdateDefault.(func() time.Time)
 	searchenginesFields := schema.SearchEngines{}.Fields()
 	_ = searchenginesFields
 	// searchenginesDescDomain is the schema descriptor for domain field.

@@ -18,7 +18,7 @@ func RegisterFunnelsRouter(router *gin.RouterGroup) {
 	funnelsGroup.GET("/:funnelId", funnelHandle.Get())
 	funnelsGroup.POST("", middleware.SubAccountHasPerm("funnels:write"), funnelHandle.Create())
 	funnelsGroup.PUT("/:funnelId", middleware.SubAccountHasPerm("funnels:write"), funnelHandle.Update())
-	funnelsGroup.DELETE("/:funnelId", middleware.SubAccountHasPerm("funnels:write"), funnelHandle.Delete())
+	funnelsGroup.DELETE("/:funnelId", middleware.SubAccountHasPerm("funnels:delete"), funnelHandle.Delete())
 
 	// 漏斗分析接口（支持 API Key 或 JWT 认证）
 	router.GET("/stats/:domain/funnel/:funnelId", middleware.APIKeyOrJWTAuth(), middleware.SiteMembershipAndVerificationAuth(), funnelHandle.Analyze())

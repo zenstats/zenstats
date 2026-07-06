@@ -33,6 +33,18 @@ func (f CustomSearchEngineFunc) Mutate(ctx context.Context, m ent.Mutation) (ent
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CustomSearchEngineMutation", m)
 }
 
+// The EmailLogFunc type is an adapter to allow the use of ordinary
+// function as EmailLog mutator.
+type EmailLogFunc func(context.Context, *ent.EmailLogMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f EmailLogFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.EmailLogMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EmailLogMutation", m)
+}
+
 // The EmailVerificationTokenFunc type is an adapter to allow the use of ordinary
 // function as EmailVerificationToken mutator.
 type EmailVerificationTokenFunc func(context.Context, *ent.EmailVerificationTokenMutation) (ent.Value, error)
@@ -103,6 +115,18 @@ func (f PasswordResetTokenFunc) Mutate(ctx context.Context, m ent.Mutation) (ent
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PasswordResetTokenMutation", m)
+}
+
+// The SavedPanelFunc type is an adapter to allow the use of ordinary
+// function as SavedPanel mutator.
+type SavedPanelFunc func(context.Context, *ent.SavedPanelMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SavedPanelFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SavedPanelMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SavedPanelMutation", m)
 }
 
 // The SearchEnginesFunc type is an adapter to allow the use of ordinary

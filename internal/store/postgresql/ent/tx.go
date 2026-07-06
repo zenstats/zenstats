@@ -16,6 +16,8 @@ type Tx struct {
 	APIKey *APIKeyClient
 	// CustomSearchEngine is the client for interacting with the CustomSearchEngine builders.
 	CustomSearchEngine *CustomSearchEngineClient
+	// EmailLog is the client for interacting with the EmailLog builders.
+	EmailLog *EmailLogClient
 	// EmailVerificationToken is the client for interacting with the EmailVerificationToken builders.
 	EmailVerificationToken *EmailVerificationTokenClient
 	// Funnel is the client for interacting with the Funnel builders.
@@ -28,6 +30,8 @@ type Tx struct {
 	MonthlyEventCount *MonthlyEventCountClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
 	PasswordResetToken *PasswordResetTokenClient
+	// SavedPanel is the client for interacting with the SavedPanel builders.
+	SavedPanel *SavedPanelClient
 	// SearchEngines is the client for interacting with the SearchEngines builders.
 	SearchEngines *SearchEnginesClient
 	// Segment is the client for interacting with the Segment builders.
@@ -191,12 +195,14 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.APIKey = NewAPIKeyClient(tx.config)
 	tx.CustomSearchEngine = NewCustomSearchEngineClient(tx.config)
+	tx.EmailLog = NewEmailLogClient(tx.config)
 	tx.EmailVerificationToken = NewEmailVerificationTokenClient(tx.config)
 	tx.Funnel = NewFunnelClient(tx.config)
 	tx.FunnelStep = NewFunnelStepClient(tx.config)
 	tx.Goal = NewGoalClient(tx.config)
 	tx.MonthlyEventCount = NewMonthlyEventCountClient(tx.config)
 	tx.PasswordResetToken = NewPasswordResetTokenClient(tx.config)
+	tx.SavedPanel = NewSavedPanelClient(tx.config)
 	tx.SearchEngines = NewSearchEnginesClient(tx.config)
 	tx.Segment = NewSegmentClient(tx.config)
 	tx.SharedLink = NewSharedLinkClient(tx.config)

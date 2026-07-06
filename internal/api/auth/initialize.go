@@ -41,11 +41,16 @@ func (h *AuthHandler) Initialize() gin.HandlerFunc {
 			response.Error(c, http.StatusInternalServerError, err)
 			return
 		}
+		isAdmin := false
 		if userCount == 1 {
 			// 第一个用户设置为管理员
-			_ = h.service.SetAdmin(c.Request.Context(), user.ID, true)
+			if err := h.service.SetAdmin(c.Request.Context(), user.ID, true); err != nil {
+				response.Error(c, http.StatusInternalServerError, err)
+				return
+			}
 			// 管理员默认邮箱已验证
 			_ = h.service.SetEmailVerified(c.Request.Context(), user.ID, true)
+			isAdmin = true
 		}
 
 		// 为新用户创建配置（使用默认套餐）
@@ -66,8 +71,11 @@ func (h *AuthHandler) Initialize() gin.HandlerFunc {
 			Token:        token,
 			RefreshToken: refreshToken,
 			User: &types.User{
-				Email: user.Email,
-				Name:  user.Name,
+				ID:            user.ID,
+				Email:         user.Email,
+				Name:          user.Name,
+				IsAdmin:       isAdmin,
+				EmailVerified: isAdmin, // 管理员默认已验证
 			},
 		}
 

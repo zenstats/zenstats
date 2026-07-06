@@ -14,12 +14,14 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emaillog"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emailverificationtoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
@@ -97,12 +99,14 @@ func checkColumn(table, column string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			apikey.Table:                 apikey.ValidColumn,
 			customsearchengine.Table:     customsearchengine.ValidColumn,
+			emaillog.Table:               emaillog.ValidColumn,
 			emailverificationtoken.Table: emailverificationtoken.ValidColumn,
 			funnel.Table:                 funnel.ValidColumn,
 			funnelstep.Table:             funnelstep.ValidColumn,
 			goal.Table:                   goal.ValidColumn,
 			monthlyeventcount.Table:      monthlyeventcount.ValidColumn,
 			passwordresettoken.Table:     passwordresettoken.ValidColumn,
+			savedpanel.Table:             savedpanel.ValidColumn,
 			searchengines.Table:          searchengines.ValidColumn,
 			segment.Table:                segment.ValidColumn,
 			sharedlink.Table:             sharedlink.ValidColumn,

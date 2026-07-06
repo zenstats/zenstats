@@ -12,6 +12,7 @@ func RegisterAdminRouter(router *gin.RouterGroup) {
 	adminHandler := admin.NewAdminHandler()
 	configHandler := admin.NewSystemConfigHandler()
 	engineHandler := admin.NewSearchEngineHandler()
+	emailLogHandler := admin.NewEmailLogHandler()
 
 	adminGroup := router.Group("/admin")
 	adminGroup.Use(middleware.JWTAuth())
@@ -47,4 +48,7 @@ func RegisterAdminRouter(router *gin.RouterGroup) {
 
 	// 系统统计
 	adminGroup.GET("/stats", adminHandler.GetStats())
+
+	// 邮件发送记录
+	adminGroup.GET("/email-logs", emailLogHandler.List())
 }

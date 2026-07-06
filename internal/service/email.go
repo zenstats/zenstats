@@ -73,7 +73,7 @@ func (s *EmailService) SendVerificationEmail(ctx context.Context, userID int64, 
 		<p><a href="%s">%s</a></p>
 		<p>此链接将在24小时后失效。</p>
 		<p>如果您没有注册账户，请忽略此邮件。</p>
-	`, verifyURL, verifyURL))
+	`, verifyURL, verifyURL), EmailTypeVerification, nil)
 }
 
 // GetBaseURLFromRequest 从请求中获取基础 URL
@@ -208,7 +208,7 @@ func (s *EmailService) SendPasswordResetEmail(ctx context.Context, userID int64,
 		<p><a href="%s">%s</a></p>
 		<p>此链接将在1小时后失效。</p>
 		<p>如果您没有请求重置密码，请忽略此邮件。</p>
-	`, resetURL, resetURL))
+	`, resetURL, resetURL), EmailTypePasswordReset, nil)
 }
 
 // VerifyPasswordResetToken 验证密码重置 token
@@ -252,12 +252,13 @@ func getBaseURL() string {
 	return "http://localhost"
 }
 
-// sendEmail 发送邮件
-func sendEmail(to, subject, body string) error {
+// sendEmail 发送邮件，并记录发送结果到 EmailLog。
+func sendEmail(to, subject, body, emailType string, siteID *int64) error {
 	smtp := config.Conf.SMTP
 	if smtp.Host == "" {
 		// 如果没有配置 SMTP，只记录日志不发送
 		fmt.Printf("[Email] To: %s, Subject: %s\n", to, subject)
+		GetEmailLogService().Record(context.Background(), to, subject, emailType, EmailStatusSkipped, "SMTP not configured", siteID)
 		return nil
 	}
 
@@ -268,7 +269,9 @@ func sendEmail(to, subject, body string) error {
 	m.SetBody("text/html", body)
 
 	d := gomail.NewDialer(smtp.Host, smtp.Port, smtp.Username, smtp.Password)
-	if err := d.DialAndSend(m); err != nil {
+	err := d.DialAndSend(m)
+	GetEmailLogService().RecordSend(context.Background(), to, subject, emailType, siteID, err)
+	if err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 

@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/api/emailreport"
+	"github.com/zenstats/zenstats/internal/api/panels"
 	"github.com/zenstats/zenstats/internal/api/segments"
 	"github.com/zenstats/zenstats/internal/api/sharedlinks"
 	"github.com/zenstats/zenstats/internal/api/sites"
@@ -33,22 +34,22 @@ func RegisterSitesRouter(router *gin.RouterGroup) {
 	// IP Rules
 	shieldRules.GET("/ip", middleware.SubAccountHasPerm("shields:write"), siteHandle.ListShieldRuleIP())
 	shieldRules.POST("/ip", middleware.SubAccountHasPerm("shields:write"), siteHandle.AddShieldRuleIP())
-	shieldRules.DELETE("/ip/:ruleId", middleware.SubAccountHasPerm("shields:write"), siteHandle.RemoveShieldRuleIP())
+	shieldRules.DELETE("/ip/:ruleId", middleware.SubAccountHasPerm("shields:delete"), siteHandle.RemoveShieldRuleIP())
 
 	// Hostname Rules
 	shieldRules.GET("/hostname", middleware.SubAccountHasPerm("shields:write"), siteHandle.ListShieldRuleHostname())
 	shieldRules.POST("/hostname", middleware.SubAccountHasPerm("shields:write"), siteHandle.AddShieldRuleHostname())
-	shieldRules.DELETE("/hostname/:ruleId", middleware.SubAccountHasPerm("shields:write"), siteHandle.RemoveShieldRuleHostname())
+	shieldRules.DELETE("/hostname/:ruleId", middleware.SubAccountHasPerm("shields:delete"), siteHandle.RemoveShieldRuleHostname())
 
 	// Country Rules
 	shieldRules.GET("/country", middleware.SubAccountHasPerm("shields:write"), siteHandle.ListShieldRuleCountry())
 	shieldRules.POST("/country", middleware.SubAccountHasPerm("shields:write"), siteHandle.AddShieldRuleCountry())
-	shieldRules.DELETE("/country/:ruleId", middleware.SubAccountHasPerm("shields:write"), siteHandle.RemoveShieldRuleCountry())
+	shieldRules.DELETE("/country/:ruleId", middleware.SubAccountHasPerm("shields:delete"), siteHandle.RemoveShieldRuleCountry())
 
 	// Referrer Rules
 	shieldRules.GET("/referrer", middleware.SubAccountHasPerm("shields:write"), siteHandle.ListShieldRuleReferrer())
 	shieldRules.POST("/referrer", middleware.SubAccountHasPerm("shields:write"), siteHandle.AddShieldRuleReferrer())
-	shieldRules.DELETE("/referrer/:ruleId", middleware.SubAccountHasPerm("shields:write"), siteHandle.RemoveShieldRuleReferrer())
+	shieldRules.DELETE("/referrer/:ruleId", middleware.SubAccountHasPerm("shields:delete"), siteHandle.RemoveShieldRuleReferrer())
 
 	// Email Reports
 	emailReportHandle := emailreport.NewHandler()
@@ -67,7 +68,7 @@ func RegisterSitesRouter(router *gin.RouterGroup) {
 	sharedLinksGroup := router.Group("sites/:domain/shared-links", middleware.JWTAuth(), middleware.SiteMembershipAuth())
 	sharedLinksGroup.GET("", slHandle.List())
 	sharedLinksGroup.POST("", middleware.SubAccountHasPerm("shared_links:write"), slHandle.Create())
-	sharedLinksGroup.DELETE("/:linkId", middleware.SubAccountHasPerm("shared_links:write"), slHandle.Delete())
+	sharedLinksGroup.DELETE("/:linkId", middleware.SubAccountHasPerm("shared_links:delete"), slHandle.Delete())
 
 	// Segments
 	segHandle := segments.NewHandler()
@@ -75,5 +76,13 @@ func RegisterSitesRouter(router *gin.RouterGroup) {
 	segGroup.GET("", segHandle.List())
 	segGroup.POST("", middleware.SubAccountHasPerm("segments:write"), segHandle.Create())
 	segGroup.PATCH("/:segmentId", middleware.SubAccountHasPerm("segments:write"), segHandle.Update())
-	segGroup.DELETE("/:segmentId", middleware.SubAccountHasPerm("segments:write"), segHandle.Delete())
+	segGroup.DELETE("/:segmentId", middleware.SubAccountHasPerm("segments:delete"), segHandle.Delete())
+
+	// Saved Panels（已保存的自定义查询面板）
+	panelHandle := panels.NewHandler()
+	panelGroup := router.Group("sites/:domain/panels", middleware.JWTAuth(), middleware.SiteMembershipAuth())
+	panelGroup.GET("", panelHandle.List())
+	panelGroup.POST("", middleware.SubAccountHasPerm("segments:write"), panelHandle.Create())
+	panelGroup.PATCH("/:panelId", middleware.SubAccountHasPerm("segments:write"), panelHandle.Update())
+	panelGroup.DELETE("/:panelId", middleware.SubAccountHasPerm("segments:delete"), panelHandle.Delete())
 }

@@ -72,6 +72,8 @@ const (
 	EdgeSharedLinks = "shared_links"
 	// EdgeSegments holds the string denoting the segments edge name in mutations.
 	EdgeSegments = "segments"
+	// EdgeSavedPanels holds the string denoting the saved_panels edge name in mutations.
+	EdgeSavedPanels = "saved_panels"
 	// Table holds the table name of the site in the database.
 	Table = "sites"
 	// FunnelsTable is the table that holds the funnels relation/edge.
@@ -144,6 +146,13 @@ const (
 	SegmentsInverseTable = "segments"
 	// SegmentsColumn is the table column denoting the segments relation/edge.
 	SegmentsColumn = "site_id"
+	// SavedPanelsTable is the table that holds the saved_panels relation/edge.
+	SavedPanelsTable = "saved_panels"
+	// SavedPanelsInverseTable is the table name for the SavedPanel entity.
+	// It exists in this package in order to avoid circular dependency with the "savedpanel" package.
+	SavedPanelsInverseTable = "saved_panels"
+	// SavedPanelsColumn is the table column denoting the saved_panels relation/edge.
+	SavedPanelsColumn = "site_id"
 )
 
 // Columns holds all SQL columns for site fields.
@@ -467,6 +476,20 @@ func BySegments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newSegmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// BySavedPanelsCount orders the results by saved_panels count.
+func BySavedPanelsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSavedPanelsStep(), opts...)
+	}
+}
+
+// BySavedPanels orders the results by saved_panels terms.
+func BySavedPanels(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSavedPanelsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newFunnelsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -535,5 +558,12 @@ func newSegmentsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SegmentsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, SegmentsTable, SegmentsColumn),
+	)
+}
+func newSavedPanelsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SavedPanelsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SavedPanelsTable, SavedPanelsColumn),
 	)
 }

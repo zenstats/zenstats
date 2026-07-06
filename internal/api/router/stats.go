@@ -31,4 +31,6 @@ func RegisterStatsRouter(router *gin.RouterGroup) {
 	// v2 unified query API (POST body, multi-dimension / order_by / offset)
 	v2Group := router.Group("/v2", middleware.APIKeyOrJWTAuth(), middleware.SiteMembershipAndVerificationAuth())
 	v2Group.POST("/query/:domain", handle.QueryV2())
+	// 一键保存当前查询条件为 Segment，便于后续复用
+	v2Group.POST("/query/:domain/segments", middleware.SubAccountHasPerm("segments:write"), handle.SaveQuerySegment())
 }

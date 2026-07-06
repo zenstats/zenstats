@@ -83,9 +83,11 @@ type SiteEdges struct {
 	SharedLinks []*SharedLink `json:"shared_links,omitempty"`
 	// Segments holds the value of the segments edge.
 	Segments []*Segment `json:"segments,omitempty"`
+	// SavedPanels holds the value of the saved_panels edge.
+	SavedPanels []*SavedPanel `json:"saved_panels,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [10]bool
+	loadedTypes [11]bool
 }
 
 // FunnelsOrErr returns the Funnels value or an error if the edge
@@ -176,6 +178,15 @@ func (e SiteEdges) SegmentsOrErr() ([]*Segment, error) {
 		return e.Segments, nil
 	}
 	return nil, &NotLoadedError{edge: "segments"}
+}
+
+// SavedPanelsOrErr returns the SavedPanels value or an error if the edge
+// was not loaded in eager-loading.
+func (e SiteEdges) SavedPanelsOrErr() ([]*SavedPanel, error) {
+	if e.loadedTypes[10] {
+		return e.SavedPanels, nil
+	}
+	return nil, &NotLoadedError{edge: "saved_panels"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -391,6 +402,11 @@ func (s *Site) QuerySharedLinks() *SharedLinkQuery {
 // QuerySegments queries the "segments" edge of the Site entity.
 func (s *Site) QuerySegments() *SegmentQuery {
 	return NewSiteClient(s.config).QuerySegments(s)
+}
+
+// QuerySavedPanels queries the "saved_panels" edge of the Site entity.
+func (s *Site) QuerySavedPanels() *SavedPanelQuery {
+	return NewSiteClient(s.config).QuerySavedPanels(s)
 }
 
 // Update returns a builder for updating this Site.

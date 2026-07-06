@@ -15,6 +15,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
@@ -43,6 +44,7 @@ type SiteQuery struct {
 	withShieldRulesReferrer *ShieldRulesReferrerQuery
 	withSharedLinks         *SharedLinkQuery
 	withSegments            *SegmentQuery
+	withSavedPanels         *SavedPanelQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -299,6 +301,28 @@ func (sq *SiteQuery) QuerySegments() *SegmentQuery {
 	return query
 }
 
+// QuerySavedPanels chains the current query on the "saved_panels" edge.
+func (sq *SiteQuery) QuerySavedPanels() *SavedPanelQuery {
+	query := (&SavedPanelClient{config: sq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, selector),
+			sqlgraph.To(savedpanel.Table, savedpanel.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.SavedPanelsTable, site.SavedPanelsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first Site entity from the query.
 // Returns a *NotFoundError when no Site was found.
 func (sq *SiteQuery) First(ctx context.Context) (*Site, error) {
@@ -501,6 +525,7 @@ func (sq *SiteQuery) Clone() *SiteQuery {
 		withShieldRulesReferrer: sq.withShieldRulesReferrer.Clone(),
 		withSharedLinks:         sq.withSharedLinks.Clone(),
 		withSegments:            sq.withSegments.Clone(),
+		withSavedPanels:         sq.withSavedPanels.Clone(),
 		// clone intermediate query.
 		sql:  sq.sql.Clone(),
 		path: sq.path,
@@ -617,6 +642,17 @@ func (sq *SiteQuery) WithSegments(opts ...func(*SegmentQuery)) *SiteQuery {
 	return sq
 }
 
+// WithSavedPanels tells the query-builder to eager-load the nodes that are connected to
+// the "saved_panels" edge. The optional arguments are used to configure the query builder of the edge.
+func (sq *SiteQuery) WithSavedPanels(opts ...func(*SavedPanelQuery)) *SiteQuery {
+	query := (&SavedPanelClient{config: sq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withSavedPanels = query
+	return sq
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -695,7 +731,7 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 	var (
 		nodes       = []*Site{}
 		_spec       = sq.querySpec()
-		loadedTypes = [10]bool{
+		loadedTypes = [11]bool{
 			sq.withFunnels != nil,
 			sq.withMembers != nil,
 			sq.withGoals != nil,
@@ -706,6 +742,7 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 			sq.withShieldRulesReferrer != nil,
 			sq.withSharedLinks != nil,
 			sq.withSegments != nil,
+			sq.withSavedPanels != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -799,6 +836,13 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 		if err := sq.loadSegments(ctx, query, nodes,
 			func(n *Site) { n.Edges.Segments = []*Segment{} },
 			func(n *Site, e *Segment) { n.Edges.Segments = append(n.Edges.Segments, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := sq.withSavedPanels; query != nil {
+		if err := sq.loadSavedPanels(ctx, query, nodes,
+			func(n *Site) { n.Edges.SavedPanels = []*SavedPanel{} },
+			func(n *Site, e *SavedPanel) { n.Edges.SavedPanels = append(n.Edges.SavedPanels, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1091,6 +1135,36 @@ func (sq *SiteQuery) loadSegments(ctx context.Context, query *SegmentQuery, node
 	}
 	query.Where(predicate.Segment(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(site.SegmentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SiteID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "site_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (sq *SiteQuery) loadSavedPanels(ctx context.Context, query *SavedPanelQuery, nodes []*Site, init func(*Site), assign func(*Site, *SavedPanel)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Site)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(savedpanel.FieldSiteID)
+	}
+	query.Where(predicate.SavedPanel(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(site.SavedPanelsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

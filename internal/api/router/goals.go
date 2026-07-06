@@ -15,5 +15,5 @@ func RegisterGoalsRouter(router *gin.RouterGroup) {
 	goalsGroup.GET("", goalHandle.List())
 	goalsGroup.POST("", middleware.SubAccountHasPerm("goals:write"), goalHandle.Create())
 	goalsGroup.PUT("/:goalId", middleware.SubAccountHasPerm("goals:write"), goalHandle.Update())
-	goalsGroup.DELETE("/:goalId", middleware.SubAccountHasPerm("goals:write"), goalHandle.Delete())
+	goalsGroup.DELETE("/:goalId", middleware.SubAccountHasPerm("goals:delete"), goalHandle.Delete())
 }

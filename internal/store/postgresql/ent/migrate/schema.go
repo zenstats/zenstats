@@ -74,6 +74,40 @@ var (
 			},
 		},
 	}
+	// EmailLogsColumns holds the columns for the "email_logs" table.
+	EmailLogsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "recipient", Type: field.TypeString, Size: 320},
+		{Name: "subject", Type: field.TypeString, Size: 500},
+		{Name: "email_type", Type: field.TypeString, Size: 50, Default: "other"},
+		{Name: "status", Type: field.TypeString, Size: 20},
+		{Name: "error", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "site_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// EmailLogsTable holds the schema information for the "email_logs" table.
+	EmailLogsTable = &schema.Table{
+		Name:       "email_logs",
+		Columns:    EmailLogsColumns,
+		PrimaryKey: []*schema.Column{EmailLogsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "emaillog_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{EmailLogsColumns[7]},
+			},
+			{
+				Name:    "emaillog_status",
+				Unique:  false,
+				Columns: []*schema.Column{EmailLogsColumns[4]},
+			},
+			{
+				Name:    "emaillog_email_type",
+				Unique:  false,
+				Columns: []*schema.Column{EmailLogsColumns[3]},
+			},
+		},
+	}
 	// EmailVerificationTokensColumns holds the columns for the "email_verification_tokens" table.
 	EmailVerificationTokensColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -278,6 +312,40 @@ var (
 				Name:    "passwordresettoken_expires_at",
 				Unique:  false,
 				Columns: []*schema.Column{PasswordResetTokensColumns[3]},
+			},
+		},
+	}
+	// SavedPanelsColumns holds the columns for the "saved_panels" table.
+	SavedPanelsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "name", Type: field.TypeString, Size: 255},
+		{Name: "description", Type: field.TypeString, Nullable: true, Size: 500},
+		{Name: "config", Type: field.TypeString, Size: 2147483647, Default: "{}"},
+		{Name: "pinned", Type: field.TypeBool, Default: false},
+		{Name: "layout", Type: field.TypeString, Size: 2147483647, Default: "{}"},
+		{Name: "created_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "site_id", Type: field.TypeInt64},
+	}
+	// SavedPanelsTable holds the schema information for the "saved_panels" table.
+	SavedPanelsTable = &schema.Table{
+		Name:       "saved_panels",
+		Columns:    SavedPanelsColumns,
+		PrimaryKey: []*schema.Column{SavedPanelsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "saved_panels_sites_saved_panels",
+				Columns:    []*schema.Column{SavedPanelsColumns[9]},
+				RefColumns: []*schema.Column{SitesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "savedpanel_site_id",
+				Unique:  false,
+				Columns: []*schema.Column{SavedPanelsColumns[9]},
 			},
 		},
 	}
@@ -736,12 +804,14 @@ var (
 	Tables = []*schema.Table{
 		APIKeysTable,
 		CustomSearchEnginesTable,
+		EmailLogsTable,
 		EmailVerificationTokensTable,
 		FunnelsTable,
 		FunnelStepsTable,
 		GoalsTable,
 		MonthlyEventCountsTable,
 		PasswordResetTokensTable,
+		SavedPanelsTable,
 		SearchEnginesTable,
 		SegmentsTable,
 		SharedLinksTable,
@@ -770,6 +840,7 @@ func init() {
 	GoalsTable.ForeignKeys[0].RefTable = SitesTable
 	MonthlyEventCountsTable.ForeignKeys[0].RefTable = UsersTable
 	PasswordResetTokensTable.ForeignKeys[0].RefTable = UsersTable
+	SavedPanelsTable.ForeignKeys[0].RefTable = SitesTable
 	SegmentsTable.ForeignKeys[0].RefTable = SitesTable
 	SharedLinksTable.ForeignKeys[0].RefTable = SitesTable
 	ShieldRulesCountriesTable.ForeignKeys[0].RefTable = SitesTable

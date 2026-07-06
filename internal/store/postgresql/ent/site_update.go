@@ -14,6 +14,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulescountry"
@@ -469,6 +470,21 @@ func (su *SiteUpdate) AddSegments(s ...*Segment) *SiteUpdate {
 	return su.AddSegmentIDs(ids...)
 }
 
+// AddSavedPanelIDs adds the "saved_panels" edge to the SavedPanel entity by IDs.
+func (su *SiteUpdate) AddSavedPanelIDs(ids ...int64) *SiteUpdate {
+	su.mutation.AddSavedPanelIDs(ids...)
+	return su
+}
+
+// AddSavedPanels adds the "saved_panels" edges to the SavedPanel entity.
+func (su *SiteUpdate) AddSavedPanels(s ...*SavedPanel) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.AddSavedPanelIDs(ids...)
+}
+
 // Mutation returns the SiteMutation object of the builder.
 func (su *SiteUpdate) Mutation() *SiteMutation {
 	return su.mutation
@@ -682,6 +698,27 @@ func (su *SiteUpdate) RemoveSegments(s ...*Segment) *SiteUpdate {
 		ids[i] = s[i].ID
 	}
 	return su.RemoveSegmentIDs(ids...)
+}
+
+// ClearSavedPanels clears all "saved_panels" edges to the SavedPanel entity.
+func (su *SiteUpdate) ClearSavedPanels() *SiteUpdate {
+	su.mutation.ClearSavedPanels()
+	return su
+}
+
+// RemoveSavedPanelIDs removes the "saved_panels" edge to SavedPanel entities by IDs.
+func (su *SiteUpdate) RemoveSavedPanelIDs(ids ...int64) *SiteUpdate {
+	su.mutation.RemoveSavedPanelIDs(ids...)
+	return su
+}
+
+// RemoveSavedPanels removes "saved_panels" edges to SavedPanel entities.
+func (su *SiteUpdate) RemoveSavedPanels(s ...*SavedPanel) *SiteUpdate {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return su.RemoveSavedPanelIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -1300,6 +1337,51 @@ func (su *SiteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if su.mutation.SavedPanelsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SavedPanelsTable,
+			Columns: []string{site.SavedPanelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(savedpanel.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.RemovedSavedPanelsIDs(); len(nodes) > 0 && !su.mutation.SavedPanelsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SavedPanelsTable,
+			Columns: []string{site.SavedPanelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(savedpanel.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.SavedPanelsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SavedPanelsTable,
+			Columns: []string{site.SavedPanelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(savedpanel.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, su.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{site.Label}
@@ -1751,6 +1833,21 @@ func (suo *SiteUpdateOne) AddSegments(s ...*Segment) *SiteUpdateOne {
 	return suo.AddSegmentIDs(ids...)
 }
 
+// AddSavedPanelIDs adds the "saved_panels" edge to the SavedPanel entity by IDs.
+func (suo *SiteUpdateOne) AddSavedPanelIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.AddSavedPanelIDs(ids...)
+	return suo
+}
+
+// AddSavedPanels adds the "saved_panels" edges to the SavedPanel entity.
+func (suo *SiteUpdateOne) AddSavedPanels(s ...*SavedPanel) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.AddSavedPanelIDs(ids...)
+}
+
 // Mutation returns the SiteMutation object of the builder.
 func (suo *SiteUpdateOne) Mutation() *SiteMutation {
 	return suo.mutation
@@ -1964,6 +2061,27 @@ func (suo *SiteUpdateOne) RemoveSegments(s ...*Segment) *SiteUpdateOne {
 		ids[i] = s[i].ID
 	}
 	return suo.RemoveSegmentIDs(ids...)
+}
+
+// ClearSavedPanels clears all "saved_panels" edges to the SavedPanel entity.
+func (suo *SiteUpdateOne) ClearSavedPanels() *SiteUpdateOne {
+	suo.mutation.ClearSavedPanels()
+	return suo
+}
+
+// RemoveSavedPanelIDs removes the "saved_panels" edge to SavedPanel entities by IDs.
+func (suo *SiteUpdateOne) RemoveSavedPanelIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.RemoveSavedPanelIDs(ids...)
+	return suo
+}
+
+// RemoveSavedPanels removes "saved_panels" edges to SavedPanel entities.
+func (suo *SiteUpdateOne) RemoveSavedPanels(s ...*SavedPanel) *SiteUpdateOne {
+	ids := make([]int64, len(s))
+	for i := range s {
+		ids[i] = s[i].ID
+	}
+	return suo.RemoveSavedPanelIDs(ids...)
 }
 
 // Where appends a list predicates to the SiteUpdate builder.
@@ -2605,6 +2723,51 @@ func (suo *SiteUpdateOne) sqlSave(ctx context.Context) (_node *Site, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(segment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if suo.mutation.SavedPanelsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SavedPanelsTable,
+			Columns: []string{site.SavedPanelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(savedpanel.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.RemovedSavedPanelsIDs(); len(nodes) > 0 && !suo.mutation.SavedPanelsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SavedPanelsTable,
+			Columns: []string{site.SavedPanelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(savedpanel.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.SavedPanelsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.SavedPanelsTable,
+			Columns: []string{site.SavedPanelsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(savedpanel.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

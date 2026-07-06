@@ -17,12 +17,14 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emaillog"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emailverificationtoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/searchengines"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
@@ -49,6 +51,8 @@ type Client struct {
 	APIKey *APIKeyClient
 	// CustomSearchEngine is the client for interacting with the CustomSearchEngine builders.
 	CustomSearchEngine *CustomSearchEngineClient
+	// EmailLog is the client for interacting with the EmailLog builders.
+	EmailLog *EmailLogClient
 	// EmailVerificationToken is the client for interacting with the EmailVerificationToken builders.
 	EmailVerificationToken *EmailVerificationTokenClient
 	// Funnel is the client for interacting with the Funnel builders.
@@ -61,6 +65,8 @@ type Client struct {
 	MonthlyEventCount *MonthlyEventCountClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
 	PasswordResetToken *PasswordResetTokenClient
+	// SavedPanel is the client for interacting with the SavedPanel builders.
+	SavedPanel *SavedPanelClient
 	// SearchEngines is the client for interacting with the SearchEngines builders.
 	SearchEngines *SearchEnginesClient
 	// Segment is the client for interacting with the Segment builders.
@@ -104,12 +110,14 @@ func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.APIKey = NewAPIKeyClient(c.config)
 	c.CustomSearchEngine = NewCustomSearchEngineClient(c.config)
+	c.EmailLog = NewEmailLogClient(c.config)
 	c.EmailVerificationToken = NewEmailVerificationTokenClient(c.config)
 	c.Funnel = NewFunnelClient(c.config)
 	c.FunnelStep = NewFunnelStepClient(c.config)
 	c.Goal = NewGoalClient(c.config)
 	c.MonthlyEventCount = NewMonthlyEventCountClient(c.config)
 	c.PasswordResetToken = NewPasswordResetTokenClient(c.config)
+	c.SavedPanel = NewSavedPanelClient(c.config)
 	c.SearchEngines = NewSearchEnginesClient(c.config)
 	c.Segment = NewSegmentClient(c.config)
 	c.SharedLink = NewSharedLinkClient(c.config)
@@ -219,12 +227,14 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		config:                 cfg,
 		APIKey:                 NewAPIKeyClient(cfg),
 		CustomSearchEngine:     NewCustomSearchEngineClient(cfg),
+		EmailLog:               NewEmailLogClient(cfg),
 		EmailVerificationToken: NewEmailVerificationTokenClient(cfg),
 		Funnel:                 NewFunnelClient(cfg),
 		FunnelStep:             NewFunnelStepClient(cfg),
 		Goal:                   NewGoalClient(cfg),
 		MonthlyEventCount:      NewMonthlyEventCountClient(cfg),
 		PasswordResetToken:     NewPasswordResetTokenClient(cfg),
+		SavedPanel:             NewSavedPanelClient(cfg),
 		SearchEngines:          NewSearchEnginesClient(cfg),
 		Segment:                NewSegmentClient(cfg),
 		SharedLink:             NewSharedLinkClient(cfg),
@@ -261,12 +271,14 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		config:                 cfg,
 		APIKey:                 NewAPIKeyClient(cfg),
 		CustomSearchEngine:     NewCustomSearchEngineClient(cfg),
+		EmailLog:               NewEmailLogClient(cfg),
 		EmailVerificationToken: NewEmailVerificationTokenClient(cfg),
 		Funnel:                 NewFunnelClient(cfg),
 		FunnelStep:             NewFunnelStepClient(cfg),
 		Goal:                   NewGoalClient(cfg),
 		MonthlyEventCount:      NewMonthlyEventCountClient(cfg),
 		PasswordResetToken:     NewPasswordResetTokenClient(cfg),
+		SavedPanel:             NewSavedPanelClient(cfg),
 		SearchEngines:          NewSearchEnginesClient(cfg),
 		Segment:                NewSegmentClient(cfg),
 		SharedLink:             NewSharedLinkClient(cfg),
@@ -311,8 +323,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.CustomSearchEngine, c.EmailVerificationToken, c.Funnel,
-		c.FunnelStep, c.Goal, c.MonthlyEventCount, c.PasswordResetToken,
+		c.APIKey, c.CustomSearchEngine, c.EmailLog, c.EmailVerificationToken, c.Funnel,
+		c.FunnelStep, c.Goal, c.MonthlyEventCount, c.PasswordResetToken, c.SavedPanel,
 		c.SearchEngines, c.Segment, c.SharedLink, c.ShieldRulesCountry,
 		c.ShieldRulesHostname, c.ShieldRulesIp, c.ShieldRulesReferrer, c.Site,
 		c.SiteMembership, c.SubAccount, c.SystemConfig, c.User, c.UserConfig,
@@ -326,8 +338,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.CustomSearchEngine, c.EmailVerificationToken, c.Funnel,
-		c.FunnelStep, c.Goal, c.MonthlyEventCount, c.PasswordResetToken,
+		c.APIKey, c.CustomSearchEngine, c.EmailLog, c.EmailVerificationToken, c.Funnel,
+		c.FunnelStep, c.Goal, c.MonthlyEventCount, c.PasswordResetToken, c.SavedPanel,
 		c.SearchEngines, c.Segment, c.SharedLink, c.ShieldRulesCountry,
 		c.ShieldRulesHostname, c.ShieldRulesIp, c.ShieldRulesReferrer, c.Site,
 		c.SiteMembership, c.SubAccount, c.SystemConfig, c.User, c.UserConfig,
@@ -344,6 +356,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.APIKey.mutate(ctx, m)
 	case *CustomSearchEngineMutation:
 		return c.CustomSearchEngine.mutate(ctx, m)
+	case *EmailLogMutation:
+		return c.EmailLog.mutate(ctx, m)
 	case *EmailVerificationTokenMutation:
 		return c.EmailVerificationToken.mutate(ctx, m)
 	case *FunnelMutation:
@@ -356,6 +370,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.MonthlyEventCount.mutate(ctx, m)
 	case *PasswordResetTokenMutation:
 		return c.PasswordResetToken.mutate(ctx, m)
+	case *SavedPanelMutation:
+		return c.SavedPanel.mutate(ctx, m)
 	case *SearchEnginesMutation:
 		return c.SearchEngines.mutate(ctx, m)
 	case *SegmentMutation:
@@ -686,6 +702,139 @@ func (c *CustomSearchEngineClient) mutate(ctx context.Context, m *CustomSearchEn
 		return (&CustomSearchEngineDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown CustomSearchEngine mutation op: %q", m.Op())
+	}
+}
+
+// EmailLogClient is a client for the EmailLog schema.
+type EmailLogClient struct {
+	config
+}
+
+// NewEmailLogClient returns a client for the EmailLog from the given config.
+func NewEmailLogClient(c config) *EmailLogClient {
+	return &EmailLogClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `emaillog.Hooks(f(g(h())))`.
+func (c *EmailLogClient) Use(hooks ...Hook) {
+	c.hooks.EmailLog = append(c.hooks.EmailLog, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `emaillog.Intercept(f(g(h())))`.
+func (c *EmailLogClient) Intercept(interceptors ...Interceptor) {
+	c.inters.EmailLog = append(c.inters.EmailLog, interceptors...)
+}
+
+// Create returns a builder for creating a EmailLog entity.
+func (c *EmailLogClient) Create() *EmailLogCreate {
+	mutation := newEmailLogMutation(c.config, OpCreate)
+	return &EmailLogCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of EmailLog entities.
+func (c *EmailLogClient) CreateBulk(builders ...*EmailLogCreate) *EmailLogCreateBulk {
+	return &EmailLogCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EmailLogClient) MapCreateBulk(slice any, setFunc func(*EmailLogCreate, int)) *EmailLogCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EmailLogCreateBulk{err: fmt.Errorf("calling to EmailLogClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EmailLogCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EmailLogCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for EmailLog.
+func (c *EmailLogClient) Update() *EmailLogUpdate {
+	mutation := newEmailLogMutation(c.config, OpUpdate)
+	return &EmailLogUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EmailLogClient) UpdateOne(el *EmailLog) *EmailLogUpdateOne {
+	mutation := newEmailLogMutation(c.config, OpUpdateOne, withEmailLog(el))
+	return &EmailLogUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EmailLogClient) UpdateOneID(id int64) *EmailLogUpdateOne {
+	mutation := newEmailLogMutation(c.config, OpUpdateOne, withEmailLogID(id))
+	return &EmailLogUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for EmailLog.
+func (c *EmailLogClient) Delete() *EmailLogDelete {
+	mutation := newEmailLogMutation(c.config, OpDelete)
+	return &EmailLogDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EmailLogClient) DeleteOne(el *EmailLog) *EmailLogDeleteOne {
+	return c.DeleteOneID(el.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EmailLogClient) DeleteOneID(id int64) *EmailLogDeleteOne {
+	builder := c.Delete().Where(emaillog.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EmailLogDeleteOne{builder}
+}
+
+// Query returns a query builder for EmailLog.
+func (c *EmailLogClient) Query() *EmailLogQuery {
+	return &EmailLogQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEmailLog},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a EmailLog entity by its id.
+func (c *EmailLogClient) Get(ctx context.Context, id int64) (*EmailLog, error) {
+	return c.Query().Where(emaillog.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EmailLogClient) GetX(ctx context.Context, id int64) *EmailLog {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *EmailLogClient) Hooks() []Hook {
+	return c.hooks.EmailLog
+}
+
+// Interceptors returns the client interceptors.
+func (c *EmailLogClient) Interceptors() []Interceptor {
+	return c.inters.EmailLog
+}
+
+func (c *EmailLogClient) mutate(ctx context.Context, m *EmailLogMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&EmailLogCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&EmailLogUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&EmailLogUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&EmailLogDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown EmailLog mutation op: %q", m.Op())
 	}
 }
 
@@ -1628,6 +1777,155 @@ func (c *PasswordResetTokenClient) mutate(ctx context.Context, m *PasswordResetT
 		return (&PasswordResetTokenDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown PasswordResetToken mutation op: %q", m.Op())
+	}
+}
+
+// SavedPanelClient is a client for the SavedPanel schema.
+type SavedPanelClient struct {
+	config
+}
+
+// NewSavedPanelClient returns a client for the SavedPanel from the given config.
+func NewSavedPanelClient(c config) *SavedPanelClient {
+	return &SavedPanelClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `savedpanel.Hooks(f(g(h())))`.
+func (c *SavedPanelClient) Use(hooks ...Hook) {
+	c.hooks.SavedPanel = append(c.hooks.SavedPanel, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `savedpanel.Intercept(f(g(h())))`.
+func (c *SavedPanelClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SavedPanel = append(c.inters.SavedPanel, interceptors...)
+}
+
+// Create returns a builder for creating a SavedPanel entity.
+func (c *SavedPanelClient) Create() *SavedPanelCreate {
+	mutation := newSavedPanelMutation(c.config, OpCreate)
+	return &SavedPanelCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SavedPanel entities.
+func (c *SavedPanelClient) CreateBulk(builders ...*SavedPanelCreate) *SavedPanelCreateBulk {
+	return &SavedPanelCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SavedPanelClient) MapCreateBulk(slice any, setFunc func(*SavedPanelCreate, int)) *SavedPanelCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SavedPanelCreateBulk{err: fmt.Errorf("calling to SavedPanelClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SavedPanelCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SavedPanelCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SavedPanel.
+func (c *SavedPanelClient) Update() *SavedPanelUpdate {
+	mutation := newSavedPanelMutation(c.config, OpUpdate)
+	return &SavedPanelUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SavedPanelClient) UpdateOne(sp *SavedPanel) *SavedPanelUpdateOne {
+	mutation := newSavedPanelMutation(c.config, OpUpdateOne, withSavedPanel(sp))
+	return &SavedPanelUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SavedPanelClient) UpdateOneID(id int64) *SavedPanelUpdateOne {
+	mutation := newSavedPanelMutation(c.config, OpUpdateOne, withSavedPanelID(id))
+	return &SavedPanelUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SavedPanel.
+func (c *SavedPanelClient) Delete() *SavedPanelDelete {
+	mutation := newSavedPanelMutation(c.config, OpDelete)
+	return &SavedPanelDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SavedPanelClient) DeleteOne(sp *SavedPanel) *SavedPanelDeleteOne {
+	return c.DeleteOneID(sp.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SavedPanelClient) DeleteOneID(id int64) *SavedPanelDeleteOne {
+	builder := c.Delete().Where(savedpanel.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SavedPanelDeleteOne{builder}
+}
+
+// Query returns a query builder for SavedPanel.
+func (c *SavedPanelClient) Query() *SavedPanelQuery {
+	return &SavedPanelQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSavedPanel},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SavedPanel entity by its id.
+func (c *SavedPanelClient) Get(ctx context.Context, id int64) (*SavedPanel, error) {
+	return c.Query().Where(savedpanel.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SavedPanelClient) GetX(ctx context.Context, id int64) *SavedPanel {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySite queries the site edge of a SavedPanel.
+func (c *SavedPanelClient) QuerySite(sp *SavedPanel) *SiteQuery {
+	query := (&SiteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := sp.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(savedpanel.Table, savedpanel.FieldID, id),
+			sqlgraph.To(site.Table, site.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, savedpanel.SiteTable, savedpanel.SiteColumn),
+		)
+		fromV = sqlgraph.Neighbors(sp.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SavedPanelClient) Hooks() []Hook {
+	return c.hooks.SavedPanel
+}
+
+// Interceptors returns the client interceptors.
+func (c *SavedPanelClient) Interceptors() []Interceptor {
+	return c.inters.SavedPanel
+}
+
+func (c *SavedPanelClient) mutate(ctx context.Context, m *SavedPanelMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SavedPanelCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SavedPanelUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SavedPanelUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SavedPanelDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SavedPanel mutation op: %q", m.Op())
 	}
 }
 
@@ -2926,6 +3224,22 @@ func (c *SiteClient) QuerySegments(s *Site) *SegmentQuery {
 	return query
 }
 
+// QuerySavedPanels queries the saved_panels edge of a Site.
+func (c *SiteClient) QuerySavedPanels(s *Site) *SavedPanelQuery {
+	query := (&SavedPanelClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, id),
+			sqlgraph.To(savedpanel.Table, savedpanel.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.SavedPanelsTable, site.SavedPanelsColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *SiteClient) Hooks() []Hook {
 	return c.hooks.Site
@@ -4109,17 +4423,17 @@ func (c *UserSessionClient) mutate(ctx context.Context, m *UserSessionMutation) 
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, CustomSearchEngine, EmailVerificationToken, Funnel, FunnelStep, Goal,
-		MonthlyEventCount, PasswordResetToken, SearchEngines, Segment, SharedLink,
-		ShieldRulesCountry, ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer,
-		Site, SiteMembership, SubAccount, SystemConfig, User, UserConfig, UserGroup,
-		UserSession []ent.Hook
+		APIKey, CustomSearchEngine, EmailLog, EmailVerificationToken, Funnel,
+		FunnelStep, Goal, MonthlyEventCount, PasswordResetToken, SavedPanel,
+		SearchEngines, Segment, SharedLink, ShieldRulesCountry, ShieldRulesHostname,
+		ShieldRulesIp, ShieldRulesReferrer, Site, SiteMembership, SubAccount,
+		SystemConfig, User, UserConfig, UserGroup, UserSession []ent.Hook
 	}
 	inters struct {
-		APIKey, CustomSearchEngine, EmailVerificationToken, Funnel, FunnelStep, Goal,
-		MonthlyEventCount, PasswordResetToken, SearchEngines, Segment, SharedLink,
-		ShieldRulesCountry, ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer,
-		Site, SiteMembership, SubAccount, SystemConfig, User, UserConfig, UserGroup,
-		UserSession []ent.Interceptor
+		APIKey, CustomSearchEngine, EmailLog, EmailVerificationToken, Funnel,
+		FunnelStep, Goal, MonthlyEventCount, PasswordResetToken, SavedPanel,
+		SearchEngines, Segment, SharedLink, ShieldRulesCountry, ShieldRulesHostname,
+		ShieldRulesIp, ShieldRulesReferrer, Site, SiteMembership, SubAccount,
+		SystemConfig, User, UserConfig, UserGroup, UserSession []ent.Interceptor
 	}
 )

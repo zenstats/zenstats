@@ -1225,6 +1225,29 @@ func HasSegmentsWith(preds ...predicate.Segment) predicate.Site {
 	})
 }
 
+// HasSavedPanels applies the HasEdge predicate on the "saved_panels" edge.
+func HasSavedPanels() predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SavedPanelsTable, SavedPanelsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSavedPanelsWith applies the HasEdge predicate on the "saved_panels" edge with a given conditions (other predicates).
+func HasSavedPanelsWith(preds ...predicate.SavedPanel) predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := newSavedPanelsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Site) predicate.Site {
 	return predicate.Site(sql.AndPredicates(predicates...))
