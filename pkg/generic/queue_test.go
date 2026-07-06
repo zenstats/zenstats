@@ -87,3 +87,56 @@ func TestEnqueueFailsAtMaxSize(t *testing.T) {
 		t.Fatal("expected error when queue is full and at max capacity")
 	}
 }
+
+// TestPeekPreservesFIFOOrder 验证 Peek 非破坏、保序：Peek 后 Dequeue 仍按 1,2,3 顺序返回。
+func TestPeekPreservesFIFOOrder(t *testing.T) {
+	q := NewQueue[int](4, 16)
+	for _, v := range []int{1, 2, 3} {
+		if err := q.Enqueue(v); err != nil {
+			t.Fatalf("enqueue %d: %v", v, err)
+		}
+	}
+	// 多次 Peek 应稳定返回队首 1，且不改变队列
+	for i := 0; i < 3; i++ {
+		if v, ok := q.Peek(); !ok || v != 1 {
+			t.Fatalf("Peek #%d = (%d,%v), want (1,true)", i, v, ok)
+		}
+	}
+	if q.Size() != 3 {
+		t.Fatalf("Size after Peek = %d, want 3", q.Size())
+	}
+	// Dequeue 顺序不被 Peek 打乱
+	for _, want := range []int{1, 2, 3} {
+		if got := q.Dequeue(); got != want {
+			t.Fatalf("Dequeue = %d, want %d", got, want)
+		}
+	}
+}
+
+// TestPeekEmptyQueue 验证空队列 Peek 返回 (零值, false)。
+func TestPeekEmptyQueue(t *testing.T) {
+	q := NewQueue[int](4, 16)
+	if v, ok := q.Peek(); ok || v != 0 {
+		t.Fatalf("Peek empty = (%d,%v), want (0,false)", v, ok)
+	}
+}
+
+// TestPeekAfterCloseNoPanic 验证关闭后 Peek 不 panic：先返回已缓存队首，排空后返回 false。
+func TestPeekAfterCloseNoPanic(t *testing.T) {
+	q := NewQueue[int](4, 16)
+	_ = q.Enqueue(42)
+	if v, ok := q.Peek(); !ok || v != 42 { // 先缓存队首
+		t.Fatalf("Peek before close = (%d,%v), want (42,true)", v, ok)
+	}
+	_ = q.Close()
+	// 关闭后再次 Peek 不能向已关闭 channel 回写而 panic
+	if v, ok := q.Peek(); !ok || v != 42 {
+		t.Fatalf("Peek after close = (%d,%v), want (42,true)", v, ok)
+	}
+	if got := q.Dequeue(); got != 42 {
+		t.Fatalf("Dequeue after close = %d, want 42", got)
+	}
+	if _, ok := q.Peek(); ok {
+		t.Fatalf("Peek on drained+closed queue should be false")
+	}
+}

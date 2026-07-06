@@ -421,9 +421,13 @@ PARTITION BY toYYYYMM(start)
 PRIMARY KEY (site_id, toDate(start), user_id, session_id)
 ORDER BY (site_id, toDate(start), user_id, session_id)
 SAMPLE BY user_id
-SETTINGS index_granularity = 8192;`
+SETTINGS index_granularity = 8192, non_replicated_deduplication_window = 1000;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	if err := m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`")); err != nil {
+		return err
+	}
+	m.enableInsertDedup(ctx, "sessions")
+	return nil
 }
 
 func (m *Migration) ensureEventsTable(ctx context.Context) error {
@@ -480,7 +484,24 @@ PARTITION BY toYYYYMM(timestamp)
 PRIMARY KEY (site_id, toDate(timestamp), name, user_id)
 ORDER BY (site_id, toDate(timestamp), name, user_id, timestamp)
 SAMPLE BY user_id
-SETTINGS index_granularity = 8192;`
+SETTINGS index_granularity = 8192, non_replicated_deduplication_window = 1000;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	if err := m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`")); err != nil {
+		return err
+	}
+	// 已存在的表补齐去重窗口（新建表已含于 SETTINGS）。
+	m.enableInsertDedup(ctx, "events")
+	return nil
+}
+
+// enableInsertDedup 为已存在的表开启插入去重窗口，使携带相同 insert_deduplication_token
+// 的重复批次被 ClickHouse 忽略，从而让 flush 重试幂等、不重复计数。出错仅记录不阻断启动。
+func (m *Migration) enableInsertDedup(ctx context.Context, table string) {
+	sql := fmt.Sprintf(
+		"ALTER TABLE zenstats_events_db.%s MODIFY SETTING non_replicated_deduplication_window = 1000",
+		table,
+	)
+	if err := m.conn.Exec(ctx, sql); err != nil {
+		slog.Warn("enable insert dedup failed", "table", table, "error", err)
+	}
 }

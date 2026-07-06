@@ -21,6 +21,8 @@ type WriteBuffer struct {
 
 	buffer []*models.Sessions
 
+	flushSem chan struct{} // 限制并发 flush goroutine 数量，防止下游阻塞时无界堆积
+
 	shutdownChan chan struct{}
 	ctx          context.Context
 	cancel       context.CancelFunc
@@ -28,12 +30,16 @@ type WriteBuffer struct {
 	batchPool sync.Pool
 }
 
+// maxConcurrentFlushes 限制同时进行的 flush goroutine 数量。
+const maxConcurrentFlushes = 8
+
 func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Duration) *WriteBuffer {
 	ctx, cancel := context.WithCancel(ctx)
 
 	wb := &WriteBuffer{
 		batchSize:     batchSize,
 		flushInterval: flushInterval,
+		flushSem:      make(chan struct{}, maxConcurrentFlushes),
 		buffer:        make([]*models.Sessions, 0, batchSize),
 		shutdownChan:  make(chan struct{}),
 		ctx:           ctx,
@@ -60,12 +66,18 @@ func (wb *WriteBuffer) Add(session *models.Sessions) {
 
 	slog.Debug("add session to buffer", "session", session)
 	if shouldFlush {
-		// 独立 goroutine 写入，不阻塞调用方（session manager 的 balancer worker）
-		wb.wg.Add(1)
-		go func() {
-			defer wb.wg.Done()
-			wb.flushAndWrite()
-		}()
+		// 独立 goroutine 写入，不阻塞调用方（session manager 的 balancer worker）；
+		// 并发数受 flushSem 限制，达到上限则跳过，交由 flushWorker 定时器兜底。
+		select {
+		case wb.flushSem <- struct{}{}:
+			wb.wg.Add(1)
+			go func() {
+				defer wb.wg.Done()
+				defer func() { <-wb.flushSem }()
+				wb.flushAndWrite()
+			}()
+		default:
+		}
 	}
 }
 
@@ -125,8 +137,11 @@ func (wb *WriteBuffer) writeBatch(batch []*models.Sessions) error {
 	retries := 3
 	var err error
 
+	// 一次批次生成一个去重 token，所有重试复用它，避免重试重复插入 ±1 会话行破坏 collapse 计数。
+	insertCtx := repository.WithInsertDedupToken(wb.ctx)
+
 	for i := range retries {
-		if err = repo.BatchInsert(wb.ctx, batch); err == nil {
+		if err = repo.BatchInsert(insertCtx, batch); err == nil {
 			return nil
 		}
 

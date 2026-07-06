@@ -25,12 +25,19 @@ type WriteBuffer struct {
 
 	buffer []*models.Events
 
+	maxBufferSize int           // 缓冲上限：下游长时间不可用时超过则丢弃计数，避免无界增长 OOM
+	dropped       int64         // atomic：因缓冲满而丢弃的事件计数
+	flushSem      chan struct{} // 限制并发 flush goroutine 数量，防止下游阻塞时无界堆积
+
 	shutdownChan chan struct{}
 	ctx          context.Context
 	cancel       context.CancelFunc
 
 	batchPool sync.Pool
 }
+
+// maxConcurrentFlushes 限制同时进行的 flush goroutine 数量。
+const maxConcurrentFlushes = 8
 
 func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Duration) *WriteBuffer {
 	ctx, cancel := context.WithCancel(ctx)
@@ -48,10 +55,17 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 		minBatchSize = maxBatchSize
 	}
 
+	maxBufferSize := batchSize * 50
+	if maxBufferSize < 50000 {
+		maxBufferSize = 50000
+	}
+
 	wb := &WriteBuffer{
 		batchSize:     int32(batchSize),
 		minBatchSize:  minBatchSize,
 		maxBatchSize:  maxBatchSize,
+		maxBufferSize: maxBufferSize,
+		flushSem:      make(chan struct{}, maxConcurrentFlushes),
 		flushInterval: flushInterval,
 		buffer:        make([]*models.Events, 0, batchSize),
 		shutdownChan:  make(chan struct{}),
@@ -74,6 +88,15 @@ func (wb *WriteBuffer) Add(event *models.Events) {
 	}
 
 	wb.mu.Lock()
+	if len(wb.buffer) >= wb.maxBufferSize {
+		wb.mu.Unlock()
+		// 缓冲达到上限（通常是下游 ClickHouse 长时间不可用）：丢弃并计数，避免无界增长导致 OOM。
+		n := atomic.AddInt64(&wb.dropped, 1)
+		if n%1000 == 1 {
+			slog.Error("event write buffer full, dropping events", "dropped_total", n, "max_buffer", wb.maxBufferSize)
+		}
+		return
+	}
 	wb.buffer = append(wb.buffer, event)
 	shouldFlush := len(wb.buffer) >= int(atomic.LoadInt32(&wb.batchSize))
 	wb.mu.Unlock()
@@ -83,12 +106,24 @@ func (wb *WriteBuffer) Add(event *models.Events) {
 	}
 	slog.Debug("add event to buffer", "event", event)
 	if shouldFlush {
-		// 独立 goroutine 写入，不阻塞 pool worker
+		wb.spawnFlush()
+	}
+}
+
+// spawnFlush 在并发未达上限时起一个独立 flush goroutine；达到上限则跳过，
+// 交由 flushWorker 的定时器或后续 Add 处理，防止下游阻塞时 flush goroutine 无界堆积。
+func (wb *WriteBuffer) spawnFlush() {
+	select {
+	case wb.flushSem <- struct{}{}:
 		wb.wg.Add(1)
 		go func() {
 			defer wb.wg.Done()
+			defer func() { <-wb.flushSem }()
 			wb.flushAndWrite()
 		}()
+	default:
+		// 并发已达上限：本次不新起 goroutine，交给 flushWorker 定时器或后续 Add 兜底，
+		// 避免下游阻塞时 flush goroutine 无界堆积。
 	}
 }
 
@@ -149,9 +184,12 @@ func (wb *WriteBuffer) writeBatch(batch []*models.Events) error {
 	var err error
 	backoff := []time.Duration{100 * time.Millisecond, 300 * time.Millisecond, 1 * time.Second, 3 * time.Second, 5 * time.Second}
 
+	// 一次批次生成一个去重 token，所有重试复用它，保证"已提交但超时后重试"不重复计数。
+	insertCtx := repository.WithInsertDedupToken(wb.ctx)
+
 	startTime := time.Now()
 	for i := 0; i < retries; i++ {
-		if err = repo.BatchInsert(wb.ctx, batch); err == nil {
+		if err = repo.BatchInsert(insertCtx, batch); err == nil {
 			wb.recordWriteTime(time.Since(startTime))
 			return nil
 		}

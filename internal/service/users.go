@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"sync"
+	"time"
 
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/zenstats/zenstats/internal/store/postgresql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -15,7 +17,8 @@ import (
 
 // UserService 用户服务，提供用户相关的数据库操作。
 type UserService struct {
-	db *postgresql.Client
+	db          *postgresql.Client
+	configCache *expirable.LRU[int64, *ent.User] // userID → user+config+group（热路径配额查询用）
 }
 
 // GetUserService 获取 UserService 单例instance.
@@ -24,7 +27,9 @@ var GetUserService = sync.OnceValue(func() *UserService {
 	if db == nil {
 		panic("DB is not initialized")
 	}
-	return &UserService{db: db}
+	// 配额相关（含套餐 MaxMonthlyEvents），TTL 取 5 分钟，在减压与套餐变更时效间平衡。
+	configCache := expirable.NewLRU[int64, *ent.User](5000, nil, 5*time.Minute)
+	return &UserService{db: db, configCache: configCache}
 })
 
 // GetUserCount 获取系统中的用户总数。
@@ -116,12 +121,25 @@ func (s *UserService) SetEmailVerified(ctx context.Context, userID int64, verifi
 
 // GetUserWithConfig 获取用户及其配置信息
 func (s *UserService) GetUserWithConfig(ctx context.Context, userID int64) (*ent.User, error) {
-	return s.db.Client.User.Query().
+	// 热路径（每个事件的配额检查都查）：优先命中 LRU 缓存。
+	if s.configCache != nil {
+		if u, ok := s.configCache.Get(userID); ok {
+			return u, nil
+		}
+	}
+	u, err := s.db.Client.User.Query().
 		Where(user.ID(userID)).
 		WithUserConfig(func(query *ent.UserConfigQuery) {
 			query.WithGroup()
 		}).
 		Only(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if s.configCache != nil {
+		s.configCache.Add(userID, u)
+	}
+	return u, nil
 }
 
 // GetAllUsers 获取所有用户（分页）

@@ -43,6 +43,7 @@ type SiteService struct {
 	shieldRuleHostnameCache *expirable.LRU[string, []*ent.ShieldRulesHostname]
 	shieldRuleCountryCache  *expirable.LRU[string, []*ent.ShieldRulesCountry]
 	membershipCache         *expirable.LRU[string, *ent.Site]
+	ownerCache              *expirable.LRU[int64, int64] // siteID → 站点 owner 的 userID（热路径配额查询用）
 }
 
 // GetSiteService 获取 SiteService 单例instance.
@@ -56,6 +57,7 @@ var GetSiteService = sync.OnceValue(func() *SiteService {
 	hostnameCache := expirable.NewLRU[string, []*ent.ShieldRulesHostname](1000, nil, 30*time.Minute)
 	countryCache := expirable.NewLRU[string, []*ent.ShieldRulesCountry](1000, nil, 30*time.Minute)
 	membershipCache := expirable.NewLRU[string, *ent.Site](1000, nil, 30*time.Minute)
+	ownerCache := expirable.NewLRU[int64, int64](5000, nil, 30*time.Minute)
 	return &SiteService{
 		db:                      db,
 		domainCache:             l,
@@ -63,6 +65,7 @@ var GetSiteService = sync.OnceValue(func() *SiteService {
 		shieldRuleHostnameCache: hostnameCache,
 		shieldRuleCountryCache:  countryCache,
 		membershipCache:         membershipCache,
+		ownerCache:              ownerCache,
 		cache:                   sync.Map{},
 		allSitesCacheKey:        "all_sites",
 	}
@@ -139,6 +142,8 @@ func (s *SiteService) CreateSite(ctx *gin.Context, params CreateSiteParams) (*en
 	s.cache.Delete(ctx.GetInt64("user_id"))
 	// 新增：删除全站列表缓存
 	s.cache.Delete(s.allSitesCacheKey)
+	// 清除 owner 缓存
+	s.ownerCache.Remove(site.ID)
 
 	return site, nil
 }
@@ -467,6 +472,7 @@ func (s *SiteService) AdminVerifySite(ctx context.Context, siteID int64) error {
 	// 清除缓存
 	s.InvalidateDomainCache(domain)
 	s.cache.Delete(s.allSitesCacheKey)
+	s.ownerCache.Remove(siteID)
 
 	return nil
 }
@@ -717,6 +723,7 @@ func (s *SiteService) UpdateSite(ctx *gin.Context, siteID int64, req types.Updat
 	s.InvalidateDomainCache(siteEntity.Domain)
 	// 清除用户站点列表缓存
 	s.cache.Delete(s.allSitesCacheKey)
+	s.ownerCache.Remove(siteID)
 
 	return siteEntity, nil
 }
@@ -756,6 +763,7 @@ func (s *SiteService) DeleteSite(ctx *gin.Context, id int) error {
 	s.cache.Delete(cacheKey)
 	s.InvalidateDomainCache(site.Domain)
 	s.cache.Delete(s.allSitesCacheKey)
+	s.ownerCache.Remove(int64(id))
 
 	return nil
 }
@@ -780,6 +788,9 @@ func (s *SiteService) GetUserSiteCount(ctx context.Context, userID int64) (int, 
 
 // GetSiteOwnerUserID 获取Site owner的 user_id
 func (s *SiteService) GetSiteOwnerUserID(ctx context.Context, siteID int64) (int64, error) {
+	if uid, ok := s.ownerCache.Get(siteID); ok {
+		return uid, nil
+	}
 	membership, err := s.db.Client.SiteMembership.Query().
 		Where(
 			sitemembership.SiteID(siteID),
@@ -789,6 +800,7 @@ func (s *SiteService) GetSiteOwnerUserID(ctx context.Context, siteID int64) (int
 	if err != nil {
 		return 0, err
 	}
+	s.ownerCache.Add(siteID, membership.UserID)
 	return membership.UserID, nil
 }
 
@@ -983,6 +995,7 @@ func (s *SiteService) VerifySite(ctx context.Context, domain string, userID int6
 	// 清除缓存
 	s.InvalidateDomainCache(domain)
 	s.cache.Delete(s.allSitesCacheKey)
+	s.ownerCache.Remove(siteEntity.ID)
 
 	return nil
 }
