@@ -147,83 +147,60 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 	// 准备结果容器
 	var results []map[string]any
 
+	// 列类型在所有行中不变：提前取一次并预计算每列的 kind，避免在行循环内
+	// 重复调用 rows.ColumnTypes() 并对 DatabaseTypeName() 做两遍字符串 switch。
+	columnTypes := rows.ColumnTypes()
+	kinds := make([]colKind, len(columnTypes))
+	for i, ct := range columnTypes {
+		kinds[i] = classifyColumnKind(ct.DatabaseTypeName())
+	}
+
 	// 遍历行
 	for rows.Next() {
 		// 创建行数据容器
 		row := make(map[string]any)
-		// 获取列类型信息
-		columnTypes := rows.ColumnTypes()
 
-		// 为每一列创建适当类型的指针
+		// 为每一列创建适当类型的指针（按预计算 kind）
 		values := make([]any, len(originalColumns))
 		pointers := make([]any, len(originalColumns))
-		for i, colType := range columnTypes {
-			switch colType.DatabaseTypeName() {
-			case "UInt8":
+		for i := range kinds {
+			switch kinds[i] {
+			case kindUint8:
 				var val uint8
 				values[i] = &val
 				pointers[i] = &val
-			case "UInt16":
+			case kindUint16:
 				var val uint16
 				values[i] = &val
 				pointers[i] = &val
-			case "UInt32":
+			case kindUint32:
 				var val uint32
 				values[i] = &val
 				pointers[i] = &val
-			case "UInt64":
+			case kindUint64:
 				var val uint64
 				values[i] = &val
 				pointers[i] = &val
-			case "Int32":
+			case kindInt32:
 				var val int32
 				values[i] = &val
 				pointers[i] = &val
-			case "Int64":
+			case kindInt64:
 				var val int64
 				values[i] = &val
 				pointers[i] = &val
-			case "Float64", "Decimal":
+			case kindFloat64:
 				var val float64
 				values[i] = &val
 				pointers[i] = &val
-			case "String", "LowCardinality(String)":
+			case kindString:
 				var val string
 				values[i] = &val
 				pointers[i] = &val
 			default:
-				// Fallback: infer Go type from ClickHouse type name
-				typeName := colType.DatabaseTypeName()
-				switch {
-				case strings.Contains(typeName, "Int64"):
-					var val int64
-					values[i] = &val
-					pointers[i] = &val
-				case strings.Contains(typeName, "Int32") || strings.Contains(typeName, "Int16") || strings.Contains(typeName, "Int8"):
-					var val int32
-					values[i] = &val
-					pointers[i] = &val
-				case strings.Contains(typeName, "UInt64"):
-					var val uint64
-					values[i] = &val
-					pointers[i] = &val
-				case strings.Contains(typeName, "UInt32") || strings.Contains(typeName, "UInt16") || strings.Contains(typeName, "UInt8"):
-					var val uint32
-					values[i] = &val
-					pointers[i] = &val
-				case strings.Contains(typeName, "Float") || strings.Contains(typeName, "Decimal"):
-					var val float64
-					values[i] = &val
-					pointers[i] = &val
-				case strings.Contains(typeName, "String") || strings.Contains(typeName, "FixedString") || strings.Contains(typeName, "Enum"):
-					var val string
-					values[i] = &val
-					pointers[i] = &val
-				default:
-					var val any
-					values[i] = &val
-					pointers[i] = &val
-				}
+				var val any
+				values[i] = &val
+				pointers[i] = &val
 			}
 		}
 
@@ -235,41 +212,25 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 		// 处理每一列数据
 		for i, col := range newColumns {
 			var val any
-			switch columnTypes[i].DatabaseTypeName() {
-			case "UInt8":
+			switch kinds[i] {
+			case kindUint8:
 				val = *values[i].(*uint8)
-			case "UInt16":
+			case kindUint16:
 				val = *values[i].(*uint16)
-			case "UInt32":
+			case kindUint32:
 				val = *values[i].(*uint32)
-			case "UInt64":
+			case kindUint64:
 				val = *values[i].(*uint64)
-			case "Int32":
+			case kindInt32:
 				val = *values[i].(*int32)
-			case "Int64":
+			case kindInt64:
 				val = *values[i].(*int64)
-			case "Float64", "Decimal":
+			case kindFloat64:
 				val = *values[i].(*float64)
-			case "String", "LowCardinality(String)":
+			case kindString:
 				val = *values[i].(*string)
 			default:
-				typeName := columnTypes[i].DatabaseTypeName()
-				switch {
-				case strings.Contains(typeName, "Int64"):
-					val = *values[i].(*int64)
-				case strings.Contains(typeName, "Int32") || strings.Contains(typeName, "Int16") || strings.Contains(typeName, "Int8"):
-					val = *values[i].(*int32)
-				case strings.Contains(typeName, "UInt64"):
-					val = *values[i].(*uint64)
-				case strings.Contains(typeName, "UInt32") || strings.Contains(typeName, "UInt16") || strings.Contains(typeName, "UInt8"):
-					val = *values[i].(*uint32)
-				case strings.Contains(typeName, "Float") || strings.Contains(typeName, "Decimal"):
-					val = *values[i].(*float64)
-				case strings.Contains(typeName, "String") || strings.Contains(typeName, "FixedString") || strings.Contains(typeName, "Enum"):
-					val = *values[i].(*string)
-				default:
-					val = *values[i].(*any)
-				}
+				val = *values[i].(*any)
 			}
 			row[col] = convertValue(val)
 		}
@@ -286,6 +247,60 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 		Columns: newColumns,
 		Data:    results,
 	}, nil
+}
+
+// colKind 是列的 Go 目标类型分类，供 processResults 预计算以避免逐行字符串判定。
+type colKind uint8
+
+const (
+	kindAny colKind = iota
+	kindUint8
+	kindUint16
+	kindUint32
+	kindUint64
+	kindInt32
+	kindInt64
+	kindFloat64
+	kindString
+)
+
+// classifyColumnKind 将 ClickHouse DatabaseTypeName() 映射为 colKind，
+// 逻辑与原逐行 switch 完全一致（先精确匹配，再按子串回退）。
+func classifyColumnKind(typeName string) colKind {
+	switch typeName {
+	case "UInt8":
+		return kindUint8
+	case "UInt16":
+		return kindUint16
+	case "UInt32":
+		return kindUint32
+	case "UInt64":
+		return kindUint64
+	case "Int32":
+		return kindInt32
+	case "Int64":
+		return kindInt64
+	case "Float64", "Decimal":
+		return kindFloat64
+	case "String", "LowCardinality(String)":
+		return kindString
+	}
+	switch {
+	case strings.Contains(typeName, "Int64"):
+		return kindInt64
+	case strings.Contains(typeName, "Int32") || strings.Contains(typeName, "Int16") || strings.Contains(typeName, "Int8"):
+		return kindInt32
+	case strings.Contains(typeName, "UInt64"):
+		return kindUint64
+	case strings.Contains(typeName, "UInt32") || strings.Contains(typeName, "UInt16") || strings.Contains(typeName, "UInt8"):
+		return kindUint32
+	case strings.Contains(typeName, "Float") || strings.Contains(typeName, "Decimal"):
+		return kindFloat64
+	case strings.Contains(typeName, "String") || strings.Contains(typeName, "FixedString") || strings.Contains(typeName, "Enum"):
+		return kindString
+	default:
+		return kindAny
+	}
 }
 
 // convertValue 转换ClickHouse特定类型为通用类型

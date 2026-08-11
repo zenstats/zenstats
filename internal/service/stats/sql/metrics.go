@@ -44,6 +44,21 @@ var AvailableMetrics = Metrics{
 		Description: "Unique visitors who completed the goal (numerator of conversion_rate)",
 		Valid:       true,
 	},
+	"percentage": {
+		Name:        "percentage",
+		Description: "Each group's visitors as a percentage of total visitors (breakdown only, computed in Go)",
+		Valid:       true,
+	},
+	"total_revenue": {
+		Name:        "total_revenue",
+		Description: "Sum of event revenue (ecommerce)",
+		Valid:       true,
+	},
+	"average_revenue": {
+		Name:        "average_revenue",
+		Description: "Average revenue per revenue-bearing event (ecommerce)",
+		Valid:       true,
+	},
 	"bounce_rate": {
 		Name:        "bounce_rate",
 		Description: "Bounce rate percentage",
@@ -111,7 +126,20 @@ func (m Metrics) GetMetricSQL(metric string, samplingEnabled bool) (string, erro
 		frag := gen.PageViewsForEvent(samplingEnabled)
 		return fmt.Sprintf("%s as pageviews", frag.ToSql()), nil
 	case "visits":
-		return "sum(sign) as visits", nil
+		// visits 是会话计数，采样开启时需按 _sample_factor 还原真实值，
+		// 否则 visits 被低估、且 Go 侧 views_per_visit=pageviews/visits 会被放大。
+		frag := gen.ScaleSample(SQLFragment{SQL: "sum(sign)"}, samplingEnabled)
+		return fmt.Sprintf("%s as visits", frag.ToSql()), nil
+	case "total_revenue":
+		// 收入总额：NULL(非收入事件) 记为 0；采样开启时按 _sample_factor 放大后取两位小数。
+		expr := "sum(ifNull(revenue, 0))"
+		if samplingEnabled {
+			expr = fmt.Sprintf("%s * any(_sample_factor)", expr)
+		}
+		return fmt.Sprintf("toFloat64(round(%s, 2)) as total_revenue", expr), nil
+	case "average_revenue":
+		// 每笔收入事件的平均收入：avg 自动忽略 NULL；无收入事件时 ifNotFinite 兜底为 0。
+		return "toFloat64(ifNotFinite(round(avg(revenue), 2), 0)) as average_revenue", nil
 	case "events":
 		frag := gen.EventsForEvent(samplingEnabled)
 		return fmt.Sprintf("%s as events", frag.ToSql()), nil

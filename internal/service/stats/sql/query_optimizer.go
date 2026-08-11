@@ -146,7 +146,7 @@ func (qo *QueryOptimizer) metricCategory(metricName string, query *types.Query) 
 	switch metricName {
 	case "conversion_rate", "group_conversion_rate", "percentage":
 		return "either"
-	case "conversions", "revenue", "time_on_page", "scroll_depth", "pageviews", "events":
+	case "conversions", "revenue", "total_revenue", "average_revenue", "time_on_page", "scroll_depth", "pageviews", "events":
 		return "event"
 	case "visit_duration", "views_per_visit", "bounce_rate", "exit_rate":
 		// exit_rate 基于 sum(sign)，只能在 sessions 表计算；归为 session 可避免其被错误

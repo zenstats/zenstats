@@ -122,7 +122,7 @@ func TestGetMetricSQLSessionTable(t *testing.T) {
 		absent   string
 	}{
 		{"bounce_rate", "sum(is_bounce * sign)", ""},
-		{"visit_duration", "avg(duration * sign)", ""},
+		{"visit_duration", "sum(duration * sign) / nullIf(sum(sign), 0)", ""},
 		{"views_per_visit", "sum(pageviews * sign)", ""},
 		{"visits", "sum(sign)", ""},
 		{"visitors", "uniq(user_id)", "sign"},
@@ -369,7 +369,7 @@ func TestSelectSessionMetricsAllSupportedMetrics(t *testing.T) {
 		"uniq(user_id) as visitors",
 		"sum(sign) as visits",
 		"sum(is_bounce * sign)",
-		"avg(duration * sign)",
+		"sum(duration * sign) / nullIf(sum(sign), 0)",
 		"sum(pageviews * sign)",
 	}
 

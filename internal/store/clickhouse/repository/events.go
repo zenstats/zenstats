@@ -39,7 +39,7 @@ func (e *Events) BatchInsert(ctx context.Context, events []*models.Events) error
 		browser, browser_version, user_agent, operating_system_version,
 		engagement_time, scroll_depth,
 		ipv4, country_code, continent_geoname_id, city_geoname_id, coordinates,
-		ipv6, channel
+		ipv6, channel, revenue, revenue_currency
 	)`)
 	if err != nil {
 		slog.Error("prepare batch", "error", err)
@@ -83,6 +83,8 @@ func (e *Events) BatchInsert(ctx context.Context, events []*models.Events) error
 			coords,
 			event.IPv6,
 			event.Channel,
+			event.Revenue,
+			event.RevenueCurrency,
 		)
 
 		if err != nil {

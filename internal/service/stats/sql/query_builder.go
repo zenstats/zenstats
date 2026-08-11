@@ -11,6 +11,18 @@ import (
 // QueryBuilder builds SQL queries based on the analytics query specification
 type QueryBuilder struct {
 	fragmentGenerator *SQLFragmentGenerator
+	// timezone 为站点时区（IANA 名，如 Asia/Shanghai）。时间维度分桶时用它把
+	// UTC timestamp 转成本地时间，使日/周/月/时按站点本地时区划分（空或 UTC 则按 UTC）。
+	timezone string
+}
+
+// tsExpr 返回用于时间维度分桶的 timestamp 表达式：非空且非 UTC 时按站点时区转换。
+// 用 toTimeZone（ClickHouse 内置时区库，正确处理 DST），时区名经转义防注入。
+func (qb *QueryBuilder) tsExpr() string {
+	if qb.timezone == "" || qb.timezone == "UTC" {
+		return "timestamp"
+	}
+	return fmt.Sprintf("toTimeZone(timestamp, '%s')", escapeCHString(qb.timezone))
 }
 
 // NewQueryBuilder creates a new QueryBuilder instance
@@ -22,6 +34,12 @@ func NewQueryBuilder() *QueryBuilder {
 
 // Build constructs the complete SQL query based on the input query and site
 func (qb *QueryBuilder) Build(query *types.Query, site *types.Site) (string, []any, error) {
+	// 记录站点时区，供时间维度分桶按本地时区划分
+	if query.Timezone != "" {
+		qb.timezone = query.Timezone
+	} else {
+		qb.timezone = site.Timezone
+	}
 	qo := &QueryOptimizer{}
 	query = qo.Optimize(query)
 	splits := qo.Split(query)
@@ -936,15 +954,15 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 		return "referrer"
 	case "event:referrer:domain":
 		return "referrer_domain"
-	case "event:utm_source":
+	case "event:utm_source", "visit:utm_source":
 		return "utm_source"
-	case "event:utm_medium":
+	case "event:utm_medium", "visit:utm_medium":
 		return "utm_medium"
-	case "event:utm_campaign":
+	case "event:utm_campaign", "visit:utm_campaign":
 		return "utm_campaign"
-	case "event:utm_content":
+	case "event:utm_content", "visit:utm_content":
 		return "utm_content"
-	case "event:utm_term":
+	case "event:utm_term", "visit:utm_term":
 		return "utm_term"
 	case "event:browser":
 		return "browser"
@@ -1008,6 +1026,8 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 		return col
 	case "visit:device":
 		return "device"
+	case "visit:channel":
+		return "channel"
 	case "visit:browser":
 		return "browser"
 	case "visit:browser_version":
@@ -1048,47 +1068,50 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 		if purpose == "group" {
 			return "minute"
 		}
-		return "formatDateTime(toStartOfInterval(timestamp, INTERVAL 1 minute), '%Y-%m-%d %H:%i') as minute"
+		return fmt.Sprintf("formatDateTime(toStartOfInterval(%s, INTERVAL 1 minute), '%%Y-%%m-%%d %%H:%%i') as minute", qb.tsExpr())
 	case "time:hour":
 		if purpose == "group" {
 			return "hour"
 		}
-		return "formatDateTime(toStartOfHour(timestamp), '%Y-%m-%d %H') as hour"
+		return fmt.Sprintf("formatDateTime(toStartOfHour(%s), '%%Y-%%m-%%d %%H') as hour", qb.tsExpr())
 	case "time:day":
 		if purpose == "group" {
 			return "day"
 		}
-		return "formatDateTime(toStartOfDay(timestamp), '%Y-%m-%d') as day"
+		return fmt.Sprintf("formatDateTime(toStartOfDay(%s), '%%Y-%%m-%%d') as day", qb.tsExpr())
 	case "time:week":
 		if purpose == "group" {
 			return "week"
 		}
-		return "formatDateTime(toStartOfWeek(timestamp), '%Y-%u') as week"
+		// mode=1 => 周一为一周起点，与 Go 端 StartOfInterval(Weekly) 一致；
+		// 标签用 '%Y-%m-%d'（周起始日期）与 fillMissingTimePoints 的 "2006-01-02" 布局一致，
+		// 否则 gap-fill 键不匹配会把每个周/月桶都填成 0。
+		return fmt.Sprintf("formatDateTime(toStartOfWeek(%s, 1), '%%Y-%%m-%%d') as week", qb.tsExpr())
 	case "time:month":
 		if purpose == "group" {
 			return "month"
 		}
-		return "formatDateTime(toStartOfMonth(timestamp), '%Y-%m') as month"
+		return fmt.Sprintf("formatDateTime(toStartOfMonth(%s), '%%Y-%%m-%%d') as month", qb.tsExpr())
 	case "time:quarter":
 		if purpose == "group" {
 			return "quarter"
 		}
-		return "formatDateTime(toStartOfQuarter(timestamp), '%Y-Q%q') as quarter"
+		return fmt.Sprintf("formatDateTime(toStartOfQuarter(%s), '%%Y-Q%%q') as quarter", qb.tsExpr())
 	case "time:year":
 		if purpose == "group" {
 			return "year"
 		}
-		return "formatDateTime(toStartOfYear(timestamp), '%Y') as year"
+		return fmt.Sprintf("formatDateTime(toStartOfYear(%s), '%%Y') as year", qb.tsExpr())
 	case "time:day_of_week":
 		if purpose == "group" {
 			return "day_of_week"
 		}
-		return "formatDateTime(timestamp, '%w') as day_of_week"
+		return fmt.Sprintf("formatDateTime(%s, '%%w') as day_of_week", qb.tsExpr())
 	case "time:day_of_year":
 		if purpose == "group" {
 			return "day_of_year"
 		}
-		return "formatDateTime(timestamp, '%j') as day_of_year"
+		return fmt.Sprintf("formatDateTime(%s, '%%j') as day_of_year", qb.tsExpr())
 	default:
 		if strings.HasPrefix(dimension, "event:props:") {
 			propName := strings.TrimPrefix(dimension, "event:props:")

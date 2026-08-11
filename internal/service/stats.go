@@ -79,7 +79,7 @@ func (s *StatsService) GetAggregate(ctx *gin.Context, siteID int64, req *atypes.
 		From:            req.From,
 		To:              req.To,
 		Timezone:        site.Timezone,
-		Metrics:         parseMetricsWithDefault(req.Metrics, []string{"visitors", "pageviews", "bounce_rate", "visit_duration", "views_per_visit"}),
+		Metrics:         dropSessionMetricsIfEventFiltered(parseMetricsWithDefault(req.Metrics, []string{"visitors", "pageviews", "bounce_rate", "visit_duration", "views_per_visit"}), filters),
 		Dimensions:      []string{},
 		Filters:         filters,
 		SampleThreshold: req.SampleThreshold,
@@ -122,7 +122,7 @@ func (s *StatsService) GetTimeSeries(ctx *gin.Context, siteID int64, req *atypes
 		From:            req.From,
 		To:              req.To,
 		Timezone:        site.Timezone,
-		Metrics:         parseMetricsWithDefault(req.Metrics, []string{"visitors"}),
+		Metrics:         dropSessionMetricsIfEventFiltered(parseMetricsWithDefault(req.Metrics, []string{"visitors"}), filters),
 		Dimensions:      []string{},
 		Filters:         filters,
 		SampleThreshold: req.SampleThreshold,
@@ -213,7 +213,7 @@ func (s *StatsService) GetMainGraph(ctx *gin.Context, siteID int64, req *atypes.
 		return nil, err
 	}
 
-	metricsList := parseMetrics(metricsStr)
+	metricsList := dropSessionMetricsIfEventFiltered(parseMetrics(metricsStr), filters)
 
 	// 当未指定 interval 时，根据周期类型选择默认值
 	interval := req.Interval
@@ -324,7 +324,8 @@ func mergeComparisonTimeSeries(primary, comparison []stats.TimeSeriesPoint, metr
 // QueryV2 POST /api/v2/query 通用查询，支持多维度、排序、offset 分页。
 func (s *StatsService) QueryV2(ctx *gin.Context, siteID int64, period, from, to, date,
 	metricsStr, dimensionStr, filtersStr, orderByStr string,
-	limit, offset int, allDimensions []string, sampleThreshold int64) (any, error) {
+	limit, offset int, allDimensions []string, sampleThreshold int64,
+	compare, compareFrom, compareTo string) (any, error) {
 
 	site, err := GetSiteService().GetSiteByID(ctx, int(siteID))
 	if err != nil {
@@ -359,10 +360,17 @@ func (s *StatsService) QueryV2(ctx *gin.Context, siteID int64, period, from, to,
 			Metrics:  metricsList, Dimensions: []string{},
 			Filters: filters, SampleThreshold: sampleThreshold,
 		}
+		// 对比区间：仅聚合查询支持。设置后 GetAggregate 会自动跑对比查询并返回 comparison_value/change。
+		if cmp := comparisonRange(start, end, site.Timezone, compare, compareFrom, compareTo); cmp != nil {
+			params.ComparisonUTCTimeRange = cmp
+		}
 		qs := s.getQueryService()
 		agg := stats.NewAggregateService(qs)
 		return agg.GetAggregate(ctx, params)
 	}
+
+	// percentage 在 Go 侧按分组访客占比计算：从 SQL 指标中剔除，并确保 visitors 参与查询。
+	sqlMetrics, wantPercentage := stripPercentageMetric(metricsList)
 
 	// 单维度：breakdown 查询
 	params := &types.Params{
@@ -371,7 +379,7 @@ func (s *StatsService) QueryV2(ctx *gin.Context, siteID int64, period, from, to,
 		UTCTimeRange: types.TimeRange{Start: start, End: end},
 		Period: period, Date: date, From: from, To: to,
 		Timezone:        site.Timezone,
-		Metrics:         metricsList,
+		Metrics:         sqlMetrics,
 		Dimensions:      allDimensions,
 		Filters:         filters,
 		SampleThreshold: sampleThreshold,
@@ -388,7 +396,64 @@ func (s *StatsService) QueryV2(ctx *gin.Context, siteID int64, period, from, to,
 		return nil, err
 	}
 	psite := &types.Site{ID: query.SiteID, Timezone: query.Timezone}
-	return qs.Execute(ctx, query, psite)
+	result, err := qs.Execute(ctx, query, psite)
+	if err != nil {
+		return nil, err
+	}
+	if wantPercentage && result != nil {
+		addPercentageColumn(result)
+	}
+	return result, nil
+}
+
+// stripPercentageMetric 从指标列表中剔除 percentage（Go 侧计算），并保证 visitors 存在。
+// 返回用于 SQL 的指标列表和是否请求了 percentage。
+func stripPercentageMetric(metrics []string) (sqlMetrics []string, wantPercentage bool) {
+	sqlMetrics = make([]string, 0, len(metrics)+1)
+	hasVisitors := false
+	for _, m := range metrics {
+		if m == "percentage" {
+			wantPercentage = true
+			continue
+		}
+		if m == "visitors" {
+			hasVisitors = true
+		}
+		sqlMetrics = append(sqlMetrics, m)
+	}
+	if wantPercentage && !hasVisitors {
+		sqlMetrics = append([]string{"visitors"}, sqlMetrics...)
+	}
+	if len(sqlMetrics) == 0 {
+		sqlMetrics = []string{"visitors"}
+	}
+	return sqlMetrics, wantPercentage
+}
+
+// addPercentageColumn 为细分结果每行追加 percentage = 该组 visitors / 总 visitors * 100（保留 1 位小数）。
+func addPercentageColumn(result *types.QueryResult) {
+	var total float64
+	for _, row := range result.Data {
+		total += toFloatValue(row["visitors"])
+	}
+	for _, row := range result.Data {
+		if total > 0 {
+			row["percentage"] = float64(int(toFloatValue(row["visitors"])/total*1000+0.5)) / 10
+		} else {
+			row["percentage"] = float64(0)
+		}
+	}
+	// 在列元数据中登记 percentage（若尚未存在）
+	found := false
+	for _, c := range result.Columns {
+		if c == "percentage" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		result.Columns = append(result.Columns, "percentage")
+	}
 }
 
 // goalBreakdown 处理按 event:goal 维度的细分。ClickHouse 事件表没有 goal_id，
@@ -405,30 +470,54 @@ func (s *StatsService) goalBreakdown(ctx *gin.Context, params *types.Params) (*t
 	qs := s.getQueryService()
 	agg := stats.NewAggregateService(qs)
 
-	rows := make([]map[string]any, 0, len(goals))
-	for _, g := range goals {
-		// 复制 params：去维度/分页/排序/对比，追加该目标的过滤条件
-		p := *params
-		p.Dimensions = []string{}
-		p.Pagination = nil
-		p.OrderBy = nil
-		p.ComparisonUTCTimeRange = nil
-		goalFilter := &types.Filter{Operator: "is", Dimension: "event:goal", Values: []any{g.DisplayName}}
-		p.Filters = append(append([]*types.Filter{}, params.Filters...), goalFilter)
+	// 每个目标一次独立聚合查询；改为有界并发（此前串行，N 个目标 = N 次串行 CH 扫描）。
+	// 结果按索引写入避免竞争；捕获首个错误。ClickHouse 连接池与只读的 *gin.Context 支持并发。
+	rows := make([]map[string]any, len(goals))
+	const goalConcurrency = 8
+	sem := make(chan struct{}, goalConcurrency)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var firstErr error
+	for i := range goals {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int) {
+			defer wg.Done()
+			defer func() { <-sem }()
 
-		res, err := agg.GetAggregate(ctx, &p)
-		if err != nil {
-			return nil, err
-		}
-		row := map[string]any{"name": g.DisplayName}
-		for _, m := range params.Metrics {
-			if mr, ok := res.Results[m]; ok {
-				row[m] = mr.Value
-			} else {
-				row[m] = 0
+			g := goals[i]
+			// 复制 params：去维度/分页/排序/对比，追加该目标的过滤条件
+			p := *params
+			p.Dimensions = []string{}
+			p.Pagination = nil
+			p.OrderBy = nil
+			p.ComparisonUTCTimeRange = nil
+			goalFilter := &types.Filter{Operator: "is", Dimension: "event:goal", Values: []any{g.DisplayName}}
+			p.Filters = append(append([]*types.Filter{}, params.Filters...), goalFilter)
+
+			res, err := agg.GetAggregate(ctx, &p)
+			if err != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+				return
 			}
-		}
-		rows = append(rows, row)
+			row := map[string]any{"name": g.DisplayName}
+			for _, m := range params.Metrics {
+				if mr, ok := res.Results[m]; ok {
+					row[m] = mr.Value
+				} else {
+					row[m] = 0
+				}
+			}
+			rows[i] = row
+		}(i)
+	}
+	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
 	}
 
 	// 排序：默认按第一个指标降序，遵循 OrderBy
@@ -468,6 +557,72 @@ func (s *StatsService) goalBreakdown(ctx *gin.Context, params *types.Params) (*t
 
 	columns := append([]string{"name"}, params.Metrics...)
 	return &types.QueryResult{Columns: columns, Data: rows, TotalRows: total}, nil
+}
+
+// comparisonRange 根据对比模式计算对比区间的 UTC 时间范围，返回 nil 表示不做对比。
+// previous_period：紧邻的等长前一区间；year_over_year：去年同期；custom：显式 compare_from/to。
+func comparisonRange(start, end time.Time, timezone, mode, from, to string) *types.TimeRange {
+	switch mode {
+	case "":
+		return nil
+	case "custom":
+		cs := carbon.Parse(from, timezone)
+		ce := carbon.Parse(to, timezone)
+		if cs.Error != nil || ce.Error != nil {
+			return nil
+		}
+		return &types.TimeRange{
+			Start: cs.StartOfDay().SetTimezone(carbon.UTC).StdTime(),
+			End:   ce.EndOfDay().SetTimezone(carbon.UTC).StdTime(),
+		}
+	case "year_over_year":
+		return &types.TimeRange{
+			Start: start.AddDate(-1, 0, 0),
+			End:   end.AddDate(-1, 0, 0),
+		}
+	default: // previous_period
+		dur := end.Sub(start)
+		return &types.TimeRange{
+			Start: start.Add(-dur),
+			End:   end.Add(-dur),
+		}
+	}
+}
+
+// hasEventOnlyFilter 判断过滤器中是否存在事件专属维度（event:name / event:goal / event:props:*）。
+// 这类维度只在 events 表可过滤，无法作用于 sessions 表。
+func hasEventOnlyFilter(filters []*types.Filter) bool {
+	for _, f := range filters {
+		if f != nil && f.AnyDimension(func(dim string) bool {
+			return dim == "event:name" || dim == "event:goal" || strings.HasPrefix(dim, "event:props:")
+		}) {
+			return true
+		}
+	}
+	return false
+}
+
+// dropSessionMetricsIfEventFiltered 当存在事件专属过滤器时，从固定指标集中剔除
+// 只能在 sessions 表计算的指标（bounce_rate / visit_duration / views_per_visit）。
+// 这些指标无法按事件维度过滤，若保留会让整个聚合/时序查询被后端校验拒绝（400）。
+// 用于仪表盘这类"指标集固定、过滤器由用户添加"的路径：剔除后查询仍可返回 visitors/pageviews 等，
+// 被剔除的会话指标在结果中缺省（前端显示为 0/空），而不是让整块面板报错。
+func dropSessionMetricsIfEventFiltered(metrics []string, filters []*types.Filter) []string {
+	if !hasEventOnlyFilter(filters) {
+		return metrics
+	}
+	strictlySession := map[string]bool{"bounce_rate": true, "visit_duration": true, "views_per_visit": true}
+	out := make([]string, 0, len(metrics))
+	for _, m := range metrics {
+		if !strictlySession[m] {
+			out = append(out, m)
+		}
+	}
+	// 若全部被剔除（如时序图仅请求了一个会话指标），回退到 visitors，避免空指标查询返回空图。
+	if len(out) == 0 {
+		return []string{"visitors"}
+	}
+	return out
 }
 
 // toFloatValue 将任意数值类型转为 float64，用于排序比较。

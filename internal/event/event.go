@@ -170,6 +170,13 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	// set timestamp
 	eventResult.Timestamp = eventRequest.Timestamp
 	eventResult.Interactive = eventRequest.Interactive
+	// 电商收入：amount 解析为 float64 后写入；无效/缺省则保持 nil（ClickHouse NULL）
+	if eventRequest.Revenue != nil {
+		if amt, err := eventRequest.Revenue.Amount.Float64(); err == nil {
+			eventResult.Revenue = &amt
+			eventResult.RevenueCurrency = eventRequest.Revenue.Currency
+		}
+	}
 	// set siteid
 	site, err := e.siteService.GetSiteByDomain(e.shutdownCtx, eventRequest.Domain)
 	if err != nil {

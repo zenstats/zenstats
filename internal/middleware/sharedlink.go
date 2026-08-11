@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/service"
+	"github.com/zenstats/zenstats/pkg/bcrypt"
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
@@ -15,6 +16,20 @@ func SharedLinkOrAPIKeyOrJWTAuth() gin.HandlerFunc {
 		if slug := c.Query("slug"); slug != "" {
 			link, err := service.GetSharedLinkService().GetBySlug(c, slug)
 			if err == nil {
+				// 密码保护校验：链接若设置了密码，必须提供且匹配才放行。
+				// 此前完全未校验 PasswordHash → "密码保护"形同虚设（拿到 slug 即可访问）。
+				// 密码通过 X-Shared-Link-Password 头或 ?link_password= 传入；缺失/错误一律拒绝（fail-closed）。
+				if link.PasswordHash != "" {
+					pw := c.GetHeader("X-Shared-Link-Password")
+					if pw == "" {
+						pw = c.Query("link_password")
+					}
+					if pw == "" || !bcrypt.Check(pw, link.PasswordHash) {
+						response.ErrorWithKey(c, http.StatusUnauthorized, "sharedlink.password_required")
+						c.Abort()
+						return
+					}
+				}
 				// Slug is valid, write site_id and auth type to context
 				c.Set("shared_link_site_id", link.SiteID)
 				c.Set("auth_type", "shared_link")

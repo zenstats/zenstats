@@ -91,7 +91,7 @@ func GenerateSubAccountRefreshToken(subAccountID, parentUserID int64, role strin
 func ParseToken(tokenString string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (any, error) {
 		return jwtSecret(), nil
-	})
+	}, jwt.WithValidMethods([]string{"HS256"})) // 固定签名算法，防止 alg 混淆攻击
 	if err != nil {
 		return nil, err
 	}

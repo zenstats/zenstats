@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zenstats/zenstats/config"
 	"github.com/zenstats/zenstats/internal/api/router"
-	"github.com/zenstats/zenstats/internal/event"
+	eventpkg "github.com/zenstats/zenstats/internal/event"
 	"github.com/zenstats/zenstats/internal/middleware"
 	"github.com/zenstats/zenstats/pkg/globals"
 )
@@ -32,7 +32,7 @@ the address is defined in config file`,
 
 		queue := globals.GetQueue()
 
-		event, err := event.NewEventWork(queue, 1024, 0)
+		event, err := eventpkg.NewEventWork(queue, 1024, 0)
 		if err != nil {
 			slog.Error("Failed to start event worker", "error", err)
 			return
@@ -102,6 +102,11 @@ the address is defined in config file`,
 		}()
 
 		wg.Wait()
+
+		// 落盘内存中的月度配额计数，再释放 DB。
+		// 配额此前仅每小时持久化一次，重启会丢失最多约 1 小时的增量（导致少计费）。
+		eventpkg.GetMonthlyQuota().Stop()
+		eventpkg.GetMonthlyQuota().Flush()
 
 		// Release DB connections only after all writes are done
 		Release()

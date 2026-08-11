@@ -57,6 +57,16 @@ func APIKeyOrJWTAuth() gin.HandlerFunc {
 			}
 			c.Set("user_id", claims.UserID)
 			c.Set("auth_type", "jwt")
+			// 与 JWTAuth 保持一致地写入子账号身份/权限，否则 SubAccountHasPerm 因缺少 user_type
+			// 而误判为非子账号并放行——会让无对应写权限的子账号绕过 v2 路由上的权限门控。
+			c.Set("user_type", claims.UserType)
+			c.Set("sub_account_id", claims.SubAccountID)
+			c.Set("role", claims.Role)
+			permSet := make(map[string]struct{}, len(claims.Permissions))
+			for _, p := range claims.Permissions {
+				permSet[p] = struct{}{}
+			}
+			c.Set("permissions", permSet)
 		}
 
 		c.Next()

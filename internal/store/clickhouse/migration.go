@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/zenstats/zenstats/config"
 )
 
 type Migration struct {
@@ -137,18 +138,31 @@ SETTINGS index_granularity = 128;
 }
 
 func (m *Migration) ensureLocationDataDictTable(ctx context.Context) error {
-	sql := `CREATE DICTIONARY IF NOT EXISTS zenstats_events_db.location_data_dict
+	// 字典的 CLICKHOUSE 源需显式提供连接凭据：CH 服务端用户为 zenstats（非 default），
+	// 若源不带 USER/PASSWORD，字典会以 default 用户连接并认证失败（code 516），
+	// 导致所有 country_name/city_name/region_name(dictGet) 的国家/城市细分 500。
+	// 用 CREATE OR REPLACE 保证已存在的旧字典也会被带凭据重建。
+	user := escapeCHDictLiteral(config.Conf.Clickhouse.Username)
+	pass := escapeCHDictLiteral(config.Conf.Clickhouse.Password)
+	sql := fmt.Sprintf(`CREATE OR REPLACE DICTIONARY zenstats_events_db.location_data_dict
 (
     {{backtick}}type{{backtick}} String,
     {{backtick}}id{{backtick}} String,
     {{backtick}}name{{backtick}} String
 )
 PRIMARY KEY type, id
-SOURCE(CLICKHOUSE(TABLE location_data DB 'zenstats_events_db'))
+SOURCE(CLICKHOUSE(TABLE location_data DB 'zenstats_events_db' USER '%s' PASSWORD '%s'))
 LIFETIME(MIN 0 MAX 0)
-LAYOUT(COMPLEX_KEY_CACHE(SIZE_IN_CELLS 500000));`
+LAYOUT(COMPLEX_KEY_CACHE(SIZE_IN_CELLS 500000));`, user, pass)
 
 	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+}
+
+// escapeCHDictLiteral 转义字典 DDL 字符串字面量中的反斜杠与单引号。
+func escapeCHDictLiteral(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	return s
 }
 
 func (m *Migration) ensureImportedVisitorsTable(ctx context.Context) error {
@@ -477,7 +491,9 @@ func (m *Migration) ensureEventsTable(ctx context.Context) error {
     {{backtick}}country_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('country', country_code)),
     {{backtick}}city_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('city', city_geoname_id)),
     {{backtick}}continent_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('continent', continent_geoname_id)),
-    {{backtick}}channel{{backtick}} LowCardinality(String)
+    {{backtick}}channel{{backtick}} LowCardinality(String),
+    {{backtick}}revenue{{backtick}} Nullable(Float64),
+    {{backtick}}revenue_currency{{backtick}} LowCardinality(String)
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMM(timestamp)
@@ -491,7 +507,20 @@ SETTINGS index_granularity = 8192, non_replicated_deduplication_window = 1000;`
 	}
 	// 已存在的表补齐去重窗口（新建表已含于 SETTINGS）。
 	m.enableInsertDedup(ctx, "events")
+	// 已存在的表补齐收入列（幂等）。
+	if err := m.ensureEventRevenueColumns(ctx); err != nil {
+		slog.Error("ensure event revenue columns failed", "error", err)
+	}
 	return nil
+}
+
+// ensureEventRevenueColumns 为已存在的 events 表补齐收入列（幂等 ADD COLUMN IF NOT EXISTS）。
+// revenue 为 Nullable(Float64)：非收入事件为 NULL，聚合时被 sum/avg 忽略。
+func (m *Migration) ensureEventRevenueColumns(ctx context.Context) error {
+	sql := "ALTER TABLE zenstats_events_db.events " +
+		"ADD COLUMN IF NOT EXISTS revenue Nullable(Float64), " +
+		"ADD COLUMN IF NOT EXISTS revenue_currency LowCardinality(String)"
+	return m.conn.Exec(ctx, sql)
 }
 
 // enableInsertDedup 为已存在的表开启插入去重窗口，使携带相同 insert_deduplication_token

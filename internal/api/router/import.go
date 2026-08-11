@@ -9,8 +9,9 @@ import (
 func RegisterImportRouter(router *gin.RouterGroup) {
 	handle := imports.NewImportHandle()
 
+	// 上传是写操作：仅父账号可导入历史数据（子账号只读），与 API Key/站点管理等写操作一致。
 	uploadGroup := router.Group("/sites/:domain/import", middleware.JWTAuth(), middleware.SiteMembershipAuth())
-	uploadGroup.POST("/upload", handle.Upload())
+	uploadGroup.POST("/upload", middleware.SubAccountReadOnly(), handle.Upload())
 
 	// 导入数据的查询接口与上传保持一致，仅需站点成员身份（不要求站点已验证）：
 	// 导入的是历史/手动数据，与追踪脚本是否验证无关，未验证站点也应能查看导入结果。

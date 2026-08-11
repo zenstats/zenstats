@@ -43,5 +43,9 @@ type Events struct {
 	UtmCampaign string `json:"utm_campaign" ch:"utm_campaign"`
 	Channel     string `json:"channel" ch:"channel"`
 
+	// 收入（电商）：非收入事件为 nil，写入 ClickHouse Nullable(Float64)
+	Revenue         *float64 `json:"revenue" ch:"revenue"`
+	RevenueCurrency string   `json:"revenue_currency" ch:"revenue_currency"`
+
 	Interactive bool `json:"interactive"` // 是否交互
 }

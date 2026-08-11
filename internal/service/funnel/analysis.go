@@ -230,16 +230,25 @@ func (s *AnalysisService) buildGoalCondition(step *FunnelStep) string {
 	}
 
 	// 追加自定义属性过滤条件
+	// key/val 来自用户配置的目标自定义属性，必须转义反斜杠与单引号，
+	// 防止值中的引号闭合 SQL 字符串导致 ClickHouse 注入（可跨租户读取）。
 	if len(step.CustomProps) > 0 {
 		for key, val := range step.CustomProps {
 			baseCond += fmt.Sprintf(
 				` AND "meta.value"[indexOf("meta.key", '%s')] = '%s'`,
-				key, val,
+				escapeCHString(key), escapeCHString(val),
 			)
 		}
 	}
 
 	return baseCond
+}
+
+// escapeCHString 转义反斜杠与单引号，用于安全嵌入 ClickHouse 字符串字面量。
+func escapeCHString(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	return s
 }
 
 // hasWildcard 检查字符串是否包含通配符 * 或 ?

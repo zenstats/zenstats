@@ -50,6 +50,8 @@ func DefaultIntervalForPeriod(period string) string {
 		return "hourly"
 	case "realtime":
 		return "minute"
+	case "6mo", "12mo", "year":
+		return "monthly"
 	default:
 		return "daily"
 	}

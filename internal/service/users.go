@@ -158,6 +158,17 @@ func (s *UserService) GetUserCountAdmin(ctx context.Context) (int, error) {
 	return s.db.Client.User.Query().Count(ctx)
 }
 
+// GetUserStatus 返回用户状态（"active" / "suspended"）。无配置记录时按 "active" 处理，避免误锁旧账号。
+func (s *UserService) GetUserStatus(ctx context.Context, userID int64) string {
+	config, err := s.db.Client.UserConfig.Query().
+		Where(userconfig.UserID(userID)).
+		Only(ctx)
+	if err != nil || config == nil {
+		return "active"
+	}
+	return config.Status
+}
+
 // UpdateUserStatus 更新用户状态
 func (s *UserService) UpdateUserStatus(ctx context.Context, userID int64, status string) error {
 	config, err := s.db.Client.UserConfig.Query().

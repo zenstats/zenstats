@@ -37,6 +37,12 @@ type QueryV2Request struct {
 
 	// 采样
 	SampleThreshold int64 `json:"sample_threshold"`
+
+	// 对比（仅聚合查询）：previous_period | year_over_year | custom
+	// custom 模式下用 compare_from/compare_to 指定对比区间
+	Compare     string `json:"compare"`
+	CompareFrom string `json:"compare_from"`
+	CompareTo   string `json:"compare_to"`
 }
 
 // QueryV2 POST /api/v2/query 通用查询入口，支持多维度、排序、offset Pagination。
@@ -94,13 +100,16 @@ func (s *StatsHandle) QueryV2() gin.HandlerFunc {
 		}
 
 		metricsStr := strings.Join(req.Metrics, ",")
+		// 多维细分由 req.Dimensions（全部维度）驱动，SQL 会对所有维度 SELECT + GROUP BY，
+		// 结果保留各维度列。dimensionsStr 仅为兼容旧签名传入首个维度，不再限制维度数量。
 		dimensionsStr := ""
 		if len(req.Dimensions) > 0 {
-			dimensionsStr = req.Dimensions[0] // Currently supports single dimension; multi-dimension queries iterate over the dimension list
+			dimensionsStr = req.Dimensions[0]
 		}
 
 		result, err := s.statsService.QueryV2(c, siteID, period, req.From, req.To, req.Date,
-			metricsStr, dimensionsStr, filtersStr, orderByStr, limit, req.Offset, req.Dimensions, req.SampleThreshold)
+			metricsStr, dimensionsStr, filtersStr, orderByStr, limit, req.Offset, req.Dimensions, req.SampleThreshold,
+			req.Compare, req.CompareFrom, req.CompareTo)
 		if err != nil {
 			var validationErr *querystats.ValidationError
 			if isValidationError(err, &validationErr) {

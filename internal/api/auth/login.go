@@ -48,6 +48,12 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 			return
 		}
 
+		// 拒绝已被管理员停用的父账号（此前只校验密码，停用不生效）
+		if h.service.GetUserStatus(c.Request.Context(), user.ID) == "suspended" {
+			response.Error(c, http.StatusForbidden, errors.New("account suspended"))
+			return
+		}
+
 		// 颁发jwt token
 		token, err := auth.GenerateToken(user.ID)
 		if err != nil {

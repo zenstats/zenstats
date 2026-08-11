@@ -357,8 +357,8 @@ func (wb *WhereBuilder) addSimpleFilter(table string, filter *types.Filter) erro
 // 字段名映射和值转换
 func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
 	switch name {
-	case "channel":
-		return "acquisition_channel", nil
+	case "channel", "visit:channel":
+		return "channel", nil
 	case "event:name":
 		return "name", nil
 	case "event:goal":
@@ -395,6 +395,17 @@ func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
 		return "device", nil
 	case "visit:screen_size":
 		return "screen_size", nil
+	// UTM 维度（event:/visit: 两种规范名映射到同一列，用于过滤）
+	case "event:utm_source", "visit:utm_source":
+		return "utm_source", nil
+	case "event:utm_medium", "visit:utm_medium":
+		return "utm_medium", nil
+	case "event:utm_campaign", "visit:utm_campaign":
+		return "utm_campaign", nil
+	case "event:utm_content", "visit:utm_content":
+		return "utm_content", nil
+	case "event:utm_term", "visit:utm_term":
+		return "utm_term", nil
 	default:
 		if strings.HasPrefix(name, "event:props:") {
 			propName := strings.TrimPrefix(name, "event:props:")
@@ -491,9 +502,9 @@ func (wb *WhereBuilder) addGoalCustomProps(props map[string]string) {
 		return
 	}
 	for key, val := range props {
-		// Escape single quotes in key/val for safe SQL embedding
-		escapedKey := strings.ReplaceAll(key, "'", "\\'")
-		escapedVal := strings.ReplaceAll(val, "'", "\\'")
+		// 转义反斜杠与单引号，防止 key/val 中的反斜杠或引号破坏 SQL 字符串字面量
+		escapedKey := escapeCHString(key)
+		escapedVal := escapeCHString(val)
 		wb.AddCondition(fmt.Sprintf("has(meta.key, '%s')", escapedKey))
 		wb.AddCondition(fmt.Sprintf("meta.value[indexOf(meta.key, '%s')] = '%s'", escapedKey, escapedVal))
 	}
@@ -519,7 +530,7 @@ func (wb *WhereBuilder) addIsFilter(field string, values any, modifiers map[stri
 	}
 
 	fieldExpr := field
-	if val, ok := modifiers["case_sensitive"]; ok && val == "true" {
+	if val, ok := modifiers["case_sensitive"]; ok && val == "false" {
 		fieldExpr = fmt.Sprintf("lower(%s)", field)
 		for i, v := range params {
 			if strVal, ok := v.(string); ok {
@@ -555,7 +566,7 @@ func (wb *WhereBuilder) addIsNotFilter(field string, values any, modifiers map[s
 	}
 
 	fieldExpr := field
-	if val, ok := modifiers["case_sensitive"]; ok && val == "true" {
+	if val, ok := modifiers["case_sensitive"]; ok && val == "false" {
 		fieldExpr = fmt.Sprintf("lower(%s)", field)
 		for i, v := range params {
 			if strVal, ok := v.(string); ok {
@@ -605,7 +616,7 @@ func (wb *WhereBuilder) addContainsFilter(field string, value any, modifiers map
 	}
 
 	fieldExpr := fmt.Sprintf("toString(%s)", field)
-	if val, ok := modifiers["case_sensitive"]; ok && val == "true" {
+	if val, ok := modifiers["case_sensitive"]; ok && val == "false" {
 		fieldExpr = fmt.Sprintf("lower(%s)", fieldExpr)
 		// 对所有字符串进行小写转换
 		for i, strVal := range strVals {
@@ -642,7 +653,7 @@ func (wb *WhereBuilder) addContainsNotFilter(field string, value any, modifiers 
 	}
 
 	fieldExpr := fmt.Sprintf("toString(%s)", field)
-	if val, ok := modifiers["case_sensitive"]; ok && val == "true" {
+	if val, ok := modifiers["case_sensitive"]; ok && val == "false" {
 		fieldExpr = fmt.Sprintf("lower(%s)", fieldExpr)
 		// 对所有字符串进行小写转换
 		for i, strVal := range strVals {
@@ -664,7 +675,7 @@ func (wb *WhereBuilder) addMatchesFilter(fieldExpr string, patterns any, modifie
 	}
 
 	// 处理大小写敏感
-	if val, ok := modifiers["case_sensitive"]; ok && val == "true" {
+	if val, ok := modifiers["case_sensitive"]; ok && val == "false" {
 		fieldExpr = fmt.Sprintf("lower(%s)", fieldExpr)
 		for i, p := range patternList {
 			patternList[i] = strings.ToLower(p)
@@ -683,7 +694,7 @@ func (wb *WhereBuilder) addMatchesNotFilter(field string, patterns any, modifier
 	}
 
 	fieldExpr := field
-	if val, ok := modifiers["case_sensitive"]; ok && val == "true" {
+	if val, ok := modifiers["case_sensitive"]; ok && val == "false" {
 		fieldExpr = fmt.Sprintf("lower(%s)", field)
 		for i, p := range patternList {
 			patternList[i] = strings.ToLower(p)
@@ -706,7 +717,7 @@ func (wb *WhereBuilder) addMatchesWildcardFilter(field string, patterns any, mod
 	}
 
 	fieldExpr := field
-	if val, ok := modifiers["case_sensitive"]; ok && val == "true" {
+	if val, ok := modifiers["case_sensitive"]; ok && val == "false" {
 		fieldExpr = fmt.Sprintf("lower(%s)", field)
 	}
 
@@ -726,7 +737,7 @@ func (wb *WhereBuilder) addMatchesWildcardNotFilter(field string, patterns any, 
 	}
 
 	fieldExpr := field
-	if val, ok := modifiers["case_sensitive"]; ok && val == "true" {
+	if val, ok := modifiers["case_sensitive"]; ok && val == "false" {
 		fieldExpr = fmt.Sprintf("lower(%s)", field)
 	}
 

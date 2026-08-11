@@ -143,11 +143,13 @@ func (g *SQLFragmentGenerator) ViewsPerVisit() SQLFragment {
 	}
 }
 
-// VisitDuration 计算平均访问时长。使用 greatest 防止 sign 负值导致的下溢。
 // VisitDuration 平均会话时长（秒，保留两位小数）。
+// 会话表是 VersionedCollapsingMergeTree：一个会话有多行（含 sign=-1 的墓碑和多个 sign=+1 版本），
+// 必须用 sum(duration*sign)/sum(sign) 折叠，而非 avg()（否则墓碑/旧版本行被一并平均，时长被严重低估）。
+// nullIf 防止除零，ifNotFinite/greatest 兜底 NULL/负值。
 func (g *SQLFragmentGenerator) VisitDuration() SQLFragment {
 	return SQLFragment{
-		SQL:  "toFloat64(greatest(ifNotFinite(round(avg(duration * sign)), 0), 0))",
+		SQL:  "toFloat64(greatest(ifNotFinite(round(sum(duration * sign) / nullIf(sum(sign), 0)), 0), 0))",
 		Args: nil,
 	}
 }

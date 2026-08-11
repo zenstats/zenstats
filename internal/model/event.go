@@ -6,20 +6,27 @@ import (
 )
 
 // EventRequest Event data structure reported by the tracker SDK. Fields use short keys to reduce transmission size.
+// RevenuePayload 电商收入负载：amount 兼容字符串或数字（json.Number），currency 为 ISO 货币码。
+type RevenuePayload struct {
+	Amount   json.Number `json:"amount"`
+	Currency string      `json:"currency"`
+}
+
 type EventRequest struct {
-	Timestamp      time.Time      `json:"t" example:"2025-01-01T00:00:00Z"`
-	Hash           int8           `form:"h" json:"h" example:"0"`
-	EventName      string         `form:"n" json:"n" example:"pageview"`
-	JSVersion      string         `form:"v" json:"v" example:"1.0.0"`
-	URL            string         `form:"u" json:"u" example:"https://example.com/page"`
-	Domain         string         `form:"d" json:"d" example:"example.com"`
-	Referrer       string         `form:"r" json:"r" example:"https://google.com"`
-	Props          map[string]any `form:"p" json:"p"`
-	EngagementTime int            `form:"e" json:"e" example:"15000"`
-	ScrollDepth    uint8          `form:"sd" json:"sd" example:"85"`
-	Interactive    bool           `form:"i" json:"i" example:"true"`
-	UserAgent      string         `json:"-"`
-	Ip             string         `json:"-"`
+	Timestamp      time.Time       `json:"t" example:"2025-01-01T00:00:00Z"`
+	Hash           int8            `form:"h" json:"h" example:"0"`
+	EventName      string          `form:"n" json:"n" example:"pageview"`
+	JSVersion      string          `form:"v" json:"v" example:"1.0.0"`
+	URL            string          `form:"u" json:"u" example:"https://example.com/page"`
+	Domain         string          `form:"d" json:"d" example:"example.com"`
+	Referrer       string          `form:"r" json:"r" example:"https://google.com"`
+	Props          map[string]any  `form:"p" json:"p"`
+	EngagementTime int             `form:"e" json:"e" example:"15000"`
+	ScrollDepth    uint8           `form:"sd" json:"sd" example:"85"`
+	Interactive    bool            `form:"i" json:"i" example:"true"`
+	Revenue        *RevenuePayload `json:"revenue"`
+	UserAgent      string          `json:"-"`
+	Ip             string          `json:"-"`
 }
 
 type TempEventRequest struct {
@@ -34,6 +41,7 @@ type TempEventRequest struct {
 	EngagementTime int              `form:"e" json:"e"`       // Page view time
 	ScrollDepth    uint8            `form:"sd" json:"sd"`     // Scroll depth
 	Interactive    *json.RawMessage `form:"i" json:"i"`       // Whether the event is interactive
+	Revenue        *RevenuePayload  `json:"revenue"`          // 电商收入 {amount, currency}
 	UserAgent      string
 	Ip             string
 }

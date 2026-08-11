@@ -62,6 +62,11 @@ func (h *AuthHandler) Refresh() gin.HandlerFunc {
 			}
 			token, err = authJwt.GenerateSubAccountToken(subAccount.ID, subAccount.ParentUserID, subAccount.Role, subAccount.Permissions)
 		} else {
+			// 刷新时同样校验父账号状态，防止已停用账号靠刷新令牌续命
+			if h.service.GetUserStatus(c.Request.Context(), claims.UserID) == "suspended" {
+				response.Error(c, http.StatusForbidden, errors.New("account suspended"))
+				return
+			}
 			token, err = authJwt.GenerateToken(claims.UserID)
 		}
 		if err != nil {

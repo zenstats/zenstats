@@ -193,7 +193,7 @@ func TestTimeDimensionsUseStableAliasesForSelectAndGroupBy(t *testing.T) {
 	}{
 		{dimension: "time:hour", alias: "hour", selectPart: "toStartOfHour(timestamp)"},
 		{dimension: "time:day", alias: "day", selectPart: "toStartOfDay(timestamp)"},
-		{dimension: "time:week", alias: "week", selectPart: "toStartOfWeek(timestamp)"},
+		{dimension: "time:week", alias: "week", selectPart: "toStartOfWeek(timestamp, 1)"},
 		{dimension: "time:month", alias: "month", selectPart: "toStartOfMonth(timestamp)"},
 	}
 

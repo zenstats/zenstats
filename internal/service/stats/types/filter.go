@@ -43,6 +43,22 @@ func ParseRawFilter(raw []any) (*Filter, error) {
 	}
 
 	switch op {
+	case "not", "has_done", "has_not_done":
+		// 单子过滤器包装：["not", 子过滤]、["has_done", 子过滤]、["has_not_done", 子过滤]。
+		// 此前落到 default 被当作基础过滤器误解析（子过滤数组被当成维度字符串），
+		// 导致 has_done/not 无法使用。解析为 SubFilters 供 WHERE 构建器处理。
+		if len(raw) < 2 {
+			return nil, errors.New("'" + op + "' filter requires a sub-filter")
+		}
+		subArr, ok := raw[1].([]any)
+		if !ok {
+			return nil, errors.New("'" + op + "' sub-filter must be an array")
+		}
+		sub, err := ParseRawFilter(subArr)
+		if err != nil {
+			return nil, err
+		}
+		return &Filter{Operator: op, SubFilters: []*Filter{sub}}, nil
 	case "and", "or":
 		// 复合过滤器，第二项是子过滤器数组
 		if len(raw) < 2 {
@@ -114,7 +130,7 @@ func ParseRawFiltersJSON(raw string) ([]*Filter, error) {
 		return nil, errors.New("filters must be a non-empty array")
 	}
 
-	if op, ok := arr[0].(string); ok && (op == "and" || op == "or") {
+	if op, ok := arr[0].(string); ok && (op == "and" || op == "or" || op == "not" || op == "has_done" || op == "has_not_done") {
 		filter, err := ParseRawFilter(arr)
 		if err != nil {
 			return nil, err

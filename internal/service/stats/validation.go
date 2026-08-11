@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -26,16 +27,23 @@ func (e *ValidationError) Error() string {
 }
 
 // validatePeriod checks if the period parameter is valid
-func validatePeriod(params *types.Params) error {
-	validPeriods := map[string]bool{"day": true, "yesterday": true, "w": true, "m": true, "p7": true, "p14": true, "p30": true, "custom": true, "realtime": true}
-	if params.Period != "" && !validPeriods[params.Period] {
-		return &ValidationError{
-			StatusCode: 400,
-			Message:    "Error parsing `period` parameter: invalid period `" + params.Period + "`",
-		}
-	}
+// periodShorthandRe 匹配 Plausible 风格的相对区间简写：Nd（最近 N 天）、Nmo（最近 N 个月）。
+var periodShorthandRe = regexp.MustCompile(`^\d+(d|mo)$`)
 
-	return nil
+func validatePeriod(params *types.Params) error {
+	validPeriods := map[string]bool{
+		"day": true, "yesterday": true, "w": true, "m": true,
+		"p7": true, "p14": true, "p30": true, "custom": true, "realtime": true,
+		// 与 Plausible 对齐的日历/相对区间
+		"month": true, "6mo": true, "12mo": true, "year": true, "all": true,
+	}
+	if params.Period == "" || validPeriods[params.Period] || periodShorthandRe.MatchString(params.Period) {
+		return nil
+	}
+	return &ValidationError{
+		StatusCode: 400,
+		Message:    "Error parsing `period` parameter: invalid period `" + params.Period + "`",
+	}
 }
 
 // validateIntervals checks if the intervals parameter is valid
@@ -333,6 +341,13 @@ func isValidDimension(dimension string) bool {
 		"visit:source":              true,
 		"visit:medium":              true,
 		"visit:referrer":            true,
+		"visit:channel":             true, // 获客渠道（采集时计算，存于 channel 列）
+		// Plausible 规范的 UTM 维度名（数据与 event:utm_* 同列）
+		"visit:utm_source":   true,
+		"visit:utm_medium":   true,
+		"visit:utm_campaign": true,
+		"visit:utm_content":  true,
+		"visit:utm_term":     true,
 		"visit:device":              true,
 		"visit:browser":             true,
 		"visit:browser_version":     true,
@@ -474,16 +489,13 @@ func validateMetric(metric string, params *types.Params) error {
 	}
 
 	// Special case for exit_rate
+	// exit_rate 语义是"结束在各页面的会话占比"，只有按 event:page 拆分才有意义。
+	// 仅带页面过滤（无维度）时无 GROUP BY，over() 分母=分子恒为 100%，且过滤会被改写到入口页，
+	// 均为退化/错误结果，故收紧为必须按 event:page 拆分。
 	if metric == "exit_rate" {
-		// Exit rate requires event:page dimension or filter
-		if len(params.Dimensions) > 0 {
-			if len(params.Dimensions) != 1 || params.Dimensions[0] != "event:page" {
-				return errors.New("metric `exit_rate` is only supported with `event:page` breakdown")
-			}
-		} else if !isFilteringOnDimension(params, "event:page") {
-			return errors.New("metric `exit_rate` requires either a page breakdown or page filter")
+		if len(params.Dimensions) != 1 || params.Dimensions[0] != "event:page" {
+			return errors.New("metric `exit_rate` is only supported with an `event:page` breakdown")
 		}
-
 		return nil
 	}
 
@@ -497,10 +509,24 @@ func validateMetric(metric string, params *types.Params) error {
 		return nil
 	}
 
+	// percentage 只在细分（breakdown）下有意义：每个分组访客数占总访客的百分比。
+	// 聚合查询下拒绝，与 Plausible 一致。
+	if metric == "percentage" {
+		if len(params.Dimensions) == 0 {
+			return &ValidationError{
+				StatusCode: 400,
+				Message:    "metric `percentage` can only be queried with a dimension (breakdown)",
+			}
+		}
+		return nil
+	}
+
 	// Basic metrics that don't need special validation
 	// conversions 是事件维度指标（uniq user_id），在 goal 过滤下即转化人数，
 	// 必须在此放行，否则会落入 validateSessionMetric 因 event:goal 过滤被误拒。
-	if metric == "visitors" || metric == "events" || metric == "percentage" || metric == "conversions" {
+	// total_revenue/average_revenue 是事件级收入指标，同样在 events 表计算，直接放行。
+	if metric == "visitors" || metric == "events" || metric == "conversions" ||
+		metric == "total_revenue" || metric == "average_revenue" {
 		return nil
 	}
 
@@ -529,12 +555,27 @@ func validateSessionMetric(metric string, params *types.Params) error {
 		}
 	}
 
-	// Check if filtering by event-only property
-	if filter := findEventOnlyFilter(params); filter != "" {
-		return errors.New("session metric `" + metric + "` cannot be queried when using a filter on `" + filter + "`.")
+	// 仅对"必须在 sessions 表计算"的指标拦截事件专属过滤器：
+	// 这些指标在拆分时落到 sessions 表，而 sessions 表无法按 event:name/goal/props 过滤，
+	// 过滤器会被静默丢弃导致返回未过滤的错误数值。visits/pageviews/visitors 等落在 events 表，
+	// 过滤器能正常生效，不应拦截。
+	if isStrictlySessionMetric(metric) {
+		if filter := findEventOnlyFilter(params); filter != "" {
+			return errors.New("session metric `" + metric + "` cannot be queried when using a filter on `" + filter + "`.")
+		}
 	}
 
 	return nil
+}
+
+// isStrictlySessionMetric 判断指标是否只能在 sessions 表计算（拆分时不会落到 events 表）。
+func isStrictlySessionMetric(metric string) bool {
+	switch metric {
+	case "bounce_rate", "visit_duration", "views_per_visit":
+		return true
+	default:
+		return false
+	}
 }
 
 // Helper functions
@@ -549,9 +590,23 @@ func isFilteringOnDimension(params *types.Params, dimension string) bool {
 	return false
 }
 
+// findEventOnlyFilter 返回第一个"事件专属"维度（event:name / event:goal / event:props:*）的过滤器维度名，
+// 若无则返回 ""。会话表无法按这些事件级维度过滤，若与会话指标同时出现，
+// 拆分查询会静默丢弃该过滤器并返回未过滤的错误数值——故据此在校验层直接拒绝（返回清晰的 400）。
 func findEventOnlyFilter(params *types.Params) string {
-	// Implementation would find first event-only filter property
-	// This is a placeholder implementation
+	found := ""
+	for _, f := range params.Filters {
+		f.AnyDimension(func(dim string) bool {
+			if isEventOnlyProperty(dim) {
+				found = dim
+				return true
+			}
+			return false
+		})
+		if found != "" {
+			return found
+		}
+	}
 	return ""
 }
 
@@ -607,7 +662,7 @@ func GetToplevelFilter(params *types.Params, prefix string) []any {
 func MetricFromString(s string) (string, error) {
 	s = strings.TrimSpace(s)
 	switch s {
-	case "visitors", "pageviews", "events", "visits", "bounce_rate", "visit_duration", "time_on_page", "exit_rate", "conversion_rate", "conversions", "views_per_visit", "scroll_depth":
+	case "visitors", "pageviews", "events", "visits", "bounce_rate", "visit_duration", "time_on_page", "exit_rate", "conversion_rate", "conversions", "views_per_visit", "scroll_depth", "percentage", "total_revenue", "average_revenue":
 		return s, nil
 	default:
 		return "", fmt.Errorf("invalid metric: %s.", s)

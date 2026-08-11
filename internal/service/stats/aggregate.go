@@ -372,13 +372,17 @@ func (as *AggregateService) fillMissingTimePoints(points []TimeSeriesPoint, inte
 		loc = time.UTC
 	}
 
-	// 生成完整的时间范围（UTC）
-	ranges, err := GenerateTimeRanges(params.UTCTimeRange.Start.UTC(), params.UTCTimeRange.End.UTC(), interval)
+	// 按站点本地时区生成完整的时间范围。
+	// SQL 现已用 toTimeZone(timestamp, tz) 在本地时区分桶（标签为本地日期/时刻），
+	// 因此这里也在本地时区生成期望桶并直接用本地键匹配，不再做 UTC→本地二次重贴。
+	localStart := params.UTCTimeRange.Start.In(loc)
+	localEnd := params.UTCTimeRange.End.In(loc)
+	ranges, err := GenerateTimeRanges(localStart, localEnd, interval)
 	if err != nil || len(ranges) == 0 {
 		return points
 	}
 
-	// 创建时间点映射（UTC字符串）
+	// 创建时间点映射（本地字符串，与 SQL 标签一致）
 	pointMap := make(map[string]TimeSeriesPoint)
 	for _, p := range points {
 		pointMap[p.Timestamp] = p
@@ -387,50 +391,26 @@ func (as *AggregateService) fillMissingTimePoints(points []TimeSeriesPoint, inte
 	completePoints := []TimeSeriesPoint{}
 
 	for _, r := range ranges {
-		// 格式化UTC时间戳
-		utcTimestamp := formatTimestamp(r.Start.UTC(), interval)
+		// 本地桶起始时间格式化为键（r.Start 已在站点时区）
+		key := formatTimestamp(r.Start, interval)
 
-		// 查找现有数据点
-		var p TimeSeriesPoint
-		if pt, exists := pointMap[utcTimestamp]; exists {
-			p = pt
-		} else {
-			emptyMetrics := make(map[string]any)
-			for _, m := range params.Metrics {
-				emptyMetrics[m] = 0
-			}
-			p = TimeSeriesPoint{
-				Timestamp: utcTimestamp,
-				Metrics:   emptyMetrics,
-			}
+		if pt, exists := pointMap[key]; exists {
+			completePoints = append(completePoints, pt)
+			continue
 		}
-
-		// 转换为目标时区
-		t, err := time.ParseInLocation(getTimestampLayout(interval), p.Timestamp, time.UTC)
-		if err == nil {
-			p.Timestamp = t.In(loc).Format(getTimestampLayout(interval))
+		emptyMetrics := make(map[string]any)
+		for _, m := range params.Metrics {
+			emptyMetrics[m] = 0
 		}
-		completePoints = append(completePoints, p)
+		completePoints = append(completePoints, TimeSeriesPoint{
+			Timestamp: key,
+			Metrics:   emptyMetrics,
+		})
 	}
 
 	return completePoints
 }
 
-// 获取时间戳格式
-func getTimestampLayout(interval Interval) string {
-	switch interval {
-	case IntervalMinute:
-		return "2006-01-02 15:04"
-	case IntervalHourly:
-		return "2006-01-02 15"
-	case IntervalDaily, IntervalWeekly, IntervalMonthly:
-		return "2006-01-02"
-	case IntervalYearly:
-		return "2006"
-	default:
-		return "2006-01-02 15"
-	}
-}
 
 // formatTimestamp 格式化时间戳
 func formatTimestamp(t time.Time, interval Interval) string {
@@ -529,19 +509,24 @@ func stripGoalFilters(filters []*types.Filter) []*types.Filter {
 // and ensures "pageviews" is present (needed for post-processing computation).
 func replaceViewsPerVisit(metrics []string) []string {
 	result := make([]string, 0, len(metrics)+1)
-	hasPageviews := false
-	for _, m := range metrics {
-		if m == "views_per_visit" {
-			result = append(result, "visits")
-		} else {
-			if m == "pageviews" {
-				hasPageviews = true
-			}
+	seen := make(map[string]bool, len(metrics)+1)
+	add := func(m string) {
+		if !seen[m] {
+			seen[m] = true
 			result = append(result, m)
 		}
 	}
-	if !hasPageviews {
-		result = append(result, "pageviews")
+	for _, m := range metrics {
+		if m == "views_per_visit" {
+			// views_per_visit 由 visits + pageviews 在 Go 层计算；去重避免与显式请求的
+			// visits/pageviews 产生重复列别名（ClickHouse 会因重复别名报错）。
+			add("visits")
+		} else {
+			add(m)
+		}
+	}
+	if !seen["pageviews"] {
+		add("pageviews")
 	}
 	return result
 }

@@ -481,6 +481,7 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			Props:          tempReq.Props,
 			EngagementTime: tempReq.EngagementTime,
 			ScrollDepth:    tempReq.ScrollDepth,
+			Revenue:        tempReq.Revenue,
 		}
 
 		setEventRequestDefaults(&req, c)
