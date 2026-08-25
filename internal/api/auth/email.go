@@ -67,7 +67,11 @@ func (h *EmailHandler) SendVerification() gin.HandlerFunc {
 		}
 
 		// 发送验证邮件
-		baseURL := service.GetBaseURLFromRequest(c)
+		baseURL, err := service.GetBaseURLFromRequest(c)
+		if err != nil {
+			response.Error(c, http.StatusInternalServerError, err)
+			return
+		}
 		if err := h.service.SendVerificationEmail(c.Request.Context(), uid, "", baseURL); err != nil {
 			response.Error(c, http.StatusInternalServerError, err)
 			return

@@ -17,10 +17,9 @@ import (
 // JWT tokens use the standard Bearer token format.
 func APIKeyOrJWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 仅从 Authorization 头读取凭据。不再接受 ?token= 查询参数：
+		// 令牌会随 URL 进入网关/后端访问日志与 Referer，泄露风险高。
 		tokenString := c.GetHeader("Authorization")
-		if tokenString == "" {
-			tokenString = c.Query("token")
-		}
 		if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
 			tokenString = tokenString[7:]
 		}
@@ -51,6 +50,12 @@ func APIKeyOrJWTAuth() gin.HandlerFunc {
 					c.Abort()
 					return
 				}
+				response.ErrorWithKey(c, http.StatusUnauthorized, "auth.invalid_token")
+				c.Abort()
+				return
+			}
+			// 与 JWTAuth 一致：刷新令牌不能作为访问凭据
+			if claims.Subject != auth.SubjectAccessToken {
 				response.ErrorWithKey(c, http.StatusUnauthorized, "auth.invalid_token")
 				c.Abort()
 				return

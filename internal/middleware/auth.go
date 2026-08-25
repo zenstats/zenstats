@@ -14,10 +14,9 @@ import (
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get token from Header or Query
+		// 仅从 Authorization 头读取凭据。不再接受 ?token= 查询参数：
+		// 令牌会随 URL 进入网关/后端访问日志与 Referer，泄露风险高。
 		tokenString := c.GetHeader("Authorization")
-		if tokenString == "" {
-			tokenString = c.Query("token")
-		}
 		if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
 			tokenString = tokenString[7:]
 		}
@@ -35,6 +34,13 @@ func JWTAuth() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
+			response.ErrorWithKey(c, http.StatusUnauthorized, "auth.invalid_token")
+			c.Abort()
+			return
+		}
+		// 刷新令牌（24h）只能用于 /auth/refresh，不能直接当访问令牌使用，
+		// 否则访问令牌 1h 的有效期形同虚设。
+		if claims.Subject != auth.SubjectAccessToken {
 			response.ErrorWithKey(c, http.StatusUnauthorized, "auth.invalid_token")
 			c.Abort()
 			return

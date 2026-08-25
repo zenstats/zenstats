@@ -20,6 +20,9 @@ type WriteBuffer struct {
 	closed        int32 // atomic; Shutdown 置 1，阻止新的 flush goroutine 在 wg.Wait 后再 wg.Add
 
 	buffer []*models.Sessions
+	// inflight 记录已从 buffer 取出、正在写入 ClickHouse（含重试）但尚未确认落库的批次。
+	// FindPending 需要同时扫描 buffer 与 inflight，否则 flush 窗口内的行会"既不在内存也不在 CH"。
+	inflight map[*[]*models.Sessions]struct{}
 
 	flushSem chan struct{} // 限制并发 flush goroutine 数量，防止下游阻塞时无界堆积
 
@@ -41,6 +44,7 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 		flushInterval: flushInterval,
 		flushSem:      make(chan struct{}, maxConcurrentFlushes),
 		buffer:        make([]*models.Sessions, 0, batchSize),
+		inflight:      make(map[*[]*models.Sessions]struct{}),
 		shutdownChan:  make(chan struct{}),
 		ctx:           ctx,
 		cancel:        cancel,
@@ -92,13 +96,45 @@ func (wb *WriteBuffer) flushAndWrite() {
 	batch := wb.batchPool.Get().(*[]*models.Sessions)
 	*batch = append(*batch, wb.buffer...)
 	wb.buffer = wb.buffer[:0]
+	wb.inflight[batch] = struct{}{}
 	wb.mu.Unlock()
 
 	if err := wb.writeBatch(*batch); err != nil {
 		slog.Error("failed to write session batch", "error", err)
 	}
+
+	wb.mu.Lock()
+	delete(wb.inflight, batch)
+	wb.mu.Unlock()
 	*batch = (*batch)[:0]
 	wb.batchPool.Put(batch)
+}
+
+// FindPending 在尚未确认落库的行（buffer + inflight 批次）中查找 userId/siteId 的最新状态行：
+// Sign=+1、timestamp 不早于 notBefore、version 最大者。返回的指针指向 buffer 内部对象，调用方不得修改。
+// 复杂度 O(pending rows)，仅在 session 缓存 miss 时调用。
+func (wb *WriteBuffer) FindPending(userId, siteId uint64, notBefore time.Time) *models.Sessions {
+	var best *models.Sessions
+	consider := func(s *models.Sessions) {
+		if s == nil || s.Sign != 1 || s.UserId != userId || s.SiteId != siteId || s.Timestamp.Before(notBefore) {
+			return
+		}
+		if best == nil || s.Version > best.Version {
+			best = s
+		}
+	}
+
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
+	for _, s := range wb.buffer {
+		consider(s)
+	}
+	for batch := range wb.inflight {
+		for _, s := range *batch {
+			consider(s)
+		}
+	}
+	return best
 }
 
 func (wb *WriteBuffer) Start() {

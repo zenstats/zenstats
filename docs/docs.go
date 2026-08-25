@@ -119,6 +119,83 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/email-logs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "列出系统发送的所有邮件及其发送状态，支持分页和按状态/类型筛选。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理员"
+                ],
+                "summary": "获取邮件发送记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "每页数量",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "发送状态筛选：sent / failed / skipped",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "邮件类型筛选：verification / password_reset / email_report / traffic_alert",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.EmailLogListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/groups": {
             "get": {
                 "security": [
@@ -477,6 +554,67 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "站点不存在",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/sites/{siteId}/traffic-alert/test": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "对指定站点执行一次流量异常检测，返回检测结果。不受告警开关限制，可指定收件人发送测试邮件。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理员"
+                ],
+                "summary": "测试流量告警检测",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "站点ID",
+                        "name": "siteId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "收件人邮箱（指定时发送测试邮件）",
+                        "name": "email",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "检测结果",
+                        "schema": {
+                            "$ref": "#/definitions/response.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "站点不存在或检测失败",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "未授权",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -865,6 +1003,162 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/query/{domain}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    },
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "POST-based query with full parameter support. More suitable for complex queries and SDK integration.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "统计分析"
+                ],
+                "summary": "通用查询（v2）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "查询参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/stats.QueryV2Request"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {}
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/query/{domain}/segments": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    },
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "把当前自定义查询使用的 filters 一键保存为命名的过滤器组合（Segment），之后可在 Segment 列表中复用。filters 结构与 /api/v2/query 的 filters 完全一致。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "统计分析"
+                ],
+                "summary": "保存当前查询为 Segment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "保存参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/stats.SaveQuerySegmentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.Segment"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -1275,8 +1569,8 @@ const docTemplate = `{
             }
         },
         "/auth/refresh": {
-            "get": {
-                "description": "使用刷新令牌获取新的访问令牌。refreshToken 通过查询参数传递。",
+            "post": {
+                "description": "使用刷新令牌获取新的访问令牌。刷新令牌通过 JSON body 传递（不接受 query 参数，避免落入访问日志）。",
                 "consumes": [
                     "application/json"
                 ],
@@ -1289,11 +1583,13 @@ const docTemplate = `{
                 "summary": "刷新访问令牌",
                 "parameters": [
                     {
-                        "type": "string",
                         "description": "刷新令牌",
-                        "name": "refreshToken",
-                        "in": "query",
-                        "required": true
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/types.RefreshRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -1686,7 +1982,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/common.EventRequest"
+                            "$ref": "#/definitions/model.EventRequest"
                         }
                     }
                 ],
@@ -1721,7 +2017,7 @@ const docTemplate = `{
                 "tags": [
                     "健康检查"
                 ],
-                "summary": "健康检查",
+                "summary": "健康检查（兼容）",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1743,6 +2039,114 @@ const docTemplate = `{
                     },
                     "503": {
                         "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health/live": {
+            "get": {
+                "description": "进程存活检查，始终返回 200",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "健康检查"
+                ],
+                "summary": "存活探针",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health/ready": {
+            "get": {
+                "description": "检查服务及依赖（PostgreSQL、ClickHouse）的连通性",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "健康检查"
+                ],
+                "summary": "就绪探针",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/health.HealthResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/share/{slug}": {
+            "get": {
+                "description": "公开接口，根据 slug 返回共享链接关联的站点域名，供前端渲染只读统计页。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "共享链接"
+                ],
+                "summary": "获取共享链接信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "链接 slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sharedlinks.SharedLinkViewResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -2087,9 +2491,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "漏斗管理"
+                    "Funnel management"
                 ],
-                "summary": "获取漏斗列表",
+                "summary": "Get funnel list",
                 "parameters": [
                     {
                         "type": "string",
@@ -2149,9 +2553,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "漏斗管理"
+                    "Funnel management"
                 ],
-                "summary": "创建漏斗",
+                "summary": "Create funnel",
                 "parameters": [
                     {
                         "type": "string",
@@ -2161,7 +2565,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "创建漏斗请求",
+                        "description": "Create funnel请求",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -2222,9 +2626,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "漏斗管理"
+                    "Funnel management"
                 ],
-                "summary": "获取漏斗详情",
+                "summary": "Get funnel detail",
                 "parameters": [
                     {
                         "type": "string",
@@ -2294,9 +2698,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "漏斗管理"
+                    "Funnel management"
                 ],
-                "summary": "更新漏斗",
+                "summary": "Update funnel",
                 "parameters": [
                     {
                         "type": "string",
@@ -2313,7 +2717,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "更新漏斗请求",
+                        "description": "Update funnel请求",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -2378,9 +2782,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "漏斗管理"
+                    "Funnel management"
                 ],
-                "summary": "删除漏斗",
+                "summary": "Delete funnel",
                 "parameters": [
                     {
                         "type": "string",
@@ -2980,6 +3384,660 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/{domain}/panels": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "列出站点下所有已保存的自定义查询面板。可用 pinned=true 只取固定到首页的面板。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "面板"
+                ],
+                "summary": "获取面板列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "仅返回固定到首页的面板",
+                        "name": "pinned",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/service.SavedPanel"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "保存一次自定义查询的完整配置为命名面板，之后可复用或固定到首页。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "面板"
+                ],
+                "summary": "创建面板",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "面板参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/panels.CreatePanelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SavedPanel"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/{domain}/panels/{panelId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "面板"
+                ],
+                "summary": "删除面板",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "面板 ID",
+                        "name": "panelId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "boolean"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "面板"
+                ],
+                "summary": "更新面板",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "面板 ID",
+                        "name": "panelId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "更新参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/panels.UpdatePanelRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.SavedPanel"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/{domain}/segments": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "列出站点下所有已保存的过滤器组合（Segment）。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Segment"
+                ],
+                "summary": "获取 Segment 列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/service.Segment"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "为站点保存一组命名的过滤器组合，之后可通过 segment_id 在查询中复用。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Segment"
+                ],
+                "summary": "创建 Segment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Segment 参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/segments.CreateSegmentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.Segment"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/{domain}/segments/{segmentId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "Segment"
+                ],
+                "summary": "删除 Segment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Segment ID",
+                        "name": "segmentId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "boolean"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "更新已有 Segment 的名称或过滤器定义。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Segment"
+                ],
+                "summary": "更新 Segment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Segment ID",
+                        "name": "segmentId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "更新参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/segments.UpdateSegmentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.Segment"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/{domain}/shared-links": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取指定站点的所有可嵌入共享链接。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "共享链接"
+                ],
+                "summary": "获取共享链接列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/sharedlinks.SharedLinkResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "为站点创建可公开嵌入的仪表盘共享链接，支持可选密码保护。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "共享链接"
+                ],
+                "summary": "创建共享链接",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "共享链接参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/sharedlinks.CreateSharedLinkRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/sharedlinks.SharedLinkResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/sites/{domain}/shared-links/{linkId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "删除指定共享链接，链接立即失效。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "共享链接"
+                ],
+                "summary": "删除共享链接",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "链接 ID",
+                        "name": "linkId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "boolean"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -3770,7 +4828,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "default": "visitors,pageviews,visits,bounce_rate,visit_duration",
-                        "description": "指标列表，逗号分隔；支持 visitors,pageviews,visits,bounce_rate,visit_duration,events",
+                        "description": "指标列表，逗号分隔；支持 visitors,pageviews,visits,bounce_rate,visit_duration,events,views_per_visit,scroll_depth,time_on_page,exit_rate,conversion_rate",
                         "name": "metrics",
                         "in": "query"
                     },
@@ -4153,9 +5211,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "漏斗分析"
+                    "Funnel analysis"
                 ],
-                "summary": "漏斗分析",
+                "summary": "Funnel analysis",
                 "parameters": [
                     {
                         "type": "string",
@@ -4372,6 +5430,114 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "服务器内部错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/{domain}/suggestions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    },
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "根据 filter_name 返回可选值列表，支持模糊搜索。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "统计分析"
+                ],
+                "summary": "获取筛选器建议",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "站点域名",
+                        "name": "domain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "过滤器名称: prop_key 获取所有属性键; event:props:xxx 获取指定属性值",
+                        "name": "filter_name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "搜索关键词（模糊匹配）",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "p30",
+                        "description": "时间周期",
+                        "name": "period",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "统计日期，格式 YYYY-MM-DD",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "自定义开始日期",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "自定义结束日期",
+                        "name": "to",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/stats.SuggestionItem"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/response.ErrorResponse"
                         }
@@ -5208,6 +6374,26 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "admin.EmailLogListResponse": {
+            "type": "object",
+            "properties": {
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.EmailLog"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "admin.UpdateConfigsRequest": {
             "type": "object",
             "required": [
@@ -5293,55 +6479,6 @@ const docTemplate = `{
                 },
                 "token": {
                     "type": "string"
-                }
-            }
-        },
-        "common.EventRequest": {
-            "type": "object",
-            "properties": {
-                "d": {
-                    "type": "string",
-                    "example": "example.com"
-                },
-                "e": {
-                    "type": "integer",
-                    "example": 15000
-                },
-                "h": {
-                    "type": "integer",
-                    "example": 0
-                },
-                "i": {
-                    "type": "boolean",
-                    "example": true
-                },
-                "n": {
-                    "type": "string",
-                    "example": "pageview"
-                },
-                "p": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "r": {
-                    "type": "string",
-                    "example": "https://google.com"
-                },
-                "sd": {
-                    "type": "integer",
-                    "example": 85
-                },
-                "t": {
-                    "type": "string",
-                    "example": "2025-01-01T00:00:00Z"
-                },
-                "u": {
-                    "type": "string",
-                    "example": "https://example.com/page"
-                },
-                "v": {
-                    "type": "string",
-                    "example": "1.0.0"
                 }
             }
         },
@@ -5478,6 +6615,54 @@ const docTemplate = `{
                 }
             }
         },
+        "model.EventRequest": {
+            "type": "object"
+        },
+        "panels.CreatePanelRequest": {
+            "type": "object",
+            "required": [
+                "config",
+                "name"
+            ],
+            "properties": {
+                "config": {
+                    "description": "Config 是自定义查询的完整配置 JSON（指标 / 维度 / 过滤器 / 排序 / limit 等）。",
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 500
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "pinned": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "panels.UpdatePanelRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Description 用指针区分“未传”（nil，不更新）与“传空串”（清空描述）。",
+                    "type": "string"
+                },
+                "layout": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pinned": {
+                    "type": "boolean"
+                }
+            }
+        },
         "response.ErrorResponse": {
             "description": "接口返回的错误响应信息",
             "type": "object",
@@ -5509,6 +6694,40 @@ const docTemplate = `{
                 },
                 "message": {
                     "description": "响应信息",
+                    "type": "string"
+                }
+            }
+        },
+        "segments.CreateSegmentRequest": {
+            "type": "object",
+            "required": [
+                "filters",
+                "name"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "maxLength": 500
+                },
+                "filters": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
+        "segments.UpdateSegmentRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "filters": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -5597,6 +6816,12 @@ const docTemplate = `{
                 "display_name"
             ],
             "properties": {
+                "custom_props": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "display_name": {
                     "type": "string"
                 },
@@ -5604,6 +6829,35 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "page_path": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.EmailLog": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email_type": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "recipient": {
+                    "type": "string"
+                },
+                "site_id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "subject": {
                     "type": "string"
                 }
             }
@@ -5668,6 +6922,12 @@ const docTemplate = `{
         "service.FunnelStepInfo": {
             "type": "object",
             "properties": {
+                "custom_props": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "goal_id": {
                     "type": "integer"
                 },
@@ -5699,6 +6959,12 @@ const docTemplate = `{
         "service.Goal": {
             "type": "object",
             "properties": {
+                "custom_props": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "display_name": {
                     "type": "string"
                 },
@@ -5713,6 +6979,70 @@ const docTemplate = `{
                 },
                 "site_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "service.SavedPanel": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "layout": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pinned": {
+                    "type": "boolean"
+                },
+                "site_id": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.Segment": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "filters": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "site_id": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -5770,7 +7100,86 @@ const docTemplate = `{
         "service.UpdateGoalRequest": {
             "type": "object",
             "properties": {
+                "custom_props": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "display_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "sharedlinks.CreateSharedLinkRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "password": {
+                    "description": "可选密码保护",
+                    "type": "string"
+                }
+            }
+        },
+        "sharedlinks.SharedLinkResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password_protected": {
+                    "type": "boolean"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "sharedlinks.SharedLinkViewResponse": {
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password_protected": {
+                    "type": "boolean"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "stats.QueryV2Request": {
+            "type": "object"
+        },
+        "stats.SaveQuerySegmentRequest": {
+            "type": "object"
+        },
+        "stats.SuggestionItem": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "value": {
                     "type": "string"
                 }
             }
@@ -5957,6 +7366,9 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
+                "group_id": {
+                    "type": "integer"
+                },
                 "group_name": {
                     "type": "string"
                 },
@@ -5965,6 +7377,9 @@ const docTemplate = `{
                 },
                 "is_admin": {
                     "type": "boolean"
+                },
+                "last_seen": {
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
@@ -6067,10 +7482,6 @@ const docTemplate = `{
         "types.CreateGroupRequest": {
             "type": "object",
             "required": [
-                "max_api_keys",
-                "max_monthly_events",
-                "max_sites",
-                "max_sub_accounts",
                 "name"
             ],
             "properties": {
@@ -6084,16 +7495,20 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "max_api_keys": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": -1
                 },
                 "max_monthly_events": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": -1
                 },
                 "max_sites": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": -1
                 },
                 "max_sub_accounts": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": -1
                 },
                 "name": {
                     "type": "string",
@@ -6179,6 +7594,21 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 128,
                     "minLength": 8
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "viewer",
+                        "editor",
+                        "admin",
+                        "custom"
+                    ]
                 }
             }
         },
@@ -6242,10 +7672,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
                 },
                 "password": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 8
                 }
             }
         },
@@ -6289,6 +7723,17 @@ const docTemplate = `{
                 },
                 "user": {
                     "$ref": "#/definitions/types.User"
+                }
+            }
+        },
+        "types.RefreshRequest": {
+            "type": "object",
+            "required": [
+                "refresh_token"
+            ],
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
                 }
             }
         },
@@ -6470,6 +7915,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "role": {
                     "type": "string"
                 },
@@ -6545,6 +7996,12 @@ const docTemplate = `{
                 "parent_user_id": {
                     "type": "integer"
                 },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "role": {
                     "type": "string"
                 }
@@ -6567,10 +8024,6 @@ const docTemplate = `{
         "types.UpdateGroupRequest": {
             "type": "object",
             "required": [
-                "max_api_keys",
-                "max_monthly_events",
-                "max_sites",
-                "max_sub_accounts",
                 "name"
             ],
             "properties": {
@@ -6584,16 +8037,20 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "max_api_keys": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": -1
                 },
                 "max_monthly_events": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": -1
                 },
                 "max_sites": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": -1
                 },
                 "max_sub_accounts": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": -1
                 },
                 "name": {
                     "type": "string",
@@ -6680,6 +8137,21 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 100,
                     "minLength": 1
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "viewer",
+                        "editor",
+                        "admin",
+                        "custom"
+                    ]
                 },
                 "status": {
                     "type": "string",

@@ -2,6 +2,7 @@
 package trafficalert
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -81,7 +82,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	db := globals.GetDB()
 	if db == nil || db.Client == nil {
-		response.Error(c, http.StatusInternalServerError, nil)
+		response.Error(c, http.StatusInternalServerError, errors.New("database unavailable"))
 		return
 	}
 

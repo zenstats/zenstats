@@ -89,11 +89,12 @@ func TestBalancerDifferentUserIDsRunConcurrently(t *testing.T) {
 func TestBalancerTimeoutReturnsDeadlineExceeded(t *testing.T) {
 	b := NewBalancer[int]()
 
-	// Fill the specific worker queue (capacity 64) with slow tasks.
+	// Saturate the specific worker: the worker takes the first task and blocks in fn,
+	// the remaining 64 fill the channel (capacity 64) so the next enqueue must time out.
 	const userID = uint64(1)
 	workerIdx := userID % uint64(balancerSize)
 	blocker := make(chan struct{})
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 65; i++ {
 		b.workers[workerIdx] <- balancerTask[int]{
 			fn:     func() (int, error) { <-blocker; return 0, nil },
 			result: make(chan balancerResult[int], 1),
@@ -122,5 +123,26 @@ func TestBalancerDispatchReturnsResult(t *testing.T) {
 	}
 	if got != 42 {
 		t.Fatalf("expected result 42, got %d", got)
+	}
+}
+
+// TestBalancerWaitsForEnqueuedTaskBeyondTimeout verifies that once a task has been
+// accepted by a worker, Dispatch waits for its result even if fn runs longer than the
+// (enqueue-side) timeout. Otherwise fn would still mutate session state while the
+// caller believes the event failed, leaving sessions/events tables inconsistent.
+func TestBalancerWaitsForEnqueuedTaskBeyondTimeout(t *testing.T) {
+	b := NewBalancer[int]()
+
+	var ran int32
+	got, err := b.Dispatch(7, func() (int, error) {
+		time.Sleep(60 * time.Millisecond) // longer than the 10ms timeout below
+		atomic.StoreInt32(&ran, 1)
+		return 7, nil
+	}, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected enqueued task result, got error: %v", err)
+	}
+	if got != 7 || atomic.LoadInt32(&ran) != 1 {
+		t.Fatalf("expected fn to complete and return 7, got %d (ran=%d)", got, ran)
 	}
 }

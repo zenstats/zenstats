@@ -85,13 +85,13 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 			session.UserAgent,
 			session.OperatingSystemVersion,
 
-			session.IP,
+			ipv4Column(session.IP),
 			session.CountryCode,
 			session.ContinentGeonameId,
 			session.CityGeonameId,
 			coordinates,
 
-			session.IPv6,
+			ipv6Column(session.IP, session.IPv6),
 			session.Channel,
 		)
 
@@ -108,6 +108,10 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 	return batchInsert.Send()
 }
 
+// GetMostRecentActiveSession 返回该 user/site 最近一小时内活跃的 session 最新状态行（Sign=1、version 最大）。
+// sessions 表 ORDER BY (site_id, toDate(start), user_id, session_id)：
+// 加上 toDate(start) >= today() - 1 后 WHERE 条件能完整命中主键前三列，从全表/分区扫描退化为
+// 主键点查；一小时内仍活跃的 session 其 start 不可能早于昨天（跨午夜的情况被 -1 覆盖）。
 func (s *Sessions) GetMostRecentActiveSession(ctx context.Context, userId, siteId uint64) (*models.Sessions, error) {
 	oneHourAgo := time.Now().Add(-1 * time.Hour)
 
@@ -122,7 +126,8 @@ func (s *Sessions) GetMostRecentActiveSession(ctx context.Context, userId, siteI
 				ipv4, country_code, continent_geoname_id, city_geoname_id, coordinates,
 				ipv6, channel
 		 FROM sessions
-		 WHERE site_id = ? AND user_id = ? AND timestamp >= ? AND sign = 1
+		 WHERE site_id = ? AND toDate(start) >= today() - 1 AND user_id = ?
+		   AND timestamp >= ? AND sign = 1
 		 ORDER BY version DESC
 		 LIMIT 1`,
 		siteId, userId, oneHourAgo,

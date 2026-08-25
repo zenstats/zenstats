@@ -13,6 +13,20 @@ import (
 	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
 )
 
+// DefaultSessionCacheSize 是 session LRU 缓存的默认容量（活跃 visitor 数上限）。
+// 原值 1000 过小：活跃访客超过 1000 时 session 被 LRU 淘汰，下一事件到来只能回读 ClickHouse，
+// 而此时 writeBuffer 中可能还有尚未 flush 的更新版本 → 读到旧行、再生成新行，
+// 产生永远无法 collapse 的重复 session。200k 个 *Sessions 约几十~两百 MB 内存，
+// 对单实例足够覆盖绝大多数站点的 30 分钟活跃访客数。
+const DefaultSessionCacheSize = 200_000
+
+// sessionCacheTTL 与业务上的 session 超时（30 分钟无活动）一致。
+const sessionCacheTTL = 30 * time.Minute
+
+// dbLookupTimeout 限制缓存 miss 时回读 ClickHouse 的耗时，
+// 避免 CH 慢查询拖住 balancer worker（同一 worker 上所有用户的事件都会被阻塞）。
+const dbLookupTimeout = 2 * time.Second
+
 type SessionManager struct {
 	machineID      uint64
 	balancer       *Balancer[*models.Sessions]
@@ -24,9 +38,18 @@ type SessionManager struct {
 	cache *expirable.LRU[string, *models.Sessions]
 }
 
+// NewSessionManager 使用 DefaultSessionCacheSize 创建 SessionManager（签名保持兼容）。
 func NewSessionManager(ctx context.Context, batchSize int) *SessionManager {
+	return NewSessionManagerWithCacheSize(ctx, batchSize, DefaultSessionCacheSize)
+}
+
+// NewSessionManagerWithCacheSize 允许显式指定 session LRU 缓存容量；cacheSize<=0 时回退到默认值。
+func NewSessionManagerWithCacheSize(ctx context.Context, batchSize int, cacheSize int) *SessionManager {
 	ctx, cancel := context.WithCancel(ctx)
-	l := expirable.NewLRU[string, *models.Sessions](1000, nil, 30*time.Minute)
+	if cacheSize <= 0 {
+		cacheSize = DefaultSessionCacheSize
+	}
+	l := expirable.NewLRU[string, *models.Sessions](cacheSize, nil, sessionCacheTTL)
 
 	s := &SessionManager{
 		shutdownCtx:    ctx,
@@ -148,7 +171,7 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 func (s *SessionManager) newSession(event *models.Events) *models.Sessions {
 
 	hostName := ""
-	entryPage := event.PathName  // 始终设置，避免非 pageview 事件导致空白
+	entryPage := event.PathName // 始终设置，避免非 pageview 事件导致空白
 	exitPage := event.PathName
 	pageviews := int32(0)
 	if event.Name == "pageview" {
@@ -277,12 +300,30 @@ func (s *SessionManager) generateSessionCacheKey(userId, siteId uint64) string {
 	return fmt.Sprintf("session:%d:%d", userId, siteId)
 }
 
+// loadSessionFromDB 在缓存 miss 时恢复 session 的最新状态。
+//
+// 设计：先查 writeBuffer 中尚未落库（含正在写入 CH 途中）的行，再回读 ClickHouse。
+// 原因：session 的每次更新都是"tombstone(-1, 旧 version) + 新状态(+1, 新 version)"成对写入
+// writeBuffer，最多延迟 flushInterval（5s）+ 重试时间才到达 CH。如果缓存刚好在这段窗口内
+// 淘汰了该 session，直接读 CH 会拿到旧版本，再基于旧版本生成新行，导致：
+//   - 旧版本被 tombstone 两次（多出一条 -1 行），
+//   - 新旧两条 +1 状态行并存且永远无法 collapse。
+//
+// writeBuffer 中的行是"最新事实"，优先级高于 CH；只有 buffer 中没有该用户的行时才查 CH。
+// 同一 userId 的事件由 balancer 串行处理，因此不存在并发写同一 key 的竞态。
 func (s *SessionManager) loadSessionFromDB(userId, siteId uint64) (*models.Sessions, error) {
+	if pending := s.writeBuffer.FindPending(userId, siteId, time.Now().Add(-1*time.Hour)); pending != nil {
+		// 返回副本，避免调用方后续修改影响 buffer 中即将写入的行
+		return s.CopySession(pending), nil
+	}
+
 	repo := repository.GetSessionsRepository()
 	if repo == nil {
 		return nil, fmt.Errorf("sessions repository not initialized")
 	}
-	return repo.GetMostRecentActiveSession(context.Background(), userId, siteId)
+	ctx, cancel := context.WithTimeout(s.shutdownCtx, dbLookupTimeout)
+	defer cancel()
+	return repo.GetMostRecentActiveSession(ctx, userId, siteId)
 }
 
 func (s *SessionManager) WriteSession(session *models.Sessions) {

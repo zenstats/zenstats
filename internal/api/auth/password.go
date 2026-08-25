@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,8 +13,8 @@ import (
 
 // ForgotPasswordHandler 忘记密码处理器
 type ForgotPasswordHandler struct {
-	userService    *service.UserService
-	emailService   *service.EmailService
+	userService  *service.UserService
+	emailService *service.EmailService
 }
 
 // NewForgotPasswordHandler 创建 ForgotPasswordHandler 实例
@@ -57,7 +58,13 @@ func (h *ForgotPasswordHandler) ForgotPassword() gin.HandlerFunc {
 		}
 
 		// 生成重置 token 并发送邮件
-		baseURL := service.GetBaseURLFromRequest(c)
+		baseURL, err := service.GetBaseURLFromRequest(c)
+		if err != nil {
+			// 未配置 base_url 时不能安全地生成链接；对外仍返回统一成功响应（防枚举），仅记录日志。
+			slog.Error("forgot-password: cannot send reset email", "error", err)
+			response.Success(c, gin.H{"message": "If the email exists, a reset link has been sent"})
+			return
+		}
 		err = h.emailService.SendPasswordResetEmail(c.Request.Context(), user.ID, user.Email, baseURL)
 		if err != nil {
 			// 即使邮件发送失败，也返回成功（防止邮箱枚举）

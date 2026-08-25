@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"html"
 	"log/slog"
 	"math"
 	"net/http/httptest"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zenstats/zenstats/config"
 	atypes "github.com/zenstats/zenstats/internal/api/types"
 	"github.com/zenstats/zenstats/internal/service/stats"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent"
@@ -19,7 +19,6 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/pkg/globals"
 	"github.com/zenstats/zenstats/pkg/scheduler"
-	"gopkg.in/gomail.v2"
 )
 
 // EmailReportService sends periodic weekly/monthly email reports.
@@ -42,36 +41,14 @@ func GetEmailReportService() *EmailReportService {
 	return getEmailReportService()
 }
 
-// sendMail sends an HTML email.
-func (s *EmailReportService) sendMail(to, subject, html string) error {
-	cfg := config.Conf
-
-	host := cfg.SMTP.Host
-	port := cfg.SMTP.Port
-	username := cfg.SMTP.Username
-	password := cfg.SMTP.Password
-	from := cfg.SMTP.From
-
-	if host == "" {
-		host = "localhost"
+// sendMail sends an HTML email through the shared SMTP sender in email.go.
+// Returns ErrSMTPNotConfigured (without touching EmailLog) when no SMTP host is configured,
+// so unconfigured deployments do not accumulate failed EmailLog rows every cron run.
+func (s *EmailReportService) sendMail(to, subject, body string) error {
+	if !smtpConfigured() {
+		return ErrSMTPNotConfigured
 	}
-	if port == 0 {
-		port = 587
-	}
-	if from == "" {
-		from = "noreply@zenstats.io"
-	}
-
-	m := gomail.NewMessage()
-	m.SetHeader("From", from)
-	m.SetHeader("To", to)
-	m.SetHeader("Subject", subject)
-	m.SetBody("text/html", html)
-
-	d := gomail.NewDialer(host, port, username, password)
-	err := d.DialAndSend(m)
-	GetEmailLogService().RecordSend(context.Background(), to, subject, EmailTypeReport, nil, err)
-	return err
+	return sendEmail(to, subject, body, EmailTypeReport, nil)
 }
 
 // SendWeeklyReports sends weekly reports for verified sites with weekly reports enabled.
@@ -90,6 +67,11 @@ func (s *EmailReportService) SendMonthlyReports(_ any) {
 
 // processReports iterates verified sites with the given flag enabled and sends reports to their owners.
 func (s *EmailReportService) processReports(ctx context.Context, interval string, filter predicate.Site) {
+	if !smtpConfigured() {
+		slog.Warn("smtp not configured, skipping email reports", "interval", interval)
+		return
+	}
+
 	sites, err := s.db.Site.Query().
 		Where(site.IsVerified(true)).
 		Where(filter).
@@ -98,6 +80,9 @@ func (s *EmailReportService) processReports(ctx context.Context, interval string
 		slog.Error("failed to list verified sites for reports", "error", err)
 		return
 	}
+
+	// One trigger instant for the whole batch so every site's period is derived from the same cron tick.
+	triggerAt := time.Now()
 
 	for _, siteEnt := range sites {
 		ownerID, err := s.siteService.GetSiteOwnerUserID(ctx, siteEnt.ID)
@@ -110,16 +95,16 @@ func (s *EmailReportService) processReports(ctx context.Context, interval string
 			continue
 		}
 
-		html, err := s.buildReportHTML(ctx, siteEnt, ownerID, interval)
+		body, name, err := s.buildReportHTML(ctx, siteEnt, ownerID, interval, triggerAt)
 		if err != nil {
 			slog.Warn("failed to build report", "domain", siteEnt.Domain, "error", err)
 			continue
 		}
 
-		name := reportName(interval)
 		subject := fmt.Sprintf("%s report for %s", name, siteEnt.Domain)
-		if err := s.sendMail(usr.Email, subject, html); err != nil {
-			slog.Warn("failed to send report email", "email", usr.Email, "error", err)
+		if err := s.sendMail(usr.Email, subject, body); err != nil {
+			slog.Warn("failed to send report email", "domain", siteEnt.Domain, "error", err)
+			slog.Debug("report email recipient", "domain", siteEnt.Domain, "email", usr.Email)
 		}
 	}
 
@@ -150,16 +135,17 @@ type rankedItem struct {
 	Visitors float64
 }
 
-// buildReportHTML builds the report HTML.
-func (s *EmailReportService) buildReportHTML(ctx context.Context, siteEnt *ent.Site, ownerID int64, interval string) (string, error) {
-	from, to := calcDateRange(siteEnt.Timezone, interval)
+// buildReportHTML builds the report HTML and returns the report name (e.g. "Weekly" / "July")
+// derived from the same date range, so subject and body always agree.
+func (s *EmailReportService) buildReportHTML(ctx context.Context, siteEnt *ent.Site, ownerID int64, interval string, triggerAt time.Time) (body, name string, err error) {
+	from, to := calcDateRangeAt(triggerAt, siteEnt.Timezone, interval)
 
 	stats, err := s.queryStats(ctx, siteEnt, ownerID, from, to)
 	if err != nil {
 		slog.Warn("failed to query report stats", "domain", siteEnt.Domain, "error", err)
 	}
 
-	name := reportName(interval)
+	name = reportName(interval, to)
 	displayName := siteEnt.Domain
 	if siteEnt.Remark != "" {
 		displayName = siteEnt.Remark
@@ -187,7 +173,7 @@ func (s *EmailReportService) buildReportHTML(ctx context.Context, siteEnt *ent.S
 		HasStats:        stats != nil,
 		StatsError:      statsError,
 		UnsubscribeNote: "To unsubscribe, disable email reports in site settings.",
-	}), nil
+	}), name, nil
 }
 
 type reportViewData struct {
@@ -322,16 +308,31 @@ func calcChange(current, prev float64) *float64 {
 // Helpers
 // ============================================================================
 
-// calcDateRange computes the date range based on site timezone and report interval.
-// w weekly: last Monday ~ last Sunday
-// m monthly: 1st ~ last day of previous month
+// reportAnchorOffset is added to the cron trigger instant before converting to the site's
+// timezone. The weekly cron fires Monday 00:00 UTC and the monthly cron fires 1st 01:00 UTC;
+// for sites west of UTC the local calendar is still Sunday / the previous month at that instant,
+// which would select the week/month *before* the intended one. Shifting by 14h puts every
+// timezone (UTC-12 .. UTC+14) safely inside the intended local Monday / 1st-2nd, so
+// "most recently completed full week/month" is stable regardless of the site's offset.
+const reportAnchorOffset = 14 * time.Hour
+
+// calcDateRange computes the report date range for a cron run happening now.
 func calcDateRange(timezone, interval string) (from, to time.Time) {
+	return calcDateRangeAt(time.Now(), timezone, interval)
+}
+
+// calcDateRangeAt computes the date range based on site timezone and report interval,
+// relative to the given trigger instant. Returned times are in the site's location.
+// weekly:  the most recently completed Monday ~ Sunday
+// monthly: 1st ~ last day of the most recently completed month
+func calcDateRangeAt(triggerAt time.Time, timezone, interval string) (from, to time.Time) {
 	loc, err := time.LoadLocation(timezone)
-	if err != nil {
+	if err != nil || loc == nil {
 		loc = time.UTC
 	}
 
-	now := time.Now().In(loc)
+	// Stable anchor: see reportAnchorOffset.
+	now := triggerAt.Add(reportAnchorOffset).In(loc)
 
 	switch interval {
 	case "weekly":
@@ -352,23 +353,24 @@ func calcDateRange(timezone, interval string) (from, to time.Time) {
 		to = time.Date(lastDayOfLastMonth.Year(), lastDayOfLastMonth.Month(), lastDayOfLastMonth.Day(), 23, 59, 59, 0, loc)
 
 	default:
-		from = now.AddDate(0, 0, -7)
-		to = now
+		// Ad-hoc: trailing 7 days up to the actual trigger time (no anchor shift).
+		to = triggerAt.In(loc)
+		from = to.AddDate(0, 0, -7)
 	}
 
 	// Return site-local time; getDateRange handles timezone conversion
 	return
 }
 
-func reportName(interval string) string {
+// reportName returns the human-readable report name for the subject/header.
+// For monthly reports the month label is derived from the computed range end
+// (site-local), not from time.Now(), so subject and body always refer to the same month.
+func reportName(interval string, rangeEnd time.Time) string {
 	switch interval {
 	case "weekly":
 		return "Weekly"
 	case "monthly":
-		// Return last month English name, e.g. "June"
-		now := time.Now()
-		lastMonth := now.AddDate(0, -1, 0)
-		return lastMonth.Format("January")
+		return rangeEnd.Format("January")
 	default:
 		return "Stats"
 	}
@@ -467,13 +469,18 @@ func changeColorClass(v float64, positiveIsGood bool) string {
 	return "#b91c1c"
 }
 
+// esc escapes a user/visitor-controlled string for safe interpolation into HTML text or attribute values.
+var esc = html.EscapeString
+
 // renderReportHTML renders the final HTML report.
+// Every value that originates from users (site remark) or visitors (page paths, referrer
+// sources) is HTML-escaped; numbers are formatted by us and need no escaping.
 func renderReportHTML(d reportViewData) string {
 	var statsHTML string
 	if d.StatsError != "" {
 		statsHTML = fmt.Sprintf(`<p style="color:#b91c1c; text-align:center; padding:24px; background:#fef2f2; border-radius:8px; margin:16px 0;">
 ⚠️ Stats data load failed：%s<br>
-<small>The report framework is working. Contact the admin to check ClickHouse connection and site data.</small></p>`, d.StatsError)
+<small>The report framework is working. Contact the admin to check ClickHouse connection and site data.</small></p>`, esc(d.StatsError))
 	} else if d.HasStats && d.Stats != nil {
 		statsHTML = renderStatsSection(d.Stats)
 	} else {
@@ -502,7 +509,7 @@ func renderReportHTML(d reportViewData) string {
     </div>
   </div>
 </body>
-</html>`, d.DisplayName, d.ReportName, d.DateLabel, statsHTML, d.UnsubscribeNote)
+</html>`, esc(d.DisplayName), esc(d.ReportName), esc(d.DateLabel), statsHTML, esc(d.UnsubscribeNote))
 }
 
 func renderStatsSection(s *reportStats) string {
@@ -568,7 +575,7 @@ func renderMetricCard(label string, m metricWithChange, positiveIsGood bool) str
           <div style="font-size:10px; font-weight:700; color:#888; letter-spacing:0.5px;">%s</div>
           <div style="font-size:22px; font-weight:700; color:#1a1a2e; margin-top:4px;">%s</div>
           %s
-        </td>`, label, valueStr, changeHTML)
+        </td>`, esc(label), valueStr, changeHTML)
 }
 
 func renderRankTable(title string, items []rankedItem) string {
@@ -578,7 +585,7 @@ func renderRankTable(title string, items []rankedItem) string {
         <tr>
           <td style="padding:6px 0; font-size:13px; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">%s</td>
           <td style="padding:6px 0; font-size:13px; text-align:right; font-weight:600; white-space:nowrap;">%s</td>
-        </tr>`, item.Name, formatLargeNumber(item.Visitors)))
+        </tr>`, esc(item.Name), formatLargeNumber(item.Visitors)))
 	}
 
 	return fmt.Sprintf(`
@@ -587,7 +594,7 @@ func renderRankTable(title string, items []rankedItem) string {
     <table width="100%%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
       %s
     </table>
-  </div>`, title, rows.String())
+  </div>`, esc(title), rows.String())
 }
 
 // ============================================================================
@@ -615,7 +622,7 @@ func BuildTestReportHTML(domain, interval string) string {
 
 	siteEnt, err := svc.siteService.GetSiteByDomain(ctx, domain)
 	if err != nil {
-		return fmt.Sprintf("<p>Site not found: %s</p>", domain)
+		return fmt.Sprintf("<p>Site not found: %s</p>", esc(domain))
 	}
 
 	ownerID, err := svc.siteService.GetSiteOwnerUserID(ctx, siteEnt.ID)
@@ -623,15 +630,15 @@ func BuildTestReportHTML(domain, interval string) string {
 		return "<p>Site owner not found</p>"
 	}
 
-	html, err := svc.buildReportHTML(ctx, siteEnt, ownerID, interval)
+	body, _, err := svc.buildReportHTML(ctx, siteEnt, ownerID, interval, time.Now())
 	if err != nil {
 		return fmt.Sprintf("<p>Failed to build report: %v</p>", err)
 	}
-	return html
+	return body
 }
 
 // SendTestReportMail sends a test report email for CLI use.
-func SendTestReportMail(to, subject, html string) error {
+func SendTestReportMail(to, subject, body string) error {
 	svc := GetEmailReportService()
-	return svc.sendMail(to, subject, html)
+	return svc.sendMail(to, subject, body)
 }

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -83,8 +84,11 @@ func (h *AuthHandler) Register() gin.HandlerFunc {
 		// 发送验证邮件（管理员不需要验证）
 		if !isFirstUser {
 			emailService := service.GetEmailService()
-			baseURL := service.GetBaseURLFromRequest(c)
-			_ = emailService.SendVerificationEmail(c.Request.Context(), user.ID, user.Email, baseURL)
+			if baseURL, bErr := service.GetBaseURLFromRequest(c); bErr != nil {
+				slog.Warn("register: skip verification email", "user_id", user.ID, "error", bErr)
+			} else if sErr := emailService.SendVerificationEmail(c.Request.Context(), user.ID, user.Email, baseURL); sErr != nil {
+				slog.Warn("register: send verification email failed", "user_id", user.ID, "error", sErr)
+			}
 		}
 
 		// 颁发jwt token

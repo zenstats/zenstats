@@ -1,7 +1,9 @@
 package config
 
 import (
+	"crypto/rand"
 	_ "embed"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"os"
@@ -110,12 +112,28 @@ func Load(env string) error {
 	}
 
 	// 6. Secret key is NOT in YAML — must come from environment.
-	cfg.SecretKey = os.Getenv("ZENSTATS_SECRET_KEY")
-	if cfg.SecretKey == "" {
-		if env == "prod" {
-			return fmt.Errorf("ZENSTATS_SECRET_KEY is required in production — set it via environment variable")
+	secret, err := resolveSecretKey(os.Getenv("ZENSTATS_SECRET_KEY"), env)
+	if err != nil {
+		return err
+	}
+	cfg.SecretKey = secret
+
+	// 6b. base_url: emails (verification / password reset) embed absolute links and MUST
+	// never derive the host from request headers (Host/Origin/Referer are attacker-controlled).
+	// If base_url is unset, derive it from ZENSTATS_DOMAIN (already required by the deploy
+	// tooling) so existing deployments keep working.
+	cfg.BaseURL = strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
+	if cfg.BaseURL == "" {
+		if domain := strings.TrimSpace(os.Getenv("ZENSTATS_DOMAIN")); domain != "" {
+			scheme := "https"
+			if domain == "localhost" || strings.HasPrefix(domain, "localhost:") || strings.HasPrefix(domain, "127.0.0.1") {
+				scheme = "http"
+			}
+			cfg.BaseURL = scheme + "://" + domain
 		}
-		slog.Warn("config: ZENSTATS_SECRET_KEY is not set — JWT tokens will use an empty signing key. Set it via environment for production.")
+	}
+	if cfg.BaseURL == "" {
+		slog.Warn("config: base_url is not set (ZENSTATS_BASE_URL / ZENSTATS_DOMAIN) — verification and password-reset emails will not be sent until it is configured")
 	}
 
 	// 7. ClickHouse addr: support comma-separated or JSON array env override.
@@ -143,6 +161,54 @@ func Load(env string) error {
 	slog.Info("config: loaded", "env", env)
 
 	return nil
+}
+
+// knownPlaceholderSecrets are values shipped in example/config templates that must never
+// be used as a real signing key.
+var knownPlaceholderSecrets = map[string]struct{}{
+	"change_me_to_a_random_secret": {},
+	"change_me":                    {},
+	"changeme":                     {},
+	"secret":                       {},
+	"your_secret_key":              {},
+	"your-secret-key":              {},
+	"replace_me":                   {},
+}
+
+// minSecretKeyLength is the minimum accepted length of the JWT signing key in production.
+// HS256 keys shorter than 32 bytes are brute-forceable offline from a single captured token.
+const minSecretKeyLength = 32
+
+// resolveSecretKey validates the JWT signing key for the given environment.
+// prod: required, not a known placeholder, at least minSecretKeyLength bytes.
+// dev/test: an ephemeral random key is generated when unset (tokens are invalidated on
+// restart, which is acceptable for development) and placeholders are rejected as well.
+func resolveSecretKey(raw, env string) (string, error) {
+	key := strings.TrimSpace(raw)
+	if _, isPlaceholder := knownPlaceholderSecrets[strings.ToLower(key)]; isPlaceholder {
+		return "", fmt.Errorf("ZENSTATS_SECRET_KEY is set to the example placeholder %q — generate a real key with: openssl rand -base64 32", key)
+	}
+	if env == "prod" {
+		if key == "" {
+			return "", fmt.Errorf("ZENSTATS_SECRET_KEY is required in production — generate one with: openssl rand -base64 32")
+		}
+		if len(key) < minSecretKeyLength {
+			return "", fmt.Errorf("ZENSTATS_SECRET_KEY is too short (%d bytes, need >= %d) — generate one with: openssl rand -base64 32", len(key), minSecretKeyLength)
+		}
+		return key, nil
+	}
+	if key == "" {
+		buf := make([]byte, 32)
+		if _, err := rand.Read(buf); err != nil {
+			return "", fmt.Errorf("config: generate ephemeral secret key: %w", err)
+		}
+		slog.Warn("config: ZENSTATS_SECRET_KEY is not set — using an ephemeral random signing key (all tokens are invalidated on restart). Set it via environment for production.")
+		return hex.EncodeToString(buf), nil
+	}
+	if len(key) < minSecretKeyLength {
+		slog.Warn("config: ZENSTATS_SECRET_KEY is shorter than recommended", "len", len(key), "recommended", minSecretKeyLength)
+	}
+	return key, nil
 }
 
 // resolveEnv parses config.yaml and returns the fully-merged map for the given env.

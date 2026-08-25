@@ -25,7 +25,7 @@ func RegisterAuthRouter(router *gin.RouterGroup) {
 	auth.POST("/login", authHandle.Login())
 	auth.POST("/sub-login", authHandle.SubLogin())
 	auth.POST("/register", authHandle.Register())
-	auth.GET("/refresh", authHandle.Refresh())
+	auth.POST("/refresh", authHandle.Refresh())
 	auth.GET("/state", authHandle.State())
 	auth.GET("/verify-email", emailHandle.VerifyEmail())
 

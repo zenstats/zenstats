@@ -3,9 +3,9 @@ package types
 
 // InitializeRequest 系统初始化请求参数。
 type InitializeRequest struct {
-	Email    string `json:"email" binding:"required"`
-	Name     string `json:"name" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Name     string `json:"name" binding:"required,min=2,max=100"`
+	Password string `json:"password" binding:"required,min=8,max=128"`
 }
 
 // User 用户基本信息。
@@ -38,8 +38,9 @@ type LoginResponse struct {
 }
 
 // RefreshRequest 刷新访问令牌请求参数。
+// 刷新令牌通过 POST JSON body 传递（不再接受 query 参数，避免长效令牌落入访问日志）。
 type RefreshRequest struct {
-	RefreshToken string `form:"refreshToken" binding:"required"`
+	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
 // RegisterRequest 用户注册请求参数。

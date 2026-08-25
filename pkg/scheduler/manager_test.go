@@ -2,14 +2,11 @@ package scheduler
 
 import (
 	"testing"
-	"time"
-
-	"github.com/robfig/cron/v3"
 )
 
 func newTestManager() *CronManager {
 	return &CronManager{
-		cronInstance: cron.New(cron.WithSeconds(), cron.WithLocation(time.UTC)),
+		cronInstance: newCron(),
 		jobs:         make(map[int]*CronJob),
 		jobCounter:   0,
 	}
@@ -82,8 +79,8 @@ func TestAddJobWithSixFieldSpecSucceeds(t *testing.T) {
 	cm := newTestManager()
 	// Verify the cron scheduler uses WithSeconds: a 6-field spec must succeed.
 	specs := []string{
-		"0 0 * * * *",   // hourly at second 0
-		"0 0 * * * 0",   // every Sunday
+		"0 0 * * * *",    // hourly at second 0
+		"0 0 * * * 0",    // every Sunday
 		"*/30 * * * * *", // every 30 seconds
 	}
 	for _, spec := range specs {

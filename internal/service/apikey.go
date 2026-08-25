@@ -24,6 +24,7 @@ const (
 type apiKeyCacheEntry struct {
 	keyID     int64
 	userID    int64
+	suspended bool      // owner account is suspended; key is rejected until cache invalidation
 	expiresAt time.Time // key's own expiry (from DB), zero means no expiry
 	cachedAt  time.Time // when this entry was cached
 
@@ -204,6 +205,17 @@ func (s *APIKeyService) DeleteAPIKey(ctx context.Context, userID int64, keyID in
 	return nil
 }
 
+// InvalidateUser 清除某用户全部 API Key 的缓存条目（用户被停用/启用时调用），
+// 使状态变更立即生效而无需等待缓存 TTL。
+func (s *APIKeyService) InvalidateUser(userID int64) {
+	s.cache.Range(func(k, v any) bool {
+		if e, ok := v.(*apiKeyCacheEntry); ok && e.userID == userID {
+			s.cache.Delete(k)
+		}
+		return true
+	})
+}
+
 // ValidateAPIKey 验证 API Key，返回关联的用户 ID。
 // 每次调用都记录真实的最后使用时间（内存），由后台 goroutine 定期批量写库。
 func (s *APIKeyService) ValidateAPIKey(ctx context.Context, rawKey string) (int64, error) {
@@ -216,6 +228,9 @@ func (s *APIKeyService) ValidateAPIKey(ctx context.Context, rawKey string) (int6
 			if !entry.expiresAt.IsZero() && time.Now().After(entry.expiresAt) {
 				s.cache.Delete(keyHash)
 				return 0, fmt.Errorf("api key has expired")
+			}
+			if entry.suspended {
+				return 0, fmt.Errorf("account suspended")
 			}
 			entry.touch()
 			return entry.userID, nil
@@ -238,16 +253,24 @@ func (s *APIKeyService) ValidateAPIKey(ctx context.Context, rawKey string) (int6
 		return 0, fmt.Errorf("api key has expired")
 	}
 
+	// 被管理员停用的账号，其 API Key 必须同步失效（登录/刷新路径已有同样的检查）。
+	// 状态随 entry 一起缓存；UpdateUserStatus 会调用 InvalidateUser 立即清除该用户的缓存条目。
+	suspended := GetUserService().GetUserStatus(ctx, apiKeyEntity.UserID) == "suspended"
+
 	entry := &apiKeyCacheEntry{
-		keyID:    apiKeyEntity.ID,
-		userID:   apiKeyEntity.UserID,
-		cachedAt: time.Now(),
+		keyID:     apiKeyEntity.ID,
+		userID:    apiKeyEntity.UserID,
+		suspended: suspended,
+		cachedAt:  time.Now(),
 	}
 	if apiKeyEntity.ExpiresAt != nil {
 		entry.expiresAt = *apiKeyEntity.ExpiresAt
 	}
 	entry.touch()
 	s.cache.Store(keyHash, entry)
+	if suspended {
+		return 0, fmt.Errorf("account suspended")
+	}
 
 	return apiKeyEntity.UserID, nil
 }

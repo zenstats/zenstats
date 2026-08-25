@@ -1,5 +1,18 @@
 basePath: /api
 definitions:
+  admin.EmailLogListResponse:
+    properties:
+      logs:
+        items:
+          $ref: '#/definitions/service.EmailLog'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total_count:
+        type: integer
+    type: object
   admin.UpdateConfigsRequest:
     properties:
       items:
@@ -57,42 +70,6 @@ definitions:
     required:
     - new_password
     - token
-    type: object
-  common.EventRequest:
-    properties:
-      d:
-        example: example.com
-        type: string
-      e:
-        example: 15000
-        type: integer
-      h:
-        example: 0
-        type: integer
-      i:
-        example: true
-        type: boolean
-      "n":
-        example: pageview
-        type: string
-      p:
-        additionalProperties: {}
-        type: object
-      r:
-        example: https://google.com
-        type: string
-      sd:
-        example: 85
-        type: integer
-      t:
-        example: "2025-01-01T00:00:00Z"
-        type: string
-      u:
-        example: https://example.com/page
-        type: string
-      v:
-        example: 1.0.0
-        type: string
     type: object
   funnel.FunnelAnalysisResult:
     properties:
@@ -180,6 +157,39 @@ definitions:
       table:
         type: string
     type: object
+  model.EventRequest:
+    type: object
+  panels.CreatePanelRequest:
+    properties:
+      config:
+        description: Config 是自定义查询的完整配置 JSON（指标 / 维度 / 过滤器 / 排序 / limit 等）。
+        type: string
+      description:
+        maxLength: 500
+        type: string
+      name:
+        maxLength: 255
+        type: string
+      pinned:
+        type: boolean
+    required:
+    - config
+    - name
+    type: object
+  panels.UpdatePanelRequest:
+    properties:
+      config:
+        type: string
+      description:
+        description: Description 用指针区分“未传”（nil，不更新）与“传空串”（清空描述）。
+        type: string
+      layout:
+        type: string
+      name:
+        type: string
+      pinned:
+        type: boolean
+    type: object
   response.ErrorResponse:
     description: 接口返回的错误响应信息
     properties:
@@ -203,6 +213,29 @@ definitions:
         description: 响应数据
       message:
         description: 响应信息
+        type: string
+    type: object
+  segments.CreateSegmentRequest:
+    properties:
+      description:
+        maxLength: 500
+        type: string
+      filters:
+        type: string
+      name:
+        maxLength: 255
+        type: string
+    required:
+    - filters
+    - name
+    type: object
+  segments.UpdateSegmentRequest:
+    properties:
+      description:
+        type: string
+      filters:
+        type: string
+      name:
         type: string
     type: object
   service.APIKeyInfo:
@@ -259,6 +292,10 @@ definitions:
     type: object
   service.CreateGoalRequest:
     properties:
+      custom_props:
+        additionalProperties:
+          type: string
+        type: object
       display_name:
         type: string
       event_name:
@@ -267,6 +304,25 @@ definitions:
         type: string
     required:
     - display_name
+    type: object
+  service.EmailLog:
+    properties:
+      created_at:
+        type: string
+      email_type:
+        type: string
+      error:
+        type: string
+      id:
+        type: integer
+      recipient:
+        type: string
+      site_id:
+        type: integer
+      status:
+        type: string
+      subject:
+        type: string
     type: object
   service.Funnel:
     properties:
@@ -307,6 +363,10 @@ definitions:
     type: object
   service.FunnelStepInfo:
     properties:
+      custom_props:
+        additionalProperties:
+          type: string
+        type: object
       goal_id:
         type: integer
       goal_name:
@@ -327,6 +387,10 @@ definitions:
     type: object
   service.Goal:
     properties:
+      custom_props:
+        additionalProperties:
+          type: string
+        type: object
       display_name:
         type: string
       event_name:
@@ -337,6 +401,48 @@ definitions:
         type: string
       site_id:
         type: integer
+    type: object
+  service.SavedPanel:
+    properties:
+      config:
+        type: string
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      description:
+        type: string
+      id:
+        type: integer
+      layout:
+        type: string
+      name:
+        type: string
+      pinned:
+        type: boolean
+      site_id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  service.Segment:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      description:
+        type: string
+      filters:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      site_id:
+        type: integer
+      updated_at:
+        type: string
     type: object
   service.SiteWithRemark:
     properties:
@@ -374,7 +480,59 @@ definitions:
     type: object
   service.UpdateGoalRequest:
     properties:
+      custom_props:
+        additionalProperties:
+          type: string
+        type: object
       display_name:
+        type: string
+    type: object
+  sharedlinks.CreateSharedLinkRequest:
+    properties:
+      name:
+        maxLength: 255
+        type: string
+      password:
+        description: 可选密码保护
+        type: string
+    required:
+    - name
+    type: object
+  sharedlinks.SharedLinkResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      password_protected:
+        type: boolean
+      slug:
+        type: string
+      url:
+        type: string
+    type: object
+  sharedlinks.SharedLinkViewResponse:
+    properties:
+      domain:
+        type: string
+      name:
+        type: string
+      password_protected:
+        type: boolean
+      slug:
+        type: string
+    type: object
+  stats.QueryV2Request:
+    type: object
+  stats.SaveQuerySegmentRequest:
+    type: object
+  stats.SuggestionItem:
+    properties:
+      label:
+        type: string
+      value:
         type: string
     type: object
   types.AddShieldRuleCountryRequest:
@@ -500,12 +658,16 @@ definitions:
         type: string
       email:
         type: string
+      group_id:
+        type: integer
       group_name:
         type: string
       id:
         type: integer
       is_admin:
         type: boolean
+      last_seen:
+        type: string
       name:
         type: string
       status:
@@ -580,12 +742,16 @@ definitions:
       is_default:
         type: boolean
       max_api_keys:
+        minimum: -1
         type: integer
       max_monthly_events:
+        minimum: -1
         type: integer
       max_sites:
+        minimum: -1
         type: integer
       max_sub_accounts:
+        minimum: -1
         type: integer
       name:
         maxLength: 100
@@ -594,10 +760,6 @@ definitions:
       price:
         type: number
     required:
-    - max_api_keys
-    - max_monthly_events
-    - max_sites
-    - max_sub_accounts
     - name
     type: object
   types.CreateSearchEngineRequest:
@@ -653,6 +815,17 @@ definitions:
         maxLength: 128
         minLength: 8
         type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      role:
+        enum:
+        - viewer
+        - editor
+        - admin
+        - custom
+        type: string
     required:
     - email
     - name
@@ -694,8 +867,12 @@ definitions:
       email:
         type: string
       name:
+        maxLength: 100
+        minLength: 2
         type: string
       password:
+        maxLength: 128
+        minLength: 8
         type: string
     required:
     - email
@@ -729,6 +906,13 @@ definitions:
         type: string
       user:
         $ref: '#/definitions/types.User'
+    type: object
+  types.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
     type: object
   types.RegisterRequest:
     properties:
@@ -849,6 +1033,10 @@ definitions:
         type: string
       name:
         type: string
+      permissions:
+        items:
+          type: string
+        type: array
       role:
         type: string
       status:
@@ -898,6 +1086,10 @@ definitions:
         type: string
       parent_user_id:
         type: integer
+      permissions:
+        items:
+          type: string
+        type: array
       role:
         type: string
     type: object
@@ -919,12 +1111,16 @@ definitions:
       is_default:
         type: boolean
       max_api_keys:
+        minimum: -1
         type: integer
       max_monthly_events:
+        minimum: -1
         type: integer
       max_sites:
+        minimum: -1
         type: integer
       max_sub_accounts:
+        minimum: -1
         type: integer
       name:
         maxLength: 100
@@ -933,10 +1129,6 @@ definitions:
       price:
         type: number
     required:
-    - max_api_keys
-    - max_monthly_events
-    - max_sites
-    - max_sub_accounts
     - name
     type: object
   types.UpdateProfileRequest:
@@ -990,6 +1182,17 @@ definitions:
       name:
         maxLength: 100
         minLength: 1
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      role:
+        enum:
+        - viewer
+        - editor
+        - admin
+        - custom
         type: string
       status:
         enum:
@@ -1155,6 +1358,53 @@ paths:
       security:
       - BearerAuth: []
       summary: 更新系统配置
+      tags:
+      - 管理员
+  /admin/email-logs:
+    get:
+      description: 列出系统发送的所有邮件及其发送状态，支持分页和按状态/类型筛选。
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 发送状态筛选：sent / failed / skipped
+        in: query
+        name: status
+        type: string
+      - description: 邮件类型筛选：verification / password_reset / email_report / traffic_alert
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.EmailLogListResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取邮件发送记录
       tags:
       - 管理员
   /admin/groups:
@@ -1384,6 +1634,45 @@ paths:
       security:
       - BearerAuth: []
       summary: 删除站点
+      tags:
+      - 管理员
+  /admin/sites/{siteId}/traffic-alert/test:
+    post:
+      consumes:
+      - application/json
+      description: 对指定站点执行一次流量异常检测，返回检测结果。不受告警开关限制，可指定收件人发送测试邮件。
+      parameters:
+      - description: 站点ID
+        in: path
+        name: siteId
+        required: true
+        type: integer
+      - description: 收件人邮箱（指定时发送测试邮件）
+        in: query
+        name: email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 检测结果
+          schema:
+            $ref: '#/definitions/response.SuccessResponse'
+        "400":
+          description: 站点不存在或检测失败
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: 未授权
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: 服务器内部错误
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 测试流量告警检测
       tags:
       - 管理员
   /admin/sites/{siteId}/verify:
@@ -1622,6 +1911,101 @@ paths:
       summary: 更新用户状态
       tags:
       - 管理员
+  /api/v2/query/{domain}:
+    post:
+      consumes:
+      - application/json
+      description: POST-based query with full parameter support. More suitable for
+        complex queries and SDK integration.
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 查询参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/stats.QueryV2Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data: {}
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - APIKeyAuth: []
+      summary: 通用查询（v2）
+      tags:
+      - 统计分析
+  /api/v2/query/{domain}/segments:
+    post:
+      consumes:
+      - application/json
+      description: 把当前自定义查询使用的 filters 一键保存为命名的过滤器组合（Segment），之后可在 Segment 列表中复用。filters
+        结构与 /api/v2/query 的 filters 完全一致。
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 保存参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/stats.SaveQuerySegmentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.Segment'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - APIKeyAuth: []
+      summary: 保存当前查询为 Segment
+      tags:
+      - 统计分析
   /apikeys:
     get:
       consumes:
@@ -1867,16 +2251,17 @@ paths:
       tags:
       - 认证
   /auth/refresh:
-    get:
+    post:
       consumes:
       - application/json
-      description: 使用刷新令牌获取新的访问令牌。refreshToken 通过查询参数传递。
+      description: 使用刷新令牌获取新的访问令牌。刷新令牌通过 JSON body 传递（不接受 query 参数，避免落入访问日志）。
       parameters:
       - description: 刷新令牌
-        in: query
-        name: refreshToken
+        in: body
+        name: request
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/types.RefreshRequest'
       produces:
       - application/json
       responses:
@@ -2117,7 +2502,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/common.EventRequest'
+          $ref: '#/definitions/model.EventRequest'
       produces:
       - application/json
       responses:
@@ -2155,9 +2540,74 @@ paths:
           description: Service Unavailable
           schema:
             $ref: '#/definitions/response.ErrorResponse'
-      summary: 健康检查
+      summary: 健康检查（兼容）
       tags:
       - 健康检查
+  /health/live:
+    get:
+      description: 进程存活检查，始终返回 200
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: 存活探针
+      tags:
+      - 健康检查
+  /health/ready:
+    get:
+      description: 检查服务及依赖（PostgreSQL、ClickHouse）的连通性
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/health.HealthResponse'
+              type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: 就绪探针
+      tags:
+      - 健康检查
+  /share/{slug}:
+    get:
+      description: 公开接口，根据 slug 返回共享链接关联的站点域名，供前端渲染只读统计页。
+      parameters:
+      - description: 链接 slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/sharedlinks.SharedLinkViewResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: 获取共享链接信息
+      tags:
+      - 共享链接
   /sites:
     get:
       consumes:
@@ -2385,9 +2835,9 @@ paths:
             $ref: '#/definitions/response.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: 获取漏斗列表
+      summary: Get funnel list
       tags:
-      - 漏斗管理
+      - Funnel management
     post:
       consumes:
       - application/json
@@ -2398,7 +2848,7 @@ paths:
         name: domain
         required: true
         type: string
-      - description: 创建漏斗请求
+      - description: Create funnel请求
         in: body
         name: body
         required: true
@@ -2430,9 +2880,9 @@ paths:
             $ref: '#/definitions/response.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: 创建漏斗
+      summary: Create funnel
       tags:
-      - 漏斗管理
+      - Funnel management
   /sites/{domain}/funnels/{funnelId}:
     delete:
       description: 删除指定的漏斗。
@@ -2468,9 +2918,9 @@ paths:
             $ref: '#/definitions/response.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: 删除漏斗
+      summary: Delete funnel
       tags:
-      - 漏斗管理
+      - Funnel management
     get:
       description: 获取指定漏斗的详细信息，包含步骤的目标信息。
       parameters:
@@ -2510,9 +2960,9 @@ paths:
             $ref: '#/definitions/response.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: 获取漏斗详情
+      summary: Get funnel detail
       tags:
-      - 漏斗管理
+      - Funnel management
     put:
       consumes:
       - application/json
@@ -2528,7 +2978,7 @@ paths:
         name: funnelId
         required: true
         type: integer
-      - description: 更新漏斗请求
+      - description: Update funnel请求
         in: body
         name: body
         required: true
@@ -2564,9 +3014,9 @@ paths:
             $ref: '#/definitions/response.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: 更新漏斗
+      summary: Update funnel
       tags:
-      - 漏斗管理
+      - Funnel management
   /sites/{domain}/goals:
     get:
       description: 获取指定站点的所有转化目标。
@@ -2908,6 +3358,393 @@ paths:
       summary: 导入 GA4 CSV 数据
       tags:
       - 数据导入
+  /sites/{domain}/panels:
+    get:
+      description: 列出站点下所有已保存的自定义查询面板。可用 pinned=true 只取固定到首页的面板。
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 仅返回固定到首页的面板
+        in: query
+        name: pinned
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.SavedPanel'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取面板列表
+      tags:
+      - 面板
+    post:
+      consumes:
+      - application/json
+      description: 保存一次自定义查询的完整配置为命名面板，之后可复用或固定到首页。
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 面板参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/panels.CreatePanelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SavedPanel'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 创建面板
+      tags:
+      - 面板
+  /sites/{domain}/panels/{panelId}:
+    delete:
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 面板 ID
+        in: path
+        name: panelId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: boolean
+                  type: object
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 删除面板
+      tags:
+      - 面板
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 面板 ID
+        in: path
+        name: panelId
+        required: true
+        type: string
+      - description: 更新参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/panels.UpdatePanelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.SavedPanel'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 更新面板
+      tags:
+      - 面板
+  /sites/{domain}/segments:
+    get:
+      description: 列出站点下所有已保存的过滤器组合（Segment）。
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.Segment'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取 Segment 列表
+      tags:
+      - Segment
+    post:
+      consumes:
+      - application/json
+      description: 为站点保存一组命名的过滤器组合，之后可通过 segment_id 在查询中复用。
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: Segment 参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/segments.CreateSegmentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.Segment'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 创建 Segment
+      tags:
+      - Segment
+  /sites/{domain}/segments/{segmentId}:
+    delete:
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: Segment ID
+        in: path
+        name: segmentId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: boolean
+                  type: object
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 删除 Segment
+      tags:
+      - Segment
+    patch:
+      consumes:
+      - application/json
+      description: 更新已有 Segment 的名称或过滤器定义。
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: Segment ID
+        in: path
+        name: segmentId
+        required: true
+        type: string
+      - description: 更新参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/segments.UpdateSegmentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.Segment'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 更新 Segment
+      tags:
+      - Segment
+  /sites/{domain}/shared-links:
+    get:
+      description: 获取指定站点的所有可嵌入共享链接。
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/sharedlinks.SharedLinkResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 获取共享链接列表
+      tags:
+      - 共享链接
+    post:
+      consumes:
+      - application/json
+      description: 为站点创建可公开嵌入的仪表盘共享链接，支持可选密码保护。
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 共享链接参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/sharedlinks.CreateSharedLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/sharedlinks.SharedLinkResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 创建共享链接
+      tags:
+      - 共享链接
+  /sites/{domain}/shared-links/{linkId}:
+    delete:
+      description: 删除指定共享链接，链接立即失效。
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: 链接 ID
+        in: path
+        name: linkId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: boolean
+                  type: object
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 删除共享链接
+      tags:
+      - 共享链接
   /sites/{domain}/shield/country:
     get:
       consumes:
@@ -3378,7 +4215,7 @@ paths:
         name: to
         type: string
       - default: visitors,pageviews,visits,bounce_rate,visit_duration
-        description: 指标列表，逗号分隔；支持 visitors,pageviews,visits,bounce_rate,visit_duration,events
+        description: 指标列表，逗号分隔；支持 visitors,pageviews,visits,bounce_rate,visit_duration,events,views_per_visit,scroll_depth,time_on_page,exit_rate,conversion_rate
         in: query
         name: metrics
         type: string
@@ -3693,9 +4530,9 @@ paths:
       security:
       - BearerAuth: []
       - APIKeyAuth: []
-      summary: 漏斗分析
+      summary: Funnel analysis
       tags:
-      - 漏斗分析
+      - Funnel analysis
   /stats/{domain}/main-graph:
     get:
       consumes:
@@ -3778,6 +4615,73 @@ paths:
       - BearerAuth: []
       - APIKeyAuth: []
       summary: 获取主图表时序数据
+      tags:
+      - 统计分析
+  /stats/{domain}/suggestions:
+    get:
+      description: 根据 filter_name 返回可选值列表，支持模糊搜索。
+      parameters:
+      - description: 站点域名
+        in: path
+        name: domain
+        required: true
+        type: string
+      - description: '过滤器名称: prop_key 获取所有属性键; event:props:xxx 获取指定属性值'
+        in: query
+        name: filter_name
+        required: true
+        type: string
+      - description: 搜索关键词（模糊匹配）
+        in: query
+        name: q
+        type: string
+      - default: p30
+        description: 时间周期
+        in: query
+        name: period
+        type: string
+      - description: 统计日期，格式 YYYY-MM-DD
+        in: query
+        name: date
+        type: string
+      - description: 自定义开始日期
+        in: query
+        name: from
+        type: string
+      - description: 自定义结束日期
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/stats.SuggestionItem'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      - APIKeyAuth: []
+      summary: 获取筛选器建议
       tags:
       - 统计分析
   /stats/{domain}/time_series:

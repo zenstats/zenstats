@@ -3,6 +3,7 @@ package health
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -95,7 +96,7 @@ func (h *Handler) Ready() gin.HandlerFunc {
 		}
 
 		if result.Status != "healthy" {
-			response.Error(c, http.StatusServiceUnavailable, nil)
+			response.ErrorWithHTTPStatus(c, http.StatusServiceUnavailable, http.StatusServiceUnavailable, fmt.Errorf("postgres=%s clickhouse=%s", result.Postgres, result.Clickhouse))
 			return
 		}
 

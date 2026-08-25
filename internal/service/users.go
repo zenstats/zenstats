@@ -177,7 +177,12 @@ func (s *UserService) UpdateUserStatus(ctx context.Context, userID int64, status
 	if err != nil {
 		return err
 	}
-	return s.db.Client.UserConfig.UpdateOneID(config.ID).SetStatus(status).Exec(ctx)
+	if err := s.db.Client.UserConfig.UpdateOneID(config.ID).SetStatus(status).Exec(ctx); err != nil {
+		return err
+	}
+	// 状态变更立即作用于该用户的 API Key（清缓存后下次校验重新读库）
+	GetAPIKeyService().InvalidateUser(userID)
+	return nil
 }
 
 // UpdateUserGroup 更新用户套餐

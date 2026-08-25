@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +18,6 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/pkg/globals"
 	"github.com/zenstats/zenstats/pkg/scheduler"
-	"gopkg.in/gomail.v2"
 )
 
 // TrafficAlertService detects traffic anomalies by comparing PV/UV against the same hour last week.
@@ -25,6 +25,61 @@ type TrafficAlertService struct {
 	db          *ent.Client
 	siteService *SiteService
 	userService *UserService
+	state       *alertState
+}
+
+// alertState is per-process de-duplication state for the hourly cron.
+//
+//   - lastDailyEval: siteID -> site-local date ("2006-01-02") for which the daily comparison has
+//     already been evaluated. The cron fires hourly, but daily mode must run once per local day.
+//   - activeHourly: siteID -> IsSpike of an anomaly that is currently ongoing. While an anomaly
+//     persists across consecutive hours only the first one is emailed; the entry is cleared when a
+//     check comes back normal (or re-alerted when the direction flips spike<->drop).
+//
+// Limitation: the site schema has no persisted last-alert column, so this state lives in memory.
+// With multiple API replicas each replica de-duplicates independently (at most one alert per
+// replica per day/anomaly window), and a restart resets the state.
+type alertState struct {
+	mu            sync.Mutex
+	lastDailyEval map[int64]string
+	activeHourly  map[int64]bool
+}
+
+func newAlertState() *alertState {
+	return &alertState{
+		lastDailyEval: make(map[int64]string),
+		activeHourly:  make(map[int64]bool),
+	}
+}
+
+// shouldEvalDaily returns true if the daily comparison has not yet been evaluated for localDate.
+func (st *alertState) shouldEvalDaily(siteID int64, localDate string) bool {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return st.lastDailyEval[siteID] != localDate
+}
+
+// markDailyEvaluated records that the daily comparison for localDate has been evaluated.
+func (st *alertState) markDailyEvaluated(siteID int64, localDate string) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	st.lastDailyEval[siteID] = localDate
+}
+
+// shouldSendHourly reports whether an hourly anomaly should be emailed, and updates the
+// active-anomaly window. anomaly == nil means the current hour is normal and clears the window.
+func (st *alertState) shouldSendHourly(siteID int64, anomaly *alertData) bool {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if anomaly == nil {
+		delete(st.activeHourly, siteID)
+		return false
+	}
+	if prev, active := st.activeHourly[siteID]; active && prev == anomaly.IsSpike {
+		return false // same anomaly still ongoing: already alerted at its start
+	}
+	st.activeHourly[siteID] = anomaly.IsSpike
+	return true
 }
 
 var getTrafficAlertService = sync.OnceValue(func() *TrafficAlertService {
@@ -33,6 +88,7 @@ var getTrafficAlertService = sync.OnceValue(func() *TrafficAlertService {
 		db:          db.Client,
 		siteService: GetSiteService(),
 		userService: GetUserService(),
+		state:       newAlertState(),
 	}
 })
 
@@ -45,6 +101,11 @@ func GetTrafficAlertService() *TrafficAlertService {
 func (s *TrafficAlertService) CheckAndAlert(_ float64) {
 	ctx := context.Background()
 	slog.Info("running traffic anomaly check")
+
+	if !smtpConfigured() {
+		slog.Warn("smtp not configured, skipping traffic anomaly check")
+		return
+	}
 
 	sites, err := s.db.Site.Query().
 		Where(site.IsVerified(true)).
@@ -77,11 +138,34 @@ func (s *TrafficAlertService) checkAndAlertSite(ctx context.Context, siteEnt *en
 		return
 	}
 
-	alert, err := s.detectAnomaly(ctx, siteEnt, ownerID, threshold)
+	now := time.Now()
+	isDaily := siteEnt.TrafficAlertInterval == "daily"
+
+	// Daily mode: evaluate once per site-local day (the cron itself fires hourly).
+	var localDate string
+	if isDaily {
+		localDate = now.In(siteLocation(siteEnt.Timezone)).Format("2006-01-02")
+		if !s.state.shouldEvalDaily(siteEnt.ID, localDate) {
+			return
+		}
+	}
+
+	alert, err := s.detectAnomalyAt(ctx, siteEnt, ownerID, threshold, now)
 	if err != nil {
+		// Transient failure: leave state untouched so the next hourly tick retries.
 		slog.Warn("failed to check anomaly", "domain", siteEnt.Domain, "error", err)
 		return
 	}
+
+	if isDaily {
+		s.state.markDailyEvaluated(siteEnt.ID, localDate)
+	} else if !s.state.shouldSendHourly(siteEnt.ID, alert) {
+		if alert != nil {
+			slog.Debug("traffic anomaly still ongoing, alert suppressed", "domain", siteEnt.Domain)
+		}
+		return
+	}
+
 	if alert != nil {
 		// Site owner
 		s.sendAlert(usr.Email, siteEnt.Domain, alert)
@@ -104,39 +188,78 @@ type alertData struct {
 	PreviousPageviews float64
 	VisitorsChange    float64 // Percentage, positive = spike
 	PageviewsChange   float64
-	IsSpike           bool    // true=spike, false=drop
+	IsSpike           bool // true=spike, false=drop
 	Hour              string
 	Threshold         float64 // Alert threshold percentage (e.g. 50)
 }
 
-// detectAnomaly checks a single site for traffic anomalies.
-// Uses site interval config: hourly compares last hour vs same hour last week, daily compares today vs same day last week.
+// siteLocation resolves a site timezone name, falling back to UTC.
+func siteLocation(timezone string) *time.Location {
+	loc, err := time.LoadLocation(timezone)
+	if err != nil || loc == nil {
+		return time.UTC
+	}
+	return loc
+}
+
+// alertWindow holds the current/previous comparison ranges as site-local strings.
+// The stats layer parses custom From/To in the site's timezone, so these MUST be
+// formatted in site-local time, never server-local time.
+type alertWindow struct {
+	From, To         string
+	PrevFrom, PrevTo string
+	Label            string
+}
+
+// computeAlertWindow derives the comparison window for the given instant.
+//
+// daily:  yesterday (a complete site-local day) vs the same weekday one week before yesterday.
+//
+//	Comparing "today so far" against a full day would report huge fake drops in the
+//	early hours of every day.
+//
+// hourly: the last completed site-local hour vs the same hour one week earlier.
+func computeAlertWindow(now time.Time, timezone, interval string) alertWindow {
+	loc := siteLocation(timezone)
+	local := now.In(loc)
+
+	if interval == "daily" {
+		yesterday := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, -1)
+		weekBefore := yesterday.AddDate(0, 0, -7)
+		y, w := yesterday.Format("2006-01-02"), weekBefore.Format("2006-01-02")
+		return alertWindow{From: y, To: y, PrevFrom: w, PrevTo: w, Label: y + " vs " + w}
+	}
+
+	// Default to hourly: truncate to the local hour, then step back one hour.
+	lastHour := time.Date(local.Year(), local.Month(), local.Day(), local.Hour(), 0, 0, 0, loc).Add(-time.Hour)
+	lastHourEnd := lastHour.Add(time.Hour)
+	sameHourLastWeek := lastHour.AddDate(0, 0, -7)
+	const layout = "2006-01-02 15:04"
+	return alertWindow{
+		From:     lastHour.Format(layout),
+		To:       lastHourEnd.Format(layout),
+		PrevFrom: sameHourLastWeek.Format(layout),
+		PrevTo:   sameHourLastWeek.Add(time.Hour).Format(layout),
+		Label:    lastHour.Format("15:04") + " ~ " + lastHourEnd.Format("15:04") + " vs same period last week",
+	}
+}
+
+// detectAnomaly checks a single site for traffic anomalies as of now.
 func (s *TrafficAlertService) detectAnomaly(ctx context.Context, siteEnt *ent.Site, ownerID int64, threshold float64) (*alertData, error) {
+	return s.detectAnomalyAt(ctx, siteEnt, ownerID, threshold, time.Now())
+}
+
+// detectAnomalyAt checks a single site for traffic anomalies relative to the given instant.
+// Uses site interval config: hourly compares the last hour vs the same hour last week,
+// daily compares yesterday vs the same weekday last week (see computeAlertWindow).
+func (s *TrafficAlertService) detectAnomalyAt(ctx context.Context, siteEnt *ent.Site, ownerID int64, threshold float64, now time.Time) (*alertData, error) {
 	statsSvc := GetStatsService()
 	if statsSvc == nil {
 		return nil, fmt.Errorf("stats service unavailable")
 	}
 
-	now := time.Now()
-	var fromStr, toStr, prevFromStr, prevToStr string
-	var timeLabel string
-
-	if siteEnt.TrafficAlertInterval == "daily" {
-		today := now.Format("2006-01-02")
-		weekAgo := now.AddDate(0, 0, -7).Format("2006-01-02")
-		fromStr, toStr = today, today
-		prevFromStr, prevToStr = weekAgo, weekAgo
-		timeLabel = today + " vs " + weekAgo
-	} else {
-		// Default to hourly
-		lastHour := now.Truncate(time.Hour).Add(-time.Hour)
-		sameHourLastWeek := lastHour.AddDate(0, 0, -7)
-		fromStr = lastHour.Format("2006-01-02 15:04")
-		toStr = lastHour.Add(time.Hour).Format("2006-01-02 15:04")
-		prevFromStr = sameHourLastWeek.Format("2006-01-02 15:04")
-		prevToStr = sameHourLastWeek.Add(time.Hour).Format("2006-01-02 15:04")
-		timeLabel = lastHour.Format("15:04") + " ~ " + lastHour.Add(time.Hour).Format("15:04") + " vs same period last week"
-	}
+	win := computeAlertWindow(now, siteEnt.Timezone, siteEnt.TrafficAlertInterval)
+	fromStr, toStr, prevFromStr, prevToStr, timeLabel := win.From, win.To, win.PrevFrom, win.PrevTo, win.Label
 
 	ginCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
 	ginCtx.Set("user_id", ownerID)
@@ -200,33 +323,43 @@ func pctChange(current, previous float64) float64 {
 	return ((current - previous) / previous) * 100
 }
 
-// sendAlert sends a traffic anomaly alert email.
+// sendAlert sends a traffic anomaly alert email through the shared SMTP sender in email.go.
+// Skips (single Warn, no EmailLog row) when SMTP is not configured.
 func (s *TrafficAlertService) sendAlert(email, domain string, alert *alertData) {
-	cfg := config.Conf
-	host := cfg.SMTP.Host
-	port := cfg.SMTP.Port
-	username := cfg.SMTP.Username
-	password := cfg.SMTP.Password
-	from := cfg.SMTP.From
-
-	if host == "" {
-		host = "localhost"
-	}
-	if port == 0 {
-		port = 587
-	}
-	if from == "" {
-		from = "noreply@zenstats.io"
+	if !smtpConfigured() {
+		slog.Warn("smtp not configured, traffic alert not sent", "domain", domain)
+		return
 	}
 
-	direction := "Drop"
-	icon := "📉"
-	if alert.IsSpike {
-		direction = "Spike"
-		icon = "📈"
-	}
-
+	direction, icon := alertDirection(alert.IsSpike)
 	subject := fmt.Sprintf("%s Zenstats traffic %s alert — %s", icon, direction, domain)
+	body := renderAlertHTML(config.Conf.BaseURL, domain, alert)
+
+	err := sendEmail(email, subject, body, EmailTypeTrafficAlert, nil)
+	if err != nil {
+		slog.Warn("failed to send traffic alert", "domain", domain, "error", err)
+		slog.Debug("traffic alert recipient", "domain", domain, "email", email)
+	} else {
+		slog.Info("traffic alert sent",
+			"domain", domain,
+			"visitors_change", fmt.Sprintf("%.0f%%", alert.VisitorsChange),
+			"pageviews_change", fmt.Sprintf("%.0f%%", alert.PageviewsChange),
+		)
+	}
+}
+
+func alertDirection(isSpike bool) (direction, icon string) {
+	if isSpike {
+		return "Spike", "📈"
+	}
+	return "Drop", "📉"
+}
+
+// renderAlertHTML renders the alert email body. domain is user-controlled (site domain) and is
+// HTML-escaped wherever it is interpolated; the stats link is built with net/url path escaping.
+func renderAlertHTML(baseURL, domain string, alert *alertData) string {
+	direction, icon := alertDirection(alert.IsSpike)
+	statsURL := strings.TrimRight(baseURL, "/") + "/sites/" + url.PathEscape(domain) + "/stats"
 
 	visitorsSign := "+"
 	if alert.VisitorsChange < 0 {
@@ -237,7 +370,7 @@ func (s *TrafficAlertService) sendAlert(email, domain string, alert *alertData) 
 		pageviewsSign = ""
 	}
 
-	html := fmt.Sprintf(`<!DOCTYPE html>
+	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; max-width:560px; margin:0 auto; padding:0; color:#1a1a2e;">
@@ -278,8 +411,8 @@ func (s *TrafficAlertService) sendAlert(email, domain string, alert *alertData) 
 		// header color
 		alertColor(alert.IsSpike),
 		icon,
-		domain, direction,
-		alert.Hour,
+		esc(domain), direction,
+		esc(alert.Hour),
 		// visitors card
 		alert.CurrentVisitors,
 		alertColor(alert.IsSpike), visitorsSign, alert.VisitorsChange,
@@ -290,29 +423,10 @@ func (s *TrafficAlertService) sendAlert(email, domain string, alert *alertData) 
 		alert.PreviousVisitors, alert.PreviousPageviews,
 		alert.CurrentVisitors, alert.CurrentPageviews,
 		// link
-		cfg.BaseURL+"/sites/"+domain+"/stats",
+		esc(statsURL),
 		// threshold
 		alert.Threshold,
 	)
-
-	m := gomail.NewMessage()
-	m.SetHeader("From", from)
-	m.SetHeader("To", email)
-	m.SetHeader("Subject", subject)
-	m.SetBody("text/html", html)
-
-	d := gomail.NewDialer(host, port, username, password)
-	err := d.DialAndSend(m)
-	GetEmailLogService().RecordSend(context.Background(), email, subject, EmailTypeTrafficAlert, nil, err)
-	if err != nil {
-		slog.Warn("failed to send traffic alert", "email", email, "error", err)
-	} else {
-		slog.Info("traffic alert sent",
-			"domain", domain,
-			"visitors_change", fmt.Sprintf("%.0f%%", alert.VisitorsChange),
-			"pageviews_change", fmt.Sprintf("%.0f%%", alert.PageviewsChange),
-		)
-	}
 }
 
 func alertColor(isSpike bool) string {
@@ -323,7 +437,8 @@ func alertColor(isSpike bool) string {
 }
 
 // HourlyTrafficCheck 定时任务入口（每小时整点执行）。
-// 对比上一完整小时与上周同小时的 PV/UV，每次检查不同时段，无重复告警。
+// hourly 站点：对比上一完整小时与上周同小时，同一持续异常只在起始小时告警一次（见 alertState）。
+// daily 站点：每个站点本地日只评估一次，对比昨天（完整日）与上周同一天。
 func (s *TrafficAlertService) HourlyTrafficCheck(_ any) {
 	s.CheckAndAlert(0) // 阈值从 DB 读取，参数忽略
 }

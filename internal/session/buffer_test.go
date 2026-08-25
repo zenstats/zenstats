@@ -105,3 +105,52 @@ func TestSessionWriteBufferSizeTriggerDrainsBuffer(t *testing.T) {
 		t.Fatalf("expected empty buffer after size-triggered flush + shutdown, got %d", remaining)
 	}
 }
+
+// TestSessionWriteBufferFindPendingReturnsLatestState verifies FindPending picks the
+// highest-version Sign=+1 row for the user/site, ignoring tombstones, other users and
+// rows older than notBefore (e.g. historical sessions passing through the buffer).
+func TestSessionWriteBufferFindPendingReturnsLatestState(t *testing.T) {
+	wb := NewWriteBuffer(context.Background(), 100, time.Minute)
+	now := time.Now()
+
+	wb.Add(&models.Sessions{Sign: 1, Version: 10, UserId: 1, SiteId: 1, Timestamp: now, Events: 1})
+	wb.Add(&models.Sessions{Sign: -1, Version: 10, UserId: 1, SiteId: 1, Timestamp: now, Events: 1})
+	wb.Add(&models.Sessions{Sign: 1, Version: 11, UserId: 1, SiteId: 1, Timestamp: now, Events: 2})
+	wb.Add(&models.Sessions{Sign: 1, Version: 99, UserId: 2, SiteId: 1, Timestamp: now, Events: 5})            // other user
+	wb.Add(&models.Sessions{Sign: 1, Version: 999, UserId: 1, SiteId: 1, Timestamp: now.Add(-48 * time.Hour)}) // historical
+
+	got := wb.FindPending(1, 1, now.Add(-time.Hour))
+	if got == nil || got.Version != 11 || got.Events != 2 {
+		t.Fatalf("expected pending row version=11 events=2, got %+v", got)
+	}
+	if wb.FindPending(3, 1, now.Add(-time.Hour)) != nil {
+		t.Fatal("expected nil for unknown user")
+	}
+}
+
+// TestSessionWriteBufferFindPendingSeesInflightBatch verifies rows taken out of the
+// buffer by a flush remain discoverable while the ClickHouse write is in progress.
+func TestSessionWriteBufferFindPendingSeesInflightBatch(t *testing.T) {
+	wb := NewWriteBuffer(context.Background(), 100, time.Minute)
+	now := time.Now()
+	wb.Add(&models.Sessions{Sign: 1, Version: 5, UserId: 9, SiteId: 1, Timestamp: now})
+
+	// Simulate flushAndWrite's first half: move buffer into an inflight batch.
+	wb.mu.Lock()
+	batch := wb.batchPool.Get().(*[]*models.Sessions)
+	*batch = append(*batch, wb.buffer...)
+	wb.buffer = wb.buffer[:0]
+	wb.inflight[batch] = struct{}{}
+	wb.mu.Unlock()
+
+	if got := wb.FindPending(9, 1, now.Add(-time.Hour)); got == nil || got.Version != 5 {
+		t.Fatalf("expected inflight row version=5, got %+v", got)
+	}
+
+	wb.mu.Lock()
+	delete(wb.inflight, batch)
+	wb.mu.Unlock()
+	if wb.FindPending(9, 1, now.Add(-time.Hour)) != nil {
+		t.Fatal("expected nil after inflight batch completed")
+	}
+}

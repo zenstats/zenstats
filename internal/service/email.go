@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,36 +78,21 @@ func (s *EmailService) SendVerificationEmail(ctx context.Context, userID int64, 
 	`, verifyURL, verifyURL), EmailTypeVerification, nil)
 }
 
-// GetBaseURLFromRequest 从请求中获取基础 URL
-// 优先级：config.Conf.BaseURL > Origin > Referer > http://localhost
-func GetBaseURLFromRequest(c *gin.Context) string {
-	// 优先使用配置的 base_url
-	if config.Conf.BaseURL != "" {
-		return config.Conf.BaseURL
-	}
+// ErrBaseURLNotConfigured is returned when an absolute link must be generated but
+// base_url (ZENSTATS_BASE_URL / ZENSTATS_DOMAIN) is not configured.
+var ErrBaseURLNotConfigured = errors.New("base_url is not configured; set ZENSTATS_BASE_URL (or ZENSTATS_DOMAIN)")
 
-	// 从 Origin 头获取
-	if origin := c.GetHeader("Origin"); origin != "" {
-		return origin
+// GetBaseURLFromRequest 返回用于拼接邮件链接的基础 URL。
+//
+// 安全：只信任配置项 base_url，绝不回退到 Origin / Referer / Host 请求头——
+// 这些头由客户端完全控制，攻击者可借此把密码重置 / 邮箱验证链接指向自己的域名
+// 并窃取 token（reset poisoning）。未配置时返回 ErrBaseURLNotConfigured，由调用方决定跳过发送。
+func GetBaseURLFromRequest(_ *gin.Context) (string, error) {
+	base := strings.TrimRight(config.Conf.BaseURL, "/")
+	if base == "" {
+		return "", ErrBaseURLNotConfigured
 	}
-
-	// 从 Referer 头获取
-	if referer := c.GetHeader("Referer"); referer != "" {
-		// 只取到 path 之前的部分
-		for i := len(referer) - 1; i >= 0; i-- {
-			if referer[i] == '/' && i > 8 { // 至少保留 "http://"
-				return referer[:i]
-			}
-		}
-		return referer
-	}
-
-	// 回退
-	scheme := "http"
-	if config.Conf.Scheme.Address != "" && config.Conf.Scheme.Address != "0.0.0.0" {
-		scheme = "https"
-	}
-	return fmt.Sprintf("%s://%s", scheme, config.Conf.Scheme.Address)
+	return base, nil
 }
 
 // VerifyEmail 验证邮箱
@@ -247,28 +234,41 @@ func generateToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// getBaseURL 获取基础 URL（已弃用，请使用 GetBaseURLFromRequest）
-func getBaseURL() string {
-	return "http://localhost"
+// ErrSMTPNotConfigured 表示未配置 SMTP Host，定时任务类邮件（报告/告警）应跳过发送。
+var ErrSMTPNotConfigured = errors.New("smtp not configured")
+
+// smtpConfigured 判断是否已配置 SMTP Host（所有发信路径共用的唯一判定）。
+func smtpConfigured() bool {
+	return config.Conf != nil && config.Conf.SMTP.Host != ""
 }
 
 // sendEmail 发送邮件，并记录发送结果到 EmailLog。
+// 未配置 SMTP 时记录 skipped 并返回 nil（认证类邮件不阻断业务流程）。
 func sendEmail(to, subject, body, emailType string, siteID *int64) error {
-	smtp := config.Conf.SMTP
-	if smtp.Host == "" {
+	if !smtpConfigured() {
 		// 如果没有配置 SMTP，只记录日志不发送
-		fmt.Printf("[Email] To: %s, Subject: %s\n", to, subject)
+		slog.Debug("smtp not configured, skipping email", "to", to, "subject", subject, "type", emailType)
 		GetEmailLogService().Record(context.Background(), to, subject, emailType, EmailStatusSkipped, "SMTP not configured", siteID)
 		return nil
 	}
 
+	smtp := config.Conf.SMTP
+	from := smtp.From
+	if from == "" {
+		from = "noreply@zenstats.io"
+	}
+	port := smtp.Port
+	if port == 0 {
+		port = 587
+	}
+
 	m := gomail.NewMessage()
-	m.SetHeader("From", smtp.From)
+	m.SetHeader("From", from)
 	m.SetHeader("To", to)
 	m.SetHeader("Subject", subject)
 	m.SetBody("text/html", body)
 
-	d := gomail.NewDialer(smtp.Host, smtp.Port, smtp.Username, smtp.Password)
+	d := gomail.NewDialer(smtp.Host, port, smtp.Username, smtp.Password)
 	err := d.DialAndSend(m)
 	GetEmailLogService().RecordSend(context.Background(), to, subject, emailType, siteID, err)
 	if err != nil {

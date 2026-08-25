@@ -161,7 +161,6 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	var eventResult models.Events
 	// 将eventRequest 转换为eventResult
 	eventResult.Name = eventRequest.EventName
-	eventResult.URL = eventRequest.URL
 	eventResult.Props = eventRequest.Props
 	eventResult.EngagementTime = eventRequest.EngagementTime
 	eventResult.ScrollDepth = eventRequest.ScrollDepth
@@ -204,6 +203,13 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 		if eventRequest.Hash == 1 && parsedURL.Fragment != "" {
 			pathname = parsedURL.Path + "#" + parsedURL.Fragment
 		}
+	}
+	// 隐私：落库的 url 只保留 scheme://host/path，去掉 query string 与 fragment。
+	// UTM 参数已由下方 PutSourceInfo 从 eventRequest.URL（原始 URL）中提取，此处无需保留。
+	eventResult.URL = sanitizeStoredURL(urlstring, parsedURL, eventRequest.Hash == 1)
+	if !strings.Contains(eventRequest.URL, "://") {
+		// 上方为解析补的 http:// 前缀不落库，保持与原始上报形式一致
+		eventResult.URL = strings.TrimPrefix(eventResult.URL, "http://")
 	}
 
 	eventResult.UserId = userId
@@ -277,6 +283,10 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	// compute acquisition channel based on referrer and UTM parameters
 	e.PutChannel(&eventResult)
 
+	// IP 分列：GeoIP / 屏蔽规则用完 eventResult.IP 之后，按地址族拆到 ipv4 / ipv6 列。
+	// 不拆分时 16 字节 IPv6 会被 clickhouse-go 取末 4 字节写进 IPv4 列，产生无意义地址。
+	splitIPColumns(&eventResult)
+
 	// 历史数据处理：超过阈值的事件跳过会话管理，直接生成会话记录
 	if e.historicalThreshold > 0 && time.Since(eventRequest.Timestamp) > e.historicalThreshold {
 		eventResult.SessionId = generateSeedSessionId(eventRequest.Timestamp)
@@ -324,6 +334,48 @@ func (e *EventWork) Shutdown() {
 		slog.Warn("worker shutdown timeout")
 	}
 
+}
+
+// sanitizeStoredURL 返回用于落库的 URL：仅保留 scheme://host/path，丢弃 query 与 fragment。
+// hashMode（h=1，SPA hash 路由）时保留 fragment 的路径部分（fragment 内 '?' 之后同样视为 query 丢弃），
+// 与 pathname 的 hash 路由处理保持一致。parsed 为 nil（解析失败）时按字符串截断兜底。
+func sanitizeStoredURL(raw string, parsed *url.URL, hashMode bool) string {
+	if parsed == nil {
+		if i := strings.IndexAny(raw, "?#"); i >= 0 {
+			return raw[:i]
+		}
+		return raw
+	}
+	clean := *parsed
+	clean.RawQuery = ""
+	clean.ForceQuery = false
+	clean.User = nil
+	clean.Fragment = ""
+	clean.RawFragment = ""
+	if hashMode && parsed.Fragment != "" {
+		frag := parsed.Fragment
+		if i := strings.IndexByte(frag, '?'); i >= 0 {
+			frag = frag[:i]
+		}
+		clean.Fragment = frag
+	}
+	return clean.String()
+}
+
+// splitIPColumns 将解析后的 IP 按地址族分配到 ipv4 / ipv6 字段：
+// IPv4（含 IPv4-mapped IPv6）→ IP（4 字节形式），IPv6 清空；纯 IPv6 → IPv6，IP 置 nil（列写 0.0.0.0）。
+func splitIPColumns(event *models.Events) {
+	ip := event.IP
+	if ip == nil {
+		return
+	}
+	if v4 := ip.To4(); v4 != nil {
+		event.IP = v4
+		event.IPv6 = nil
+		return
+	}
+	event.IPv6 = ip
+	event.IP = nil
 }
 
 func (e *EventWork) generateUserID(ip, user_agent, domain string) (uint64, error) {

@@ -29,8 +29,8 @@ var GetFunnelService = sync.OnceValue(func() *FunnelService {
 
 // FunnelStep 漏斗步骤数据传输对象。
 type FunnelStep struct {
-	ID       int64 `json:"id"`
-	GoalID   int64 `json:"goal_id"`
+	ID        int64 `json:"id"`
+	GoalID    int64 `json:"goal_id"`
 	StepOrder int   `json:"step_order"`
 }
 
@@ -45,10 +45,10 @@ type Funnel struct {
 
 // FunnelDetail 漏斗详情（包含步骤的目标信息）。
 type FunnelDetail struct {
-	ID    int64             `json:"id"`
-	SiteID int64            `json:"site_id"`
-	Name  string            `json:"name"`
-	Steps []*FunnelStepInfo `json:"steps"`
+	ID     int64             `json:"id"`
+	SiteID int64             `json:"site_id"`
+	Name   string            `json:"name"`
+	Steps  []*FunnelStepInfo `json:"steps"`
 }
 
 // FunnelStepInfo 漏斗步骤详情（包含目标信息）。
@@ -176,27 +176,33 @@ func (s *FunnelService) CreateFunnel(ctx context.Context, siteID int64, req *Cre
 		seen[step.GoalID] = true
 	}
 
-	// 创建漏斗
-	f, err := s.db.Client.Funnel.Create().
+	// 创建漏斗 + 步骤放在同一事务中：任一步骤写入失败时整体回滚，
+	// 避免留下只有 0-1 个步骤（绕过 min=2 校验）的残缺漏斗。
+	tx, err := s.db.Client.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	f, err := tx.Funnel.Create().
 		SetSiteID(siteID).
 		SetName(req.Name).
 		Save(ctx)
 	if err != nil {
+		_ = tx.Rollback()
 		if ent.IsConstraintError(err) {
 			return nil, fmt.Errorf("funnel with name '%s' already exists", req.Name)
 		}
 		return nil, fmt.Errorf("failed to create funnel: %w", err)
 	}
 
-	// 创建漏斗步骤
 	steps := make([]*FunnelStep, len(req.Steps))
 	for i, step := range req.Steps {
-		fs, err := s.db.Client.FunnelStep.Create().
+		fs, err := tx.FunnelStep.Create().
 			SetFunnelID(f.ID).
 			SetGoalID(step.GoalID).
 			SetStepOrder(i + 1).
 			Save(ctx)
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to create funnel step: %w", err)
 		}
 		steps[i] = &FunnelStep{
@@ -204,6 +210,9 @@ func (s *FunnelService) CreateFunnel(ctx context.Context, siteID int64, req *Cre
 			GoalID:    fs.GoalID,
 			StepOrder: fs.StepOrder,
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit funnel: %w", err)
 	}
 
 	return &Funnel{
@@ -224,19 +233,8 @@ func (s *FunnelService) UpdateFunnel(ctx context.Context, siteID int64, funnelID
 		return nil, fmt.Errorf("funnel not found")
 	}
 
-	// 更新名称
-	if req.Name != "" {
-		existing, err = existing.Update().
-			SetName(req.Name).
-			Save(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update funnel: %w", err)
-		}
-	}
-
-	// 如果提供了新的步骤，替换所有步骤
+	// 如果提供了新的步骤，先做校验（只读，不必在事务内）
 	if req.Steps != nil {
-		// 验证所有 goal_id
 		for i, step := range req.Steps {
 			_, err := s.db.Client.Goal.Query().
 				Where(goal.ID(step.GoalID), goal.SiteID(siteID)).
@@ -245,8 +243,6 @@ func (s *FunnelService) UpdateFunnel(ctx context.Context, siteID int64, funnelID
 				return nil, fmt.Errorf("goal not found for step %d", i+1)
 			}
 		}
-
-		// 检查重复
 		seen := make(map[int64]bool)
 		for _, step := range req.Steps {
 			if seen[step.GoalID] {
@@ -254,26 +250,40 @@ func (s *FunnelService) UpdateFunnel(ctx context.Context, siteID int64, funnelID
 			}
 			seen[step.GoalID] = true
 		}
+	}
 
-		// 删除旧步骤
-		_, err = s.db.Client.FunnelStep.Delete().
-			Where(funnelstep.FunnelID(funnelID)).
-			Exec(ctx)
-		if err != nil {
+	// 名称更新 + 步骤替换（删旧插新）放在同一事务，失败时不会留下空漏斗。
+	tx, err := s.db.Client.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	if req.Name != "" {
+		if _, err := tx.Funnel.UpdateOne(existing).SetName(req.Name).Save(ctx); err != nil {
+			_ = tx.Rollback()
+			if ent.IsConstraintError(err) {
+				return nil, fmt.Errorf("funnel with name '%s' already exists", req.Name)
+			}
+			return nil, fmt.Errorf("failed to update funnel: %w", err)
+		}
+	}
+	if req.Steps != nil {
+		if _, err := tx.FunnelStep.Delete().Where(funnelstep.FunnelID(funnelID)).Exec(ctx); err != nil {
+			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to delete old funnel steps: %w", err)
 		}
-
-		// 创建新步骤
 		for i, step := range req.Steps {
-			_, err := s.db.Client.FunnelStep.Create().
+			if _, err := tx.FunnelStep.Create().
 				SetFunnelID(funnelID).
 				SetGoalID(step.GoalID).
 				SetStepOrder(i + 1).
-				Save(ctx)
-			if err != nil {
+				Save(ctx); err != nil {
+				_ = tx.Rollback()
 				return nil, fmt.Errorf("failed to create funnel step: %w", err)
 			}
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit funnel update: %w", err)
 	}
 
 	// 返回更新后的漏斗

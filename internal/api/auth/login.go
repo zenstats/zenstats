@@ -35,7 +35,8 @@ func (h *AuthHandler) Login() gin.HandlerFunc {
 		user, err := h.service.GetUserByEmail(c.Request.Context(), req.Email)
 		if err != nil {
 			if ent.IsNotFound(err) {
-				response.Error(c, http.StatusNotFound, errors.New("user not found"))
+				// 与密码错误返回相同的状态码与文案，避免通过响应差异枚举已注册邮箱
+				response.ErrorWithKey(c, http.StatusUnauthorized, "auth.invalid_credentials")
 				return
 			}
 			response.Error(c, http.StatusBadRequest, err)

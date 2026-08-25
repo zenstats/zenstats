@@ -1,8 +1,9 @@
 package scheduler
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -13,10 +14,53 @@ var instance *CronManager
 
 func init() {
 	instance = &CronManager{
-		cronInstance: cron.New(cron.WithSeconds(), cron.WithLocation(time.UTC)),
+		cronInstance: newCron(),
 		jobs:         make(map[int]*CronJob),
 		jobCounter:   0,
 	}
+}
+
+// newCron builds the cron scheduler with a panic-recovering job chain.
+// robfig/cron v3 does NOT recover panics by default: a single panicking job
+// (GeoIP update, alert check, ...) would otherwise crash the whole server process.
+func newCron() *cron.Cron {
+	return cron.New(
+		cron.WithSeconds(),
+		cron.WithLocation(time.UTC),
+		cron.WithChain(cron.Recover(slogCronLogger{})),
+	)
+}
+
+// slogCronLogger adapts cron.Logger to slog.
+type slogCronLogger struct{}
+
+func (slogCronLogger) Info(msg string, kv ...interface{}) { slog.Info("cron: "+msg, kv...) }
+func (slogCronLogger) Error(err error, msg string, kv ...interface{}) {
+	slog.Error("cron: "+msg, append([]interface{}{"error", err}, kv...)...)
+}
+
+// JobLocker 尝试为一次任务执行获取跨实例互斥锁。
+// 返回 acquired=false 表示其他实例正在执行该任务，本实例应跳过本轮。
+// release 在任务结束后调用（acquired=true 时非 nil）。
+type JobLocker func(ctx context.Context, jobName string) (release func(), acquired bool)
+
+var (
+	lockerMu  sync.RWMutex
+	jobLocker JobLocker
+)
+
+// SetJobLocker 安装分布式锁提供者（通常为 PostgreSQL advisory lock）。
+// 未安装时任务直接执行——单实例部署无需锁。
+func SetJobLocker(l JobLocker) {
+	lockerMu.Lock()
+	defer lockerMu.Unlock()
+	jobLocker = l
+}
+
+func currentLocker() JobLocker {
+	lockerMu.RLock()
+	defer lockerMu.RUnlock()
+	return jobLocker
 }
 
 type JobFunction func(params any)
@@ -45,13 +89,13 @@ func GetCronManager() *CronManager {
 // Start Start the cron scheduler
 func (cm *CronManager) Start() {
 	cm.cronInstance.Start()
-	log.Println("Cron scheduler started")
+	slog.Info("cron: scheduler started")
 }
 
 // Stop Stop the cron scheduler
 func (cm *CronManager) Stop() {
 	cm.cronInstance.Stop()
-	log.Println("Cron scheduler stopped")
+	slog.Info("cron: scheduler stopped")
 }
 
 // AddJob Dynamically add a scheduled job
@@ -59,7 +103,22 @@ func (cm *CronManager) AddJob(spec string, jobFunc JobFunction, params any) (int
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
+	// 任务名由注册顺序 + spec 决定；同一二进制在所有副本上注册顺序一致，
+	// 因此可直接作为跨实例锁的 key。
+	jobID := cm.jobCounter + 1
+	jobName := fmt.Sprintf("cron:%d:%s", jobID, spec)
+
 	wrappedJobFunc := func() {
+		if locker := currentLocker(); locker != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			release, acquired := locker(ctx, jobName)
+			cancel()
+			if !acquired {
+				slog.Debug("cron: job skipped, lock held by another instance", "job", jobName)
+				return
+			}
+			defer release()
+		}
 		jobFunc(params)
 	}
 
@@ -68,8 +127,7 @@ func (cm *CronManager) AddJob(spec string, jobFunc JobFunction, params any) (int
 		return 0, fmt.Errorf("failed to add job to cron: %w", err)
 	}
 
-	cm.jobCounter++
-	jobID := cm.jobCounter
+	cm.jobCounter = jobID
 
 	cronJob := &CronJob{
 		ID:      jobID,
@@ -80,7 +138,7 @@ func (cm *CronManager) AddJob(spec string, jobFunc JobFunction, params any) (int
 	}
 	cm.jobs[jobID] = cronJob // Store job info in the map
 
-	log.Printf("Job %d added with spec: %s, params: %+v\n", jobID, spec, params)
+	slog.Info("cron: job added", "job_id", jobID, "spec", spec)
 
 	return jobID, nil
 }
@@ -98,7 +156,7 @@ func (cm *CronManager) RemoveJob(jobID int) error {
 	cm.cronInstance.Remove(cronJob.EntryID) // Remove job from cron scheduler
 	delete(cm.jobs, jobID)                  // Delete job info from jobs map
 
-	log.Printf("Job %d removed\n", jobID)
+	slog.Info("cron: job removed", "job_id", jobID)
 	return nil
 }
 

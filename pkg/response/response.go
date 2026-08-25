@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zenstats/zenstats/config"
 	"github.com/zenstats/zenstats/pkg/i18n"
 )
 
@@ -59,8 +60,32 @@ func Error(c *gin.Context, code int, err error) {
 	c.JSON(http.StatusOK, ErrorResponse{
 		Code:    code,
 		Message: getStatusMessage(code, locale),
-		Error:   err.Error(),
+		Error:   errorDetail(code, err),
 	})
+}
+
+// ErrorWithHTTPStatus 错误响应，同时设置真实的 HTTP 状态码。
+// 用于健康探针等依赖 HTTP 状态码（而非 body.code）判定结果的调用方。
+func ErrorWithHTTPStatus(c *gin.Context, httpStatus int, code int, err error) {
+	locale := getLocale(c)
+	c.JSON(httpStatus, ErrorResponse{
+		Code:    code,
+		Message: getStatusMessage(code, locale),
+		Error:   errorDetail(code, err),
+	})
+}
+
+// errorDetail 生成响应中的 error 字段：
+//   - err 为 nil 时返回空串（历史上此处会 panic）；
+//   - 5xx 且非调试模式时不回显内部错误串（ent / 数据库 / 文件系统细节），避免信息泄露。
+func errorDetail(code int, err error) string {
+	if err == nil {
+		return ""
+	}
+	if code >= http.StatusInternalServerError && !config.Conf.AppDebug {
+		return ""
+	}
+	return err.Error()
 }
 
 // ErrorWithKey 使用 i18n key 的错误响应
