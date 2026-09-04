@@ -674,11 +674,28 @@ func (qb *QueryBuilder) buildOrderBy(sql string, query *types.Query) string {
 	return sql + " ORDER BY " + strings.Join(orderClauses, ", ")
 }
 
+// onlyTimeDimensions 判断查询是否只按时间维度分桶。
+// 时间桶数量由日期范围与颗粒度天然限定（并在 GetTimeSeries 中另有上限校验），
+// 不适用默认 LIMIT：30d×hourly 有 720 个桶，默认 LIMIT 200 且无 ORDER BY 会
+// 任意丢弃 520 个桶，补零后曲线完全错乱。
+func onlyTimeDimensions(dims []string) bool {
+	if len(dims) == 0 {
+		return false
+	}
+	for _, d := range dims {
+		if !strings.HasPrefix(d, "time:") {
+			return false
+		}
+	}
+	return true
+}
+
 // paginate applies LIMIT and OFFSET to the query
 func (qb *QueryBuilder) paginate(sql string, query *types.Query) string {
 	if query.Pagination == nil || query.Pagination.Limit <= 0 {
-		// 有维度细分但未设置分页时，加默认 limit 防止返回海量数据
-		if len(query.Dimensions) > 0 {
+		// 有维度细分但未设置分页时，加默认 limit 防止返回海量数据；
+		// 纯时间维度（时序曲线）除外，见 onlyTimeDimensions。
+		if len(query.Dimensions) > 0 && !onlyTimeDimensions(query.Dimensions) {
 			return sql + " LIMIT 200"
 		}
 		return sql

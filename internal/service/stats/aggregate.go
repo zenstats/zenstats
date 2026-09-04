@@ -303,6 +303,15 @@ func (as *AggregateService) GetTimeSeries(ctx context.Context, params *types.Par
 	needsViewsPerVisit := containsString(params.Metrics, "views_per_visit")
 	queryMetrics := replaceViewsPerVisit(params.Metrics)
 
+	// 桶数上限：时间维度不再有默认 LIMIT（见 query_builder.paginate），
+	// 这里限制 范围/颗粒度 组合的桶数，避免超长 custom 区间配过细颗粒度打爆查询与前端渲染。
+	if n := estimateBucketCount(params.UTCTimeRange, interval); n > maxTimeSeriesBuckets {
+		return nil, &ValidationError{
+			StatusCode: 400,
+			Message:    fmt.Sprintf("interval %q is too fine for the selected period (%d buckets, max %d) — choose a coarser interval", interval, n, maxTimeSeriesBuckets),
+		}
+	}
+
 	// 动态设置时间维度
 	dimension := intervalToDimension(string(interval))
 	tsParams := &types.Params{
@@ -363,6 +372,37 @@ func (as *AggregateService) GetTimeSeries(ctx context.Context, params *types.Par
 	return as.fillMissingTimePoints(points, interval, params), nil
 }
 
+// maxTimeSeriesBuckets 单次时序查询允许的最大桶数。
+// 覆盖所有合理组合（30d×hourly=720、12mo×daily=365、6 个月×hourly≈4400），
+// 超出即提示改用更粗颗粒度。
+const maxTimeSeriesBuckets = 5000
+
+// estimateBucketCount 估算给定时间范围与颗粒度的桶数（上取整）。
+func estimateBucketCount(tr types.TimeRange, interval Interval) int {
+	dur := tr.End.Sub(tr.Start)
+	if dur <= 0 {
+		return 0
+	}
+	var unit time.Duration
+	switch interval {
+	case IntervalMinute:
+		unit = time.Minute
+	case IntervalHourly:
+		unit = time.Hour
+	case IntervalDaily:
+		unit = 24 * time.Hour
+	case IntervalWeekly:
+		unit = 7 * 24 * time.Hour
+	case IntervalMonthly:
+		unit = 28 * 24 * time.Hour
+	case IntervalYearly:
+		unit = 365 * 24 * time.Hour
+	default:
+		unit = time.Hour
+	}
+	return int(dur/unit) + 1
+}
+
 // fillMissingTimePoints 填补时序数据中缺失的时间点
 func (as *AggregateService) fillMissingTimePoints(points []TimeSeriesPoint, interval Interval, params *types.Params) []TimeSeriesPoint {
 	//将 params.Timezone 转换为 time.Location
@@ -410,7 +450,6 @@ func (as *AggregateService) fillMissingTimePoints(points []TimeSeriesPoint, inte
 
 	return completePoints
 }
-
 
 // formatTimestamp 格式化时间戳
 func formatTimestamp(t time.Time, interval Interval) string {
