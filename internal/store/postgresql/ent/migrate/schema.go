@@ -179,6 +179,7 @@ var (
 	FunnelStepsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
 		{Name: "step_order", Type: field.TypeInt},
+		{Name: "parent_step_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "funnel_id", Type: field.TypeInt64},
 		{Name: "goal_id", Type: field.TypeInt64},
 	}
@@ -190,13 +191,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "funnel_steps_funnels_funnel_steps",
-				Columns:    []*schema.Column{FunnelStepsColumns[2]},
+				Columns:    []*schema.Column{FunnelStepsColumns[3]},
 				RefColumns: []*schema.Column{FunnelsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "funnel_steps_goals_funnel_steps",
-				Columns:    []*schema.Column{FunnelStepsColumns[3]},
+				Columns:    []*schema.Column{FunnelStepsColumns[4]},
 				RefColumns: []*schema.Column{GoalsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -205,7 +206,7 @@ var (
 			{
 				Name:    "funnelstep_funnel_id_goal_id",
 				Unique:  true,
-				Columns: []*schema.Column{FunnelStepsColumns[2], FunnelStepsColumns[3]},
+				Columns: []*schema.Column{FunnelStepsColumns[3], FunnelStepsColumns[4]},
 			},
 		},
 	}

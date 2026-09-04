@@ -68,6 +68,11 @@ func StepOrder(v int) predicate.FunnelStep {
 	return predicate.FunnelStep(sql.FieldEQ(FieldStepOrder, v))
 }
 
+// ParentStepID applies equality check predicate on the "parent_step_id" field. It's identical to ParentStepIDEQ.
+func ParentStepID(v int64) predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldEQ(FieldParentStepID, v))
+}
+
 // FunnelIDEQ applies the EQ predicate on the "funnel_id" field.
 func FunnelIDEQ(v int64) predicate.FunnelStep {
 	return predicate.FunnelStep(sql.FieldEQ(FieldFunnelID, v))
@@ -146,6 +151,56 @@ func StepOrderLT(v int) predicate.FunnelStep {
 // StepOrderLTE applies the LTE predicate on the "step_order" field.
 func StepOrderLTE(v int) predicate.FunnelStep {
 	return predicate.FunnelStep(sql.FieldLTE(FieldStepOrder, v))
+}
+
+// ParentStepIDEQ applies the EQ predicate on the "parent_step_id" field.
+func ParentStepIDEQ(v int64) predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldEQ(FieldParentStepID, v))
+}
+
+// ParentStepIDNEQ applies the NEQ predicate on the "parent_step_id" field.
+func ParentStepIDNEQ(v int64) predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldNEQ(FieldParentStepID, v))
+}
+
+// ParentStepIDIn applies the In predicate on the "parent_step_id" field.
+func ParentStepIDIn(vs ...int64) predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldIn(FieldParentStepID, vs...))
+}
+
+// ParentStepIDNotIn applies the NotIn predicate on the "parent_step_id" field.
+func ParentStepIDNotIn(vs ...int64) predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldNotIn(FieldParentStepID, vs...))
+}
+
+// ParentStepIDGT applies the GT predicate on the "parent_step_id" field.
+func ParentStepIDGT(v int64) predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldGT(FieldParentStepID, v))
+}
+
+// ParentStepIDGTE applies the GTE predicate on the "parent_step_id" field.
+func ParentStepIDGTE(v int64) predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldGTE(FieldParentStepID, v))
+}
+
+// ParentStepIDLT applies the LT predicate on the "parent_step_id" field.
+func ParentStepIDLT(v int64) predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldLT(FieldParentStepID, v))
+}
+
+// ParentStepIDLTE applies the LTE predicate on the "parent_step_id" field.
+func ParentStepIDLTE(v int64) predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldLTE(FieldParentStepID, v))
+}
+
+// ParentStepIDIsNil applies the IsNil predicate on the "parent_step_id" field.
+func ParentStepIDIsNil() predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldIsNull(FieldParentStepID))
+}
+
+// ParentStepIDNotNil applies the NotNil predicate on the "parent_step_id" field.
+func ParentStepIDNotNil() predicate.FunnelStep {
+	return predicate.FunnelStep(sql.FieldNotNull(FieldParentStepID))
 }
 
 // HasGoals applies the HasEdge predicate on the "goals" edge.

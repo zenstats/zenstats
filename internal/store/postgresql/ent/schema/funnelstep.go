@@ -20,6 +20,9 @@ func (FunnelStep) Fields() []ent.Field {
 		field.Int64("funnel_id"),
 		field.Int64("goal_id"),
 		field.Int("step_order"),
+		// parent_step_id 指向父步骤，用于树形漏斗；根节点为空。
+		// 线性漏斗每个节点的父为上一节点，树形则可任意分叉。
+		field.Int64("parent_step_id").Optional().Nillable(),
 	}
 }
 

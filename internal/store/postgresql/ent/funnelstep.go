@@ -24,6 +24,8 @@ type FunnelStep struct {
 	GoalID int64 `json:"goal_id,omitempty"`
 	// StepOrder holds the value of the "step_order" field.
 	StepOrder int `json:"step_order,omitempty"`
+	// ParentStepID holds the value of the "parent_step_id" field.
+	ParentStepID *int64 `json:"parent_step_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the FunnelStepQuery when eager-loading is set.
 	Edges        FunnelStepEdges `json:"edges"`
@@ -68,7 +70,7 @@ func (*FunnelStep) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case funnelstep.FieldID, funnelstep.FieldFunnelID, funnelstep.FieldGoalID, funnelstep.FieldStepOrder:
+		case funnelstep.FieldID, funnelstep.FieldFunnelID, funnelstep.FieldGoalID, funnelstep.FieldStepOrder, funnelstep.FieldParentStepID:
 			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -108,6 +110,13 @@ func (fs *FunnelStep) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field step_order", values[i])
 			} else if value.Valid {
 				fs.StepOrder = int(value.Int64)
+			}
+		case funnelstep.FieldParentStepID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field parent_step_id", values[i])
+			} else if value.Valid {
+				fs.ParentStepID = new(int64)
+				*fs.ParentStepID = value.Int64
 			}
 		default:
 			fs.selectValues.Set(columns[i], values[i])
@@ -163,6 +172,11 @@ func (fs *FunnelStep) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("step_order=")
 	builder.WriteString(fmt.Sprintf("%v", fs.StepOrder))
+	builder.WriteString(", ")
+	if v := fs.ParentStepID; v != nil {
+		builder.WriteString("parent_step_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

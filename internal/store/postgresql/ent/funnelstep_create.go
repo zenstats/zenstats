@@ -39,6 +39,20 @@ func (fsc *FunnelStepCreate) SetStepOrder(i int) *FunnelStepCreate {
 	return fsc
 }
 
+// SetParentStepID sets the "parent_step_id" field.
+func (fsc *FunnelStepCreate) SetParentStepID(i int64) *FunnelStepCreate {
+	fsc.mutation.SetParentStepID(i)
+	return fsc
+}
+
+// SetNillableParentStepID sets the "parent_step_id" field if the given value is not nil.
+func (fsc *FunnelStepCreate) SetNillableParentStepID(i *int64) *FunnelStepCreate {
+	if i != nil {
+		fsc.SetParentStepID(*i)
+	}
+	return fsc
+}
+
 // SetID sets the "id" field.
 func (fsc *FunnelStepCreate) SetID(i int64) *FunnelStepCreate {
 	fsc.mutation.SetID(i)
@@ -151,6 +165,10 @@ func (fsc *FunnelStepCreate) createSpec() (*FunnelStep, *sqlgraph.CreateSpec) {
 	if value, ok := fsc.mutation.StepOrder(); ok {
 		_spec.SetField(funnelstep.FieldStepOrder, field.TypeInt, value)
 		_node.StepOrder = value
+	}
+	if value, ok := fsc.mutation.ParentStepID(); ok {
+		_spec.SetField(funnelstep.FieldParentStepID, field.TypeInt64, value)
+		_node.ParentStepID = &value
 	}
 	if nodes := fsc.mutation.GoalsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

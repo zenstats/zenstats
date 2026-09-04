@@ -18,6 +18,8 @@ const (
 	FieldGoalID = "goal_id"
 	// FieldStepOrder holds the string denoting the step_order field in the database.
 	FieldStepOrder = "step_order"
+	// FieldParentStepID holds the string denoting the parent_step_id field in the database.
+	FieldParentStepID = "parent_step_id"
 	// EdgeGoals holds the string denoting the goals edge name in mutations.
 	EdgeGoals = "goals"
 	// EdgeFunnels holds the string denoting the funnels edge name in mutations.
@@ -46,6 +48,7 @@ var Columns = []string{
 	FieldFunnelID,
 	FieldGoalID,
 	FieldStepOrder,
+	FieldParentStepID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -79,6 +82,11 @@ func ByGoalID(opts ...sql.OrderTermOption) OrderOption {
 // ByStepOrder orders the results by the step_order field.
 func ByStepOrder(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStepOrder, opts...).ToFunc()
+}
+
+// ByParentStepID orders the results by the parent_step_id field.
+func ByParentStepID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldParentStepID, opts...).ToFunc()
 }
 
 // ByGoalsField orders the results by goals field.

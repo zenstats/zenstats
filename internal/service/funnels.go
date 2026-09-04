@@ -29,9 +29,10 @@ var GetFunnelService = sync.OnceValue(func() *FunnelService {
 
 // FunnelStep 漏斗步骤数据传输对象。
 type FunnelStep struct {
-	ID        int64 `json:"id"`
-	GoalID    int64 `json:"goal_id"`
-	StepOrder int   `json:"step_order"`
+	ID           int64  `json:"id"`
+	GoalID       int64  `json:"goal_id"`
+	StepOrder    int    `json:"step_order"`
+	ParentStepID *int64 `json:"parent_step_id,omitempty"`
 }
 
 // Funnel 漏斗数据传输对象。
@@ -53,12 +54,14 @@ type FunnelDetail struct {
 
 // FunnelStepInfo 漏斗步骤详情（包含目标信息）。
 type FunnelStepInfo struct {
-	StepOrder   int               `json:"step_order"`
-	GoalID      int64             `json:"goal_id"`
-	GoalName    string            `json:"goal_name"`
-	GoalType    string            `json:"goal_type"`
-	GoalValue   string            `json:"goal_value"`
-	CustomProps map[string]string `json:"custom_props,omitempty"`
+	StepID       int64             `json:"step_id"`
+	StepOrder    int               `json:"step_order"`
+	ParentStepID *int64            `json:"parent_step_id,omitempty"`
+	GoalID       int64             `json:"goal_id"`
+	GoalName     string            `json:"goal_name"`
+	GoalType     string            `json:"goal_type"`
+	GoalValue    string            `json:"goal_value"`
+	CustomProps  map[string]string `json:"custom_props,omitempty"`
 }
 
 // CreateFunnelRequest 创建漏斗请求参数。
@@ -68,8 +71,11 @@ type CreateFunnelRequest struct {
 }
 
 // FunnelStepInput 漏斗步骤输入参数。
+// Parent 为父步骤在 steps 数组中的下标（必须小于当前下标）；
+// nil 时：下标 0 视为根，其余默认接上一节点（兼容线性漏斗）。
 type FunnelStepInput struct {
 	GoalID int64 `json:"goal_id" binding:"required"`
+	Parent *int  `json:"parent,omitempty"`
 }
 
 // UpdateFunnelRequest 更新漏斗请求参数。
@@ -95,9 +101,10 @@ func (s *FunnelService) ListFunnels(ctx context.Context, siteID int64) ([]*Funne
 		steps := make([]*FunnelStep, len(f.Edges.FunnelSteps))
 		for j, fs := range f.Edges.FunnelSteps {
 			steps[j] = &FunnelStep{
-				ID:        fs.ID,
-				GoalID:    fs.GoalID,
-				StepOrder: fs.StepOrder,
+				ID:           fs.ID,
+				GoalID:       fs.GoalID,
+				StepOrder:    fs.StepOrder,
+				ParentStepID: fs.ParentStepID,
 			}
 		}
 		result[i] = &Funnel{
@@ -130,10 +137,12 @@ func (s *FunnelService) GetFunnel(ctx context.Context, siteID int64, funnelID in
 		}
 
 		stepInfo := &FunnelStepInfo{
-			StepOrder:   fs.StepOrder,
-			GoalID:      fs.GoalID,
-			GoalName:    g.DisplayName,
-			CustomProps: g.CustomProps,
+			StepID:       fs.ID,
+			StepOrder:    fs.StepOrder,
+			ParentStepID: fs.ParentStepID,
+			GoalID:       fs.GoalID,
+			GoalName:     g.DisplayName,
+			CustomProps:  g.CustomProps,
 		}
 
 		if g.EventName != "" {
@@ -153,6 +162,22 @@ func (s *FunnelService) GetFunnel(ctx context.Context, siteID int64, funnelID in
 		Name:   f.Name,
 		Steps:  steps,
 	}, nil
+}
+
+// resolveParentIndex 返回步骤 i 的父步骤在数组中的下标；-1 表示根节点。
+// 显式 parent 必须引用更早的步骤（下标 < i），保证按数组顺序插入时父先于子。
+// 未指定时：下标 0 为根，其余默认接上一节点（线性漏斗兼容）。
+func resolveParentIndex(steps []FunnelStepInput, i int) (int, error) {
+	if p := steps[i].Parent; p != nil {
+		if *p < 0 || *p >= i {
+			return -1, fmt.Errorf("step %d: parent index %d must reference an earlier step", i+1, *p)
+		}
+		return *p, nil
+	}
+	if i == 0 {
+		return -1, nil
+	}
+	return i - 1, nil
 }
 
 // CreateFunnel 创建新漏斗。
@@ -195,20 +220,31 @@ func (s *FunnelService) CreateFunnel(ctx context.Context, siteID int64, req *Cre
 	}
 
 	steps := make([]*FunnelStep, len(req.Steps))
+	stepIDs := make([]int64, len(req.Steps)) // 数组下标 → 新建步骤 ID，用于解析父节点
 	for i, step := range req.Steps {
-		fs, err := tx.FunnelStep.Create().
+		parentIdx, perr := resolveParentIndex(req.Steps, i)
+		if perr != nil {
+			_ = tx.Rollback()
+			return nil, perr
+		}
+		creator := tx.FunnelStep.Create().
 			SetFunnelID(f.ID).
 			SetGoalID(step.GoalID).
-			SetStepOrder(i + 1).
-			Save(ctx)
+			SetStepOrder(i + 1)
+		if parentIdx >= 0 {
+			creator.SetParentStepID(stepIDs[parentIdx])
+		}
+		fs, err := creator.Save(ctx)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to create funnel step: %w", err)
 		}
+		stepIDs[i] = fs.ID
 		steps[i] = &FunnelStep{
-			ID:        fs.ID,
-			GoalID:    fs.GoalID,
-			StepOrder: fs.StepOrder,
+			ID:           fs.ID,
+			GoalID:       fs.GoalID,
+			StepOrder:    fs.StepOrder,
+			ParentStepID: fs.ParentStepID,
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -271,15 +307,26 @@ func (s *FunnelService) UpdateFunnel(ctx context.Context, siteID int64, funnelID
 			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to delete old funnel steps: %w", err)
 		}
+		stepIDs := make([]int64, len(req.Steps))
 		for i, step := range req.Steps {
-			if _, err := tx.FunnelStep.Create().
+			parentIdx, perr := resolveParentIndex(req.Steps, i)
+			if perr != nil {
+				_ = tx.Rollback()
+				return nil, perr
+			}
+			creator := tx.FunnelStep.Create().
 				SetFunnelID(funnelID).
 				SetGoalID(step.GoalID).
-				SetStepOrder(i + 1).
-				Save(ctx); err != nil {
+				SetStepOrder(i + 1)
+			if parentIdx >= 0 {
+				creator.SetParentStepID(stepIDs[parentIdx])
+			}
+			fs, err := creator.Save(ctx)
+			if err != nil {
 				_ = tx.Rollback()
 				return nil, fmt.Errorf("failed to create funnel step: %w", err)
 			}
+			stepIDs[i] = fs.ID
 		}
 	}
 	if err := tx.Commit(); err != nil {

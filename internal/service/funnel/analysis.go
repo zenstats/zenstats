@@ -22,7 +22,7 @@ func NewAnalysisService() *AnalysisService {
 	}
 }
 
-// FunnelStepResult 漏斗步骤分析结果。
+// FunnelStepResult 漏斗步骤分析结果（线性视图，相对第一步）。
 type FunnelStepResult struct {
 	StepOrder      int     `json:"step_order"`
 	GoalName       string  `json:"goal_name"`
@@ -31,21 +31,37 @@ type FunnelStepResult struct {
 	ConversionRate float64 `json:"conversion_rate"`
 }
 
+// FunnelNodeResult 树形节点结果：按"从根到该节点的完整路径、时间严格递增"统计，转化率相对父节点。
+type FunnelNodeResult struct {
+	StepID         int64   `json:"step_id"`
+	ParentStepID   *int64  `json:"parent_step_id,omitempty"`
+	StepOrder      int     `json:"step_order"`
+	GoalName       string  `json:"goal_name"`
+	Visitors       uint64  `json:"visitors"`
+	DropOff        int64   `json:"drop_off"`        // 父节点访客 - 本节点访客
+	ConversionRate float64 `json:"conversion_rate"` // 相对父节点；根为 100
+	IsRoot         bool    `json:"is_root"`
+}
+
 // FunnelAnalysisResult 漏斗分析结果。
 type FunnelAnalysisResult struct {
 	TotalVisitors  uint64              `json:"total_visitors"`
 	Steps          []*FunnelStepResult `json:"steps"`
 	ConversionRate float64             `json:"conversion_rate"`
+	// Nodes 为树形视图数据：每个节点带 step_id/parent_step_id，前端据此重建多层树。
+	Nodes []*FunnelNodeResult `json:"nodes"`
 }
 
 // FunnelStep 漏斗步骤定义。
 type FunnelStep struct {
-	GoalID      int64
-	GoalType    string // "event" or "page"
-	GoalValue   string // event name or page path
-	GoalName    string
-	StepOrder   int
-	CustomProps map[string]string // 目标自定义属性过滤条件
+	StepID       int64
+	ParentStepID *int64 // 父步骤 ID；根为 nil。用于树形路径分析。
+	GoalID       int64
+	GoalType     string // "event" or "page"
+	GoalValue    string // event name or page path
+	GoalName     string
+	StepOrder    int
+	CustomProps  map[string]string // 目标自定义属性过滤条件
 }
 
 // AnalysisRequest 漏斗分析请求。
@@ -79,14 +95,17 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 	}
 	defer rows.Close()
 
-	// 处理结果 — 按 stepOrder 索引，确保顺序不受 SQL 返回行序影响
-	stepIndex := 0
+	// 处理结果 — 按 stepOrder 索引，确保顺序不受 SQL 返回行序影响。
+	// 每行即一个节点按其根路径统计的访客数。
 	for rows.Next() {
 		var visitors uint64
 		var stepOrder uint8
 
 		if err := rows.Scan(&stepOrder, &visitors); err != nil {
 			return nil, fmt.Errorf("failed to scan funnel result: %w", err)
+		}
+		if int(stepOrder) < 1 || int(stepOrder) > len(req.Steps) {
+			continue
 		}
 
 		if stepOrder == 1 {
@@ -101,7 +120,6 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 			DropOff:        0,
 			ConversionRate: 0,
 		}
-		stepIndex++
 	}
 
 	if err := rows.Err(); err != nil {
@@ -128,10 +146,46 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 		conversionRate = float64(stepResults[len(stepResults)-1].Visitors) / float64(totalVisitors) * 100
 	}
 
+	// 组装树形节点：每个节点的转化率/流失相对其父节点（根相对自身为 100%）。
+	parent := parentIndices(req.Steps)
+	nodes := make([]*FunnelNodeResult, 0, len(req.Steps))
+	for i, step := range req.Steps {
+		var visitors uint64
+		if stepResults[i] != nil {
+			visitors = stepResults[i].Visitors
+		}
+		parentVisitors := totalVisitors
+		isRoot := parent[i] == -1
+		if !isRoot && stepResults[parent[i]] != nil {
+			parentVisitors = stepResults[parent[i]].Visitors
+		}
+		var cr float64
+		if isRoot {
+			cr = 100
+		} else if parentVisitors > 0 {
+			cr = float64(visitors) / float64(parentVisitors) * 100
+		}
+		var dropOff int64
+		if !isRoot {
+			dropOff = int64(parentVisitors) - int64(visitors)
+		}
+		nodes = append(nodes, &FunnelNodeResult{
+			StepID:         step.StepID,
+			ParentStepID:   step.ParentStepID,
+			StepOrder:      step.StepOrder,
+			GoalName:       step.GoalName,
+			Visitors:       visitors,
+			DropOff:        dropOff,
+			ConversionRate: cr,
+			IsRoot:         isRoot,
+		})
+	}
+
 	return &FunnelAnalysisResult{
 		TotalVisitors:  totalVisitors,
 		Steps:          stepResults,
 		ConversionRate: conversionRate,
+		Nodes:          nodes,
 	}, nil
 }
 
@@ -167,17 +221,13 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 		minIfParts[i] = fmt.Sprintf(`minIf(timestamp, %s) AS ts_%d`, stepConds[i], i+1)
 	}
 
-	// 构建每个步骤的统计 SELECT
+	// 每个节点按"从根到该节点的完整路径、时间严格递增"统计。
+	// 线性漏斗（父=上一节点）时路径即顺序链，等价于原严格时序漏斗；
+	// 树形漏斗时每个分支按各自路径统计，天然支持任意分叉与多层。
+	parent := parentIndices(req.Steps)
 	selectParts := make([]string, len(req.Steps))
 	for i := range req.Steps {
-		// 步骤 N 的 WHERE：前 N 步时间非空且严格递增
-		conds := make([]string, 0, i+1)
-		for j := 0; j <= i; j++ {
-			conds = append(conds, fmt.Sprintf(`ts_%d IS NOT NULL`, j+1))
-			if j > 0 {
-				conds = append(conds, fmt.Sprintf(`ts_%d > ts_%d`, j+1, j))
-			}
-		}
+		conds := pathConditions(parent, i)
 		selectParts[i] = fmt.Sprintf(
 			`SELECT %d AS step_order, count(*) AS visitors FROM funnel_data WHERE %s`,
 			i+1, strings.Join(conds, " AND "),
@@ -200,6 +250,48 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 	)
 
 	return query, args
+}
+
+// parentIndices 把每个步骤的 ParentStepID 映射为其在数组中的下标；根返回 -1。
+// 找不到父（数据异常）也按根处理，避免悬挂引用。
+func parentIndices(steps []*FunnelStep) []int {
+	idOf := make(map[int64]int, len(steps))
+	for i, s := range steps {
+		idOf[s.StepID] = i
+	}
+	parent := make([]int, len(steps))
+	for i, s := range steps {
+		parent[i] = -1
+		if s.ParentStepID != nil {
+			if p, ok := idOf[*s.ParentStepID]; ok && p != i {
+				parent[i] = p
+			}
+		}
+	}
+	return parent
+}
+
+// pathConditions 返回节点 i 从根到自身路径的 WHERE 条件：
+// 路径上每个节点的 ts 非空，且沿路径时间严格递增（子 > 父）。
+// 用 visited 保护，即使父引用异常也不会死循环。
+func pathConditions(parent []int, i int) []string {
+	var path []int
+	visited := make(map[int]bool)
+	for j := i; j != -1 && !visited[j]; j = parent[j] {
+		visited[j] = true
+		path = append([]int{j}, path...) // 前插，最终 path[0] 为根
+	}
+	if len(path) == 0 {
+		return []string{"1 = 1"}
+	}
+	conds := []string{fmt.Sprintf(`ts_%d IS NOT NULL`, path[0]+1)}
+	for k := 1; k < len(path); k++ {
+		conds = append(conds,
+			fmt.Sprintf(`ts_%d IS NOT NULL`, path[k]+1),
+			fmt.Sprintf(`ts_%d > ts_%d`, path[k]+1, path[k-1]+1),
+		)
+	}
+	return conds
 }
 
 // buildGoalCondition 根据 goal 类型构建 WHERE 条件。

@@ -78,6 +78,33 @@ func (fsu *FunnelStepUpdate) AddStepOrder(i int) *FunnelStepUpdate {
 	return fsu
 }
 
+// SetParentStepID sets the "parent_step_id" field.
+func (fsu *FunnelStepUpdate) SetParentStepID(i int64) *FunnelStepUpdate {
+	fsu.mutation.ResetParentStepID()
+	fsu.mutation.SetParentStepID(i)
+	return fsu
+}
+
+// SetNillableParentStepID sets the "parent_step_id" field if the given value is not nil.
+func (fsu *FunnelStepUpdate) SetNillableParentStepID(i *int64) *FunnelStepUpdate {
+	if i != nil {
+		fsu.SetParentStepID(*i)
+	}
+	return fsu
+}
+
+// AddParentStepID adds i to the "parent_step_id" field.
+func (fsu *FunnelStepUpdate) AddParentStepID(i int64) *FunnelStepUpdate {
+	fsu.mutation.AddParentStepID(i)
+	return fsu
+}
+
+// ClearParentStepID clears the value of the "parent_step_id" field.
+func (fsu *FunnelStepUpdate) ClearParentStepID() *FunnelStepUpdate {
+	fsu.mutation.ClearParentStepID()
+	return fsu
+}
+
 // SetGoalsID sets the "goals" edge to the Goal entity by ID.
 func (fsu *FunnelStepUpdate) SetGoalsID(id int64) *FunnelStepUpdate {
 	fsu.mutation.SetGoalsID(id)
@@ -172,6 +199,15 @@ func (fsu *FunnelStepUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := fsu.mutation.AddedStepOrder(); ok {
 		_spec.AddField(funnelstep.FieldStepOrder, field.TypeInt, value)
+	}
+	if value, ok := fsu.mutation.ParentStepID(); ok {
+		_spec.SetField(funnelstep.FieldParentStepID, field.TypeInt64, value)
+	}
+	if value, ok := fsu.mutation.AddedParentStepID(); ok {
+		_spec.AddField(funnelstep.FieldParentStepID, field.TypeInt64, value)
+	}
+	if fsu.mutation.ParentStepIDCleared() {
+		_spec.ClearField(funnelstep.FieldParentStepID, field.TypeInt64)
 	}
 	if fsu.mutation.GoalsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -300,6 +336,33 @@ func (fsuo *FunnelStepUpdateOne) AddStepOrder(i int) *FunnelStepUpdateOne {
 	return fsuo
 }
 
+// SetParentStepID sets the "parent_step_id" field.
+func (fsuo *FunnelStepUpdateOne) SetParentStepID(i int64) *FunnelStepUpdateOne {
+	fsuo.mutation.ResetParentStepID()
+	fsuo.mutation.SetParentStepID(i)
+	return fsuo
+}
+
+// SetNillableParentStepID sets the "parent_step_id" field if the given value is not nil.
+func (fsuo *FunnelStepUpdateOne) SetNillableParentStepID(i *int64) *FunnelStepUpdateOne {
+	if i != nil {
+		fsuo.SetParentStepID(*i)
+	}
+	return fsuo
+}
+
+// AddParentStepID adds i to the "parent_step_id" field.
+func (fsuo *FunnelStepUpdateOne) AddParentStepID(i int64) *FunnelStepUpdateOne {
+	fsuo.mutation.AddParentStepID(i)
+	return fsuo
+}
+
+// ClearParentStepID clears the value of the "parent_step_id" field.
+func (fsuo *FunnelStepUpdateOne) ClearParentStepID() *FunnelStepUpdateOne {
+	fsuo.mutation.ClearParentStepID()
+	return fsuo
+}
+
 // SetGoalsID sets the "goals" edge to the Goal entity by ID.
 func (fsuo *FunnelStepUpdateOne) SetGoalsID(id int64) *FunnelStepUpdateOne {
 	fsuo.mutation.SetGoalsID(id)
@@ -424,6 +487,15 @@ func (fsuo *FunnelStepUpdateOne) sqlSave(ctx context.Context) (_node *FunnelStep
 	}
 	if value, ok := fsuo.mutation.AddedStepOrder(); ok {
 		_spec.AddField(funnelstep.FieldStepOrder, field.TypeInt, value)
+	}
+	if value, ok := fsuo.mutation.ParentStepID(); ok {
+		_spec.SetField(funnelstep.FieldParentStepID, field.TypeInt64, value)
+	}
+	if value, ok := fsuo.mutation.AddedParentStepID(); ok {
+		_spec.AddField(funnelstep.FieldParentStepID, field.TypeInt64, value)
+	}
+	if fsuo.mutation.ParentStepIDCleared() {
+		_spec.ClearField(funnelstep.FieldParentStepID, field.TypeInt64)
 	}
 	if fsuo.mutation.GoalsCleared() {
 		edge := &sqlgraph.EdgeSpec{

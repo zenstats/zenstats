@@ -3251,19 +3251,21 @@ func (m *FunnelMutation) ResetEdge(name string) error {
 // FunnelStepMutation represents an operation that mutates the FunnelStep nodes in the graph.
 type FunnelStepMutation struct {
 	config
-	op             Op
-	typ            string
-	id             *int64
-	step_order     *int
-	addstep_order  *int
-	clearedFields  map[string]struct{}
-	goals          *int64
-	clearedgoals   bool
-	funnels        *int64
-	clearedfunnels bool
-	done           bool
-	oldValue       func(context.Context) (*FunnelStep, error)
-	predicates     []predicate.FunnelStep
+	op                Op
+	typ               string
+	id                *int64
+	step_order        *int
+	addstep_order     *int
+	parent_step_id    *int64
+	addparent_step_id *int64
+	clearedFields     map[string]struct{}
+	goals             *int64
+	clearedgoals      bool
+	funnels           *int64
+	clearedfunnels    bool
+	done              bool
+	oldValue          func(context.Context) (*FunnelStep, error)
+	predicates        []predicate.FunnelStep
 }
 
 var _ ent.Mutation = (*FunnelStepMutation)(nil)
@@ -3498,6 +3500,76 @@ func (m *FunnelStepMutation) ResetStepOrder() {
 	m.addstep_order = nil
 }
 
+// SetParentStepID sets the "parent_step_id" field.
+func (m *FunnelStepMutation) SetParentStepID(i int64) {
+	m.parent_step_id = &i
+	m.addparent_step_id = nil
+}
+
+// ParentStepID returns the value of the "parent_step_id" field in the mutation.
+func (m *FunnelStepMutation) ParentStepID() (r int64, exists bool) {
+	v := m.parent_step_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldParentStepID returns the old "parent_step_id" field's value of the FunnelStep entity.
+// If the FunnelStep object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *FunnelStepMutation) OldParentStepID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldParentStepID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldParentStepID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldParentStepID: %w", err)
+	}
+	return oldValue.ParentStepID, nil
+}
+
+// AddParentStepID adds i to the "parent_step_id" field.
+func (m *FunnelStepMutation) AddParentStepID(i int64) {
+	if m.addparent_step_id != nil {
+		*m.addparent_step_id += i
+	} else {
+		m.addparent_step_id = &i
+	}
+}
+
+// AddedParentStepID returns the value that was added to the "parent_step_id" field in this mutation.
+func (m *FunnelStepMutation) AddedParentStepID() (r int64, exists bool) {
+	v := m.addparent_step_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearParentStepID clears the value of the "parent_step_id" field.
+func (m *FunnelStepMutation) ClearParentStepID() {
+	m.parent_step_id = nil
+	m.addparent_step_id = nil
+	m.clearedFields[funnelstep.FieldParentStepID] = struct{}{}
+}
+
+// ParentStepIDCleared returns if the "parent_step_id" field was cleared in this mutation.
+func (m *FunnelStepMutation) ParentStepIDCleared() bool {
+	_, ok := m.clearedFields[funnelstep.FieldParentStepID]
+	return ok
+}
+
+// ResetParentStepID resets all changes to the "parent_step_id" field.
+func (m *FunnelStepMutation) ResetParentStepID() {
+	m.parent_step_id = nil
+	m.addparent_step_id = nil
+	delete(m.clearedFields, funnelstep.FieldParentStepID)
+}
+
 // SetGoalsID sets the "goals" edge to the Goal entity by id.
 func (m *FunnelStepMutation) SetGoalsID(id int64) {
 	m.goals = &id
@@ -3612,7 +3684,7 @@ func (m *FunnelStepMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *FunnelStepMutation) Fields() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 4)
 	if m.funnels != nil {
 		fields = append(fields, funnelstep.FieldFunnelID)
 	}
@@ -3621,6 +3693,9 @@ func (m *FunnelStepMutation) Fields() []string {
 	}
 	if m.step_order != nil {
 		fields = append(fields, funnelstep.FieldStepOrder)
+	}
+	if m.parent_step_id != nil {
+		fields = append(fields, funnelstep.FieldParentStepID)
 	}
 	return fields
 }
@@ -3636,6 +3711,8 @@ func (m *FunnelStepMutation) Field(name string) (ent.Value, bool) {
 		return m.GoalID()
 	case funnelstep.FieldStepOrder:
 		return m.StepOrder()
+	case funnelstep.FieldParentStepID:
+		return m.ParentStepID()
 	}
 	return nil, false
 }
@@ -3651,6 +3728,8 @@ func (m *FunnelStepMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldGoalID(ctx)
 	case funnelstep.FieldStepOrder:
 		return m.OldStepOrder(ctx)
+	case funnelstep.FieldParentStepID:
+		return m.OldParentStepID(ctx)
 	}
 	return nil, fmt.Errorf("unknown FunnelStep field %s", name)
 }
@@ -3681,6 +3760,13 @@ func (m *FunnelStepMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetStepOrder(v)
 		return nil
+	case funnelstep.FieldParentStepID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetParentStepID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown FunnelStep field %s", name)
 }
@@ -3692,6 +3778,9 @@ func (m *FunnelStepMutation) AddedFields() []string {
 	if m.addstep_order != nil {
 		fields = append(fields, funnelstep.FieldStepOrder)
 	}
+	if m.addparent_step_id != nil {
+		fields = append(fields, funnelstep.FieldParentStepID)
+	}
 	return fields
 }
 
@@ -3702,6 +3791,8 @@ func (m *FunnelStepMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case funnelstep.FieldStepOrder:
 		return m.AddedStepOrder()
+	case funnelstep.FieldParentStepID:
+		return m.AddedParentStepID()
 	}
 	return nil, false
 }
@@ -3718,6 +3809,13 @@ func (m *FunnelStepMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddStepOrder(v)
 		return nil
+	case funnelstep.FieldParentStepID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddParentStepID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown FunnelStep numeric field %s", name)
 }
@@ -3725,7 +3823,11 @@ func (m *FunnelStepMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *FunnelStepMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(funnelstep.FieldParentStepID) {
+		fields = append(fields, funnelstep.FieldParentStepID)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -3738,6 +3840,11 @@ func (m *FunnelStepMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *FunnelStepMutation) ClearField(name string) error {
+	switch name {
+	case funnelstep.FieldParentStepID:
+		m.ClearParentStepID()
+		return nil
+	}
 	return fmt.Errorf("unknown FunnelStep nullable field %s", name)
 }
 
@@ -3753,6 +3860,9 @@ func (m *FunnelStepMutation) ResetField(name string) error {
 		return nil
 	case funnelstep.FieldStepOrder:
 		m.ResetStepOrder()
+		return nil
+	case funnelstep.FieldParentStepID:
+		m.ResetParentStepID()
 		return nil
 	}
 	return fmt.Errorf("unknown FunnelStep field %s", name)
