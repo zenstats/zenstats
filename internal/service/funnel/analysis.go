@@ -215,10 +215,14 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 	args = append(args, req.SiteID, req.StartTime, req.EndTime) // WHERE 条件
 	args = append(args, goalArgs...)                            // WHERE OR 部分
 
-	// CTE: 单表扫描，每个用户一行，含各步骤的最早时间
+	// CTE: 单表扫描，每个用户一行，含各步骤的最早时间。
+	// 必须用 minOrNullIf 而非 minIf：timestamp 是非 Nullable 的 DateTime，
+	// minIf 在无匹配行时返回类型默认值 1970-01-01（而非 NULL），导致
+	// 后续 ts_N IS NOT NULL 恒为真、ts_2 > ts_1 对未做第一步的用户也成立——
+	// 第一步会统计成"匹配过任意步骤条件的所有用户"，数字严重偏大。
 	minIfParts := make([]string, len(req.Steps))
 	for i := range req.Steps {
-		minIfParts[i] = fmt.Sprintf(`minIf(timestamp, %s) AS ts_%d`, stepConds[i], i+1)
+		minIfParts[i] = fmt.Sprintf(`minOrNullIf(timestamp, %s) AS ts_%d`, stepConds[i], i+1)
 	}
 
 	// 每个节点按"从根到该节点的完整路径、时间严格递增"统计。
