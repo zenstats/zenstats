@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/zenstats/zenstats/pkg/utils"
 )
 
 // 远程数据源：Matomo referrer spam list（每周自动更新）
@@ -48,8 +50,18 @@ func IsSpamReferrer(hostname string) bool {
 	if hostname == "" || spammersSet == nil {
 		return false
 	}
-	_, ok := spammersSet[strings.ToLower(hostname)]
-	return ok
+	hostname = utils.NormalizeHostname(hostname)
+	for hostname != "" {
+		if _, ok := spammersSet[hostname]; ok {
+			return true
+		}
+		dot := strings.IndexByte(hostname, '.')
+		if dot < 0 {
+			break
+		}
+		hostname = hostname[dot+1:]
+	}
+	return false
 }
 
 // GetBlocklistStats 返回当前 blocklist 状态（条目数、最后更新时间）。

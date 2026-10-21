@@ -202,12 +202,7 @@ func (qo *QueryOptimizer) splitSessionsQuery(query *types.Query, sessionMetrics 
 func (qo *QueryOptimizer) updateSessionFilters(filters []*types.Filter) []*types.Filter {
 	updated := make([]*types.Filter, 0, len(filters))
 	for _, filter := range filters {
-		updated = append(updated, filter.RewriteDimensions(func(dim string) string {
-			if dim == "event:page" {
-				return "visit:entry_page"
-			}
-			return dim
-		}))
+		updated = append(updated, filter.Clone())
 	}
 	return updated
 }
@@ -328,33 +323,8 @@ func (qo *QueryOptimizer) updateTimeInOrderBy(query *types.Query) *types.Query {
 }
 
 func (qo *QueryOptimizer) extendHostnameFiltersToVisit(query *types.Query) *types.Query {
-	hostnameFilters := []*types.Filter{}
-	for _, f := range query.Filters {
-		if f.AnyDimension(func(dim string) bool { return dim == "event:hostname" }) {
-			hostnameFilters = append(hostnameFilters, f)
-		}
-	}
-	if len(hostnameFilters) == 0 {
-		return query
-	}
-
-	dimensionsHostnameMap := map[string]string{
-		"visit:source": "visit:entry_page_hostname", "visit:entry_page": "visit:entry_page_hostname",
-		"visit:utm_medium": "visit:entry_page_hostname", "visit:utm_source": "visit:entry_page_hostname",
-		"visit:utm_campaign": "visit:entry_page_hostname", "visit:utm_content": "visit:entry_page_hostname",
-		"visit:utm_term": "visit:entry_page_hostname", "visit:referrer": "visit:entry_page_hostname",
-		"visit:exit_page": "visit:exit_page_hostname",
-	}
-
-	for _, dim := range query.Dimensions {
-		mappedDim, ok := dimensionsHostnameMap[dim]
-		if !ok {
-			continue
-		}
-		for _, hf := range hostnameFilters {
-			query.Filters = append(query.Filters, &types.Filter{Dimension: mappedDim, Operator: hf.Operator, Values: hf.Values, Modifiers: hf.Modifiers})
-		}
-	}
+	// Foreign predicates are compiled as session membership filters. Adding an
+	// entry-hostname predicate here would change OR and multi-host visit semantics.
 	return query
 }
 
@@ -383,6 +353,6 @@ func isSessionOnlyDimension(dim string) bool {
 	case "visit:entry_page", "visit:entry_page_hostname", "visit:exit_page", "visit:exit_page_hostname":
 		return true
 	default:
-		return false
+		return strings.HasPrefix(dim, "visit:entry_props:")
 	}
 }

@@ -240,6 +240,27 @@ func parseInteractive(req *model.EventRequest, tempReq *model.TempEventRequest) 
 	}
 }
 
+// newEventRequest is shared by single and batch ingestion so both retain the
+// same fields, limits and defaults (especially revenue and interactive).
+func newEventRequest(temp model.TempEventRequest, domain string, c *gin.Context) *model.EventRequest {
+	req := &model.EventRequest{
+		Timestamp: temp.Timestamp, Hash: temp.Hash, EventName: temp.EventName,
+		JSVersion: temp.JSVersion, URL: temp.URL, Domain: domain,
+		Referrer: temp.Referrer, Props: temp.Props,
+		EngagementTime: temp.EngagementTime, ScrollDepth: temp.ScrollDepth,
+		Revenue: temp.Revenue,
+	}
+	if len(req.EventName) > 120 {
+		req.EventName = req.EventName[:120]
+	}
+	if len(req.URL) > 2000 {
+		req.URL = req.URL[:2000]
+	}
+	setEventRequestDefaults(req, c)
+	parseInteractive(req, &temp)
+	return req
+}
+
 // Event 返回事件采集的 gin 处理函数。
 // 接收前端 SDK 上报的事件数据，验证域名合法性后将事件入队处理。
 // 成功返回 HTTP 202 Accepted，失败返回对应错误码。
@@ -289,7 +310,8 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			// 限制单次 batch 的子事件数量，防止请求放大攻击
 			const maxBatchEvents = 100
 			if len(batchReq.Events) > maxBatchEvents {
-				batchReq.Events = batchReq.Events[:maxBatchEvents]
+				c.JSON(http.StatusBadRequest, "too many batch events")
+				return
 			}
 			// 丢弃来自数据中心/威胁 IP 的 batch 请求
 			if isDatacenterOrThreatIP(c) {
@@ -340,32 +362,12 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 					}
 				}
 
-				// 子事件长度校验
-				if len(subEvent.EventName) > 120 {
-					subEvent.EventName = subEvent.EventName[:120]
-				}
-				if len(subEvent.URL) > 2000 {
-					subEvent.URL = subEvent.URL[:2000]
-				}
-
-				req := model.EventRequest{
-					Timestamp:      subEvent.Timestamp,
-					Hash:           subEvent.Hash,
-					EventName:      subEvent.EventName,
-					JSVersion:      subEvent.JSVersion,
-					URL:            subEvent.URL,
-					Domain:         subDomain,
-					Referrer:       subEvent.Referrer,
-					Props:          subEvent.Props,
-					EngagementTime: subEvent.EngagementTime,
-					ScrollDepth:    subEvent.ScrollDepth,
-				}
-
-				setEventRequestDefaults(&req, c)
-				parseInteractive(&req, &subEvent)
-
+				req := newEventRequest(subEvent, subDomain, c)
 				queue := globals.GetQueue()
-				_ = queue.Enqueue(&req)
+				if queue == nil || queue.Enqueue(req) != nil {
+					c.JSON(http.StatusServiceUnavailable, "event queue unavailable")
+					return
+				}
 			}
 			c.JSON(http.StatusAccepted, "ok")
 			return
@@ -376,12 +378,6 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			slog.Debug("failed to unmarshal request body", "error", err)
 			c.JSON(http.StatusBadRequest, "bad")
 			return
-		}
-
-		// Set default value for Interactive if not provided
-		if tempReq.Interactive == nil {
-			trueVal := json.RawMessage("true")
-			tempReq.Interactive = &trueVal
 		}
 
 		// 丢弃来自数据中心/威胁 IP 的请求
@@ -457,39 +453,10 @@ func Event(siteService *service.SiteService) gin.HandlerFunc {
 			}
 		}
 
-		// 长度校验
-		const maxEventNameLength = 120
-		const maxURLLength = 2000
-
-		if len(tempReq.EventName) > maxEventNameLength {
-			slog.Debug("event name too long, truncating", "name", tempReq.EventName)
-			tempReq.EventName = tempReq.EventName[:maxEventNameLength]
-		}
-		if len(tempReq.URL) > maxURLLength {
-			slog.Debug("url too long, truncating", "url", tempReq.URL)
-			tempReq.URL = tempReq.URL[:maxURLLength]
-		}
-
-		req := model.EventRequest{
-			Timestamp:      tempReq.Timestamp,
-			Hash:           tempReq.Hash,
-			EventName:      tempReq.EventName,
-			JSVersion:      tempReq.JSVersion,
-			URL:            tempReq.URL,
-			Domain:         tempReq.Domain,
-			Referrer:       tempReq.Referrer,
-			Props:          tempReq.Props,
-			EngagementTime: tempReq.EngagementTime,
-			ScrollDepth:    tempReq.ScrollDepth,
-			Revenue:        tempReq.Revenue,
-		}
-
-		setEventRequestDefaults(&req, c)
-		parseInteractive(&req, &tempReq)
-
+		req := newEventRequest(tempReq, tempReq.Domain, c)
 		queue := globals.GetQueue()
-		if err = queue.Enqueue(&req); err != nil {
-			c.JSON(http.StatusBadRequest, "error")
+		if queue == nil || queue.Enqueue(req) != nil {
+			c.JSON(http.StatusServiceUnavailable, "event queue unavailable")
 			return
 		}
 

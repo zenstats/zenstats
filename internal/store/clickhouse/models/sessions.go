@@ -11,7 +11,7 @@ type Sessions struct {
 	SessionId uint64 `json:"session_id" ch:"session_id"`
 
 	Version   uint64    `json:"version" ch:"version"`
-	Sign      int       `json:"sign" ch:"sign"`
+	Sign      int8      `json:"sign" ch:"sign"`
 	IsBounce  uint8     `json:"is_bounce" ch:"is_bounce"`
 	Start     time.Time `json:"start" ch:"start"`
 	Timestamp time.Time `json:"timestamp" ch:"timestamp"` // 时间戳

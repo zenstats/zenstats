@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
@@ -93,79 +94,37 @@ func (s *SessionManager) findSession(event *models.Events) *models.Sessions {
 }
 
 func (s *SessionManager) handleEvent(event *models.Events, findSession *models.Sessions) (*models.Sessions, error) {
-	if event.Name == "engagement" {
-		if findSession == nil {
-			// 从 ClickHouse 加载最近的活跃 session
-			loadedSession, err := s.loadSessionFromDB(event.UserId, event.SiteId)
-			if err != nil {
-				slog.Debug("session not found in cache or DB", "user_id", event.UserId, "site_id", event.SiteId)
-				return nil, nil
-			}
-			// Write Sign=-1 tombstone for the existing DB row before mutating.
-			// tombstone 保留 loadedSession 的 version，与 DB 中的 Sign=+1 行配对 collapse。
-			tombstone := s.CopySession(loadedSession)
-			tombstone.Sign = -1
-			s.writeBuffer.Add(tombstone)
-
-			// 生成新状态行：赋新版本号（必须高于 tombstone），Sign=+1
-			newState := s.CopySession(loadedSession)
-			newState.Version = s.nextVersion()
-			newState.Sign = 1
-			newState.Duration = durationSeconds(newState.Start, event.Timestamp)
-			newState.Timestamp = event.Timestamp
-			newState.Events += 1
-			s.writeBuffer.Add(newState)
-			s.updateSessionCache(newState)
-			return newState, nil
+	// Cache expiry is an implementation detail; session membership is determined
+	// by event time even after a cache miss, restart, or out-of-order arrival.
+	if !sessionContainsEvent(findSession, event.Timestamp) {
+		loaded, err := s.loadSessionFromDB(event)
+		if err != nil && !errors.Is(err, repository.ErrSessionNotFound) {
+			return nil, err
 		}
-		oldSession := s.CopySession(findSession)
-		oldSession.Sign = -1
-		s.writeBuffer.Add(oldSession)
-
-		newSession := s.CopySession(findSession)
-		newSession.Version = s.nextVersion()
-		newSession.Sign = 1
-		newSession.Duration = durationSeconds(newSession.Start, event.Timestamp)
-		newSession.Timestamp = event.Timestamp
-		newSession.Events += 1
-		s.writeBuffer.Add(newSession)
-		s.updateSessionCache(newSession)
-		return newSession, nil
+		findSession = loaded
 	}
-
-	// pageview / 自定义事件：缓存未命中时从 ClickHouse 加载
 	if findSession == nil {
-		loadedSession, err := s.loadSessionFromDB(event.UserId, event.SiteId)
-		if err == nil && loadedSession != nil {
-			findSession = loadedSession
+		if event.Name == "engagement" {
+			return nil, nil
 		}
+		created := s.newSession(event)
+		s.writeBuffer.Add(created)
+		s.updateSessionCache(created)
+		return created, nil
 	}
 
-	// if session exists and event is not engagement
-	// update session
-	if findSession != nil {
-		// copy old session
-		oldSession := s.CopySession(findSession)
-		oldSession.Sign = -1
-		s.writeBuffer.Add(oldSession)
-		// update session
-		updateSession := s.updateSession(findSession, event)
-		updateSession.Sign = 1
-		s.writeBuffer.Add(updateSession)
+	old := s.CopySession(findSession)
+	old.Sign = -1
+	updated := s.updateSession(findSession, event)
+	updated.Sign = 1
+	s.writeBuffer.Add(old)
+	s.writeBuffer.Add(updated)
+	s.updateSessionCache(updated)
+	return updated, nil
+}
 
-		s.updateSessionCache(updateSession)
-
-		return updateSession, nil
-	}
-
-	// if session does not exist
-	// new session
-	session := s.newSession(event)
-	s.writeBuffer.Add(session)
-	s.updateSessionCache(session)
-
-	return session, nil
-
+func sessionContainsEvent(session *models.Sessions, timestamp time.Time) bool {
+	return session != nil && !timestamp.Before(session.Start) && !timestamp.After(session.Timestamp.Add(sessionCacheTTL))
 }
 
 func (s *SessionManager) newSession(event *models.Events) *models.Sessions {
@@ -246,12 +205,14 @@ func (s *SessionManager) updateSession(session *models.Sessions, event *models.E
 	}
 	newSession.PageViews = pageviews
 
-	newSession.Timestamp = event.Timestamp
+	if event.Timestamp.After(newSession.Timestamp) {
+		newSession.Timestamp = event.Timestamp
+	}
 	if session.EntryPage == "" && pageview {
 		newSession.EntryPage = event.PathName
 	}
 
-	if pageview {
+	if pageview && !event.Timestamp.Before(session.Timestamp) {
 		newSession.ExitPage = event.PathName
 	}
 
@@ -259,12 +220,12 @@ func (s *SessionManager) updateSession(session *models.Sessions, event *models.E
 		newSession.HostName = event.HostName
 	}
 	if session.IsBounce == 1 {
-		if pageviews > 1 || (event.Interactive && !pageview) {
+		if pageviews > 1 || (event.Interactive && !pageview && event.Name != "engagement") {
 			newSession.IsBounce = 0
 		}
 	}
 
-	newSession.Duration = durationSeconds(session.Start, event.Timestamp)
+	newSession.Duration = durationSeconds(session.Start, newSession.Timestamp)
 
 	newSession.Events += 1
 
@@ -283,16 +244,12 @@ func durationSeconds(start, end time.Time) uint32 {
 	return uint32(d)
 }
 
-func (s *SessionManager) refreshSessionCache(session *models.Sessions, timestamp time.Time) *models.Sessions {
-	session.Timestamp = timestamp
-
-	return s.updateSessionCache(session)
-}
-
 func (s *SessionManager) updateSessionCache(session *models.Sessions) *models.Sessions {
-
-	s.cache.Add(s.generateSessionCacheKey(session.UserId, session.SiteId), session)
-
+	key := s.generateSessionCacheKey(session.UserId, session.SiteId)
+	// A late event for an earlier session must not evict the current session.
+	if current, ok := s.cache.Get(key); !ok || current.SessionId == session.SessionId || !session.Timestamp.Before(current.Timestamp) {
+		s.cache.Add(key, session)
+	}
 	return session
 }
 
@@ -311,8 +268,8 @@ func (s *SessionManager) generateSessionCacheKey(userId, siteId uint64) string {
 //
 // writeBuffer 中的行是"最新事实"，优先级高于 CH；只有 buffer 中没有该用户的行时才查 CH。
 // 同一 userId 的事件由 balancer 串行处理，因此不存在并发写同一 key 的竞态。
-func (s *SessionManager) loadSessionFromDB(userId, siteId uint64) (*models.Sessions, error) {
-	if pending := s.writeBuffer.FindPending(userId, siteId, time.Now().Add(-1*time.Hour)); pending != nil {
+func (s *SessionManager) loadSessionFromDB(event *models.Events) (*models.Sessions, error) {
+	if pending := s.writeBuffer.FindPendingAt(event.UserId, event.SiteId, event.Timestamp); pending != nil {
 		// 返回副本，避免调用方后续修改影响 buffer 中即将写入的行
 		return s.CopySession(pending), nil
 	}
@@ -323,7 +280,7 @@ func (s *SessionManager) loadSessionFromDB(userId, siteId uint64) (*models.Sessi
 	}
 	ctx, cancel := context.WithTimeout(s.shutdownCtx, dbLookupTimeout)
 	defer cancel()
-	return repo.GetMostRecentActiveSession(ctx, userId, siteId)
+	return repo.GetActiveSessionAt(ctx, event.UserId, event.SiteId, event.Timestamp, sessionCacheTTL)
 }
 
 func (s *SessionManager) WriteSession(session *models.Sessions) {

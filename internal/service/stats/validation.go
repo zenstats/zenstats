@@ -373,7 +373,7 @@ func isValidDimension(dimension string) bool {
 		"time:day_of_year":          true,
 	}
 
-	return validDimensions[dimension] || strings.HasPrefix(dimension, "event:props:")
+	return validDimensions[dimension] || strings.HasPrefix(dimension, "event:props:") || strings.HasPrefix(dimension, "visit:entry_props:")
 }
 
 // validateMetrics validates a list of metrics

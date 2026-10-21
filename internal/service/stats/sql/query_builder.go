@@ -131,12 +131,11 @@ func (qb *QueryBuilder) buildEventsQuery(site *types.Site, eventQuery *types.Que
 	// Initialize WHERE clause using WhereBuilder
 	whereBuilder := NewWhereBuilder(site.ID)
 	whereBuilder.FilterSiteTimeRange("events", eventQuery.UTCTimeRange.Start, eventQuery.UTCTimeRange.End)
+	whereBuilder.userID = eventQuery.UserID
 
 	// Add filters
-	for _, filter := range eventQuery.Filters {
-		if err := whereBuilder.AddFilter("events", filter); err != nil {
-			return "", nil, err
-		}
+	if err := whereBuilder.AddFilter("events", &types.Filter{Operator: "and", SubFilters: eventQuery.Filters}); err != nil {
+		return "", nil, err
 	}
 
 	whereClause, params := whereBuilder.Build()
@@ -396,17 +395,14 @@ func (qb *QueryBuilder) buildSessionsQuery(site *types.Site, sessionsQuery *type
 	// Initialize WHERE clause using WhereBuilder
 	whereBuilder := NewWhereBuilder(site.ID)
 	whereBuilder.FilterSiteTimeRange("sessions", sessionsQuery.UTCTimeRange.Start, sessionsQuery.UTCTimeRange.End)
+	whereBuilder.userID = sessionsQuery.UserID
 
 	// Add filters
-	for _, filter := range sessionsQuery.Filters {
-		if err := whereBuilder.AddFilter("sessions", filter); err != nil {
-			return "", nil, err
-		}
+	if err := whereBuilder.AddFilter("sessions", &types.Filter{Operator: "and", SubFilters: sessionsQuery.Filters}); err != nil {
+		return "", nil, err
 	}
 
 	whereClause, params := whereBuilder.Build()
-	// TODO: Handle parameterized queries properly - for now we use string interpolation
-	// In production, this should use proper parameter binding
 
 	// Base session query
 	sqlBuilder := strings.Builder{}
@@ -419,7 +415,7 @@ func (qb *QueryBuilder) buildSessionsQuery(site *types.Site, sessionsQuery *type
 	} else {
 		sqlBuilder.WriteString(qb.selectSessionMetrics(sessionsQuery))
 	}
-	sqlBuilder.WriteString(" FROM sessions s")
+	sqlBuilder.WriteString(" FROM sessions s FINAL")
 	sqlBuilder.WriteString(qb.sampleClause(sessionsQuery))
 
 	if joinWithEvents {
@@ -462,10 +458,9 @@ func (qb *QueryBuilder) buildSessionsSmearedQuery(site *types.Site, sessionsQuer
 	}
 	whereBuilder := NewWhereBuilder(site.ID)
 	whereBuilder.FilterSiteTimeRange("sessions", sessionsQuery.UTCTimeRange.Start, sessionsQuery.UTCTimeRange.End)
-	for _, filter := range sessionsQuery.Filters {
-		if err := whereBuilder.AddFilter("sessions", filter); err != nil {
-			return "", nil, err
-		}
+	whereBuilder.userID = sessionsQuery.UserID
+	if err := whereBuilder.AddFilter("sessions", &types.Filter{Operator: "and", SubFilters: sessionsQuery.Filters}); err != nil {
+		return "", nil, err
 	}
 	whereClause, params := whereBuilder.Build()
 
@@ -480,7 +475,7 @@ func (qb *QueryBuilder) buildSessionsSmearedQuery(site *types.Site, sessionsQuer
 	}
 	base.WriteString(" FROM (SELECT s.*, arrayJoin(")
 	base.WriteString(qb.sessionTimeSlotsExpr(sessionsQuery))
-	base.WriteString(") AS timestamp FROM sessions s")
+	base.WriteString(") AS timestamp FROM sessions s FINAL")
 	base.WriteString(qb.sampleClause(sessionsQuery))
 	if joinWithEvents {
 		eventSubquery, subqParams, err := qb.buildEventSubquery(sessionsQuery)
@@ -539,12 +534,6 @@ func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []any,
 	whereBuilder := NewWhereBuilder(query.SiteID)
 	whereBuilder.FilterSiteTimeRange("sessions", query.UTCTimeRange.Start, query.UTCTimeRange.End)
 
-	for _, filter := range query.Filters {
-		if err := whereBuilder.AddFilter("sessions", filter); err != nil {
-			return "", nil, err
-		}
-	}
-
 	whereClause, params := whereBuilder.Build()
 
 	// Collect session-only dimension columns needed by the outer query.
@@ -572,7 +561,7 @@ func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []any,
 	}
 
 	sql := fmt.Sprintf(
-		"SELECT %s FROM sessions WHERE %s AND sign = 1 GROUP BY session_id",
+		"SELECT %s FROM sessions FINAL WHERE %s AND sign = 1 GROUP BY session_id",
 		selectClause,
 		whereClause,
 	)
@@ -584,13 +573,6 @@ func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []any,
 func (qb *QueryBuilder) buildEventSubquery(query *types.Query) (string, []any, error) {
 	whereBuilder := NewWhereBuilder(query.SiteID)
 	whereBuilder.FilterSiteTimeRange("events", query.UTCTimeRange.Start, query.UTCTimeRange.End)
-
-	// Only apply event-specific filters (not visit-specific) to the events subquery
-	for _, filter := range query.Filters {
-		if err := whereBuilder.AddFilter("events", filter); err != nil {
-			return "", nil, err
-		}
-	}
 
 	whereClause, params := whereBuilder.Build()
 

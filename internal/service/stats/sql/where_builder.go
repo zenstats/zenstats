@@ -17,7 +17,9 @@ import (
 type WhereBuilder struct {
 	conditions []string
 	params     []any
-	siteID     string // 添加siteID字段
+	siteID     string
+	userID     int64
+	timeRange  *types.TimeRange
 }
 
 // NewWhereBuilder 创建WhereBuilder实例
@@ -41,6 +43,7 @@ func (wb *WhereBuilder) AddCondition(condition string, params ...any) {
 
 // FilterSiteTimeRange 添加站点ID和时间范围过滤
 func (wb *WhereBuilder) FilterSiteTimeRange(table string, firstDatetime, lastDatetime time.Time) {
+	wb.timeRange = &types.TimeRange{Start: firstDatetime, End: lastDatetime}
 	if table == "events" {
 		wb.AddCondition(
 			"site_id = ? AND timestamp >= ? AND timestamp <= ?",
@@ -68,42 +71,32 @@ func (wb *WhereBuilder) FilterSiteTimeRange(table string, firstDatetime, lastDat
 
 // AddFilter 根据过滤条件类型添加相应的WHERE子句
 func (wb *WhereBuilder) AddFilter(table string, filter *types.Filter) error {
-	// 会话特有字段列表，仅在sessions表中支持
-	var sessionsOnlyVisitFields = map[string]bool{
-		"entry_page":          true,
-		"exit_page":           true,
-		"entry_page_hostname": true,
-	}
-
-	// 忽略空过滤器
 	if filter == nil {
 		return nil
 	}
 
-	// 检查是否为访问维度且当前表为events
-	if strings.HasPrefix(filter.Dimension, "visit:") {
-		fieldName := strings.TrimPrefix(filter.Dimension, "visit:")
-		if table == "events" && sessionsOnlyVisitFields[fieldName] {
-			return nil
-		}
-	}
-
-	// 检查是否为事件维度且当前表为sessions，跳过事件专属过滤器
-	// 事件维度过滤器仅应用于events表，sessions表中这些列不存在
-	if table == "sessions" && isEventOnlyFilterDimension(filter.Dimension) {
-		return nil
+	// Route a complete compatible subtree, rather than discarding foreign leaves.
+	// Keeping the subtree intact preserves OR/NOT and same-event conjunctions.
+	if target := foreignFilterTable(table, filter); target != "" {
+		return wb.addSessionMembership(target, filter, false)
 	}
 
 	// 特殊维度处理
 	switch filter.Dimension {
 	case "event:name":
-		return wb.addIsFilter("name", filter.Values, filter.Modifiers)
+		return wb.addFilterField("name", filter)
 	case "event:page":
 		return wb.addFilterField("pathname", filter)
 	case "event:hostname":
 		return wb.addFilterField("hostname", filter)
 	case "event:goal":
-		return wb.addGoalFilter(filter.Values)
+		return wb.addGoalFilter(filter)
+	case "visit:source":
+		clause, err := NewQueryBuilder().getSourceClause(wb.userID)
+		if err != nil {
+			return err
+		}
+		return wb.addFilterCondition("("+clause+")", filter)
 	}
 
 	// 自定义属性维度处理
@@ -127,13 +120,67 @@ func (wb *WhereBuilder) AddFilter(table string, filter *types.Filter) error {
 	}
 }
 
-// isEventOnlyFilterDimension 判断维度是否为事件专属过滤器（仅在events表中有效）
-func isEventOnlyFilterDimension(dimension string) bool {
-	return dimension == "event:name" ||
-		dimension == "event:page" ||
-		dimension == "event:hostname" ||
-		dimension == "event:goal" ||
-		strings.HasPrefix(dimension, "event:props:")
+// newSubBuilder preserves tenant, user-specific source mappings and query bounds.
+func (wb *WhereBuilder) newSubBuilder() *WhereBuilder {
+	return &WhereBuilder{siteID: wb.siteID, userID: wb.userID, timeRange: wb.timeRange}
+}
+
+func pureFilterDimensions(filter *types.Filter, predicate func(string) bool) bool {
+	if filter == nil {
+		return false
+	}
+	if filter.Dimension != "" {
+		return predicate(filter.Dimension)
+	}
+	if filter.Operator != "and" && filter.Operator != "or" && filter.Operator != "not" {
+		return false
+	}
+	if len(filter.SubFilters) == 0 {
+		return false
+	}
+	for _, sub := range filter.SubFilters {
+		if !pureFilterDimensions(sub, predicate) {
+			return false
+		}
+	}
+	return true
+}
+
+func foreignFilterTable(table string, filter *types.Filter) string {
+	if table == "sessions" && pureFilterDimensions(filter, func(dim string) bool {
+		return strings.HasPrefix(dim, "event:") || dim == "visit:page"
+	}) {
+		return "events"
+	}
+	if table == "events" && pureFilterDimensions(filter, isSessionOnlyDimension) {
+		return "sessions"
+	}
+	return ""
+}
+
+func (wb *WhereBuilder) addSessionMembership(table string, filter *types.Filter, negate bool) error {
+	sub := wb.newSubBuilder()
+	if wb.timeRange != nil {
+		sub.FilterSiteTimeRange(table, wb.timeRange.Start, wb.timeRange.End)
+	} else {
+		sub.AddCondition("site_id = ?", wb.siteID)
+	}
+	if err := sub.AddFilter(table, filter); err != nil {
+		return err
+	}
+	condition, params := sub.Build()
+	from := table
+	if table == "sessions" {
+		from += " FINAL"
+		sub.AddCondition("sign = 1")
+		condition, params = sub.Build()
+	}
+	op := "IN"
+	if negate {
+		op = "NOT IN"
+	}
+	wb.AddCondition(fmt.Sprintf("session_id %s (SELECT session_id FROM %s WHERE %s)", op, from, condition), params...)
+	return nil
 }
 
 // 添加Custom property filter
@@ -151,24 +198,50 @@ func (wb *WhereBuilder) addCustomPropFilter(filter *types.Filter) error {
 		return fmt.Errorf("invalid custom property dimension: %s", filter.Dimension)
 	}
 
-	// 添加属性存在条件
-	wb.AddCondition(fmt.Sprintf("has(%s.key, ?)", column), propName)
-
-	// 处理(none)特殊值
-	values, ok := any(filter.Values).([]any)
-	if ok && len(values) > 0 {
-		if values[0] == "(none)" {
-			// 仅保留属性不存在条件
-			wb.conditions = wb.conditions[:len(wb.conditions)-1]
-			wb.params = wb.params[:len(wb.params)-1]
-			wb.AddCondition(fmt.Sprintf("NOT has(%s.key, ?)", column), propName)
-			return nil
-		}
+	fieldExpr := fmt.Sprintf("%s.value[indexOf(%s.key, '%s')]", column, column, escapeCHString(propName))
+	exists := fmt.Sprintf("has(%s.key, ?)", column)
+	if filter.Operator != "is" && filter.Operator != "is_not" {
+		wb.AddCondition(exists, propName)
+		return wb.addFilterCondition(fieldExpr, filter)
 	}
 
-	// Add condition based on operator（propName 转义防注入）
-	fieldExpr := fmt.Sprintf("%s.value[indexOf(%s.key, '%s')]", column, column, escapeCHString(propName))
-	return wb.addFilterCondition(fieldExpr, filter)
+	var values []any
+	missing := false
+	for _, value := range filter.Values {
+		if value == "(none)" {
+			missing = true
+		} else {
+			values = append(values, value)
+		}
+	}
+	if len(values) == 0 && !missing {
+		return fmt.Errorf("property filter requires at least one value")
+	}
+	parts := []string{}
+	params := []any{}
+	if missing {
+		parts = append(parts, "NOT "+exists)
+		params = append(params, propName)
+	}
+	if len(values) > 0 {
+		sub := wb.newSubBuilder()
+		match := *filter
+		match.Operator = "is"
+		match.Values = values
+		if err := sub.addFilterCondition(fieldExpr, &match); err != nil {
+			return err
+		}
+		condition, args := sub.Build()
+		parts = append(parts, "("+exists+" AND "+condition+")")
+		params = append(params, propName)
+		params = append(params, args...)
+	}
+	condition := "(" + strings.Join(parts, " OR ") + ")"
+	if filter.Operator == "is_not" {
+		condition = "NOT " + condition
+	}
+	wb.AddCondition(condition, params...)
+	return nil
 }
 
 // 添加字段过滤条件
@@ -206,7 +279,7 @@ func (wb *WhereBuilder) addNotFilter(table string, filter *types.Filter) error {
 	if len(filter.SubFilters) == 0 {
 		return fmt.Errorf("'not' filter requires at least one sub-filter")
 	}
-	subBuilder := NewWhereBuilder(wb.siteID)
+	subBuilder := wb.newSubBuilder()
 	if err := subBuilder.AddFilter(table, filter.SubFilters[0]); err != nil {
 		return err
 	}
@@ -219,17 +292,28 @@ func (wb *WhereBuilder) addNotFilter(table string, filter *types.Filter) error {
 }
 
 func (wb *WhereBuilder) addAndFilter(table string, filter *types.Filter) error {
-	subBuilder := NewWhereBuilder(wb.siteID)
+	subBuilder := wb.newSubBuilder()
+	foreign := map[string][]*types.Filter{}
 	for _, subFilter := range filter.SubFilters {
+		if target := foreignFilterTable(table, subFilter); target != "" {
+			foreign[target] = append(foreign[target], subFilter)
+			continue
+		}
 		if err := subBuilder.AddFilter(table, subFilter); err != nil {
 			return err
 		}
 	}
-	condition, params := subBuilder.Build()
-	if condition == "" {
-		return nil
+	for _, target := range []string{"events", "sessions"} {
+		if children := foreign[target]; len(children) > 0 {
+			if err := subBuilder.addSessionMembership(target, &types.Filter{Operator: "and", SubFilters: children}, false); err != nil {
+				return err
+			}
+		}
 	}
-	wb.AddCondition(fmt.Sprintf("(%s)", condition), params...)
+	condition, params := subBuilder.Build()
+	if condition != "" {
+		wb.AddCondition("("+condition+")", params...)
+	}
 	return nil
 }
 
@@ -238,13 +322,13 @@ func (wb *WhereBuilder) addOrFilter(table string, filter *types.Filter) error {
 	allParams := []any{}
 
 	for _, subFilter := range filter.SubFilters {
-		subBuilder := NewWhereBuilder(wb.siteID)
+		subBuilder := wb.newSubBuilder()
 		if err := subBuilder.AddFilter(table, subFilter); err != nil {
 			return err
 		}
 		condition, params := subBuilder.Build()
 		if condition != "" {
-			conditions = append(conditions, condition)
+			conditions = append(conditions, "("+condition+")")
 			allParams = append(allParams, params...)
 		}
 	}
@@ -258,41 +342,17 @@ func (wb *WhereBuilder) addOrFilter(table string, filter *types.Filter) error {
 }
 
 func (wb *WhereBuilder) addHasDoneFilter(table string, filter *types.Filter) error {
-	if len(filter.SubFilters) == 0 {
-		return fmt.Errorf("'has_done' filter requires at least one sub-filter")
+	if len(filter.SubFilters) != 1 || filter.SubFilters[0] == nil {
+		return fmt.Errorf("'has_done' filter requires one sub-filter")
 	}
-	subBuilder := NewWhereBuilder(wb.siteID)
-	subFilter := filter.SubFilters[0]
-	if err := subBuilder.AddFilter("events", subFilter); err != nil {
-		return err
-	}
-	condition, params := subBuilder.Build()
-	if condition == "" {
-		return nil
-	}
-	// Subquery must include site_id to prevent cross-tenant scan，否则会跨租户扫描整个 events 表
-	subQuery := fmt.Sprintf("SELECT session_id FROM events WHERE site_id = ? AND (%s)", condition)
-	wb.AddCondition(fmt.Sprintf("session_id IN (%s)", subQuery), append([]any{wb.siteID}, params...)...)
-	return nil
+	return wb.addSessionMembership("events", filter.SubFilters[0], false)
 }
 
 func (wb *WhereBuilder) addHasNotDoneFilter(table string, filter *types.Filter) error {
-	if len(filter.SubFilters) == 0 {
-		return fmt.Errorf("'has_not_done' filter requires at least one sub-filter")
+	if len(filter.SubFilters) != 1 || filter.SubFilters[0] == nil {
+		return fmt.Errorf("'has_not_done' filter requires one sub-filter")
 	}
-	subBuilder := NewWhereBuilder(wb.siteID)
-	subFilter := filter.SubFilters[0]
-	if err := subBuilder.AddFilter("events", subFilter); err != nil {
-		return err
-	}
-	condition, params := subBuilder.Build()
-	if condition == "" {
-		return nil
-	}
-	// Subquery must include site_id to prevent cross-tenant scan，否则会跨租户扫描整个 events 表
-	subQuery := fmt.Sprintf("SELECT session_id FROM events WHERE site_id = ? AND (%s)", condition)
-	wb.AddCondition(fmt.Sprintf("session_id NOT IN (%s)", subQuery), append([]any{wb.siteID}, params...)...)
-	return nil
+	return wb.addSessionMembership("events", filter.SubFilters[0], true)
 }
 
 func (wb *WhereBuilder) addSimpleFilter(table string, filter *types.Filter) error {
@@ -302,60 +362,22 @@ func (wb *WhereBuilder) addSimpleFilter(table string, filter *types.Filter) erro
 		return err
 	}
 
-	// 自定义属性存在性检查
-	if strings.HasPrefix(filter.Dimension, "event:props:") || strings.HasPrefix(filter.Dimension, "visit:entry_props:") {
-		propName := strings.TrimPrefix(filter.Dimension, "event:props:")
-		propName = strings.TrimPrefix(propName, "visit:entry_props:")
-		column := "meta"
-		if strings.HasPrefix(filter.Dimension, "visit:entry_props:") {
-			column = "entry_meta"
-		}
-		// 处理(none)特殊值
-		if len(filter.Values) > 0 && filter.Values[0] == "(none)" {
-			wb.AddCondition(fmt.Sprintf("not has(%s.key, ?)", column), propName)
-			return nil
-		}
-		// 添加属性存在条件
-		wb.AddCondition(fmt.Sprintf("has(%s.key, ?)", column), propName)
-		// wb.AddCondition(fmt.Sprintf("arrayExists(x -> x = ?, %s.key)", column), propName)
-	}
-
-	// 目标事件特殊处理
-	if filter.Dimension == "event:goal" {
-		return wb.addGoalFilter(filter.Values)
-	}
-
-	// 会话特有字段过滤（事件表不支持）
-	if table == "events" {
-		if strings.HasPrefix(filter.Dimension, "visit:entry_props:") || filter.Dimension == "visit:entry_page" || filter.Dimension == "visit:exit_page" {
-			return nil
-		}
-	}
-
-	switch filter.Operator {
-	case "is":
-		return wb.addIsFilter(fieldName, filter.Values, filter.Modifiers)
-	case "is_not":
-		return wb.addIsNotFilter(fieldName, filter.Values, filter.Modifiers)
-	case "contains":
-		return wb.addContainsFilter(fieldName, filter.Values, filter.Modifiers)
-	case "contains_not":
-		return wb.addContainsNotFilter(fieldName, filter.Values, filter.Modifiers)
-	case "matches":
-		return wb.addMatchesFilter(fieldName, filter.Values, filter.Modifiers)
-	case "matches_not":
-		return wb.addMatchesNotFilter(fieldName, filter.Values, filter.Modifiers)
-	case "matches_wildcard":
-		return wb.addMatchesWildcardFilter(fieldName, filter.Values, filter.Modifiers)
-	case "matches_wildcard_not":
-		return wb.addMatchesWildcardNotFilter(fieldName, filter.Values, filter.Modifiers)
-	default:
-		return fmt.Errorf("unsupported filter operator: %s", filter.Operator)
-	}
+	return wb.addFilterCondition(fieldName, filter)
 }
 
 // 字段名映射和值转换
 func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
+	// Event aliases share physical columns with visit dimensions.
+	if strings.HasPrefix(name, "event:") {
+		switch name {
+		case "event:referrerdomain":
+			return "referrer_source", nil
+		case "event:referrer":
+			return "referrer", nil
+		case "event:country", "event:browser", "event:browser_version", "event:os", "event:os_version", "event:device", "event:screen_size":
+			name = "visit:" + strings.TrimPrefix(name, "event:")
+		}
+	}
 	switch name {
 	case "channel", "visit:channel":
 		return "channel", nil
@@ -363,7 +385,7 @@ func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
 		return "name", nil
 	case "event:goal":
 		return "goal", nil
-	case "event:page":
+	case "event:page", "visit:page":
 		return "pathname", nil
 	case "event:hostname":
 		return "hostname", nil
@@ -377,6 +399,8 @@ func (wb *WhereBuilder) dbFieldName(name string) (string, error) {
 		return "entry_page", nil
 	case "visit:exit_page":
 		return "exit_page", nil
+	case "visit:entry_page_hostname", "visit:exit_page_hostname":
+		return "hostname", nil
 	case "visit:country":
 		return "country_code", nil
 	case "event:region", "visit:region":
@@ -446,57 +470,63 @@ func (wb *WhereBuilder) dbFieldVal(field string, val any) any {
 // 将 goal 的 display_name 解析为对应的过滤条件（先查 PG，再构建纯 ClickHouse SQL）：
 //   - event goal → events.name = goal.event_name
 //   - pageview goal → events.name = 'pageview' AND events.pathname = goal.page_path
-func (wb *WhereBuilder) addGoalFilter(goalValue any) error {
-	var goalName string
-	switch value := goalValue.(type) {
-	case string:
-		goalName = value
-	case []any:
-		if len(value) == 0 {
-			return fmt.Errorf("goal value cannot be empty")
-		}
-		v, ok := value[0].(string)
-		if !ok {
-			return fmt.Errorf("invalid goal value type: %T", value[0])
-		}
-		goalName = v
-	default:
-		return fmt.Errorf("invalid goal value type: %T", goalValue)
+func (wb *WhereBuilder) addGoalFilter(filter *types.Filter) error {
+	if filter.Operator != "is" && filter.Operator != "is_not" {
+		return fmt.Errorf("goal filters support only is and is_not")
 	}
-
-	// 从 PostgreSQL 查询 goal，解析 event_name / page_path
-	siteIDInt, _ := strconv.ParseInt(wb.siteID, 10, 64)
-	db := globals.GetDB()
-	if db != nil && siteIDInt > 0 {
-		g, err := db.Client.Goal.Query().
-			Where(goal.SiteID(siteIDInt), goal.DisplayName(goalName)).
-			Only(context.Background())
-		if err == nil {
+	var names []string
+	for _, value := range filter.Values {
+		name, ok := value.(string)
+		if !ok || name == "" {
+			return fmt.Errorf("goal values must be non-empty strings")
+		}
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return fmt.Errorf("goal value cannot be empty")
+	}
+	parts := []string{}
+	params := []any{}
+	siteID, err := strconv.ParseInt(wb.siteID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid goal site ID: %w", err)
+	}
+	if db := globals.GetDB(); db != nil {
+		goals, err := db.Client.Goal.Query().Where(goal.SiteID(siteID), goal.DisplayNameIn(names...)).All(context.Background())
+		if err != nil {
+			return fmt.Errorf("load goal filters: %w", err)
+		}
+		for _, g := range goals {
+			sub := wb.newSubBuilder()
 			if g.EventName != "" {
-				// Event goal: filter by event name
-				wb.AddCondition("name = ?", g.EventName)
-				wb.addGoalCustomProps(g.CustomProps)
-				return nil
+				sub.AddCondition("name = ?", g.EventName)
+			} else if g.PagePath != "" {
+				sub.AddCondition("name = 'pageview' AND pathname = ?", g.PagePath)
+			} else {
+				continue
 			}
-			if g.PagePath != "" {
-				// Pageview goal: filter by pageview event on that path
-				wb.AddCondition("name = 'pageview'")
-				wb.AddCondition("pathname = ?", g.PagePath)
-				wb.addGoalCustomProps(g.CustomProps)
-				return nil
-			}
+			sub.addGoalCustomProps(g.CustomProps)
+			condition, args := sub.Build()
+			parts = append(parts, "("+condition+")")
+			params = append(params, args...)
 		}
 	}
-
-	// Goal not found → add impossible condition (matches nothing)
-	wb.AddCondition("1 = 0")
+	condition := "1 = 0"
+	if len(parts) > 0 {
+		condition = "(" + strings.Join(parts, " OR ") + ")"
+	}
+	if filter.Operator == "is_not" {
+		condition = "NOT (" + condition + ")"
+	}
+	wb.AddCondition(condition, params...)
 	return nil
 }
 
 // addGoalCustomProps 为 goal 的自定义属性添加 ClickHouse 过滤条件。
 // custom_props 格式: {"plan": "pro", "source": "google"} →
-//   has(meta.key, 'plan') AND meta.value[indexOf(meta.key, 'plan')] = 'pro'
-//   AND has(meta.key, 'source') AND meta.value[indexOf(meta.key, 'source')] = 'google'
+//
+//	has(meta.key, 'plan') AND meta.value[indexOf(meta.key, 'plan')] = 'pro'
+//	AND has(meta.key, 'source') AND meta.value[indexOf(meta.key, 'source')] = 'google'
 func (wb *WhereBuilder) addGoalCustomProps(props map[string]string) {
 	if len(props) == 0 {
 		return
@@ -713,6 +743,9 @@ func (wb *WhereBuilder) addMatchesWildcardFilter(field string, patterns any, mod
 
 	regexPatterns := make([]string, len(patternList))
 	for i, p := range patternList {
+		if modifiers["case_sensitive"] == "false" {
+			p = strings.ToLower(p)
+		}
 		regexPatterns[i] = wildcardToRegex(p)
 	}
 
@@ -733,6 +766,9 @@ func (wb *WhereBuilder) addMatchesWildcardNotFilter(field string, patterns any, 
 
 	regexPatterns := make([]string, len(patternList))
 	for i, p := range patternList {
+		if modifiers["case_sensitive"] == "false" {
+			p = strings.ToLower(p)
+		}
 		regexPatterns[i] = wildcardToRegex(p)
 	}
 
@@ -770,10 +806,6 @@ func toStringSlice(value any) ([]string, bool) {
 // Interior * and ? are converted to .* and . before QuoteMeta escaping so that
 // only the non-wildcard segments are escaped.
 func wildcardToRegex(wildcard string) string {
-	// Strip leading/trailing * anchors first (they become the ^/$ anchors).
-	wildcard = strings.TrimPrefix(wildcard, "*")
-	wildcard = strings.TrimSuffix(wildcard, "*")
-
 	// Split on wildcard characters, escape each literal segment, then rejoin.
 	var buf strings.Builder
 	buf.WriteString("^")

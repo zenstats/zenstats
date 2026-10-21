@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -108,13 +109,13 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 	return batchInsert.Send()
 }
 
-// GetMostRecentActiveSession 返回该 user/site 最近一小时内活跃的 session 最新状态行（Sign=1、version 最大）。
-// sessions 表 ORDER BY (site_id, toDate(start), user_id, session_id)：
-// 加上 toDate(start) >= today() - 1 后 WHERE 条件能完整命中主键前三列，从全表/分区扫描退化为
-// 主键点查；一小时内仍活跃的 session 其 start 不可能早于昨天（跨午夜的情况被 -1 覆盖）。
-func (s *Sessions) GetMostRecentActiveSession(ctx context.Context, userId, siteId uint64) (*models.Sessions, error) {
-	oneHourAgo := time.Now().Add(-1 * time.Hour)
+// ErrSessionNotFound distinguishes an absent session from a failed lookup.
+var ErrSessionNotFound = errors.New("session not found")
 
+// GetActiveSessionAt restores the latest collapsed state containing the event's
+// timestamp, including late events for an earlier session. Query bounds follow
+// event time rather than wall time.
+func (s *Sessions) GetActiveSessionAt(ctx context.Context, userId, siteId uint64, timestamp time.Time, inactivity time.Duration) (*models.Sessions, error) {
 	rows, err := s.conn.Query(ctx,
 		`SELECT start, timestamp, session_id, version, sign, is_bounce,
 				entry_page, exit_page, pageviews, events, duration,
@@ -125,12 +126,12 @@ func (s *Sessions) GetMostRecentActiveSession(ctx context.Context, userId, siteI
 				browser, browser_version, user_agent, operating_system_version,
 				ipv4, country_code, continent_geoname_id, city_geoname_id, coordinates,
 				ipv6, channel
-		 FROM sessions
-		 WHERE site_id = ? AND toDate(start) >= today() - 1 AND user_id = ?
+		 FROM sessions FINAL
+		 WHERE site_id = ? AND user_id = ? AND start >= ? AND start <= ?
 		   AND timestamp >= ? AND sign = 1
-		 ORDER BY version DESC
+		 ORDER BY start DESC, version DESC
 		 LIMIT 1`,
-		siteId, userId, oneHourAgo,
+		siteId, userId, timestamp.AddDate(0, 0, -7), timestamp, timestamp.Add(-inactivity),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query session: %w", err)
@@ -141,7 +142,7 @@ func (s *Sessions) GetMostRecentActiveSession(ctx context.Context, userId, siteI
 		if err := rows.Err(); err != nil {
 			return nil, fmt.Errorf("query session rows: %w", err)
 		}
-		return nil, fmt.Errorf("session not found")
+		return nil, ErrSessionNotFound
 	}
 
 	var session models.Sessions

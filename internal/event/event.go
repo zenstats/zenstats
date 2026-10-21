@@ -30,6 +30,7 @@ import (
 	"github.com/zenstats/zenstats/pkg/globals"
 	"github.com/zenstats/zenstats/pkg/pool"
 	uaparser "github.com/zenstats/zenstats/pkg/ua_parser"
+	"github.com/zenstats/zenstats/pkg/utils"
 )
 
 type EventWork struct {
@@ -197,7 +198,7 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	parsedURL, err := url.Parse(urlstring)
 	if err == nil {
 		pathname = parsedURL.Path
-		hostname = parsedURL.Host
+		hostname = utils.NormalizeHostname(parsedURL.Host)
 		// SPA hash 路由支持：h=1 时 pathname 拼接 URL fragment
 		// 例如 example.com/#/dashboard → /#/dashboard
 		if eventRequest.Hash == 1 && parsedURL.Fragment != "" {
@@ -242,7 +243,7 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 		1. 对用户UA进行验证 屏蔽非法请求  drop_verification_agent ->done
 		2. 对IP进行验证 删除数据中心IP   drop_datacenter_ip  -> done（在 externalevent.go 入口层）
 		3. 对hostname 进行验证 仅允许白名单  drop_shield_rule_hostname ->done
-		4. 对pathname 进行验证 删除需要排除的路径 drop_shield_rule_page ->done
+		4. 页面排除由 Tracker 的 data-exclude / data-include 执行
 		5. 对IP进行验证 删除需要排除的ip drop_shield_rule_ip ->done
 		6. 对IP的地理位置进行验证 屏蔽国家  drop_shield_rule_country  -- 这个放在PutGeolocation后执行 ->done
 	*/
@@ -275,7 +276,7 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	e.PutSourceInfo(&eventResult, eventRequest)
 
 	// 垃圾 referrer 过滤
-	if IsSpamReferrer(eventResult.ReferrerSource) {
+	if e.dropShieldRuleReferrer(site, eventResult.ReferrerSource) {
 		slog.Debug("dropping spam referrer", "referrer_source", eventResult.ReferrerSource)
 		return nil
 	}
@@ -477,7 +478,7 @@ func (e *EventWork) PutSourceInfo(event *models.Events, eventRequest *model.Even
 	event.Referrer = e.formatReferrer(eventRequest.Referrer)
 	parseReferer, err := url.Parse(eventRequest.Referrer)
 	if err == nil {
-		event.ReferrerSource = parseReferer.Host
+		event.ReferrerSource = utils.NormalizeHostname(parseReferer.Host)
 	}
 
 	parseUrl, err := url.Parse(eventRequest.URL)
@@ -581,12 +582,7 @@ func (e *EventWork) dropVerificationAgent(client *uaparser.Client) bool {
 }
 
 func (e *EventWork) dropShieldRuleHostname(site *ent.Site, hostname string) bool {
-	domain := site.Domain
-	cache := GetShieldRulesCache()
-
-	rules, err := cache.GetHostnameRules(domain, func() ([]*ent.ShieldRulesHostname, error) {
-		return e.siteService.ListShieldRuleHostname(e.shutdownCtx, site.ID)
-	})
+	rules, err := e.siteService.ListShieldRuleHostname(e.shutdownCtx, site.ID)
 	if err != nil || len(rules) == 0 {
 		return false
 	}
@@ -600,7 +596,7 @@ func (e *EventWork) dropShieldRuleHostname(site *ent.Site, hostname string) bool
 			continue
 		}
 		if rule.Hostname != "" {
-			exactHosts[rule.Hostname] = struct{}{}
+			exactHosts[utils.NormalizeHostname(rule.Hostname)] = struct{}{}
 		}
 		if rule.HostnamePattern != "" {
 			patternRules = append(patternRules, rule)
@@ -640,12 +636,7 @@ func (e *EventWork) dropShieldRuleHostname(site *ent.Site, hostname string) bool
 }
 
 func (e *EventWork) dropShieldRuleIP(site *ent.Site, ip net.IP) bool {
-	domain := site.Domain
-	cache := GetShieldRulesCache()
-
-	rules, err := cache.GetIPRules(domain, func() ([]*ent.ShieldRulesIp, error) {
-		return e.siteService.ListShieldRuleIP(e.shutdownCtx, site.ID)
-	})
+	rules, err := e.siteService.ListShieldRuleIP(e.shutdownCtx, site.ID)
 	if err != nil || len(rules) == 0 {
 		return false
 	}
@@ -659,12 +650,7 @@ func (e *EventWork) dropShieldRuleIP(site *ent.Site, ip net.IP) bool {
 }
 
 func (e *EventWork) dropShieldRuleCountry(site *ent.Site, countryCode string) bool {
-	domain := site.Domain
-	cache := GetShieldRulesCache()
-
-	rules, err := cache.GetCountryRules(domain, func() ([]*ent.ShieldRulesCountry, error) {
-		return e.siteService.ListShieldRuleCountry(e.shutdownCtx, site.ID)
-	})
+	rules, err := e.siteService.ListShieldRuleCountry(e.shutdownCtx, site.ID)
 	if err != nil || len(rules) == 0 {
 		return false
 	}
@@ -679,6 +665,38 @@ func (e *EventWork) dropShieldRuleCountry(site *ent.Site, countryCode string) bo
 		return action == "deny"
 	}
 	return false
+}
+
+// Explicit site rules override the global list. The most specific hostname
+// wins; rules are returned newest first to resolve equal-specificity ties.
+func (e *EventWork) dropShieldRuleReferrer(site *ent.Site, hostname string) bool {
+	rules, err := e.siteService.ListShieldRuleReferrer(e.shutdownCtx, site.ID)
+	if err != nil {
+		slog.Warn("failed to load referrer rules", "site_id", site.ID, "error", err)
+	}
+	switch referrerRuleAction(rules, hostname) {
+	case "allow":
+		return false
+	case "deny":
+		return true
+	default:
+		return IsSpamReferrer(hostname)
+	}
+}
+
+func referrerRuleAction(rules []*ent.ShieldRulesReferrer, hostname string) string {
+	hostname = utils.NormalizeHostname(hostname)
+	best, action := -1, ""
+	for _, rule := range rules {
+		if rule.Action != "allow" && rule.Action != "deny" {
+			continue
+		}
+		domain := strings.TrimPrefix(utils.NormalizeHostname(rule.Hostname), "*.")
+		if domain != "" && len(domain) > best && (hostname == domain || strings.HasSuffix(hostname, "."+domain)) {
+			best, action = len(domain), rule.Action
+		}
+	}
+	return action
 }
 
 // generateSeedSessionId 为种子数据生成会话ID

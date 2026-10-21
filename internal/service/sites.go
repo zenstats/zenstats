@@ -25,6 +25,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
 	"github.com/zenstats/zenstats/pkg/globals"
 	"github.com/zenstats/zenstats/pkg/iputil"
+	"github.com/zenstats/zenstats/pkg/utils"
 )
 
 // 新增：全站列表缓存项结构体
@@ -42,6 +43,8 @@ type SiteService struct {
 	shieldRuleIPCache       *expirable.LRU[string, []*ent.ShieldRulesIp]
 	shieldRuleHostnameCache *expirable.LRU[string, []*ent.ShieldRulesHostname]
 	shieldRuleCountryCache  *expirable.LRU[string, []*ent.ShieldRulesCountry]
+	shieldRuleReferrerCache *expirable.LRU[string, []*ent.ShieldRulesReferrer]
+	shieldRulesMu           sync.RWMutex // serialize rule mutations against cache fills
 	membershipCache         *expirable.LRU[string, *ent.Site]
 	ownerCache              *expirable.LRU[int64, int64] // siteID → 站点 owner 的 userID（热路径配额查询用）
 }
@@ -53,9 +56,9 @@ var GetSiteService = sync.OnceValue(func() *SiteService {
 		panic("DB is not initialized")
 	}
 	l := expirable.NewLRU[string, *ent.Site](1000, nil, 30*time.Minute)
-	ipCache := expirable.NewLRU[string, []*ent.ShieldRulesIp](1000, nil, 30*time.Minute)
-	hostnameCache := expirable.NewLRU[string, []*ent.ShieldRulesHostname](1000, nil, 30*time.Minute)
-	countryCache := expirable.NewLRU[string, []*ent.ShieldRulesCountry](1000, nil, 30*time.Minute)
+	ipCache := expirable.NewLRU[string, []*ent.ShieldRulesIp](1000, nil, 5*time.Minute)
+	hostnameCache := expirable.NewLRU[string, []*ent.ShieldRulesHostname](1000, nil, 5*time.Minute)
+	countryCache := expirable.NewLRU[string, []*ent.ShieldRulesCountry](1000, nil, 5*time.Minute)
 	membershipCache := expirable.NewLRU[string, *ent.Site](1000, nil, 30*time.Minute)
 	ownerCache := expirable.NewLRU[int64, int64](5000, nil, 30*time.Minute)
 	return &SiteService{
@@ -64,6 +67,7 @@ var GetSiteService = sync.OnceValue(func() *SiteService {
 		shieldRuleIPCache:       ipCache,
 		shieldRuleHostnameCache: hostnameCache,
 		shieldRuleCountryCache:  countryCache,
+		shieldRuleReferrerCache: expirable.NewLRU[string, []*ent.ShieldRulesReferrer](1000, nil, 5*time.Minute),
 		membershipCache:         membershipCache,
 		ownerCache:              ownerCache,
 		cache:                   sync.Map{},
@@ -479,6 +483,8 @@ func (s *SiteService) AdminVerifySite(ctx context.Context, siteID int64) error {
 
 // AddShieldRuleIP 添加IP屏蔽规则
 func (s *SiteService) AddShieldRuleIP(ctx *gin.Context, siteID int64, ip string, action string, description string) (*ent.ShieldRulesIp, error) {
+	s.shieldRulesMu.Lock()
+	defer s.shieldRulesMu.Unlock()
 	ipInet, err := iputil.ParseInet(ip)
 	if err != nil {
 		return nil, fmt.Errorf("invalid IP format: %w", err)
@@ -501,6 +507,8 @@ func (s *SiteService) AddShieldRuleIP(ctx *gin.Context, siteID int64, ip string,
 
 // ListShieldRuleIP 获取IP屏蔽规则列表
 func (s *SiteService) ListShieldRuleIP(ctx context.Context, siteID int64) ([]*ent.ShieldRulesIp, error) {
+	s.shieldRulesMu.RLock()
+	defer s.shieldRulesMu.RUnlock()
 	cacheKey := fmt.Sprintf("%d", siteID)
 	if rules, ok := s.shieldRuleIPCache.Get(cacheKey); ok {
 		return rules, nil
@@ -520,6 +528,8 @@ func (s *SiteService) ListShieldRuleIP(ctx context.Context, siteID int64) ([]*en
 
 // RemoveShieldRuleIP 删除IP屏蔽规则
 func (s *SiteService) RemoveShieldRuleIP(ctx context.Context, siteID int64, ruleID int64) error {
+	s.shieldRulesMu.Lock()
+	defer s.shieldRulesMu.Unlock()
 	count, err := s.db.Client.ShieldRulesIp.Query().
 		Where(
 			shieldrulesip.ID(ruleID),
@@ -543,6 +553,8 @@ func (s *SiteService) RemoveShieldRuleIP(ctx context.Context, siteID int64, rule
 
 // AddShieldRuleHostname 添加Hostname屏蔽规则
 func (s *SiteService) AddShieldRuleHostname(ctx context.Context, siteID int64, hostname string, hostnamePattern string, action string) (*ent.ShieldRulesHostname, error) {
+	s.shieldRulesMu.Lock()
+	defer s.shieldRulesMu.Unlock()
 	rule, err := s.db.Client.ShieldRulesHostname.Create().
 		SetSiteID(siteID).
 		SetHostname(hostname).
@@ -560,6 +572,8 @@ func (s *SiteService) AddShieldRuleHostname(ctx context.Context, siteID int64, h
 
 // ListShieldRuleHostname 获取Hostname屏蔽规则列表
 func (s *SiteService) ListShieldRuleHostname(ctx context.Context, siteID int64) ([]*ent.ShieldRulesHostname, error) {
+	s.shieldRulesMu.RLock()
+	defer s.shieldRulesMu.RUnlock()
 	cacheKey := fmt.Sprintf("%d", siteID)
 	if rules, ok := s.shieldRuleHostnameCache.Get(cacheKey); ok {
 		return rules, nil
@@ -579,6 +593,8 @@ func (s *SiteService) ListShieldRuleHostname(ctx context.Context, siteID int64) 
 
 // RemoveShieldRuleHostname 删除Hostname屏蔽规则
 func (s *SiteService) RemoveShieldRuleHostname(ctx *gin.Context, siteID int64, ruleID int64) error {
+	s.shieldRulesMu.Lock()
+	defer s.shieldRulesMu.Unlock()
 	count, err := s.db.Client.ShieldRulesHostname.Query().
 		Where(
 			shieldruleshostname.ID(ruleID),
@@ -602,6 +618,8 @@ func (s *SiteService) RemoveShieldRuleHostname(ctx *gin.Context, siteID int64, r
 
 // AddShieldRuleCountry 添加Country屏蔽规则
 func (s *SiteService) AddShieldRuleCountry(ctx *gin.Context, siteID int64, countryCode string, action string) (*ent.ShieldRulesCountry, error) {
+	s.shieldRulesMu.Lock()
+	defer s.shieldRulesMu.Unlock()
 	user, err := GetUserService().GetUserByID(ctx, ctx.GetInt64("user_id"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -622,6 +640,8 @@ func (s *SiteService) AddShieldRuleCountry(ctx *gin.Context, siteID int64, count
 
 // ListShieldRuleCountry 获取Country屏蔽规则列表
 func (s *SiteService) ListShieldRuleCountry(ctx context.Context, siteID int64) ([]*ent.ShieldRulesCountry, error) {
+	s.shieldRulesMu.RLock()
+	defer s.shieldRulesMu.RUnlock()
 	cacheKey := fmt.Sprintf("%d", siteID)
 	if rules, ok := s.shieldRuleCountryCache.Get(cacheKey); ok {
 		return rules, nil
@@ -641,6 +661,8 @@ func (s *SiteService) ListShieldRuleCountry(ctx context.Context, siteID int64) (
 
 // RemoveShieldRuleCountry 删除Country屏蔽规则
 func (s *SiteService) RemoveShieldRuleCountry(ctx *gin.Context, siteID int64, ruleID int64) error {
+	s.shieldRulesMu.Lock()
+	defer s.shieldRulesMu.Unlock()
 	count, err := s.db.Client.ShieldRulesCountry.Query().
 		Where(
 			shieldrulescountry.ID(ruleID),
@@ -1006,24 +1028,51 @@ func (s *SiteService) VerifySite(ctx context.Context, domain string, userID int6
 
 // AddShieldRuleReferrer 添加垃圾 referrer Domain屏蔽规则。
 func (s *SiteService) AddShieldRuleReferrer(ctx context.Context, siteID int64, hostname, action, description string) (*ent.ShieldRulesReferrer, error) {
-	return s.db.Client.ShieldRulesReferrer.Create().
+	s.shieldRulesMu.Lock()
+	defer s.shieldRulesMu.Unlock()
+	hostname = utils.NormalizeHostname(hostname)
+	if hostname == "" {
+		return nil, fmt.Errorf("invalid referrer hostname")
+	}
+	if action != "allow" && action != "deny" {
+		return nil, fmt.Errorf("invalid referrer action: %s", action)
+	}
+	rule, err := s.db.Client.ShieldRulesReferrer.Create().
 		SetSiteID(siteID).
 		SetHostname(hostname).
 		SetAction(action).
 		SetDescription(description).
 		Save(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.shieldRuleReferrerCache.Remove(fmt.Sprintf("%d", siteID))
+	return rule, nil
 }
 
 // ListShieldRuleReferrer 列出指定站点的垃圾 referrer 屏蔽规则。
 func (s *SiteService) ListShieldRuleReferrer(ctx context.Context, siteID int64) ([]*ent.ShieldRulesReferrer, error) {
-	return s.db.Client.ShieldRulesReferrer.Query().
+	s.shieldRulesMu.RLock()
+	defer s.shieldRulesMu.RUnlock()
+	key := fmt.Sprintf("%d", siteID)
+	if rules, ok := s.shieldRuleReferrerCache.Get(key); ok {
+		return rules, nil
+	}
+	rules, err := s.db.Client.ShieldRulesReferrer.Query().
 		Where(shieldrulesreferrer.SiteID(siteID)).
 		Order(ent.Desc(shieldrulesreferrer.FieldCreatedAt)).
 		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.shieldRuleReferrerCache.Add(key, rules)
+	return rules, nil
 }
 
 // RemoveShieldRuleReferrer 删除垃圾 referrer 屏蔽规则。
 func (s *SiteService) RemoveShieldRuleReferrer(ctx context.Context, siteID int64, ruleID int64) error {
+	s.shieldRulesMu.Lock()
+	defer s.shieldRulesMu.Unlock()
 	count, err := s.db.Client.ShieldRulesReferrer.Query().
 		Where(
 			shieldrulesreferrer.ID(ruleID),
@@ -1036,5 +1085,9 @@ func (s *SiteService) RemoveShieldRuleReferrer(ctx context.Context, siteID int64
 	if count == 0 {
 		return fmt.Errorf("shield rule referrer not found")
 	}
-	return s.db.Client.ShieldRulesReferrer.DeleteOneID(ruleID).Exec(ctx)
+	if err := s.db.Client.ShieldRulesReferrer.DeleteOneID(ruleID).Exec(ctx); err != nil {
+		return err
+	}
+	s.shieldRuleReferrerCache.Remove(fmt.Sprintf("%d", siteID))
+	return nil
 }

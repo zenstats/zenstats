@@ -137,6 +137,37 @@ func (wb *WriteBuffer) FindPending(userId, siteId uint64, notBefore time.Time) *
 	return best
 }
 
+// FindPendingAt finds the newest pending state whose activity window contains
+// the event. Stale versions must not make an expired session active again.
+func (wb *WriteBuffer) FindPendingAt(userID, siteID uint64, timestamp time.Time) *models.Sessions {
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
+	latest := make(map[uint64]*models.Sessions)
+	consider := func(s *models.Sessions) {
+		if s == nil || s.Sign != 1 || s.UserId != userID || s.SiteId != siteID {
+			return
+		}
+		if old := latest[s.SessionId]; old == nil || s.Version > old.Version {
+			latest[s.SessionId] = s
+		}
+	}
+	for _, s := range wb.buffer {
+		consider(s)
+	}
+	for batch := range wb.inflight {
+		for _, s := range *batch {
+			consider(s)
+		}
+	}
+	var best *models.Sessions
+	for _, s := range latest {
+		if sessionContainsEvent(s, timestamp) && (best == nil || s.Start.After(best.Start) || (s.Start.Equal(best.Start) && s.Version > best.Version)) {
+			best = s
+		}
+	}
+	return best
+}
+
 func (wb *WriteBuffer) Start() {
 	wb.wg.Add(1)
 	go wb.flushWorker()
