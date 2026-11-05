@@ -16,6 +16,40 @@ func newTestQuota() *MonthlyQuota {
 	}
 }
 
+func TestQuotaReservationRollback(t *testing.T) {
+	q := newTestQuota()
+	rollback, allowed := q.Reserve(1, 1)
+	if !allowed || q.Get(1) != 1 {
+		t.Fatal("reservation not counted")
+	}
+	rejectedRollback, allowed := q.Reserve(1, 1)
+	if allowed {
+		t.Fatal("exceeded quota")
+	}
+	rejectedRollback()
+	if q.Get(1) != 1 {
+		t.Fatal("rejected reservation decremented quota")
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); rollback() }()
+	}
+	wg.Wait()
+	if q.Get(1) != 0 {
+		t.Fatal("rollback was not applied exactly once")
+	}
+	rollback, _ = q.Reserve(1, 1)
+	q.mu.Lock()
+	q.year++ // Simulate rotation while an admission is in progress.
+	q.counts = map[int64]int64{1: 5}
+	q.mu.Unlock()
+	rollback()
+	if q.Get(1) != 5 {
+		t.Fatal("old reservation changed the new month")
+	}
+}
+
 // TestQuotaTryIncrementRespectsMaxUnderConcurrency 验证并发下 TryIncrement 不会超发配额：
 // 恰好只有 max 次返回 true，计数精确停在 max。
 func TestQuotaTryIncrementRespectsMaxUnderConcurrency(t *testing.T) {

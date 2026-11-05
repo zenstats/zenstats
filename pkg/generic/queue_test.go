@@ -5,6 +5,36 @@ import (
 	"testing"
 )
 
+func TestEnqueueManyIsAtomicIncludingPeekedHead(t *testing.T) {
+	q := NewQueue[int](1, 3)
+	if err := q.Enqueue(1); err != nil {
+		t.Fatal(err)
+	}
+	q.Peek()
+	if err := q.EnqueueMany([]int{2, 3, 4}); err == nil {
+		t.Fatal("expected capacity rejection")
+	}
+	if q.Size() != 1 {
+		t.Fatal("batch partially admitted")
+	}
+	if err := q.EnqueueMany([]int{2, 3}); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []int{1, 2, 3} {
+		if got := q.Dequeue(); got != want {
+			t.Fatalf("FIFO: got %d want %d", got, want)
+		}
+	}
+	q.Close()
+	if err := q.EnqueueMany([]int{4, 5}); err == nil || q.Size() != 0 {
+		t.Fatal("closed queue admitted a batch")
+	}
+	zero := NewQueue[int](0, 3)
+	if err := zero.EnqueueMany([]int{1, 2, 3}); err != nil || zero.Size() != 3 {
+		t.Fatal("could not grow an empty queue", err)
+	}
+}
+
 func TestIsEmptyReturnsTrueForNewQueue(t *testing.T) {
 	q := NewQueue[string](8, 16)
 	if !q.IsEmpty() {

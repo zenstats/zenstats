@@ -2,7 +2,6 @@ package generic
 
 import (
 	"fmt"
-	"log/slog"
 	"sync"
 )
 
@@ -28,39 +27,39 @@ func NewQueue[T any](initialSize, maxSize int) *DynamicQueue[T] {
 
 // Enqueue 向动态队列中添加一个元素。
 func (q *DynamicQueue[T]) Enqueue(item T) error {
+	return q.EnqueueMany([]T{item})
+}
+
+// EnqueueMany admits the whole batch or none of it. A failed HTTP batch can
+// therefore be retried without replaying a successfully admitted prefix.
+func (q *DynamicQueue[T]) EnqueueMany(items []T) error {
 	q.lock.Lock()
 	defer q.lock.Unlock()
-
-	slog.Debug("Enqueue")
-
-	// 队列已关闭时拒绝入队，避免向已关闭的 channel 发送导致 panic
 	if q.closed {
 		return fmt.Errorf("queue is closed")
 	}
-
-	select {
-	case q.queue <- item:
-		return nil
-	default:
-		if cap(q.queue) >= q.maxSize {
-			return fmt.Errorf("queue is full and has reached max size %d", q.maxSize)
-		}
-
-		newSize := cap(q.queue) * 2
-		if newSize > q.maxSize {
-			newSize = q.maxSize
-		}
+	headSize := 0
+	if q.hasHead {
+		headSize = 1
+	}
+	needed := len(q.queue) + len(items)
+	if needed+headSize > q.maxSize {
+		return fmt.Errorf("queue capacity exceeded")
+	}
+	if needed > cap(q.queue) {
+		newSize := max(cap(q.queue)*2, needed)
+		newSize = min(newSize, q.maxSize)
 		newCh := make(chan T, newSize)
-
-		// 迁移数据
 		close(q.queue)
 		for v := range q.queue {
 			newCh <- v
 		}
-		newCh <- item
 		q.queue = newCh
-		return nil
 	}
+	for _, item := range items {
+		q.queue <- item
+	}
+	return nil
 }
 
 // Dequeue 从动态队列中移除并返回一个元素

@@ -47,8 +47,11 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 		slog.Error("prepare batch", "error", err)
 		return fmt.Errorf("prepare batch: %w", err)
 	}
-	skipped := 0
+	defer batchInsert.Abort()
 	for _, session := range sessions {
+		if session == nil || len(session.CountryCode) > 2 {
+			return fmt.Errorf("invalid session row: country_code must fit FixedString(2)")
+		}
 		slog.Debug("insert session", "session", session)
 		coordinates := []float64{session.Coordinates.Latitude, session.Coordinates.Longitude}
 
@@ -97,15 +100,12 @@ func (s *Sessions) BatchInsert(ctx context.Context, sessions []*models.Sessions)
 		)
 
 		if err != nil {
-			slog.Error("skip malformed session on append", "err", err)
-			skipped++
-			continue
+			// A successful Send must confirm every row in this logical batch.
+			// In particular, never split a session tombstone from its new state.
+			return fmt.Errorf("append session: %w", err)
 		}
 	}
 
-	if skipped > 0 {
-		slog.Warn("sessions batch skipped malformed rows", "skipped", skipped, "total", len(sessions))
-	}
 	return batchInsert.Send()
 }
 

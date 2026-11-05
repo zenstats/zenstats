@@ -76,6 +76,32 @@ func (q *MonthlyQuota) TryIncrement(userID int64, max int64) bool {
 	return true
 }
 
+// Reserve returns a rollback for failed queue admission. A reservation from the
+// previous month must never decrement the new month's counter.
+func (q *MonthlyQuota) Reserve(userID int64, max int64) (func(), bool) {
+	q.mu.Lock()
+	oldCounts, oldYear, oldMonth, rotated := q.checkAndRotate()
+	allowed := max < 0 || q.counts[userID] < max
+	year, month := q.year, q.month
+	if allowed {
+		q.counts[userID]++
+	}
+	q.mu.Unlock()
+	if rotated {
+		go q.flushSnapshot(oldCounts, oldYear, oldMonth)
+	}
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			q.mu.Lock()
+			defer q.mu.Unlock()
+			if allowed && q.year == year && q.month == month && q.counts[userID] > 0 {
+				q.counts[userID]--
+			}
+		})
+	}, allowed
+}
+
 // Get 获取用户当月事件计数
 func (q *MonthlyQuota) Get(userID int64) int64 {
 	q.mu.RLock()

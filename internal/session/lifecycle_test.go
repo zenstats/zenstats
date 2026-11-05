@@ -72,7 +72,7 @@ func TestEngagementPreservesBounceAndTombstoneVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.IsBounce != 1 || got.PageViews != 1 || got.Events != 2 {
+	if got.IsBounce != 1 || got.PageViews != 1 || got.Events != 1 {
 		t.Fatalf("engagement changed bounce/pageview semantics: %+v", got)
 	}
 	if len(sm.writeBuffer.buffer) != 2 || sm.writeBuffer.buffer[0].Sign != -1 || sm.writeBuffer.buffer[0].Version != old.Version || got.Version <= old.Version {

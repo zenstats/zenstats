@@ -350,7 +350,7 @@ func (qo *QueryOptimizer) canUseSessionsSmeared(query *types.Query) bool {
 
 func isSessionOnlyDimension(dim string) bool {
 	switch dim {
-	case "visit:entry_page", "visit:entry_page_hostname", "visit:exit_page", "visit:exit_page_hostname":
+	case "visit:source", "visit:entry_page", "visit:entry_page_hostname", "visit:exit_page", "visit:exit_page_hostname":
 		return true
 	default:
 		return strings.HasPrefix(dim, "visit:entry_props:")

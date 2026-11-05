@@ -20,8 +20,8 @@ func TestMetricCategoryRoutesAllMetricsCorrectly(t *testing.T) {
 	}
 
 	tests := []struct {
-		metric   string
-		want     string // "event", "session", "either"
+		metric string
+		want   string // "event", "session", "either"
 	}{
 		// event 指标
 		{"pageviews", "event"},
@@ -78,8 +78,8 @@ func TestGetMetricSQLEventTable(t *testing.T) {
 		contains string // SQL 必须包含的关键词
 		absent   string // SQL 不能包含的关键词
 	}{
-		{"visitors", "uniq(user_id)", "sign"},
-		{"visits", "countIf(name = 'pageview')", ""},  // event 表 visits 在 selectEventMetrics 特殊处理
+		{"visitors", "uniqExact(user_id)", "sign"},
+		{"visits", "countIf(name = 'pageview')", ""}, // event 表 visits 在 selectEventMetrics 特殊处理
 		{"pageviews", "countIf(name = 'pageview')", "sign"},
 		{"events", "countIf(name != 'engagement')", "sign"},
 		{"scroll_depth", "avgIf(scroll_depth", ""},
@@ -125,7 +125,7 @@ func TestGetMetricSQLSessionTable(t *testing.T) {
 		{"visit_duration", "sum(duration * sign) / nullIf(sum(sign), 0)", ""},
 		{"views_per_visit", "sum(pageviews * sign)", ""},
 		{"visits", "sum(sign)", ""},
-		{"visitors", "uniq(user_id)", "sign"},
+		{"visitors", "uniqExact(user_id)", "sign"},
 	}
 
 	for _, tt := range tests {
@@ -150,8 +150,8 @@ func TestSelectEventMetricsVisitsUsesSessionId(t *testing.T) {
 	query := &types.Query{Metrics: []string{"visits"}}
 
 	got := qb.selectEventMetrics(query)
-	if !strings.Contains(got, "uniq(session_id) as visits") {
-		t.Errorf("selectEventMetrics(visits) should use uniq(session_id): %q", got)
+	if !strings.Contains(got, "uniqExact(session_id) as visits") {
+		t.Errorf("selectEventMetrics(visits) should use uniqExact(session_id): %q", got)
 	}
 }
 
@@ -166,8 +166,8 @@ func TestSelectEventMetricsAllSupportedMetrics(t *testing.T) {
 	got := qb.selectEventMetrics(query)
 
 	checks := []string{
-		"uniq(user_id) as visitors",
-		"uniq(session_id) as visits",
+		"uniqExact(user_id) as visitors",
+		"uniqExact(session_id) as visits",
 		"countIf(name = 'pageview') as pageviews",
 		"countIf(name != 'engagement') as events",
 	}
@@ -366,7 +366,7 @@ func TestSelectSessionMetricsAllSupportedMetrics(t *testing.T) {
 	got := qb.selectSessionMetrics(query)
 
 	checks := []string{
-		"uniq(user_id) as visitors",
+		"uniqExact(user_id) as visitors",
 		"sum(sign) as visits",
 		"sum(is_bounce * sign)",
 		"sum(duration * sign) / nullIf(sum(sign), 0)",

@@ -438,6 +438,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/ingestion-quality": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理员"
+                ],
+                "summary": "采集质量监控（当前实例）",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/ingestion.Snapshot"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/admin/sites": {
             "get": {
                 "security": [
@@ -1991,6 +2027,16 @@ const docTemplate = `{
                         "description": "ok",
                         "schema": {
                             "type": "string"
+                        },
+                        "headers": {
+                            "X-Zenstats-Accepted": {
+                                "type": "integer",
+                                "description": "已入内存队列事件数，不代表落库成功"
+                            },
+                            "X-Zenstats-Rejected": {
+                                "type": "integer",
+                                "description": "校验拒绝事件数；混合批次不应整批重试"
+                            }
                         }
                     },
                     "400": {
@@ -1999,10 +2045,28 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
+                    "413": {
+                        "description": "请求体超过 1 MiB",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "429": {
                         "description": "请求频率超限",
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    "503": {
+                        "description": "队列或站点查询暂不可用",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "type": "integer",
+                                "description": "建议重试等待秒数"
+                            }
                         }
                     }
                 }
@@ -6488,6 +6552,13 @@ const docTemplate = `{
                 "conversion_rate": {
                     "type": "number"
                 },
+                "nodes": {
+                    "description": "Nodes 为树形视图数据：每个节点带 step_id/parent_step_id，前端据此重建多层树。",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/funnel.FunnelNodeResult"
+                    }
+                },
                 "steps": {
                     "type": "array",
                     "items": {
@@ -6495,6 +6566,37 @@ const docTemplate = `{
                     }
                 },
                 "total_visitors": {
+                    "type": "integer"
+                }
+            }
+        },
+        "funnel.FunnelNodeResult": {
+            "type": "object",
+            "properties": {
+                "conversion_rate": {
+                    "description": "相对父节点；根为 100",
+                    "type": "number"
+                },
+                "drop_off": {
+                    "description": "父节点访客 - 本节点访客",
+                    "type": "integer"
+                },
+                "goal_name": {
+                    "type": "string"
+                },
+                "is_root": {
+                    "type": "boolean"
+                },
+                "parent_step_id": {
+                    "type": "integer"
+                },
+                "step_id": {
+                    "type": "integer"
+                },
+                "step_order": {
+                    "type": "integer"
+                },
+                "visitors": {
                     "type": "integer"
                 }
             }
@@ -6612,6 +6714,134 @@ const docTemplate = `{
                 },
                 "table": {
                     "type": "string"
+                }
+            }
+        },
+        "ingestion.Counters": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "integer",
+                "format": "int64"
+            }
+        },
+        "ingestion.Minute": {
+            "type": "object",
+            "properties": {
+                "counters": {
+                    "$ref": "#/definitions/ingestion.Counters"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "ingestion.Pending": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "integer"
+                },
+                "oldest_age_seconds": {
+                    "type": "number"
+                },
+                "stages": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "ingestion.Reason": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "outcome": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "stage": {
+                    "type": "string"
+                }
+            }
+        },
+        "ingestion.Snapshot": {
+            "type": "object",
+            "properties": {
+                "counters": {
+                    "$ref": "#/definitions/ingestion.Counters"
+                },
+                "history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ingestion.Minute"
+                    }
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "pending": {
+                    "$ref": "#/definitions/ingestion.Pending"
+                },
+                "reasons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ingestion.Reason"
+                    }
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "writers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/ingestion.WriterStats"
+                    }
+                }
+            }
+        },
+        "ingestion.WriterStats": {
+            "type": "object",
+            "properties": {
+                "failed_attempts": {
+                    "type": "integer"
+                },
+                "failed_batches": {
+                    "type": "integer"
+                },
+                "failed_rows": {
+                    "type": "integer"
+                },
+                "inflight_rows": {
+                    "type": "integer"
+                },
+                "last_duration_ms": {
+                    "type": "number"
+                },
+                "last_failure_at": {
+                    "type": "string"
+                },
+                "last_success_at": {
+                    "type": "string"
+                },
+                "queued_rows": {
+                    "type": "integer"
+                },
+                "retry_attempts": {
+                    "type": "integer"
+                },
+                "succeeded_batches": {
+                    "type": "integer"
+                },
+                "written_rows": {
+                    "type": "integer"
                 }
             }
         },
@@ -6914,6 +7144,9 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "parent_step_id": {
+                    "type": "integer"
+                },
                 "step_order": {
                     "type": "integer"
                 }
@@ -6940,6 +7173,12 @@ const docTemplate = `{
                 "goal_value": {
                     "type": "string"
                 },
+                "parent_step_id": {
+                    "type": "integer"
+                },
+                "step_id": {
+                    "type": "integer"
+                },
                 "step_order": {
                     "type": "integer"
                 }
@@ -6952,6 +7191,9 @@ const docTemplate = `{
             ],
             "properties": {
                 "goal_id": {
+                    "type": "integer"
+                },
+                "parent": {
                     "type": "integer"
                 }
             }

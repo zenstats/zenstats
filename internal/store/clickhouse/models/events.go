@@ -4,10 +4,12 @@ import (
 	"net"
 	"time"
 
+	"github.com/zenstats/zenstats/internal/ingestion"
 	"github.com/zenstats/zenstats/pkg/geoip"
 )
 
 type Events struct {
+	Collection             *ingestion.Record `json:"-" ch:"-"`
 	SessionId              uint64            `json:"session_id" ch:"session_id"`
 	Timestamp              time.Time         `json:"timestamp" ch:"timestamp"` // 时间戳
 	Name                   string            `json:"name" ch:"name"`           // 事件名称

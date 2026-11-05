@@ -106,8 +106,15 @@ func (e *EventWork) processWorker() {
 			}
 			// 分发到协程池处理；processWG 跟踪在途任务，保证关闭时先全部处理完再刷写缓冲
 			e.processWG.Add(1)
-			e.pool.Submit(func() {
+			if err := e.pool.Submit(func() {
 				defer e.processWG.Done()
+				defer func() {
+					if recovered := recover(); recovered != nil {
+						item.Collection.Finish("failed", "processing_panic")
+						slog.Error("event processing panic", "error", recovered)
+					}
+				}()
+				item.Collection.Stage("processing")
 				processed := e.processEvent(item)
 				if processed == nil {
 					return
@@ -115,7 +122,10 @@ func (e *EventWork) processWorker() {
 				slog.Debug("process worker done", "request", item, "processed", processed)
 				// WriteBuffer.Add 内部已有自己的 mutex 保护，无需外部额外加锁
 				e.writeBuffer.Add(processed)
-			})
+			}); err != nil {
+				e.processWG.Done()
+				item.Collection.Finish("failed", "worker_unavailable")
+			}
 
 		case <-e.shutdownCtx.Done():
 			return
@@ -160,6 +170,7 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	slog.Debug("processEvent", "request", eventRequest)
 
 	var eventResult models.Events
+	eventResult.Collection = eventRequest.Collection
 	// 将eventRequest 转换为eventResult
 	eventResult.Name = eventRequest.EventName
 	eventResult.Props = eventRequest.Props
@@ -180,6 +191,7 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	// set siteid
 	site, err := e.siteService.GetSiteByDomain(e.shutdownCtx, eventRequest.Domain)
 	if err != nil {
+		eventRequest.Collection.Finish("failed", "site_lookup_failed")
 		return nil
 	}
 	eventResult.SiteId = uint64(site.ID)
@@ -197,13 +209,8 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	}
 	parsedURL, err := url.Parse(urlstring)
 	if err == nil {
-		pathname = parsedURL.Path
+		pathname = eventPathname(parsedURL, eventRequest.Hash == 1)
 		hostname = utils.NormalizeHostname(parsedURL.Host)
-		// SPA hash 路由支持：h=1 时 pathname 拼接 URL fragment
-		// 例如 example.com/#/dashboard → /#/dashboard
-		if eventRequest.Hash == 1 && parsedURL.Fragment != "" {
-			pathname = parsedURL.Path + "#" + parsedURL.Fragment
-		}
 	}
 	// 隐私：落库的 url 只保留 scheme://host/path，去掉 query string 与 fragment。
 	// UTM 参数已由下方 PutSourceInfo 从 eventRequest.URL（原始 URL）中提取，此处无需保留。
@@ -252,11 +259,13 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	client := e.PutUserAgent(&eventResult)
 	// drop_verification_agent
 	if e.dropVerificationAgent(client) {
+		eventRequest.Collection.Finish("filtered", "bot")
 		slog.Debug("drop verification agent", "isbot", client.Screen.Bot)
 		return nil
 	}
 	// 3. 对hostname进行验证 仅允许白名单
 	if e.dropShieldRuleHostname(site, eventResult.HostName) {
+		eventRequest.Collection.Finish("filtered", "hostname_rule")
 		slog.Debug("hostname blocked by shield rule", "hostname", eventResult.HostName)
 		return nil
 	}
@@ -264,11 +273,13 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	e.PutGeolocation(&eventResult)
 	// 5. 对IP进行验证 删除需要排除的ip
 	if e.dropShieldRuleIP(site, eventResult.IP) {
+		eventRequest.Collection.Finish("filtered", "ip_rule")
 		slog.Debug("IP blocked by shield rule", "ip", eventResult.IP)
 		return nil
 	}
 	// 6. 对IP的地理位置进行验证 屏蔽国家
 	if e.dropShieldRuleCountry(site, eventResult.CountryCode) {
+		eventRequest.Collection.Finish("filtered", "country_rule")
 		slog.Debug("country blocked by shield rule", "country", eventResult.CountryCode)
 		return nil
 	}
@@ -277,6 +288,7 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 
 	// 垃圾 referrer 过滤
 	if e.dropShieldRuleReferrer(site, eventResult.ReferrerSource) {
+		eventRequest.Collection.Finish("filtered", "referrer_rule")
 		slog.Debug("dropping spam referrer", "referrer_source", eventResult.ReferrerSource)
 		return nil
 	}
@@ -292,18 +304,23 @@ func (e *EventWork) processEvent(eventRequest *model.EventRequest) *models.Event
 	if e.historicalThreshold > 0 && time.Since(eventRequest.Timestamp) > e.historicalThreshold {
 		eventResult.SessionId = generateSeedSessionId(eventRequest.Timestamp)
 		historicalSession := createHistoricalSession(&eventResult)
-		e.sessionManager.WriteSession(historicalSession)
+		if err := e.sessionManager.WriteSession(historicalSession); err != nil {
+			eventRequest.Collection.Finish("failed", "session_processing_failed")
+			return nil
+		}
 		return &eventResult
 	}
 
 	// register_session
 	session, err := e.sessionManager.OnEvent(&eventResult)
 	if err != nil {
+		eventRequest.Collection.Finish("failed", "session_processing_failed")
 		slog.Debug("register session error", "error", err)
 		return nil
 	}
 	slog.Debug("register session success", "session", session)
 	if session == nil {
+		eventRequest.Collection.Finish("filtered", "engagement_without_session")
 		return nil
 	}
 	eventResult.SessionId = session.SessionId
@@ -361,6 +378,22 @@ func sanitizeStoredURL(raw string, parsed *url.URL, hashMode bool) string {
 		clean.Fragment = frag
 	}
 	return clean.String()
+}
+
+// eventPathname keeps the same privacy rules as the stored URL. Query strings
+// inside hash routes must not split a page into multiple analytics dimensions.
+func eventPathname(parsed *url.URL, hashMode bool) string {
+	path := parsed.Path
+	if path == "" {
+		path = "/"
+	}
+	if hashMode && parsed.Fragment != "" {
+		fragment, _, _ := strings.Cut(parsed.Fragment, "?")
+		if fragment != "" {
+			path += "#" + fragment
+		}
+	}
+	return path
 }
 
 // splitIPColumns 将解析后的 IP 按地址族分配到 ipv4 / ipv6 字段：
@@ -474,11 +507,22 @@ func (e *EventWork) PutGeolocation(event *models.Events) {
 // PutSourceInfo updates the session attributes with source information from the event request.
 // It extracts referrer information and UTM parameters from the request URL and stores them in the session attributes.
 func (e *EventWork) PutSourceInfo(event *models.Events, eventRequest *model.EventRequest) {
-
-	event.Referrer = e.formatReferrer(eventRequest.Referrer)
+	event.Referrer = ""
+	event.ReferrerSource = ""
 	parseReferer, err := url.Parse(eventRequest.Referrer)
-	if err == nil {
-		event.ReferrerSource = utils.NormalizeHostname(parseReferer.Host)
+	if err == nil && parseReferer.Hostname() != "" && (parseReferer.Scheme == "http" || parseReferer.Scheme == "https") {
+		referrerHost := strings.ToLower(strings.TrimSuffix(parseReferer.Hostname(), "."))
+		pageHost := event.HostName
+		if pageURL, err := url.Parse(eventRequest.URL); err == nil && pageURL.Hostname() != "" {
+			pageHost = pageURL.Hostname()
+		}
+		pageHost = strings.ToLower(strings.TrimSuffix(pageHost, "."))
+		// Internal navigation (including subdomains) is not a new acquisition.
+		// The public suffix list also keeps separate hosted tenants distinct.
+		if pageHost == "" || getRootDomain(referrerHost) != getRootDomain(pageHost) {
+			event.Referrer = e.formatReferrer(eventRequest.Referrer)
+			event.ReferrerSource = utils.NormalizeHostname(referrerHost)
+		}
 	}
 
 	parseUrl, err := url.Parse(eventRequest.URL)
@@ -510,6 +554,10 @@ func (e *EventWork) PutChannel(event *models.Events) {
 			event.Channel = "Paid Search"
 		case medium == "social" || medium == "social-network":
 			event.Channel = "Social"
+		case medium == "organic":
+			event.Channel = "Organic Search"
+		case medium == "referral":
+			event.Channel = "Referral"
 		case medium == "email":
 			event.Channel = "Email"
 		case medium == "affiliate":
@@ -544,18 +592,18 @@ func (e *EventWork) PutChannel(event *models.Events) {
 
 	// Check if referrer source matches known search engines
 	source := strings.ToLower(event.ReferrerSource)
-	searchEngines := []string{"google", "bing", "baidu", "duckduckgo", "yahoo", "yandex", "ecosia", "qwant", "startpage", "brave"}
+	searchEngines := []string{"google.com", "google.co.uk", "google.de", "google.fr", "google.co.jp", "google.com.au", "google.ca", "google.co.in", "google.com.hk", "bing.com", "baidu.com", "duckduckgo.com", "yahoo.com", "yahoo.co.jp", "yandex.ru", "yandex.com", "ecosia.org", "qwant.com", "startpage.com", "search.brave.com"}
 	for _, engine := range searchEngines {
-		if strings.Contains(source, engine) {
+		if matchesSourceDomain(source, engine) {
 			event.Channel = "Organic Search"
 			return
 		}
 	}
 
 	// Check social media
-	socialNetworks := []string{"facebook", "twitter", "instagram", "linkedin", "pinterest", "tiktok", "reddit", "youtube", "weibo", "wechat", "douyin", "xiaohongshu"}
+	socialNetworks := []string{"facebook.com", "twitter.com", "x.com", "t.co", "instagram.com", "linkedin.com", "lnkd.in", "pinterest.com", "tiktok.com", "reddit.com", "youtube.com", "youtu.be", "weibo.com", "weibo.cn", "wechat.com", "weixin.qq.com", "douyin.com", "xiaohongshu.com"}
 	for _, social := range socialNetworks {
-		if strings.Contains(source, social) {
+		if matchesSourceDomain(source, social) {
 			event.Channel = "Social"
 			return
 		}
@@ -563,6 +611,10 @@ func (e *EventWork) PutChannel(event *models.Events) {
 
 	// Default: referral
 	event.Channel = "Referral"
+}
+
+func matchesSourceDomain(host, domain string) bool {
+	return host == domain || strings.HasSuffix(host, "."+domain)
 }
 
 func (e *EventWork) formatReferrer(referrer string) string {

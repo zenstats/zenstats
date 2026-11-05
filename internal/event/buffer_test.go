@@ -8,9 +8,56 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zenstats/zenstats/internal/ingestion"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
 )
+
+func TestWriteBufferQualityAccountsForFullClosedAndFailedBatches(t *testing.T) {
+	m := ingestion.NewMonitor()
+	wb := NewWriteBuffer(context.Background(), 2, time.Hour)
+	wb.monitor = m
+	wb.maxBufferSize = 5
+	// Occupy the flush slots so admission reaches its actual capacity limit.
+	for i := 0; i < cap(wb.flushSem); i++ {
+		wb.flushSem <- struct{}{}
+	}
+	var records []*ingestion.Record
+	_ = m.Accept(7, func(r []*ingestion.Record) error { records = r; return nil })
+	for _, r := range records[:6] {
+		wb.Add(&models.Events{Name: "pageview", Collection: r})
+	}
+	if s := m.Snapshot(); s.Pending.Events != 6 || s.Counters["failed"] != 1 || s.Writers["events"].QueuedRows != 5 {
+		t.Fatalf("full buffer accounting: %+v", s)
+	}
+	wb.Start()
+	wb.Shutdown()
+	wb.Add(&models.Events{Collection: records[6]})
+	s := m.Snapshot()
+	w := s.Writers["events"]
+	if s.Pending.Events != 0 || s.Counters["failed"] != 7 || s.Counters["persisted"] != 0 || w.FailedRows != 5 || w.FailedBatches != 3 || w.QueuedRows != 0 || w.InflightRows != 0 {
+		t.Fatalf("failed/closed buffer accounting: counters=%+v pending=%+v writer=%+v", s.Counters, s.Pending, w)
+	}
+}
+
+func TestWriteBufferConcurrentShutdownAccountsForEveryEvent(t *testing.T) {
+	m := ingestion.NewMonitor()
+	wb := NewWriteBuffer(context.Background(), 2, time.Hour)
+	wb.monitor = m
+	wb.Start()
+	var records []*ingestion.Record
+	_ = m.Accept(100, func(r []*ingestion.Record) error { records = r; return nil })
+	var wg sync.WaitGroup
+	for _, r := range records {
+		wg.Add(1)
+		go func() { defer wg.Done(); wb.Add(&models.Events{Collection: r}) }()
+	}
+	wb.Shutdown()
+	wg.Wait()
+	if s := m.Snapshot(); s.Pending.Events != 0 || s.Counters["failed"] != 100 {
+		t.Fatalf("shutdown lost accounting: %+v", s.Counters)
+	}
+}
 
 // TestMain absorbs the ClickHouse connection panic that fires on the first
 // repository initialisation attempt. After this, GetEventsRepository() returns

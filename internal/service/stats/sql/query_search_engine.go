@@ -137,38 +137,31 @@ func mergeSearchEngines(globalEngines []*ent.SearchEngines, userEngines []*ent.C
 }
 
 // getSourceClause generates the CASE statement for source classification.
-func (qs *QueryBuilder) getSourceClause(userID int64) (string, error) {
-	searchEngines := getSearchEngines()
-
+func (qs *QueryBuilder) getSourceClause(userID int64, tableAlias string) (string, error) {
+	globalEngines := getSearchEngines()
+	var userEngines []*ent.CustomSearchEngine
 	if userID > 0 {
-		userEngines := getUserSearchEngines(userID)
-		if len(userEngines) > 0 {
-			merged := mergeSearchEngines(searchEngines, userEngines)
-			clause := fmt.Sprintf(`
-				CASE
-					WHEN referrer_source = '' THEN 'Direct / None'
-					%s
-					ELSE referrer_source
-				END
-			`, qs.buildMergedSearchEngineCase(merged))
-			return clause, nil
-		}
+		userEngines = getUserSearchEngines(userID)
 	}
-
-	clause := fmt.Sprintf(`
-		CASE
-			WHEN referrer_source = '' THEN 'Direct / None'
-			%s
-			ELSE referrer_source
-		END
-	`, qs.buildSearchEngineCase(searchEngines))
-	return clause, nil
+	engines := mergeSearchEngines(globalEngines, userEngines)
+	referrer := tableAlias + ".referrer_source"
+	utm := tableAlias + ".utm_source"
+	var conditions []string
+	for _, engine := range engines {
+		conditions = append(conditions, sourceDomainCase(engine.Domain, engine.Name, referrer))
+	}
+	return fmt.Sprintf(`CASE
+		WHEN %s != '' THEN %s
+		WHEN %s = '' THEN 'Direct / None'
+		%s
+		ELSE %s
+	END`, utm, utm, referrer, strings.Join(conditions, "\n"), referrer), nil
 }
 
 func (qs *QueryBuilder) buildSearchEngineCase(searchEngines []*ent.SearchEngines) string {
 	var conditions []string
 	for _, searchEngine := range searchEngines {
-		conditions = append(conditions, fmt.Sprintf("WHEN positionCaseInsensitive(referrer_source, '%s') > 0 THEN '%s'", escapeCHString(searchEngine.Domain), escapeCHString(searchEngine.Name)))
+		conditions = append(conditions, sourceDomainCase(searchEngine.Domain, searchEngine.Name, "referrer_source"))
 	}
 	return strings.Join(conditions, "\n")
 }
@@ -176,7 +169,7 @@ func (qs *QueryBuilder) buildSearchEngineCase(searchEngines []*ent.SearchEngines
 func (qs *QueryBuilder) buildMergedSearchEngineCase(engines []mergedSearchEngine) string {
 	var conditions []string
 	for _, e := range engines {
-		conditions = append(conditions, fmt.Sprintf("WHEN positionCaseInsensitive(referrer_source, '%s') > 0 THEN '%s'", escapeCHString(e.Domain), escapeCHString(e.Name)))
+		conditions = append(conditions, sourceDomainCase(e.Domain, e.Name, "referrer_source"))
 	}
 	return strings.Join(conditions, "\n")
 }
@@ -184,7 +177,15 @@ func (qs *QueryBuilder) buildMergedSearchEngineCase(engines []mergedSearchEngine
 func (qs *QueryBuilder) buildUserSearchEngineCase(searchEngines []*ent.CustomSearchEngine) string {
 	var conditions []string
 	for _, searchEngine := range searchEngines {
-		conditions = append(conditions, fmt.Sprintf("WHEN positionCaseInsensitive(referrer_source, '%s') > 0 THEN '%s'", escapeCHString(searchEngine.Domain), escapeCHString(searchEngine.Name)))
+		conditions = append(conditions, sourceDomainCase(searchEngine.Domain, searchEngine.Name, "referrer_source"))
 	}
 	return strings.Join(conditions, "\n")
+}
+
+func sourceDomainCase(domain, name, column string) string {
+	domain = strings.ToLower(strings.Trim(strings.TrimSpace(domain), "."))
+	if domain == "" {
+		return ""
+	}
+	return fmt.Sprintf("WHEN (lower(%s) = '%s' OR endsWith(lower(%s), '.%s')) THEN '%s'", column, escapeCHString(domain), column, escapeCHString(domain), escapeCHString(name))
 }

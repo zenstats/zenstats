@@ -92,7 +92,7 @@ func (wb *WhereBuilder) AddFilter(table string, filter *types.Filter) error {
 	case "event:goal":
 		return wb.addGoalFilter(filter)
 	case "visit:source":
-		clause, err := NewQueryBuilder().getSourceClause(wb.userID)
+		clause, err := NewQueryBuilder().getSourceClause(wb.userID, table)
 		if err != nil {
 			return err
 		}

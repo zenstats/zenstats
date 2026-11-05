@@ -20,6 +20,7 @@ func TestSwaggerDocumentsRegisteredCriticalRoutes(t *testing.T) {
 	}
 
 	want := map[string][]string{
+		"/admin/ingestion-quality":                {"get"},
 		"/stats/{domain}/aggregate":               {"get"},
 		"/stats/{domain}/main-graph":              {"get"},
 		"/stats/{domain}/breakdown":               {"get"},

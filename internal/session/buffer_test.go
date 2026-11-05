@@ -6,9 +6,41 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zenstats/zenstats/internal/ingestion"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
 )
+
+func TestSessionBufferAdmitsAndFlushesCancellationPairsTogether(t *testing.T) {
+	m := ingestion.NewMonitor()
+	wb := NewWriteBuffer(context.Background(), 2, time.Hour)
+	wb.monitor = m
+	wb.maxBufferSize = 3
+	for i := 0; i < cap(wb.flushSem); i++ {
+		wb.flushSem <- struct{}{}
+	}
+	if err := wb.Add(&models.Sessions{Sign: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := wb.AddMany(&models.Sessions{Sign: -1}, &models.Sessions{Sign: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := wb.AddMany(&models.Sessions{Sign: -1}, &models.Sessions{Sign: 1}); err == nil {
+		t.Fatal("full buffer accepted a pair")
+	}
+	if len(wb.buffer) != 3 {
+		t.Fatal("partial pair admitted")
+	}
+	wb.Start()
+	wb.Shutdown()
+	if err := wb.Add(&models.Sessions{Sign: 1}); err == nil {
+		t.Fatal("closed buffer accepted a row")
+	}
+	w := m.Snapshot().Writers["sessions"]
+	if w.FailedRows != 3 || w.FailedBatches != 1 || w.QueuedRows != 0 || w.InflightRows != 0 {
+		t.Fatalf("cancellation pair split across batches or incorrect row accounting: %+v", w)
+	}
+}
 
 // TestMain absorbs the ClickHouse connection panic that fires on the first
 // repository initialisation attempt. After this, GetSessionsRepository() returns

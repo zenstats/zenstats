@@ -44,7 +44,7 @@ func (g *SQLFragmentGenerator) ScaleSample(fragment SQLFragment, samplingEnabled
 // Uniq 计算唯一用户数，带采样缩放
 func (g *SQLFragmentGenerator) Uniq(userID string, samplingEnabled bool) SQLFragment {
 	return g.ScaleSample(SQLFragment{
-		SQL:  "uniq(?)",
+		SQL:  "uniqExact(?)",
 		Args: []any{userID},
 	}, samplingEnabled)
 }
@@ -75,7 +75,7 @@ func (g *SQLFragmentGenerator) PageViewsForEvent(samplingEnabled bool) SQLFragme
 // VisitsForEvent events 表的 visits 统计，按 session 去重。
 func (g *SQLFragmentGenerator) VisitsForEvent(samplingEnabled bool) SQLFragment {
 	return g.ScaleSample(SQLFragment{
-		SQL:  "uniq(session_id)",
+		SQL:  "uniqExact(session_id)",
 		Args: nil,
 	}, samplingEnabled)
 }
@@ -84,16 +84,18 @@ func (g *SQLFragmentGenerator) VisitsForEvent(samplingEnabled bool) SQLFragment 
 func (g *SQLFragmentGenerator) ScrollDepthForEvent(samplingEnabled bool) SQLFragment {
 	// ifNotFinite 兜底：无 engagement 事件的分组 avgIf 返回 NaN，
 	// 未处理会使结果 JSON 序列化失败（NaN 非法）并返回空响应体。
-	return g.ScaleSample(SQLFragment{
+	return SQLFragment{
 		SQL:  "toFloat64(ifNotFinite(avgIf(scroll_depth, name = 'engagement'), 0))",
 		Args: nil,
-	}, samplingEnabled)
+	}
 }
 
-// TimeOnPageForEvent events 表的页面停留时长，取 engagement 事件的平均 engagement_time（毫秒→秒）。
+// TimeOnPageForEvent sums active-time deltas and divides by pageviews, including
+// views with no engagement. Averaging heartbeats measures reporting intervals,
+// not time spent on a page. Sampling factors cancel in this ratio.
 func (g *SQLFragmentGenerator) TimeOnPageForEvent(samplingEnabled bool) SQLFragment {
 	return SQLFragment{
-		SQL:  "toInt32(ifNotFinite(avgIf(engagement_time / 1000, name = 'engagement' AND engagement_time > 0), 0))",
+		SQL:  "toFloat64(ifNotFinite(round(sumIf(engagement_time, name = 'engagement' AND engagement_time > 0) / nullIf(countIf(name = 'pageview'), 0) / 1000, 2), 0))",
 		Args: nil,
 	}
 }

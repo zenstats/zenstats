@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/zenstats/zenstats/internal/ingestion"
+
 	"github.com/zenstats/zenstats/internal/store/clickhouse/models"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
 )
@@ -34,12 +36,14 @@ type WriteBuffer struct {
 	cancel       context.CancelFunc
 
 	batchPool sync.Pool
+	monitor   *ingestion.Monitor
 }
 
 // maxConcurrentFlushes 限制同时进行的 flush goroutine 数量。
 const maxConcurrentFlushes = 8
 
 func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Duration) *WriteBuffer {
+	batchSize = max(batchSize, 1)
 	ctx, cancel := context.WithCancel(ctx)
 
 	minBatchSize := batchSize / 2
@@ -61,6 +65,7 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 	}
 
 	wb := &WriteBuffer{
+		monitor:       ingestion.Default,
 		batchSize:     int32(batchSize),
 		minBatchSize:  minBatchSize,
 		maxBatchSize:  maxBatchSize,
@@ -84,12 +89,19 @@ func NewWriteBuffer(ctx context.Context, batchSize int, flushInterval time.Durat
 func (wb *WriteBuffer) Add(event *models.Events) {
 	// Reject new events after Shutdown() is called to prevent wg.Add races.
 	if atomic.LoadInt32(&wb.closed) == 1 {
+		event.Collection.Finish("failed", "buffer_closed")
 		return
 	}
 
 	wb.mu.Lock()
+	if atomic.LoadInt32(&wb.closed) == 1 {
+		wb.mu.Unlock()
+		event.Collection.Finish("failed", "buffer_closed")
+		return
+	}
 	if len(wb.buffer) >= wb.maxBufferSize {
 		wb.mu.Unlock()
+		event.Collection.Finish("failed", "buffer_full")
 		// 缓冲达到上限（通常是下游 ClickHouse 长时间不可用）：丢弃并计数，避免无界增长导致 OOM。
 		n := atomic.AddInt64(&wb.dropped, 1)
 		if n%1000 == 1 {
@@ -98,6 +110,8 @@ func (wb *WriteBuffer) Add(event *models.Events) {
 		return
 	}
 	wb.buffer = append(wb.buffer, event)
+	event.Collection.Stage("buffered")
+	wb.monitor.QueueRows("events", 1)
 	shouldFlush := len(wb.buffer) >= int(atomic.LoadInt32(&wb.batchSize))
 	wb.mu.Unlock()
 
@@ -113,6 +127,11 @@ func (wb *WriteBuffer) Add(event *models.Events) {
 // spawnFlush 在并发未达上限时起一个独立 flush goroutine；达到上限则跳过，
 // 交由 flushWorker 的定时器或后续 Add 处理，防止下游阻塞时 flush goroutine 无界堆积。
 func (wb *WriteBuffer) spawnFlush() {
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
+	if atomic.LoadInt32(&wb.closed) == 1 {
+		return
+	}
 	select {
 	case wb.flushSem <- struct{}{}:
 		wb.wg.Add(1)
@@ -128,7 +147,7 @@ func (wb *WriteBuffer) spawnFlush() {
 }
 
 // flushAndWrite 从 buffer 取出数据并直接写入 ClickHouse
-// 多个 goroutine 并发调用是安全的：只有第一个能取到数据，其余见到空 buffer 直接返回。
+// 多个 goroutine 分别取出有限批次，避免单次写入无限增长。
 func (wb *WriteBuffer) flushAndWrite() {
 	wb.mu.Lock()
 	if len(wb.buffer) == 0 {
@@ -136,13 +155,31 @@ func (wb *WriteBuffer) flushAndWrite() {
 		return
 	}
 	batch := wb.batchPool.Get().(*[]*models.Events)
-	*batch = append(*batch, wb.buffer...)
-	wb.buffer = wb.buffer[:0]
+	n := min(len(wb.buffer), int(atomic.LoadInt32(&wb.batchSize)))
+	*batch = append(*batch, wb.buffer[:n]...)
+	copy(wb.buffer, wb.buffer[n:])
+	clear(wb.buffer[len(wb.buffer)-n:])
+	wb.buffer = wb.buffer[:len(wb.buffer)-n]
+	for _, event := range *batch {
+		event.Collection.Stage("writing")
+	}
+	wb.monitor.StartWrite("events", n)
 	wb.mu.Unlock()
 
-	if err := wb.writeBatch(*batch); err != nil {
+	started := time.Now()
+	err := wb.writeBatch(*batch)
+	wb.monitor.FinishWrite("events", n, time.Since(started), err)
+	for _, event := range *batch {
+		if err != nil {
+			event.Collection.Finish("failed", "write_failed")
+		} else {
+			event.Collection.Finish("persisted", "")
+		}
+	}
+	if err != nil {
 		slog.Error("failed to write event batch, events dropped", "error", err, "dropped_count", len(*batch))
 	}
+	clear(*batch)
 	*batch = (*batch)[:0]
 	wb.batchPool.Put(batch)
 }
@@ -161,16 +198,28 @@ func (wb *WriteBuffer) flushWorker() {
 	for {
 		select {
 		case <-ticker.C:
-			wb.flushAndWrite()
+			wb.drain()
 
 		case <-wb.shutdownChan:
-			wb.flushAndWrite()
+			wb.drain()
 			return
 
 		case <-wb.ctx.Done():
-			wb.flushAndWrite()
+			wb.drain()
 			return
 		}
+	}
+}
+
+func (wb *WriteBuffer) drain() {
+	for {
+		wb.mu.Lock()
+		empty := len(wb.buffer) == 0
+		wb.mu.Unlock()
+		if empty {
+			return
+		}
+		wb.flushAndWrite()
 	}
 }
 
@@ -189,11 +238,18 @@ func (wb *WriteBuffer) writeBatch(batch []*models.Events) error {
 
 	startTime := time.Now()
 	for i := 0; i < retries; i++ {
-		if err = repo.BatchInsert(insertCtx, batch); err == nil {
+		attemptCtx, cancel := context.WithTimeout(insertCtx, 5*time.Second)
+		err = repo.BatchInsert(attemptCtx, batch)
+		cancel()
+		wb.monitor.WriteAttempt("events", i > 0, err != nil)
+		if err == nil {
 			wb.recordWriteTime(time.Since(startTime))
 			return nil
 		}
 		slog.Debug("failed to flush batch, retrying...", "retry", i+1, "error", err)
+		if i == retries-1 {
+			break
+		}
 		select {
 		case <-time.After(backoff[i]):
 		case <-wb.ctx.Done():
@@ -214,8 +270,11 @@ func (wb *WriteBuffer) recordWriteTime(duration time.Duration) {
 
 func (wb *WriteBuffer) Shutdown() {
 	// Set closed first so no new flush goroutines call wg.Add after wg.Wait returns.
-	atomic.StoreInt32(&wb.closed, 1)
-	close(wb.shutdownChan)
+	wb.mu.Lock()
+	if atomic.SwapInt32(&wb.closed, 1) == 0 {
+		close(wb.shutdownChan)
+	}
+	wb.mu.Unlock()
 	wb.wg.Wait()
 	wb.cancel()
 }

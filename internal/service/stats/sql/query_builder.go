@@ -552,6 +552,9 @@ func (qb *QueryBuilder) buildSessionSubquery(query *types.Query) (string, []any,
 	for _, dim := range query.Dimensions {
 		if col, ok := sessionDimensions[dim]; ok {
 			extraCols = append(extraCols, fmt.Sprintf("any(%s) as %s", col, col))
+			if dim == "visit:source" {
+				extraCols = append(extraCols, "any(utm_source) as utm_source")
+			}
 		}
 	}
 
@@ -992,17 +995,16 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 		return "city_name as city"
 	case "visit:source":
 		col := "referrer_source"
-		if purpose == "group" {
-			return maybePrefix(col, tableType)
+		alias := "s"
+		if tableType == "events" {
+			alias = "sq"
 		}
-		sourceClause, err := qb.getSourceClause(userID)
+		sourceClause, err := qb.getSourceClause(userID, alias)
 		if err != nil {
 			return maybePrefix(col, tableType) + " as " + col
 		}
-		if tableType == "events" {
-			// Rewrite bare referrer_source refs to sq.referrer_source for the JOIN alias
-			clause := strings.ReplaceAll(sourceClause, "referrer_source", "sq.referrer_source")
-			return clause + " as referrer_source"
+		if purpose == "group" {
+			return sourceClause
 		}
 		return sourceClause + " as referrer_source"
 	case "visit:medium":
@@ -1138,7 +1140,7 @@ func (qb *QueryBuilder) DimensionToColumn(dimension, tableType, purpose string, 
 
 // addTimeOnPageMetrics 现为 no-op。
 // time_on_page 指标已由 TimeOnPageForEvent 直接基于 engagement_time 计算
-// （avgIf(engagement_time/1000, name='engagement' ...)），无需再用 LEAD 窗口子查询包裹。
+// （活跃时长增量之和 / pageviews），无需再用 LEAD 窗口子查询包裹。
 // 旧的 LEAD 子查询包裹既未被任何指标使用（next_event_time / 子查询 time_on_page 列无引用），
 // 又因 `SELECT e.* FROM events`（内层表未别名为 e）在 ClickHouse 报错，故移除。
 func (qb *QueryBuilder) addTimeOnPageMetrics(sql string, query *types.Query) string {

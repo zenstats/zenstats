@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -71,8 +70,7 @@ the address is defined in config file`,
 			}
 		}()
 
-		// Wait for interrupt signal to gracefully shutdown the server with
-		// a timeout of 1 second.
+		// Stop HTTP admission before draining the event pipeline.
 		quit := make(chan os.Signal, 1)
 		// kill (no param) default send syscanll.SIGTERM
 		// kill -2 is syscall.SIGINT
@@ -81,27 +79,13 @@ the address is defined in config file`,
 		<-quit
 		slog.Info("Shutdown server...")
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		var wg sync.WaitGroup
-
-		// Shutdown Http Server first — stop accepting new requests
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := httpSrv.Shutdown(ctx); err != nil {
-				slog.Error("HTTP server shutdown", "error", err)
-			}
-		}()
-
-		// Drain event buffer — must complete before closing DB connections
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			event.Shutdown()
-		}()
-
-		wg.Wait()
+		if err := httpSrv.Shutdown(ctx); err != nil {
+			slog.Error("HTTP server shutdown", "error", err)
+			_ = httpSrv.Close()
+		}
+		event.Shutdown()
 
 		// 落盘内存中的月度配额计数，再释放 DB。
 		// 配额此前仅每小时持久化一次，重启会丢失最多约 1 小时的增量（导致少计费）。

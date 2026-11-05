@@ -26,8 +26,8 @@ func NewPool() *Pool {
 	return pool
 }
 
-func (p *Pool) Submit(f func()) {
-	p.pool.Submit(f)
+func (p *Pool) Submit(f func()) error {
+	return p.pool.Submit(f)
 }
 func (p *Pool) Release() {
 	p.pool.Release()

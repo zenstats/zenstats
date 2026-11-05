@@ -46,8 +46,12 @@ func (e *Events) BatchInsert(ctx context.Context, events []*models.Events) error
 		slog.Error("prepare batch", "error", err)
 		return fmt.Errorf("prepare batch: %w", err)
 	}
-	skipped := 0
+	defer batchInsert.Abort()
 	for _, event := range events {
+		// clickhouse-go's FixedString appender panics for oversized strings.
+		if event == nil || len(event.CountryCode) > 2 {
+			return fmt.Errorf("invalid event row: country_code must fit FixedString(2)")
+		}
 		slog.Debug("insert event", "event", event)
 		coords := []any{event.Coordinates.Latitude, event.Coordinates.Longitude}
 
@@ -89,15 +93,11 @@ func (e *Events) BatchInsert(ctx context.Context, events []*models.Events) error
 		)
 
 		if err != nil {
-			slog.Error("skip malformed event on append", "err", err)
-			skipped++
-			continue
+			// A successful Send must confirm every row in this logical batch.
+			return fmt.Errorf("append event: %w", err)
 		}
 	}
 
-	if skipped > 0 {
-		slog.Warn("events batch skipped malformed rows", "skipped", skipped, "total", len(events))
-	}
 	return batchInsert.Send()
 }
 

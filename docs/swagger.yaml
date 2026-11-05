@@ -75,11 +75,37 @@ definitions:
     properties:
       conversion_rate:
         type: number
+      nodes:
+        description: Nodes 为树形视图数据：每个节点带 step_id/parent_step_id，前端据此重建多层树。
+        items:
+          $ref: '#/definitions/funnel.FunnelNodeResult'
+        type: array
       steps:
         items:
           $ref: '#/definitions/funnel.FunnelStepResult'
         type: array
       total_visitors:
+        type: integer
+    type: object
+  funnel.FunnelNodeResult:
+    properties:
+      conversion_rate:
+        description: 相对父节点；根为 100
+        type: number
+      drop_off:
+        description: 父节点访客 - 本节点访客
+        type: integer
+      goal_name:
+        type: string
+      is_root:
+        type: boolean
+      parent_step_id:
+        type: integer
+      step_id:
+        type: integer
+      step_order:
+        type: integer
+      visitors:
         type: integer
     type: object
   funnel.FunnelStepResult:
@@ -156,6 +182,90 @@ definitions:
         type: integer
       table:
         type: string
+    type: object
+  ingestion.Counters:
+    additionalProperties:
+      format: int64
+      type: integer
+    type: object
+  ingestion.Minute:
+    properties:
+      counters:
+        $ref: '#/definitions/ingestion.Counters'
+      timestamp:
+        type: string
+    type: object
+  ingestion.Pending:
+    properties:
+      events:
+        type: integer
+      oldest_age_seconds:
+        type: number
+      stages:
+        additionalProperties:
+          type: integer
+        type: object
+    type: object
+  ingestion.Reason:
+    properties:
+      count:
+        type: integer
+      outcome:
+        type: string
+      reason:
+        type: string
+      stage:
+        type: string
+    type: object
+  ingestion.Snapshot:
+    properties:
+      counters:
+        $ref: '#/definitions/ingestion.Counters'
+      history:
+        items:
+          $ref: '#/definitions/ingestion.Minute'
+        type: array
+      instance_id:
+        type: string
+      pending:
+        $ref: '#/definitions/ingestion.Pending'
+      reasons:
+        items:
+          $ref: '#/definitions/ingestion.Reason'
+        type: array
+      started_at:
+        type: string
+      timestamp:
+        type: string
+      writers:
+        additionalProperties:
+          $ref: '#/definitions/ingestion.WriterStats'
+        type: object
+    type: object
+  ingestion.WriterStats:
+    properties:
+      failed_attempts:
+        type: integer
+      failed_batches:
+        type: integer
+      failed_rows:
+        type: integer
+      inflight_rows:
+        type: integer
+      last_duration_ms:
+        type: number
+      last_failure_at:
+        type: string
+      last_success_at:
+        type: string
+      queued_rows:
+        type: integer
+      retry_attempts:
+        type: integer
+      succeeded_batches:
+        type: integer
+      written_rows:
+        type: integer
     type: object
   model.EventRequest:
     type: object
@@ -358,6 +468,8 @@ definitions:
         type: integer
       id:
         type: integer
+      parent_step_id:
+        type: integer
       step_order:
         type: integer
     type: object
@@ -375,12 +487,18 @@ definitions:
         type: string
       goal_value:
         type: string
+      parent_step_id:
+        type: integer
+      step_id:
+        type: integer
       step_order:
         type: integer
     type: object
   service.FunnelStepInput:
     properties:
       goal_id:
+        type: integer
+      parent:
         type: integer
     required:
     - goal_id
@@ -1556,6 +1674,25 @@ paths:
       summary: 更新套餐
       tags:
       - 管理员
+  /admin/ingestion-quality:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/ingestion.Snapshot'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: 采集质量监控（当前实例）
+      tags:
+      - 管理员
   /admin/sites:
     get:
       consumes:
@@ -2508,14 +2645,33 @@ paths:
       responses:
         "202":
           description: ok
+          headers:
+            X-Zenstats-Accepted:
+              description: 已入内存队列事件数，不代表落库成功
+              type: integer
+            X-Zenstats-Rejected:
+              description: 校验拒绝事件数；混合批次不应整批重试
+              type: integer
           schema:
             type: string
         "400":
           description: 请求参数错误或域名不允许
           schema:
             type: string
+        "413":
+          description: 请求体超过 1 MiB
+          schema:
+            type: string
         "429":
           description: 请求频率超限
+          schema:
+            type: string
+        "503":
+          description: 队列或站点查询暂不可用
+          headers:
+            Retry-After:
+              description: 建议重试等待秒数
+              type: integer
           schema:
             type: string
       summary: 上报埋点事件

@@ -108,7 +108,9 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 			return nil, nil
 		}
 		created := s.newSession(event)
-		s.writeBuffer.Add(created)
+		if err := s.writeBuffer.Add(created); err != nil {
+			return nil, err
+		}
 		s.updateSessionCache(created)
 		return created, nil
 	}
@@ -117,8 +119,9 @@ func (s *SessionManager) handleEvent(event *models.Events, findSession *models.S
 	old.Sign = -1
 	updated := s.updateSession(findSession, event)
 	updated.Sign = 1
-	s.writeBuffer.Add(old)
-	s.writeBuffer.Add(updated)
+	if err := s.writeBuffer.AddMany(old, updated); err != nil {
+		return nil, err
+	}
 	s.updateSessionCache(updated)
 	return updated, nil
 }
@@ -227,7 +230,11 @@ func (s *SessionManager) updateSession(session *models.Sessions, event *models.E
 
 	newSession.Duration = durationSeconds(session.Start, newSession.Timestamp)
 
-	newSession.Events += 1
+	// Engagement is telemetry, excluded from the public events metric just as
+	// countIf(name != 'engagement') excludes it in the events table.
+	if event.Name != "engagement" {
+		newSession.Events += 1
+	}
 
 	slog.Debug("update session", "newSession", newSession.Duration, "session", session.Duration)
 
@@ -283,8 +290,8 @@ func (s *SessionManager) loadSessionFromDB(event *models.Events) (*models.Sessio
 	return repo.GetActiveSessionAt(ctx, event.UserId, event.SiteId, event.Timestamp, sessionCacheTTL)
 }
 
-func (s *SessionManager) WriteSession(session *models.Sessions) {
-	s.writeBuffer.Add(session)
+func (s *SessionManager) WriteSession(session *models.Sessions) error {
+	return s.writeBuffer.Add(session)
 }
 
 func (s *SessionManager) Shutdown() {

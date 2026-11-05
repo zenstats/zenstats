@@ -3,8 +3,8 @@ package external
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/event"
+	"github.com/zenstats/zenstats/internal/ingestion"
 	"github.com/zenstats/zenstats/internal/model"
 	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/pkg/globals"
@@ -274,192 +275,170 @@ func newEventRequest(temp model.TempEventRequest, domain string, c *gin.Context)
 //	@Success		202		{string}	string				"ok"
 //	@Failure		400		{string}	string				"请求参数错误或域名不允许"
 //	@Failure		429		{string}	string				"请求频率超限"
+//	@Failure		413		{string}	string				"请求体超过 1 MiB"
+//	@Failure		503		{string}	string				"队列或站点查询暂不可用"
+//	@Header			202		{integer}	X-Zenstats-Accepted	"已入内存队列事件数，不代表落库成功"
+//	@Header			202		{integer}	X-Zenstats-Rejected	"校验拒绝事件数；混合批次不应整批重试"
+//	@Header			503		{integer}	Retry-After		"建议重试等待秒数"
 //	@Router			/event [post]
 func Event(siteService *service.SiteService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		slog.Debug("received event")
+	return eventHandler(siteService, ingestion.Default)
+}
 
-		var tempReq model.TempEventRequest
+func eventHandler(siteService *service.SiteService, monitor *ingestion.Monitor) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		monitor.Count("requests", 1)
+		// Bound allocation before decoding or constructing a batch of events.
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1<<20)
 		body, err := c.GetRawData()
 		if err != nil {
-			slog.Debug("failed to get raw data", "error", err)
-			c.JSON(http.StatusBadRequest, "bad")
+			status, reason := http.StatusBadRequest, "body_read_failed"
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				status, reason = http.StatusRequestEntityTooLarge, "body_too_large"
+			}
+			monitor.Outcome("request", "invalid_requests", reason, 1)
+			c.JSON(status, "invalid request body")
 			return
 		}
-		slog.Debug("request body", "body", string(body))
-
-		// 先探测事件类型：batch 事件的 e 字段是数组，与单事件 e=停留时长(int) 冲突，
-		// 需用独立结构解析，否则 json.Unmarshal 会因类型不匹配整包报错 400。
 		var probe struct {
 			EventName string `json:"n"`
 		}
-		_ = json.Unmarshal(body, &probe)
-
-		// 处理前端 SDK 批量发送的 batch 事件（n: 'batch', e: [...]）
-		if probe.EventName == "batch" {
-			var batchReq model.BatchEventRequest
-			if err = json.Unmarshal(body, &batchReq); err != nil {
-				slog.Debug("failed to unmarshal batch request body", "error", err)
-				c.JSON(http.StatusBadRequest, "bad")
-				return
-			}
-			if len(batchReq.Events) == 0 {
-				c.JSON(http.StatusAccepted, "ok")
-				return
-			}
-			// 限制单次 batch 的子事件数量，防止请求放大攻击
-			const maxBatchEvents = 100
-			if len(batchReq.Events) > maxBatchEvents {
-				c.JSON(http.StatusBadRequest, "too many batch events")
-				return
-			}
-			// 丢弃来自数据中心/威胁 IP 的 batch 请求
-			if isDatacenterOrThreatIP(c) {
-				slog.Debug("dropping datacenter/threat IP batch event", "ip", iputil.ClientIP(c.Request))
-				c.JSON(http.StatusAccepted, "ok")
-				return
-			}
-			for _, subEvent := range batchReq.Events {
-				// 子事件继承 batch 级别的 domain（如果未单独指定）
-				subDomain := subEvent.Domain
-				if subDomain == "" {
-					subDomain = batchReq.Domain
-				}
-
-				can, err := siteService.IsDomainInList(c, subDomain)
-				if err != nil || !can {
-					continue
-				}
-
-				site, err := siteService.GetVerifiedSiteByDomain(c, subDomain)
-				if err != nil {
-					continue
-				}
-
-				if !verifyRequestOrigin(c, subDomain, site.AllowedOrigins) {
-					continue
-				}
-
-				// 限频检查
-				if !limiter.allow(subDomain, site.IngestRateLimitScaleSeconds, site.IngestLimitPerMinute) {
-					continue
-				}
-
-				// 月事件数配额检查
-				ownerUserID, ownerErr := siteService.GetSiteOwnerUserID(c, site.ID)
-				if ownerErr == nil && ownerUserID > 0 {
-					userService := service.GetUserService()
-					if user, userErr := userService.GetUserWithConfig(c, ownerUserID); userErr == nil &&
-						user.Edges.UserConfig != nil && user.Edges.UserConfig.Edges.Group != nil {
-						maxEvents := user.Edges.UserConfig.Edges.Group.MaxMonthlyEvents
-						if maxEvents != -1 {
-							if !event.GetMonthlyQuota().TryIncrement(ownerUserID, int64(maxEvents)) {
-								continue
-							}
-						} else {
-							event.GetMonthlyQuota().Increment(ownerUserID)
-						}
-					}
-				}
-
-				req := newEventRequest(subEvent, subDomain, c)
-				queue := globals.GetQueue()
-				if queue == nil || queue.Enqueue(req) != nil {
-					c.JSON(http.StatusServiceUnavailable, "event queue unavailable")
-					return
-				}
-			}
-			c.JSON(http.StatusAccepted, "ok")
-			return
-		}
-
-		// 单事件解析
-		if err = json.Unmarshal(body, &tempReq); err != nil {
-			slog.Debug("failed to unmarshal request body", "error", err)
+		if err := json.Unmarshal(body, &probe); err != nil {
+			monitor.Outcome("request", "invalid_requests", "invalid_json", 1)
 			c.JSON(http.StatusBadRequest, "bad")
 			return
 		}
-
-		// 丢弃来自数据中心/威胁 IP 的请求
+		isBatch := probe.EventName == "batch"
+		var events []model.TempEventRequest
+		if isBatch {
+			var batch model.BatchEventRequest
+			err = json.Unmarshal(body, &batch)
+			events = batch.Events
+			for i := range events {
+				if events[i].Domain == "" {
+					events[i].Domain = batch.Domain
+				}
+				if events[i].JSVersion == "" {
+					events[i].JSVersion = batch.JSVersion
+				}
+			}
+		} else {
+			var single model.TempEventRequest
+			err = json.Unmarshal(body, &single)
+			events = []model.TempEventRequest{single}
+		}
+		if err != nil {
+			monitor.Outcome("request", "invalid_requests", "invalid_payload", 1)
+			c.JSON(http.StatusBadRequest, "bad")
+			return
+		}
+		if len(events) == 0 {
+			monitor.Outcome("request", "invalid_requests", "empty_batch", 1)
+			c.JSON(http.StatusBadRequest, "empty batch")
+			return
+		}
+		monitor.Count("received", len(events))
+		if len(events) > 100 {
+			monitor.Outcome("ingress", "rejected", "batch_too_large", len(events))
+			c.Header("X-Zenstats-Accepted", "0")
+			c.Header("X-Zenstats-Rejected", fmt.Sprint(len(events)))
+			c.JSON(http.StatusBadRequest, "too many batch events")
+			return
+		}
 		if isDatacenterOrThreatIP(c) {
-			slog.Debug("dropping datacenter/threat IP event", "ip", iputil.ClientIP(c.Request))
+			monitor.Outcome("ingress", "filtered", "datacenter_or_threat", len(events))
+			c.Header("X-Zenstats-Accepted", "0")
+			c.Header("X-Zenstats-Rejected", "0")
+			c.Header("X-Zenstats-Filtered", fmt.Sprint(len(events)))
 			c.JSON(http.StatusAccepted, "ok")
 			return
 		}
-
-		can, err := siteService.IsDomainInList(c, tempReq.Domain)
-		if err != nil {
-			slog.Debug("failed to check domain", "error", err)
-			c.JSON(http.StatusBadRequest, "bad")
-			return
+		requests := make([]*model.EventRequest, 0, len(events))
+		rollbacks := make([]func(), 0, len(events))
+		rejected, responseStatus := 0, http.StatusAccepted
+		for _, temp := range events {
+			req, rollback, reason, status := prepareEvent(c, siteService, temp)
+			if req == nil {
+				monitor.Outcome("ingress", "rejected", reason, 1)
+				rejected++
+				responseStatus = status
+				continue
+			}
+			requests = append(requests, req)
+			rollbacks = append(rollbacks, rollback)
 		}
-		if !can {
-			slog.Debug("domain not allowed", "domain", tempReq.Domain)
-			c.JSON(http.StatusBadRequest, "bad")
-			return
-		}
-
-		// 验证检查：仅接受已验证站点的事件
-		site, err := siteService.GetVerifiedSiteByDomain(c, tempReq.Domain)
-		if err != nil {
-			slog.Debug("site not verified", "domain", tempReq.Domain, "error", err)
-			c.JSON(http.StatusBadRequest, "bad")
-			return
-		}
-
-		// Verify request origin
-		if !verifyRequestOrigin(c, tempReq.Domain, site.AllowedOrigins) {
-			slog.Warn("event rejected: invalid request origin",
-				"domain", tempReq.Domain,
-				"origin", c.GetHeader("Origin"),
-				"referer", c.GetHeader("Referer"),
-			)
-			c.JSON(http.StatusForbidden, "forbidden")
-			return
-		}
-
-		// 限频检查：仅在站点配置了限频时生效
-		if site != nil {
-			if !limiter.allow(tempReq.Domain, site.IngestRateLimitScaleSeconds, site.IngestLimitPerMinute) {
-				slog.Warn("rate limit exceeded",
-					"domain", tempReq.Domain,
-					"rate_limit_scale_seconds", site.IngestRateLimitScaleSeconds,
-					"limit_per_minute", site.IngestLimitPerMinute,
-				)
-				c.JSON(http.StatusTooManyRequests, "rate limit exceeded")
+		if len(requests) > 0 {
+			queue := globals.GetQueue()
+			err := monitor.Accept(len(requests), func(records []*ingestion.Record) error {
+				if queue == nil {
+					return fmt.Errorf("queue unavailable")
+				}
+				for i := range requests {
+					requests[i].Collection = records[i]
+				}
+				return queue.EnqueueMany(requests)
+			})
+			if err != nil {
+				for _, rollback := range rollbacks {
+					rollback()
+				}
+				monitor.Outcome("ingress", "rejected", "queue_unavailable", len(requests))
+				c.Header("X-Zenstats-Accepted", "0")
+				c.Header("X-Zenstats-Rejected", fmt.Sprint(rejected+len(requests)))
+				c.Header("Retry-After", "5")
+				c.JSON(http.StatusServiceUnavailable, "event queue unavailable")
 				return
 			}
+			responseStatus = http.StatusAccepted
 		}
+		c.Header("X-Zenstats-Accepted", fmt.Sprint(len(requests)))
+		c.Header("X-Zenstats-Rejected", fmt.Sprint(rejected))
+		// Mixed batches preserve their admitted events; headers disclose rejected
+		// children. Queue admission itself is atomic, so 503 never hides a prefix.
+		if responseStatus == http.StatusServiceUnavailable {
+			c.Header("Retry-After", "5")
+		}
+		if responseStatus == http.StatusAccepted {
+			c.JSON(responseStatus, "ok")
+		} else {
+			c.JSON(responseStatus, "event rejected")
+		}
+	}
+}
 
-		// 月事件数配额检查
-		if site != nil {
-			ownerUserID, err := siteService.GetSiteOwnerUserID(c, site.ID)
-			if err == nil && ownerUserID > 0 {
-				userService := service.GetUserService()
-				user, err := userService.GetUserWithConfig(c, ownerUserID)
-				if err == nil && user.Edges.UserConfig != nil && user.Edges.UserConfig.Edges.Group != nil {
-					maxEvents := user.Edges.UserConfig.Edges.Group.MaxMonthlyEvents
-					if maxEvents != -1 {
-						// 原子检查并递增，避免并发请求超发配额
-						if !event.GetMonthlyQuota().TryIncrement(ownerUserID, int64(maxEvents)) {
-							c.JSON(http.StatusTooManyRequests, "monthly event limit exceeded")
-							return
-						}
-					} else {
-						// 无限制但仍需计数
-						event.GetMonthlyQuota().Increment(ownerUserID)
-					}
-				}
+// prepareEvent applies the same admission rules to single and batched events.
+func prepareEvent(c *gin.Context, siteService *service.SiteService, temp model.TempEventRequest) (*model.EventRequest, func(), string, int) {
+	if temp.EventName == "" || temp.EventName == "batch" || temp.Domain == "" || temp.URL == "" {
+		return nil, nil, "invalid_event", http.StatusBadRequest
+	}
+	site, err := siteService.GetSiteByDomain(c.Request.Context(), temp.Domain)
+	if errors.Is(err, service.ErrSiteNotFound) {
+		return nil, nil, "unknown_site", http.StatusBadRequest
+	}
+	if err != nil {
+		return nil, nil, "site_lookup_failed", http.StatusServiceUnavailable
+	}
+	if !site.IsVerified {
+		return nil, nil, "site_not_verified", http.StatusBadRequest
+	}
+	if !verifyRequestOrigin(c, temp.Domain, site.AllowedOrigins) {
+		return nil, nil, "origin_not_allowed", http.StatusForbidden
+	}
+	if !limiter.allow(temp.Domain, site.IngestRateLimitScaleSeconds, site.IngestLimitPerMinute) {
+		return nil, nil, "rate_limited", http.StatusTooManyRequests
+	}
+	rollback := func() {}
+	ownerID, ownerErr := siteService.GetSiteOwnerUserID(c, site.ID)
+	if ownerErr == nil && ownerID > 0 {
+		user, err := service.GetUserService().GetUserWithConfig(c, ownerID)
+		if err == nil && user.Edges.UserConfig != nil && user.Edges.UserConfig.Edges.Group != nil {
+			var allowed bool
+			rollback, allowed = event.GetMonthlyQuota().Reserve(ownerID, int64(user.Edges.UserConfig.Edges.Group.MaxMonthlyEvents))
+			if !allowed {
+				return nil, nil, "monthly_quota", http.StatusTooManyRequests
 			}
 		}
-
-		req := newEventRequest(tempReq, tempReq.Domain, c)
-		queue := globals.GetQueue()
-		if queue == nil || queue.Enqueue(req) != nil {
-			c.JSON(http.StatusServiceUnavailable, "event queue unavailable")
-			return
-		}
-
-		c.JSON(http.StatusAccepted, "ok")
 	}
+	return newEventRequest(temp, temp.Domain, c), rollback, "", http.StatusAccepted
 }

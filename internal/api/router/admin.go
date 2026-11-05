@@ -48,6 +48,7 @@ func RegisterAdminRouter(router *gin.RouterGroup) {
 
 	// 系统统计
 	adminGroup.GET("/stats", adminHandler.GetStats())
+	adminGroup.GET("/ingestion-quality", adminHandler.GetIngestionQuality())
 
 	// 邮件发送记录
 	adminGroup.GET("/email-logs", emailLogHandler.List())

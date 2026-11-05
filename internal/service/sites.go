@@ -28,6 +28,8 @@ import (
 	"github.com/zenstats/zenstats/pkg/utils"
 )
 
+var ErrSiteNotFound = errors.New("site not found")
+
 // 新增：全站列表缓存项结构体
 type allSitesCacheItem struct {
 	sites []*ent.Site
@@ -177,7 +179,7 @@ func (s *SiteService) GetSiteByDomain(ctx context.Context, domain string) (*ent.
 		return nil, err
 	}
 	if len(sites) == 0 {
-		return nil, fmt.Errorf("site not found")
+		return nil, ErrSiteNotFound
 	}
 
 	// 优先返回已验证的站点
