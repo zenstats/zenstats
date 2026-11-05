@@ -38,8 +38,11 @@ jobs:
             TAGS="${TAGS} -t ${IMAGE}:latest"
           fi
 
+          # ACR rejects OCI attestation manifests (application/vnd.oci.empty.v1+json).
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
+            --provenance=false \
+            --sbom=false \
             ${TAGS} \
             --build-arg GOPROXY=${{ env.GOPROXY }} \
             --push \
