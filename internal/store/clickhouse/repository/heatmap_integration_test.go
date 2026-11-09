@@ -157,6 +157,68 @@ func TestHeatmapAggregationIntegration(t *testing.T) {
 	}
 	check(4)
 
+	// Multiple URLs with one template key combine, while heights/versions/keys
+	// remain isolated even after background aggregate merges and migration reruns.
+	groupPage := page
+	groupPage.AggregationKey = "software-detail"
+	for _, path := range []string{"/soft/a.html", "/soft/b.html"} {
+		r := row
+		r.SiteID = 75
+		r.ID = uuid.New()
+		r.Page = groupPage
+		r.Page.Path = path
+		insert(r)
+		insert(r)
+	}
+	separate := row
+	separate.SiteID = 75
+	separate.Page = groupPage
+	separate.Page.Path = "/soft/a.html"
+	for i := 0; i < 3; i++ {
+		r := separate
+		r.ID = uuid.New()
+		switch i {
+		case 0:
+			r.Page.AggregationKey = "other"
+		case 1:
+			r.Page.DocumentHeight++
+		case 2:
+			r.Page.Version = "v2"
+		}
+		insert(r)
+	}
+	if err := cl.EnsureHeatmapTables(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.Exec(ctx, "OPTIMIZE TABLE heatmap_clicks_hourly FINAL"); err != nil {
+		t.Fatal(err)
+	}
+	grouped, err := repo.Pages(ctx, 75, now.Add(-time.Hour).Truncate(time.Hour), now.Add(time.Hour), true)
+	if err != nil || len(grouped) != 4 {
+		t.Fatalf("groups=%+v err=%v", grouped, err)
+	}
+	groupPage.Path = "/"
+	d, err = repo.Data(ctx, 75, groupPage, now.Add(-time.Hour).Truncate(time.Hour), now.Add(time.Hour), true)
+	if err != nil || d.Clicks != 2 || len(d.Points) != 1 {
+		t.Fatalf("combined=%+v err=%v", d, err)
+	}
+	groupPage.Path = "/soft/a.html"
+	d, err = repo.Data(ctx, 75, groupPage, now.Add(-time.Hour).Truncate(time.Hour), now.Add(time.Hour))
+	if err != nil || d.Clicks != 1 {
+		t.Fatalf("specific URL=%+v err=%v", d, err)
+	}
+	for range 2 {
+		if err := repo.Replay(ctx, 75, now.Add(-time.Hour), now.Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	groupPage.Path = "/"
+	d, err = repo.Data(ctx, 75, groupPage, now.Add(-time.Hour).Truncate(time.Hour), now.Add(time.Hour), true)
+	if err != nil || d.Clicks != 2 {
+		t.Fatalf("replay combined=%+v err=%v", d, err)
+	}
+	check(4) // Existing unlabelled historical data remains readable.
+
 	// With a real view write failure, the optional collector remains bounded,
 	// rejects overload, retries, drains on shutdown and reports every failed row.
 	if err := conn.Exec(ctx, "ALTER TABLE heatmap_clicks_hourly ADD CONSTRAINT reject_collector CHECK viewport_width=0"); err != nil {

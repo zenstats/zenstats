@@ -60,6 +60,16 @@ func SiteID(v int64) predicate.HeatmapSnapshot {
 	return predicate.HeatmapSnapshot(sql.FieldEQ(FieldSiteID, v))
 }
 
+// AggregationKey applies equality check predicate on the "aggregation_key" field. It's identical to AggregationKeyEQ.
+func AggregationKey(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldEQ(FieldAggregationKey, v))
+}
+
+// SourceURL applies equality check predicate on the "source_url" field. It's identical to SourceURLEQ.
+func SourceURL(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldEQ(FieldSourceURL, v))
+}
+
 // Hostname applies equality check predicate on the "hostname" field. It's identical to HostnameEQ.
 func Hostname(v string) predicate.HeatmapSnapshot {
 	return predicate.HeatmapSnapshot(sql.FieldEQ(FieldHostname, v))
@@ -153,6 +163,136 @@ func SiteIDIn(vs ...int64) predicate.HeatmapSnapshot {
 // SiteIDNotIn applies the NotIn predicate on the "site_id" field.
 func SiteIDNotIn(vs ...int64) predicate.HeatmapSnapshot {
 	return predicate.HeatmapSnapshot(sql.FieldNotIn(FieldSiteID, vs...))
+}
+
+// AggregationKeyEQ applies the EQ predicate on the "aggregation_key" field.
+func AggregationKeyEQ(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldEQ(FieldAggregationKey, v))
+}
+
+// AggregationKeyNEQ applies the NEQ predicate on the "aggregation_key" field.
+func AggregationKeyNEQ(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldNEQ(FieldAggregationKey, v))
+}
+
+// AggregationKeyIn applies the In predicate on the "aggregation_key" field.
+func AggregationKeyIn(vs ...string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldIn(FieldAggregationKey, vs...))
+}
+
+// AggregationKeyNotIn applies the NotIn predicate on the "aggregation_key" field.
+func AggregationKeyNotIn(vs ...string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldNotIn(FieldAggregationKey, vs...))
+}
+
+// AggregationKeyGT applies the GT predicate on the "aggregation_key" field.
+func AggregationKeyGT(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldGT(FieldAggregationKey, v))
+}
+
+// AggregationKeyGTE applies the GTE predicate on the "aggregation_key" field.
+func AggregationKeyGTE(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldGTE(FieldAggregationKey, v))
+}
+
+// AggregationKeyLT applies the LT predicate on the "aggregation_key" field.
+func AggregationKeyLT(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldLT(FieldAggregationKey, v))
+}
+
+// AggregationKeyLTE applies the LTE predicate on the "aggregation_key" field.
+func AggregationKeyLTE(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldLTE(FieldAggregationKey, v))
+}
+
+// AggregationKeyContains applies the Contains predicate on the "aggregation_key" field.
+func AggregationKeyContains(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldContains(FieldAggregationKey, v))
+}
+
+// AggregationKeyHasPrefix applies the HasPrefix predicate on the "aggregation_key" field.
+func AggregationKeyHasPrefix(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldHasPrefix(FieldAggregationKey, v))
+}
+
+// AggregationKeyHasSuffix applies the HasSuffix predicate on the "aggregation_key" field.
+func AggregationKeyHasSuffix(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldHasSuffix(FieldAggregationKey, v))
+}
+
+// AggregationKeyEqualFold applies the EqualFold predicate on the "aggregation_key" field.
+func AggregationKeyEqualFold(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldEqualFold(FieldAggregationKey, v))
+}
+
+// AggregationKeyContainsFold applies the ContainsFold predicate on the "aggregation_key" field.
+func AggregationKeyContainsFold(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldContainsFold(FieldAggregationKey, v))
+}
+
+// SourceURLEQ applies the EQ predicate on the "source_url" field.
+func SourceURLEQ(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldEQ(FieldSourceURL, v))
+}
+
+// SourceURLNEQ applies the NEQ predicate on the "source_url" field.
+func SourceURLNEQ(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldNEQ(FieldSourceURL, v))
+}
+
+// SourceURLIn applies the In predicate on the "source_url" field.
+func SourceURLIn(vs ...string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldIn(FieldSourceURL, vs...))
+}
+
+// SourceURLNotIn applies the NotIn predicate on the "source_url" field.
+func SourceURLNotIn(vs ...string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldNotIn(FieldSourceURL, vs...))
+}
+
+// SourceURLGT applies the GT predicate on the "source_url" field.
+func SourceURLGT(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldGT(FieldSourceURL, v))
+}
+
+// SourceURLGTE applies the GTE predicate on the "source_url" field.
+func SourceURLGTE(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldGTE(FieldSourceURL, v))
+}
+
+// SourceURLLT applies the LT predicate on the "source_url" field.
+func SourceURLLT(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldLT(FieldSourceURL, v))
+}
+
+// SourceURLLTE applies the LTE predicate on the "source_url" field.
+func SourceURLLTE(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldLTE(FieldSourceURL, v))
+}
+
+// SourceURLContains applies the Contains predicate on the "source_url" field.
+func SourceURLContains(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldContains(FieldSourceURL, v))
+}
+
+// SourceURLHasPrefix applies the HasPrefix predicate on the "source_url" field.
+func SourceURLHasPrefix(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldHasPrefix(FieldSourceURL, v))
+}
+
+// SourceURLHasSuffix applies the HasSuffix predicate on the "source_url" field.
+func SourceURLHasSuffix(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldHasSuffix(FieldSourceURL, v))
+}
+
+// SourceURLEqualFold applies the EqualFold predicate on the "source_url" field.
+func SourceURLEqualFold(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldEqualFold(FieldSourceURL, v))
+}
+
+// SourceURLContainsFold applies the ContainsFold predicate on the "source_url" field.
+func SourceURLContainsFold(v string) predicate.HeatmapSnapshot {
+	return predicate.HeatmapSnapshot(sql.FieldContainsFold(FieldSourceURL, v))
 }
 
 // HostnameEQ applies the EQ predicate on the "hostname" field.

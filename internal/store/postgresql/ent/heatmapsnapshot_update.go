@@ -43,6 +43,34 @@ func (hsu *HeatmapSnapshotUpdate) SetNillableSiteID(i *int64) *HeatmapSnapshotUp
 	return hsu
 }
 
+// SetAggregationKey sets the "aggregation_key" field.
+func (hsu *HeatmapSnapshotUpdate) SetAggregationKey(s string) *HeatmapSnapshotUpdate {
+	hsu.mutation.SetAggregationKey(s)
+	return hsu
+}
+
+// SetNillableAggregationKey sets the "aggregation_key" field if the given value is not nil.
+func (hsu *HeatmapSnapshotUpdate) SetNillableAggregationKey(s *string) *HeatmapSnapshotUpdate {
+	if s != nil {
+		hsu.SetAggregationKey(*s)
+	}
+	return hsu
+}
+
+// SetSourceURL sets the "source_url" field.
+func (hsu *HeatmapSnapshotUpdate) SetSourceURL(s string) *HeatmapSnapshotUpdate {
+	hsu.mutation.SetSourceURL(s)
+	return hsu
+}
+
+// SetNillableSourceURL sets the "source_url" field if the given value is not nil.
+func (hsu *HeatmapSnapshotUpdate) SetNillableSourceURL(s *string) *HeatmapSnapshotUpdate {
+	if s != nil {
+		hsu.SetSourceURL(*s)
+	}
+	return hsu
+}
+
 // SetHostname sets the "hostname" field.
 func (hsu *HeatmapSnapshotUpdate) SetHostname(s string) *HeatmapSnapshotUpdate {
 	hsu.mutation.SetHostname(s)
@@ -333,6 +361,16 @@ func (hsu *HeatmapSnapshotUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (hsu *HeatmapSnapshotUpdate) check() error {
+	if v, ok := hsu.mutation.AggregationKey(); ok {
+		if err := heatmapsnapshot.AggregationKeyValidator(v); err != nil {
+			return &ValidationError{Name: "aggregation_key", err: fmt.Errorf(`ent: validator failed for field "HeatmapSnapshot.aggregation_key": %w`, err)}
+		}
+	}
+	if v, ok := hsu.mutation.SourceURL(); ok {
+		if err := heatmapsnapshot.SourceURLValidator(v); err != nil {
+			return &ValidationError{Name: "source_url", err: fmt.Errorf(`ent: validator failed for field "HeatmapSnapshot.source_url": %w`, err)}
+		}
+	}
 	if v, ok := hsu.mutation.Hostname(); ok {
 		if err := heatmapsnapshot.HostnameValidator(v); err != nil {
 			return &ValidationError{Name: "hostname", err: fmt.Errorf(`ent: validator failed for field "HeatmapSnapshot.hostname": %w`, err)}
@@ -380,6 +418,12 @@ func (hsu *HeatmapSnapshotUpdate) sqlSave(ctx context.Context) (n int, err error
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := hsu.mutation.AggregationKey(); ok {
+		_spec.SetField(heatmapsnapshot.FieldAggregationKey, field.TypeString, value)
+	}
+	if value, ok := hsu.mutation.SourceURL(); ok {
+		_spec.SetField(heatmapsnapshot.FieldSourceURL, field.TypeString, value)
 	}
 	if value, ok := hsu.mutation.Hostname(); ok {
 		_spec.SetField(heatmapsnapshot.FieldHostname, field.TypeString, value)
@@ -503,6 +547,34 @@ func (hsuo *HeatmapSnapshotUpdateOne) SetSiteID(i int64) *HeatmapSnapshotUpdateO
 func (hsuo *HeatmapSnapshotUpdateOne) SetNillableSiteID(i *int64) *HeatmapSnapshotUpdateOne {
 	if i != nil {
 		hsuo.SetSiteID(*i)
+	}
+	return hsuo
+}
+
+// SetAggregationKey sets the "aggregation_key" field.
+func (hsuo *HeatmapSnapshotUpdateOne) SetAggregationKey(s string) *HeatmapSnapshotUpdateOne {
+	hsuo.mutation.SetAggregationKey(s)
+	return hsuo
+}
+
+// SetNillableAggregationKey sets the "aggregation_key" field if the given value is not nil.
+func (hsuo *HeatmapSnapshotUpdateOne) SetNillableAggregationKey(s *string) *HeatmapSnapshotUpdateOne {
+	if s != nil {
+		hsuo.SetAggregationKey(*s)
+	}
+	return hsuo
+}
+
+// SetSourceURL sets the "source_url" field.
+func (hsuo *HeatmapSnapshotUpdateOne) SetSourceURL(s string) *HeatmapSnapshotUpdateOne {
+	hsuo.mutation.SetSourceURL(s)
+	return hsuo
+}
+
+// SetNillableSourceURL sets the "source_url" field if the given value is not nil.
+func (hsuo *HeatmapSnapshotUpdateOne) SetNillableSourceURL(s *string) *HeatmapSnapshotUpdateOne {
+	if s != nil {
+		hsuo.SetSourceURL(*s)
 	}
 	return hsuo
 }
@@ -810,6 +882,16 @@ func (hsuo *HeatmapSnapshotUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (hsuo *HeatmapSnapshotUpdateOne) check() error {
+	if v, ok := hsuo.mutation.AggregationKey(); ok {
+		if err := heatmapsnapshot.AggregationKeyValidator(v); err != nil {
+			return &ValidationError{Name: "aggregation_key", err: fmt.Errorf(`ent: validator failed for field "HeatmapSnapshot.aggregation_key": %w`, err)}
+		}
+	}
+	if v, ok := hsuo.mutation.SourceURL(); ok {
+		if err := heatmapsnapshot.SourceURLValidator(v); err != nil {
+			return &ValidationError{Name: "source_url", err: fmt.Errorf(`ent: validator failed for field "HeatmapSnapshot.source_url": %w`, err)}
+		}
+	}
 	if v, ok := hsuo.mutation.Hostname(); ok {
 		if err := heatmapsnapshot.HostnameValidator(v); err != nil {
 			return &ValidationError{Name: "hostname", err: fmt.Errorf(`ent: validator failed for field "HeatmapSnapshot.hostname": %w`, err)}
@@ -874,6 +956,12 @@ func (hsuo *HeatmapSnapshotUpdateOne) sqlSave(ctx context.Context) (_node *Heatm
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := hsuo.mutation.AggregationKey(); ok {
+		_spec.SetField(heatmapsnapshot.FieldAggregationKey, field.TypeString, value)
+	}
+	if value, ok := hsuo.mutation.SourceURL(); ok {
+		_spec.SetField(heatmapsnapshot.FieldSourceURL, field.TypeString, value)
 	}
 	if value, ok := hsuo.mutation.Hostname(); ok {
 		_spec.SetField(heatmapsnapshot.FieldHostname, field.TypeString, value)

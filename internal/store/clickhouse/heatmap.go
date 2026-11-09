@@ -38,14 +38,25 @@ func EnsureHeatmapTables(ctx context.Context, conn clickhouse.Conn) error {
 		ORDER BY (site_id, hostname, path, version, variant, viewport_width, viewport_height, document_width, document_height, bucket, grid_x, grid_y, element, sample_rate, expires)
 		TTL expires DELETE
 		SETTINGS index_granularity = 8192`,
-		`CREATE MATERIALIZED VIEW IF NOT EXISTS heatmap_clicks_mv TO heatmap_clicks_hourly AS
-		SELECT site_id, bucket, hostname, path, version, variant,
+		`ALTER TABLE heatmap_clicks ADD COLUMN IF NOT EXISTS aggregation_key LowCardinality(String),
+            MODIFY ORDER BY (site_id,hostname,path,version,variant,viewport_width,viewport_height,document_width,document_height,bucket,click_id,aggregation_key)`,
+		`ALTER TABLE heatmap_clicks_hourly ADD COLUMN IF NOT EXISTS aggregation_key LowCardinality(String),
+            MODIFY ORDER BY (site_id,hostname,path,version,variant,viewport_width,viewport_height,document_width,document_height,bucket,grid_x,grid_y,element,sample_rate,expires,aggregation_key)`,
+		`CREATE MATERIALIZED VIEW IF NOT EXISTS heatmap_clicks_mv TO heatmap_clicks_hourly AS SELECT site_id, bucket, hostname, path, version, variant, aggregation_key,
 			viewport_width, viewport_height, document_width, document_height,
 			if(position = 'document', intDiv(toInt32(x), 16) * 16, -1) AS grid_x,
 			if(position = 'document', intDiv(toInt32(y), 16) * 16, -1) AS grid_y,
 			element, sample_rate, uniqExactState(click_id) AS clicks, max(timestamp) AS last_click, aggregate_expires AS expires
 		FROM heatmap_clicks
-		GROUP BY site_id, bucket, hostname, path, version, variant,
+		GROUP BY site_id, bucket, hostname, path, version, variant, aggregation_key,
+			viewport_width, viewport_height, document_width, document_height, grid_x, grid_y, element, sample_rate, expires`,
+		`ALTER TABLE heatmap_clicks_mv MODIFY QUERY SELECT site_id, bucket, hostname, path, version, variant, aggregation_key,
+			viewport_width, viewport_height, document_width, document_height,
+			if(position = 'document', intDiv(toInt32(x), 16) * 16, -1) AS grid_x,
+			if(position = 'document', intDiv(toInt32(y), 16) * 16, -1) AS grid_y,
+			element, sample_rate, uniqExactState(click_id) AS clicks, max(timestamp) AS last_click, aggregate_expires AS expires
+		FROM heatmap_clicks
+		GROUP BY site_id, bucket, hostname, path, version, variant, aggregation_key,
 			viewport_width, viewport_height, document_width, document_height, grid_x, grid_y, element, sample_rate, expires`,
 	}
 	for _, query := range queries {

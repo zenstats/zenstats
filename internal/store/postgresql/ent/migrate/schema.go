@@ -245,6 +245,7 @@ var (
 		{Name: "id", Type: field.TypeInt64, Increment: true},
 		{Name: "enabled", Type: field.TypeBool, Default: false},
 		{Name: "paths", Type: field.TypeJSON},
+		{Name: "groups", Type: field.TypeJSON, Default: "[]"},
 		{Name: "sample_rate", Type: field.TypeFloat64, Default: 0.1},
 		{Name: "max_clicks", Type: field.TypeInt, Default: 100},
 		{Name: "raw_days", Type: field.TypeInt, Default: 7},
@@ -261,7 +262,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "heatmap_configs_sites_heatmap_config",
-				Columns:    []*schema.Column{HeatmapConfigsColumns[9]},
+				Columns:    []*schema.Column{HeatmapConfigsColumns[10]},
 				RefColumns: []*schema.Column{SitesColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -270,13 +271,15 @@ var (
 			{
 				Name:    "heatmapconfig_site_id",
 				Unique:  true,
-				Columns: []*schema.Column{HeatmapConfigsColumns[9]},
+				Columns: []*schema.Column{HeatmapConfigsColumns[10]},
 			},
 		},
 	}
 	// HeatmapSnapshotsColumns holds the columns for the "heatmap_snapshots" table.
 	HeatmapSnapshotsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "aggregation_key", Type: field.TypeString, Size: 120, Default: ""},
+		{Name: "source_url", Type: field.TypeString, Size: 2000, Default: ""},
 		{Name: "hostname", Type: field.TypeString, Size: 253},
 		{Name: "path", Type: field.TypeString, Size: 2000},
 		{Name: "version", Type: field.TypeString, Size: 120},
@@ -302,7 +305,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "heatmap_snapshots_sites_heatmap_snapshots",
-				Columns:    []*schema.Column{HeatmapSnapshotsColumns[16]},
+				Columns:    []*schema.Column{HeatmapSnapshotsColumns[18]},
 				RefColumns: []*schema.Column{SitesColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -311,7 +314,7 @@ var (
 			{
 				Name:    "heatmapsnapshot_site_id",
 				Unique:  false,
-				Columns: []*schema.Column{HeatmapSnapshotsColumns[16]},
+				Columns: []*schema.Column{HeatmapSnapshotsColumns[18]},
 			},
 		},
 	}

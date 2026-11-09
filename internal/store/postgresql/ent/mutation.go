@@ -11,6 +11,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/zenstats/zenstats/internal/heatmap"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emaillog"
@@ -4723,6 +4724,8 @@ type HeatmapConfigMutation struct {
 	enabled           *bool
 	paths             *[]string
 	appendpaths       []string
+	groups            *[]heatmap.GroupRule
+	appendgroups      []heatmap.GroupRule
 	sample_rate       *float64
 	addsample_rate    *float64
 	max_clicks        *int
@@ -4966,6 +4969,57 @@ func (m *HeatmapConfigMutation) AppendedPaths() ([]string, bool) {
 func (m *HeatmapConfigMutation) ResetPaths() {
 	m.paths = nil
 	m.appendpaths = nil
+}
+
+// SetGroups sets the "groups" field.
+func (m *HeatmapConfigMutation) SetGroups(hr []heatmap.GroupRule) {
+	m.groups = &hr
+	m.appendgroups = nil
+}
+
+// Groups returns the value of the "groups" field in the mutation.
+func (m *HeatmapConfigMutation) Groups() (r []heatmap.GroupRule, exists bool) {
+	v := m.groups
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroups returns the old "groups" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldGroups(ctx context.Context) (v []heatmap.GroupRule, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroups is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroups requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroups: %w", err)
+	}
+	return oldValue.Groups, nil
+}
+
+// AppendGroups adds hr to the "groups" field.
+func (m *HeatmapConfigMutation) AppendGroups(hr []heatmap.GroupRule) {
+	m.appendgroups = append(m.appendgroups, hr...)
+}
+
+// AppendedGroups returns the list of values that were appended to the "groups" field in this mutation.
+func (m *HeatmapConfigMutation) AppendedGroups() ([]heatmap.GroupRule, bool) {
+	if len(m.appendgroups) == 0 {
+		return nil, false
+	}
+	return m.appendgroups, true
+}
+
+// ResetGroups resets all changes to the "groups" field.
+func (m *HeatmapConfigMutation) ResetGroups() {
+	m.groups = nil
+	m.appendgroups = nil
 }
 
 // SetSampleRate sets the "sample_rate" field.
@@ -5325,7 +5379,7 @@ func (m *HeatmapConfigMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *HeatmapConfigMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.site != nil {
 		fields = append(fields, heatmapconfig.FieldSiteID)
 	}
@@ -5334,6 +5388,9 @@ func (m *HeatmapConfigMutation) Fields() []string {
 	}
 	if m.paths != nil {
 		fields = append(fields, heatmapconfig.FieldPaths)
+	}
+	if m.groups != nil {
+		fields = append(fields, heatmapconfig.FieldGroups)
 	}
 	if m.sample_rate != nil {
 		fields = append(fields, heatmapconfig.FieldSampleRate)
@@ -5367,6 +5424,8 @@ func (m *HeatmapConfigMutation) Field(name string) (ent.Value, bool) {
 		return m.Enabled()
 	case heatmapconfig.FieldPaths:
 		return m.Paths()
+	case heatmapconfig.FieldGroups:
+		return m.Groups()
 	case heatmapconfig.FieldSampleRate:
 		return m.SampleRate()
 	case heatmapconfig.FieldMaxClicks:
@@ -5394,6 +5453,8 @@ func (m *HeatmapConfigMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldEnabled(ctx)
 	case heatmapconfig.FieldPaths:
 		return m.OldPaths(ctx)
+	case heatmapconfig.FieldGroups:
+		return m.OldGroups(ctx)
 	case heatmapconfig.FieldSampleRate:
 		return m.OldSampleRate(ctx)
 	case heatmapconfig.FieldMaxClicks:
@@ -5435,6 +5496,13 @@ func (m *HeatmapConfigMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPaths(v)
+		return nil
+	case heatmapconfig.FieldGroups:
+		v, ok := value.([]heatmap.GroupRule)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroups(v)
 		return nil
 	case heatmapconfig.FieldSampleRate:
 		v, ok := value.(float64)
@@ -5587,6 +5655,9 @@ func (m *HeatmapConfigMutation) ResetField(name string) error {
 	case heatmapconfig.FieldPaths:
 		m.ResetPaths()
 		return nil
+	case heatmapconfig.FieldGroups:
+		m.ResetGroups()
+		return nil
 	case heatmapconfig.FieldSampleRate:
 		m.ResetSampleRate()
 		return nil
@@ -5689,6 +5760,8 @@ type HeatmapSnapshotMutation struct {
 	op                 Op
 	typ                string
 	id                 *int64
+	aggregation_key    *string
+	source_url         *string
 	hostname           *string
 	_path              *string
 	version            *string
@@ -5857,6 +5930,78 @@ func (m *HeatmapSnapshotMutation) OldSiteID(ctx context.Context) (v int64, err e
 // ResetSiteID resets all changes to the "site_id" field.
 func (m *HeatmapSnapshotMutation) ResetSiteID() {
 	m.site = nil
+}
+
+// SetAggregationKey sets the "aggregation_key" field.
+func (m *HeatmapSnapshotMutation) SetAggregationKey(s string) {
+	m.aggregation_key = &s
+}
+
+// AggregationKey returns the value of the "aggregation_key" field in the mutation.
+func (m *HeatmapSnapshotMutation) AggregationKey() (r string, exists bool) {
+	v := m.aggregation_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAggregationKey returns the old "aggregation_key" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldAggregationKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAggregationKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAggregationKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAggregationKey: %w", err)
+	}
+	return oldValue.AggregationKey, nil
+}
+
+// ResetAggregationKey resets all changes to the "aggregation_key" field.
+func (m *HeatmapSnapshotMutation) ResetAggregationKey() {
+	m.aggregation_key = nil
+}
+
+// SetSourceURL sets the "source_url" field.
+func (m *HeatmapSnapshotMutation) SetSourceURL(s string) {
+	m.source_url = &s
+}
+
+// SourceURL returns the value of the "source_url" field in the mutation.
+func (m *HeatmapSnapshotMutation) SourceURL() (r string, exists bool) {
+	v := m.source_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceURL returns the old "source_url" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldSourceURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceURL: %w", err)
+	}
+	return oldValue.SourceURL, nil
+}
+
+// ResetSourceURL resets all changes to the "source_url" field.
+func (m *HeatmapSnapshotMutation) ResetSourceURL() {
+	m.source_url = nil
 }
 
 // SetHostname sets the "hostname" field.
@@ -6600,9 +6745,15 @@ func (m *HeatmapSnapshotMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *HeatmapSnapshotMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 18)
 	if m.site != nil {
 		fields = append(fields, heatmapsnapshot.FieldSiteID)
+	}
+	if m.aggregation_key != nil {
+		fields = append(fields, heatmapsnapshot.FieldAggregationKey)
+	}
+	if m.source_url != nil {
+		fields = append(fields, heatmapsnapshot.FieldSourceURL)
 	}
 	if m.hostname != nil {
 		fields = append(fields, heatmapsnapshot.FieldHostname)
@@ -6659,6 +6810,10 @@ func (m *HeatmapSnapshotMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case heatmapsnapshot.FieldSiteID:
 		return m.SiteID()
+	case heatmapsnapshot.FieldAggregationKey:
+		return m.AggregationKey()
+	case heatmapsnapshot.FieldSourceURL:
+		return m.SourceURL()
 	case heatmapsnapshot.FieldHostname:
 		return m.Hostname()
 	case heatmapsnapshot.FieldPath:
@@ -6700,6 +6855,10 @@ func (m *HeatmapSnapshotMutation) OldField(ctx context.Context, name string) (en
 	switch name {
 	case heatmapsnapshot.FieldSiteID:
 		return m.OldSiteID(ctx)
+	case heatmapsnapshot.FieldAggregationKey:
+		return m.OldAggregationKey(ctx)
+	case heatmapsnapshot.FieldSourceURL:
+		return m.OldSourceURL(ctx)
 	case heatmapsnapshot.FieldHostname:
 		return m.OldHostname(ctx)
 	case heatmapsnapshot.FieldPath:
@@ -6745,6 +6904,20 @@ func (m *HeatmapSnapshotMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSiteID(v)
+		return nil
+	case heatmapsnapshot.FieldAggregationKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAggregationKey(v)
+		return nil
+	case heatmapsnapshot.FieldSourceURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceURL(v)
 		return nil
 	case heatmapsnapshot.FieldHostname:
 		v, ok := value.(string)
@@ -6989,6 +7162,12 @@ func (m *HeatmapSnapshotMutation) ResetField(name string) error {
 	switch name {
 	case heatmapsnapshot.FieldSiteID:
 		m.ResetSiteID()
+		return nil
+	case heatmapsnapshot.FieldAggregationKey:
+		m.ResetAggregationKey()
+		return nil
+	case heatmapsnapshot.FieldSourceURL:
+		m.ResetSourceURL()
 		return nil
 	case heatmapsnapshot.FieldHostname:
 		m.ResetHostname()

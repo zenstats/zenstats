@@ -40,8 +40,9 @@ func (h *Handler) Config(c *gin.Context) {
 	}
 	response.Success(c, struct {
 		heatmap.Config
-		CanWrite bool `json:"can_write"`
-	}{cfg, canWrite && c.GetString("user_type") != "sub_account"})
+		CanWrite            bool `json:"can_write"`
+		ScreenshotAvailable bool `json:"screenshot_available"`
+	}{cfg, canWrite && c.GetString("user_type") != "sub_account", service.ScreenshotAvailable()})
 }
 
 func (h *Handler) WriteAccess() gin.HandlerFunc {
@@ -76,7 +77,11 @@ func (h *Handler) SaveConfig(c *gin.Context) {
 	}
 	cfg, err := h.Service.SaveConfig(c.Request.Context(), c.GetInt64("site_id"), cfg)
 	if err != nil {
-		fail(c, 503, err)
+		status := 503
+		if errors.Is(err, service.ErrHeatmapInvalid) {
+			status = 400
+		}
+		fail(c, status, err)
 		return
 	}
 	response.Success(c, cfg)
@@ -99,7 +104,7 @@ func (h *Handler) Pages(c *gin.Context) {
 		return
 	}
 	defer release()
-	pages, err := h.Service.Repo.Pages(ctx, uint64(siteID), from, to)
+	pages, err := h.Service.Repo.Pages(ctx, uint64(siteID), from, to, c.Query("scope") == "key")
 	if err != nil {
 		fail(c, 503, err)
 		return
@@ -121,6 +126,10 @@ func (h *Handler) Data(c *gin.Context) {
 		fail(c, 400, err)
 		return
 	}
+	if c.Query("scope") == "key" && page.AggregationKey == "" {
+		fail(c, 400, errors.New("aggregation key required"))
+		return
+	}
 	if err := page.Validate(); err != nil {
 		fail(c, 400, err)
 		return
@@ -131,7 +140,7 @@ func (h *Handler) Data(c *gin.Context) {
 		return
 	}
 	defer release()
-	data, err := h.Service.Repo.Data(ctx, uint64(siteID), page, from, to)
+	data, err := h.Service.Repo.Data(ctx, uint64(siteID), page, from, to, c.Query("scope") == "key")
 	if err != nil {
 		fail(c, 503, err)
 		return

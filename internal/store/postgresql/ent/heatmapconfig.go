@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/zenstats/zenstats/internal/heatmap"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 )
@@ -25,6 +26,8 @@ type HeatmapConfig struct {
 	Enabled bool `json:"enabled,omitempty"`
 	// Paths holds the value of the "paths" field.
 	Paths []string `json:"paths,omitempty"`
+	// Groups holds the value of the "groups" field.
+	Groups []heatmap.GroupRule `json:"groups,omitempty"`
 	// SampleRate holds the value of the "sample_rate" field.
 	SampleRate float64 `json:"sample_rate,omitempty"`
 	// MaxClicks holds the value of the "max_clicks" field.
@@ -68,7 +71,7 @@ func (*HeatmapConfig) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case heatmapconfig.FieldPaths:
+		case heatmapconfig.FieldPaths, heatmapconfig.FieldGroups:
 			values[i] = new([]byte)
 		case heatmapconfig.FieldEnabled:
 			values[i] = new(sql.NullBool)
@@ -119,6 +122,14 @@ func (hc *HeatmapConfig) assignValues(columns []string, values []any) error {
 			} else if value != nil && len(*value) > 0 {
 				if err := json.Unmarshal(*value, &hc.Paths); err != nil {
 					return fmt.Errorf("unmarshal field paths: %w", err)
+				}
+			}
+		case heatmapconfig.FieldGroups:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field groups", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &hc.Groups); err != nil {
+					return fmt.Errorf("unmarshal field groups: %w", err)
 				}
 			}
 		case heatmapconfig.FieldSampleRate:
@@ -206,6 +217,9 @@ func (hc *HeatmapConfig) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("paths=")
 	builder.WriteString(fmt.Sprintf("%v", hc.Paths))
+	builder.WriteString(", ")
+	builder.WriteString("groups=")
+	builder.WriteString(fmt.Sprintf("%v", hc.Groups))
 	builder.WriteString(", ")
 	builder.WriteString("sample_rate=")
 	builder.WriteString(fmt.Sprintf("%v", hc.SampleRate))

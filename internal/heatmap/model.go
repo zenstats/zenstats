@@ -24,6 +24,7 @@ var labelPattern = regexp.MustCompile(`^[a-zA-Z0-9_.:/@-]{1,120}$`)
 
 // Page identifies one reproducible page layout. Dimensions are CSS pixels.
 type Page struct {
+	AggregationKey string `json:"aggregation_key"`
 	Hostname       string `json:"hostname"`
 	Path           string `json:"path"`
 	Version        string `json:"version"`
@@ -41,6 +42,9 @@ func (p *Page) Validate() error {
 	}
 	if len(p.Path) == 0 || len(p.Path) > 2000 || p.Path[0] != '/' || strings.ContainsAny(p.Path, "?\r\n") {
 		return errors.New("invalid canonical path")
+	}
+	if p.AggregationKey != "" && !labelPattern.MatchString(p.AggregationKey) {
+		return errors.New("invalid aggregation key")
 	}
 	if !labelPattern.MatchString(p.Version) || !labelPattern.MatchString(p.Variant) {
 		return errors.New("version and variant must be short non-sensitive identifiers")
@@ -100,18 +104,25 @@ type Batch struct {
 	SampleRate float64   `json:"sample_rate"`
 }
 
+type GroupRule struct {
+	Path       string `json:"path"`
+	Key        string `json:"key"`
+	ExampleURL string `json:"example_url"`
+}
+
 type Config struct {
-	Enabled       bool     `json:"enabled"`
-	Paths         []string `json:"paths"`
-	SampleRate    float64  `json:"sample_rate"`
-	MaxClicks     int      `json:"max_clicks"`
-	RawDays       int      `json:"raw_days"`
-	AggregateDays int      `json:"aggregate_days"`
-	Timezone      string   `json:"timezone"`
+	Groups        []GroupRule `json:"groups"`
+	Enabled       bool        `json:"enabled"`
+	Paths         []string    `json:"paths"`
+	SampleRate    float64     `json:"sample_rate"`
+	MaxClicks     int         `json:"max_clicks"`
+	RawDays       int         `json:"raw_days"`
+	AggregateDays int         `json:"aggregate_days"`
+	Timezone      string      `json:"timezone"`
 }
 
 func DefaultConfig() Config {
-	return Config{Paths: []string{}, SampleRate: .1, MaxClicks: 100, RawDays: 7, AggregateDays: 90, Timezone: "UTC"}
+	return Config{Groups: []GroupRule{}, Paths: []string{}, SampleRate: .1, MaxClicks: 100, RawDays: 7, AggregateDays: 90, Timezone: "UTC"}
 }
 
 func (c Config) Validate() error {
@@ -127,6 +138,24 @@ func (c Config) Validate() error {
 			return errors.New("invalid page rule")
 		}
 	}
+	if len(c.Groups) > 50 {
+		return errors.New("at most 50 aggregation rules")
+	}
+	for _, g := range c.Groups {
+		if !labelPattern.MatchString(g.Key) || !strings.HasPrefix(g.Path, "/") || len(g.Path) > 1000 || strings.ContainsAny(g.Path, "?[]\\\r\n") {
+			return errors.New("invalid aggregation rule")
+		}
+		if g.ExampleURL != "" {
+			u, err := url.Parse(g.ExampleURL)
+			if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Hostname() == "" || u.User != nil || len(g.ExampleURL) > 2000 || u.RawQuery != "" || strings.Contains(u.Fragment, "?") {
+				return errors.New("invalid example URL (query values are not stored)")
+			}
+			p, err := CanonicalPath(g.ExampleURL, u.Fragment != "")
+			if err != nil || !MatchesPath(p, g.Path) {
+				return errors.New("example URL does not match aggregation rule")
+			}
+		}
+	}
 	if _, err := time.LoadLocation(c.Timezone); err != nil {
 		return errors.New("invalid timezone")
 	}
@@ -135,12 +164,27 @@ func (c Config) Validate() error {
 
 func (c Config) Allows(pagePath string) bool {
 	for _, rule := range c.Paths {
-		pattern := "^" + strings.ReplaceAll(regexp.QuoteMeta(rule), `\*`, `[^/]*`) + "$"
-		if ok, _ := regexp.MatchString(pattern, pagePath); ok {
+		if MatchesPath(pagePath, rule) {
 			return true
 		}
 	}
 	return false
+}
+
+func MatchesPath(path, rule string) bool {
+	pattern := "^" + strings.ReplaceAll(regexp.QuoteMeta(rule), `\*`, `[^/]*`) + "$"
+	ok, _ := regexp.MatchString(pattern, path)
+	return ok
+}
+
+// First matching configured rule wins over a tracker-supplied key.
+func (c Config) KeyFor(path, supplied string) string {
+	for _, g := range c.Groups {
+		if MatchesPath(path, g.Path) {
+			return g.Key
+		}
+	}
+	return supplied
 }
 
 // CanonicalPath never retains query values, including inside SPA hash routes.
@@ -173,6 +217,7 @@ type Row struct {
 }
 
 func NewRow(siteID uint64, batchID uuid.UUID, click Click, cfg Config) Row {
+	click.Page.AggregationKey = cfg.KeyFor(click.Page.Path, click.Page.AggregationKey)
 	loc, _ := time.LoadLocation(cfg.Timezone)
 	_, offset := click.Timestamp.In(loc).Zone()
 	bucket := click.Timestamp.Add(time.Duration(offset) * time.Second).Truncate(time.Hour).Add(-time.Duration(offset) * time.Second).UTC()

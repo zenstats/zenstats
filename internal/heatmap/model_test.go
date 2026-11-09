@@ -15,11 +15,12 @@ func TestClickValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, change := range map[string]func(*Click){
-		"outside document":    func(c *Click) { c.Y = 2000 },
-		"invalid coordinates": func(c *Click) { c.X = math.NaN() },
-		"old timestamp":       func(c *Click) { c.Timestamp = now.Add(-2 * time.Hour) },
-		"unbounded selector":  func(c *Click) { c.Element = "button[data-email=private@example.test]" },
-		"query in path":       func(c *Click) { c.Page.Path = "/pricing?token=secret" },
+		"outside document":        func(c *Click) { c.Y = 2000 },
+		"invalid coordinates":     func(c *Click) { c.X = math.NaN() },
+		"invalid aggregation key": func(c *Click) { c.Page.AggregationKey = "user?private" },
+		"old timestamp":           func(c *Click) { c.Timestamp = now.Add(-2 * time.Hour) },
+		"unbounded selector":      func(c *Click) { c.Element = "button[data-email=private@example.test]" },
+		"query in path":           func(c *Click) { c.Page.Path = "/pricing?token=secret" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			c := valid
@@ -83,5 +84,22 @@ func TestPageRulesAndHosts(t *testing.T) {
 	}
 	if !HostAllowed("shop.example.test", "example.test", "https://*.example.test") || HostAllowed("example.test.evil.test", "example.test", "*.example.test") {
 		t.Fatal("hostname boundaries")
+	}
+}
+
+func TestAggregationRules(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Groups = []GroupRule{{Path: "/soft/*.html", Key: "software", ExampleURL: "https://example.test/soft/a.html"}, {Path: "/soft/*", Key: "fallback"}}
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.KeyFor("/soft/a.html", "supplied") != "software" || cfg.KeyFor("/other", "supplied") != "supplied" || cfg.KeyFor("/soft/a/b.html", "supplied") != "supplied" {
+		t.Fatal("rule precedence/boundary")
+	}
+	for _, rule := range []GroupRule{{Path: "/soft/*", Key: "user@example.com?"}, {Path: "/soft/*", Key: "ok", ExampleURL: "https://example.test/other"}, {Path: "/soft/*", Key: "ok", ExampleURL: "http://user:secret@example.test/soft/a"}} {
+		cfg.Groups = []GroupRule{rule}
+		if cfg.Validate() == nil {
+			t.Fatal(rule)
+		}
 	}
 }

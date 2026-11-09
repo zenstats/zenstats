@@ -58,7 +58,11 @@ func HeatmapConfig(s *service.HeatmapService) gin.HandlerFunc {
 			c.Status(http.StatusServiceUnavailable)
 			return
 		}
-		c.JSON(200, gin.H{"enabled": cfg.Enabled, "paths": cfg.Paths, "sample_rate": cfg.SampleRate, "max_clicks": cfg.MaxClicks, "protocol_version": heatmap.ProtocolVersion})
+		groups := make([]gin.H, 0, len(cfg.Groups))
+		for _, g := range cfg.Groups {
+			groups = append(groups, gin.H{"path": g.Path, "key": g.Key})
+		}
+		c.JSON(200, gin.H{"groups": groups, "enabled": cfg.Enabled, "paths": cfg.Paths, "sample_rate": cfg.SampleRate, "max_clicks": cfg.MaxClicks, "protocol_version": heatmap.ProtocolVersion})
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	_ "image/png"
 	"io"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -39,6 +40,7 @@ type HeatmapService struct {
 	configs   *expirable.LRU[int64, heatmap.Config]
 	directory string
 	queries   chan struct{}
+	captures  chan struct{}
 	filesMu   sync.Mutex
 	closeConn func() error
 }
@@ -63,11 +65,11 @@ func (s *HeatmapService) Shutdown() {
 func NewHeatmapService(db *postgresql.Client, repo *repository.Heatmap, dataPath string) *HeatmapService {
 	return &HeatmapService{db: db, Repo: repo, Collector: heatmap.NewCollector(repo),
 		configs:   expirable.NewLRU[int64, heatmap.Config](1000, nil, 10*time.Second),
-		directory: filepath.Join(dataPath, "heatmaps"), queries: make(chan struct{}, 2)}
+		directory: filepath.Join(dataPath, "heatmaps"), queries: make(chan struct{}, 2), captures: make(chan struct{}, 1)}
 }
 
 func configFromEntity(r *ent.HeatmapConfig) heatmap.Config {
-	return heatmap.Config{Enabled: r.Enabled, Paths: r.Paths, SampleRate: r.SampleRate, MaxClicks: r.MaxClicks, RawDays: r.RawDays, AggregateDays: r.AggregateDays, Timezone: r.Timezone}
+	return heatmap.Config{Enabled: r.Enabled, Paths: r.Paths, Groups: r.Groups, SampleRate: r.SampleRate, MaxClicks: r.MaxClicks, RawDays: r.RawDays, AggregateDays: r.AggregateDays, Timezone: r.Timezone}
 }
 
 func (s *HeatmapService) CanWrite(ctx context.Context, siteID, userID int64) (bool, error) {
@@ -97,6 +99,18 @@ func (s *HeatmapService) Config(ctx context.Context, siteID int64) (heatmap.Conf
 }
 
 func (s *HeatmapService) SaveConfig(ctx context.Context, siteID int64, cfg heatmap.Config) (heatmap.Config, error) {
+	siteForRules, err := s.db.Client.Site.Get(ctx, siteID)
+	if err != nil {
+		return cfg, err
+	}
+	for _, g := range cfg.Groups {
+		if g.ExampleURL != "" {
+			u, e := url.Parse(g.ExampleURL)
+			if e != nil || !heatmap.HostAllowed(u.Hostname(), siteForRules.Domain, siteForRules.AllowedOrigins) {
+				return cfg, fmt.Errorf("%w: example URL must belong to this site", ErrHeatmapInvalid)
+			}
+		}
+	}
 	r, err := s.db.Client.HeatmapConfig.Query().Where(hcfg.SiteID(siteID)).Only(ctx)
 	if ent.IsNotFound(err) {
 		site, err := s.db.Client.Site.Get(ctx, siteID)
@@ -107,7 +121,7 @@ func (s *HeatmapService) SaveConfig(ctx context.Context, siteID int64, cfg heatm
 		if err := cfg.Validate(); err != nil {
 			return cfg, err
 		}
-		r, err = s.db.Client.HeatmapConfig.Create().SetSiteID(siteID).SetEnabled(cfg.Enabled).SetPaths(cfg.Paths).
+		r, err = s.db.Client.HeatmapConfig.Create().SetSiteID(siteID).SetEnabled(cfg.Enabled).SetPaths(cfg.Paths).SetGroups(cfg.Groups).
 			SetSampleRate(cfg.SampleRate).SetMaxClicks(cfg.MaxClicks).SetRawDays(cfg.RawDays).SetAggregateDays(cfg.AggregateDays).SetTimezone(cfg.Timezone).Save(ctx)
 		if err != nil {
 			return cfg, err
@@ -122,7 +136,7 @@ func (s *HeatmapService) SaveConfig(ctx context.Context, siteID int64, cfg heatm
 		if err := cfg.Validate(); err != nil {
 			return cfg, err
 		}
-		r, err = s.db.Client.HeatmapConfig.UpdateOne(r).SetEnabled(cfg.Enabled).SetPaths(cfg.Paths).
+		r, err = s.db.Client.HeatmapConfig.UpdateOne(r).SetEnabled(cfg.Enabled).SetPaths(cfg.Paths).SetGroups(cfg.Groups).
 			SetSampleRate(cfg.SampleRate).SetMaxClicks(cfg.MaxClicks).SetRawDays(cfg.RawDays).SetAggregateDays(cfg.AggregateDays).Save(ctx)
 		if err != nil {
 			return cfg, err
@@ -169,7 +183,8 @@ func (s *HeatmapService) QuerySlot(ctx context.Context) (func(), error) {
 }
 
 type HeatmapSnapshot struct {
-	ID int64 `json:"id"`
+	ID        int64  `json:"id"`
+	SourceURL string `json:"source_url"`
 	heatmap.Page
 	ImageWidth  int       `json:"image_width"`
 	ImageHeight int       `json:"image_height"`
@@ -178,7 +193,7 @@ type HeatmapSnapshot struct {
 }
 
 func snapshotDTO(r *ent.HeatmapSnapshot) HeatmapSnapshot {
-	return HeatmapSnapshot{ID: r.ID, Page: heatmap.Page{Hostname: r.Hostname, Path: r.Path, Version: r.Version, Variant: r.Variant,
+	return HeatmapSnapshot{ID: r.ID, SourceURL: r.SourceURL, Page: heatmap.Page{AggregationKey: r.AggregationKey, Hostname: r.Hostname, Path: r.Path, Version: r.Version, Variant: r.Variant,
 		ViewportWidth: uint16(r.ViewportWidth), ViewportHeight: uint16(r.ViewportHeight), DocumentWidth: uint32(r.DocumentWidth), DocumentHeight: uint32(r.DocumentHeight)},
 		ImageWidth: r.ImageWidth, ImageHeight: r.ImageHeight, CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt}
 }
@@ -210,7 +225,7 @@ func (s *HeatmapService) SnapshotFile(row *ent.HeatmapSnapshot) (*os.File, error
 	return os.Open(filepath.Join(s.directory, row.FileKey))
 }
 
-func (s *HeatmapService) CreateSnapshot(ctx context.Context, siteID int64, page heatmap.Page, reader io.Reader) (HeatmapSnapshot, error) {
+func (s *HeatmapService) CreateSnapshot(ctx context.Context, siteID int64, page heatmap.Page, reader io.Reader, sourceURL ...string) (HeatmapSnapshot, error) {
 	if err := page.Validate(); err != nil {
 		return HeatmapSnapshot{}, fmt.Errorf("%w: %v", ErrHeatmapInvalid, err)
 	}
@@ -260,7 +275,11 @@ func (s *HeatmapService) CreateSnapshot(ctx context.Context, siteID int64, page 
 		os.Remove(p)
 		return HeatmapSnapshot{}, err
 	}
-	r, err := s.db.Client.HeatmapSnapshot.Create().SetSiteID(siteID).SetHostname(page.Hostname).SetPath(page.Path).SetVersion(page.Version).SetVariant(page.Variant).
+	source := ""
+	if len(sourceURL) > 0 {
+		source = sourceURL[0]
+	}
+	r, err := s.db.Client.HeatmapSnapshot.Create().SetSourceURL(source).SetSiteID(siteID).SetHostname(page.Hostname).SetPath(page.Path).SetAggregationKey(page.AggregationKey).SetVersion(page.Version).SetVariant(page.Variant).
 		SetViewportWidth(int(page.ViewportWidth)).SetViewportHeight(int(page.ViewportHeight)).SetDocumentWidth(int(page.DocumentWidth)).SetDocumentHeight(int(page.DocumentHeight)).
 		SetImageWidth(imageCfg.Width).SetImageHeight(imageCfg.Height).SetFileKey(key).SetContentType("image/" + format).SetFileSize(len(body)).
 		SetExpiresAt(time.Now().Add(time.Duration(cfg.AggregateDays) * 24 * time.Hour)).Save(ctx)

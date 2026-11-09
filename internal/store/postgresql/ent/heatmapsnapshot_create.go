@@ -27,6 +27,34 @@ func (hsc *HeatmapSnapshotCreate) SetSiteID(i int64) *HeatmapSnapshotCreate {
 	return hsc
 }
 
+// SetAggregationKey sets the "aggregation_key" field.
+func (hsc *HeatmapSnapshotCreate) SetAggregationKey(s string) *HeatmapSnapshotCreate {
+	hsc.mutation.SetAggregationKey(s)
+	return hsc
+}
+
+// SetNillableAggregationKey sets the "aggregation_key" field if the given value is not nil.
+func (hsc *HeatmapSnapshotCreate) SetNillableAggregationKey(s *string) *HeatmapSnapshotCreate {
+	if s != nil {
+		hsc.SetAggregationKey(*s)
+	}
+	return hsc
+}
+
+// SetSourceURL sets the "source_url" field.
+func (hsc *HeatmapSnapshotCreate) SetSourceURL(s string) *HeatmapSnapshotCreate {
+	hsc.mutation.SetSourceURL(s)
+	return hsc
+}
+
+// SetNillableSourceURL sets the "source_url" field if the given value is not nil.
+func (hsc *HeatmapSnapshotCreate) SetNillableSourceURL(s *string) *HeatmapSnapshotCreate {
+	if s != nil {
+		hsc.SetSourceURL(*s)
+	}
+	return hsc
+}
+
 // SetHostname sets the "hostname" field.
 func (hsc *HeatmapSnapshotCreate) SetHostname(s string) *HeatmapSnapshotCreate {
 	hsc.mutation.SetHostname(s)
@@ -171,6 +199,14 @@ func (hsc *HeatmapSnapshotCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (hsc *HeatmapSnapshotCreate) defaults() {
+	if _, ok := hsc.mutation.AggregationKey(); !ok {
+		v := heatmapsnapshot.DefaultAggregationKey
+		hsc.mutation.SetAggregationKey(v)
+	}
+	if _, ok := hsc.mutation.SourceURL(); !ok {
+		v := heatmapsnapshot.DefaultSourceURL
+		hsc.mutation.SetSourceURL(v)
+	}
 	if _, ok := hsc.mutation.CreatedAt(); !ok {
 		v := heatmapsnapshot.DefaultCreatedAt()
 		hsc.mutation.SetCreatedAt(v)
@@ -181,6 +217,22 @@ func (hsc *HeatmapSnapshotCreate) defaults() {
 func (hsc *HeatmapSnapshotCreate) check() error {
 	if _, ok := hsc.mutation.SiteID(); !ok {
 		return &ValidationError{Name: "site_id", err: errors.New(`ent: missing required field "HeatmapSnapshot.site_id"`)}
+	}
+	if _, ok := hsc.mutation.AggregationKey(); !ok {
+		return &ValidationError{Name: "aggregation_key", err: errors.New(`ent: missing required field "HeatmapSnapshot.aggregation_key"`)}
+	}
+	if v, ok := hsc.mutation.AggregationKey(); ok {
+		if err := heatmapsnapshot.AggregationKeyValidator(v); err != nil {
+			return &ValidationError{Name: "aggregation_key", err: fmt.Errorf(`ent: validator failed for field "HeatmapSnapshot.aggregation_key": %w`, err)}
+		}
+	}
+	if _, ok := hsc.mutation.SourceURL(); !ok {
+		return &ValidationError{Name: "source_url", err: errors.New(`ent: missing required field "HeatmapSnapshot.source_url"`)}
+	}
+	if v, ok := hsc.mutation.SourceURL(); ok {
+		if err := heatmapsnapshot.SourceURLValidator(v); err != nil {
+			return &ValidationError{Name: "source_url", err: fmt.Errorf(`ent: validator failed for field "HeatmapSnapshot.source_url": %w`, err)}
+		}
 	}
 	if _, ok := hsc.mutation.Hostname(); !ok {
 		return &ValidationError{Name: "hostname", err: errors.New(`ent: missing required field "HeatmapSnapshot.hostname"`)}
@@ -291,6 +343,14 @@ func (hsc *HeatmapSnapshotCreate) createSpec() (*HeatmapSnapshot, *sqlgraph.Crea
 	if id, ok := hsc.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = id
+	}
+	if value, ok := hsc.mutation.AggregationKey(); ok {
+		_spec.SetField(heatmapsnapshot.FieldAggregationKey, field.TypeString, value)
+		_node.AggregationKey = value
+	}
+	if value, ok := hsc.mutation.SourceURL(); ok {
+		_spec.SetField(heatmapsnapshot.FieldSourceURL, field.TypeString, value)
+		_node.SourceURL = value
 	}
 	if value, ok := hsc.mutation.Hostname(); ok {
 		_spec.SetField(heatmapsnapshot.FieldHostname, field.TypeString, value)

@@ -7,6 +7,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/zenstats/zenstats/internal/heatmap"
 )
 
 const (
@@ -20,6 +21,8 @@ const (
 	FieldEnabled = "enabled"
 	// FieldPaths holds the string denoting the paths field in the database.
 	FieldPaths = "paths"
+	// FieldGroups holds the string denoting the groups field in the database.
+	FieldGroups = "groups"
 	// FieldSampleRate holds the string denoting the sample_rate field in the database.
 	FieldSampleRate = "sample_rate"
 	// FieldMaxClicks holds the string denoting the max_clicks field in the database.
@@ -51,6 +54,7 @@ var Columns = []string{
 	FieldSiteID,
 	FieldEnabled,
 	FieldPaths,
+	FieldGroups,
 	FieldSampleRate,
 	FieldMaxClicks,
 	FieldRawDays,
@@ -74,6 +78,8 @@ var (
 	DefaultEnabled bool
 	// DefaultPaths holds the default value on creation for the "paths" field.
 	DefaultPaths []string
+	// DefaultGroups holds the default value on creation for the "groups" field.
+	DefaultGroups []heatmap.GroupRule
 	// DefaultSampleRate holds the default value on creation for the "sample_rate" field.
 	DefaultSampleRate float64
 	// DefaultMaxClicks holds the default value on creation for the "max_clicks" field.

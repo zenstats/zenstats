@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/zenstats/zenstats/internal/heatmap"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 )
@@ -44,6 +45,12 @@ func (hcc *HeatmapConfigCreate) SetNillableEnabled(b *bool) *HeatmapConfigCreate
 // SetPaths sets the "paths" field.
 func (hcc *HeatmapConfigCreate) SetPaths(s []string) *HeatmapConfigCreate {
 	hcc.mutation.SetPaths(s)
+	return hcc
+}
+
+// SetGroups sets the "groups" field.
+func (hcc *HeatmapConfigCreate) SetGroups(hr []heatmap.GroupRule) *HeatmapConfigCreate {
+	hcc.mutation.SetGroups(hr)
 	return hcc
 }
 
@@ -185,6 +192,10 @@ func (hcc *HeatmapConfigCreate) defaults() {
 		v := heatmapconfig.DefaultPaths
 		hcc.mutation.SetPaths(v)
 	}
+	if _, ok := hcc.mutation.Groups(); !ok {
+		v := heatmapconfig.DefaultGroups
+		hcc.mutation.SetGroups(v)
+	}
 	if _, ok := hcc.mutation.SampleRate(); !ok {
 		v := heatmapconfig.DefaultSampleRate
 		hcc.mutation.SetSampleRate(v)
@@ -221,6 +232,9 @@ func (hcc *HeatmapConfigCreate) check() error {
 	}
 	if _, ok := hcc.mutation.Paths(); !ok {
 		return &ValidationError{Name: "paths", err: errors.New(`ent: missing required field "HeatmapConfig.paths"`)}
+	}
+	if _, ok := hcc.mutation.Groups(); !ok {
+		return &ValidationError{Name: "groups", err: errors.New(`ent: missing required field "HeatmapConfig.groups"`)}
 	}
 	if _, ok := hcc.mutation.SampleRate(); !ok {
 		return &ValidationError{Name: "sample_rate", err: errors.New(`ent: missing required field "HeatmapConfig.sample_rate"`)}
@@ -287,6 +301,10 @@ func (hcc *HeatmapConfigCreate) createSpec() (*HeatmapConfig, *sqlgraph.CreateSp
 	if value, ok := hcc.mutation.Paths(); ok {
 		_spec.SetField(heatmapconfig.FieldPaths, field.TypeJSON, value)
 		_node.Paths = value
+	}
+	if value, ok := hcc.mutation.Groups(); ok {
+		_spec.SetField(heatmapconfig.FieldGroups, field.TypeJSON, value)
+		_node.Groups = value
 	}
 	if value, ok := hcc.mutation.SampleRate(); ok {
 		_spec.SetField(heatmapconfig.FieldSampleRate, field.TypeFloat64, value)

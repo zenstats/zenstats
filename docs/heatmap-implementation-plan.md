@@ -146,3 +146,88 @@ ZENSTATS_WEB_TEST_URL=http://127.0.0.1:5173 npx playwright test test/heatmap-ui.
 以 p95 增幅 10%、API 增量 64 MiB 为初始观察门槛（低基线同时看绝对值），
 结合压缩后字节/点击评估 7/90 天空间；本地功能测试不替代生产容量验证。
 后续可扩展辅助截图/元素边界、对象存储、滚动热力图及有明确分母的点击率。
+
+## 页面聚合标识和自动底图（第二阶段）
+
+### 配置与查询
+
+站点设置新增独立的「热力图设置」菜单。热力查看页支持「具体 URL / 聚合标识」两种方式，并有设置入口。配置示例：
+
+```json
+{
+  "enabled": true,
+  "paths": ["/soft/*.html"],
+  "groups": [
+    {"path": "/soft/*.html", "key": "software-detail", "example_url": "https://example.com/soft/example.html"}
+  ],
+  "sample_rate": 0.1,
+  "max_clicks": 100,
+  "raw_days": 7,
+  "aggregate_days": 90,
+  "timezone": "Asia/Shanghai"
+}
+```
+
+`*` 匹配单层路径，不跨 `/`。按顺序首条聚合规则优先于脚本 `data-heatmap-key`；规则不会扩大 `paths` 采集白名单。没有命中规则时使用脚本声明的标识，未声明则为空。服务端最终确定标识。标识仅使用模板名称，不含用户 ID 或个人信息。规则最多 50 条，标识最长 120 字符。
+
+```html
+<script defer src="https://stats.example.com/js/script.js" data-domain="example.com"
+  data-heatmap="true" data-heatmap-key="software-detail"
+  data-heatmap-version="release-1" data-heatmap-variant="default"></script>
+```
+
+仍保留具体路径。`GET /api/sites/:domain/heatmap/pages` 和 `/data` 可携带 `scope=key`；默认 `scope=url`。按标识查询的 Page `path` 为虚拟 `/`，实际 SQL 按 `aggregation_key` 查询。页面列表上限 200，需留意截断提示。快照保存真实来源路径，不保存虚拟路径。
+
+跨 URL 仅合并相同 **主机、标识、版本、变体、视口宽高、文档宽高** 的数据，不把不同高度页面纵向拉伸。同尺寸仍可能布局不同，操作者必须选择同模板并及时更新版本。没有元素位置重投影，也不跨 hostname 聚合。元素榜与未映射点击沿用现有语义。
+
+### 数据迁移与兼容性
+
+原始表、小时聚合表新增 `aggregation_key LowCardinality(String)`，在一次 ALTER 中把该列追加到各自 ORDER BY，随后 `ALTER TABLE heatmap_clicks_mv MODIFY QUERY` 更新物化视图。迁移是元数据操作，不新建镜像聚合表，不扫描重写 90 天数据。可重复执行，原有行的标识为空；重试与 Replay 继续合并 UUID 精确集合。
+
+旧数据不会按新规则自动回填。旧 API 实例仍可写入，标识为空；新 Tracker 通过公开配置中的 `groups` 判断服务端能力，面对旧 API 时省略新增字段，避免严格 JSON 校验返回 400。完成所有实例和 Tracker 更新后，新点击按新规则归类。规则变化不重新解释历史标识。配置及快照 PostgreSQL 字段通过 ent schema 生成和迁移维护，`groups` 使用数据库默认 `[]` 兼容已有配置行。
+
+### 自动截图
+
+`POST /api/sites/:domain/heatmap/capture`：
+
+```json
+{
+  "url": "https://example.com/soft/example.html",
+  "scope": "key",
+  "page": {
+    "aggregation_key": "software-detail", "hostname": "example.com", "path": "/",
+    "version": "release-1", "variant": "default",
+    "viewport_width": 1440, "viewport_height": 900,
+    "document_width": 1440, "document_height": 2400
+  }
+}
+```
+
+主账号的站点 owner/admin 可生成，普通成员和子账号只读。具体 URL 模式默认填写页面地址；标识模式预填规则的范例 URL，也可手动输入。来源必须属于所选主机与本站，HTTP(S)，不含用户密码和查询参数。浏览器报告的实际路径、版本、变体及尺寸必须匹配，重定向不能更换主机。只有无 Tracker 的 `unknown` 版本可匹配 `unknown`，不会伪造历史版本。
+
+独立 Node/Playwright 进程生成全页 PNG；API 不启动 Chromium。截图任务单并发，超载返回 429；浏览器任务 30 秒截止，API 调用 40 秒截止。PNG 最多 5MiB / 25MP，继续复用既有快照存储、成员权限、过期清理。快照记录实际来源 URL。页面内容改变导致尺寸不匹配时明确报错，不自动拉伸；可在具体 URL 模式手动上传历史底图，匹配标识的单页底图也可用于标识视图。
+
+截图使用独立无登录 cookie 的 context，在脚本执行前设置 `zenstats_ignore`，屏蔽本服务的事件/热力点击接口，避免自访问污染。仅适合公开页面；登录页、验证码和依赖交互的页面请手工上传。截图包含页面可见内容，底图接口仍须鉴权。
+
+### 浏览器服务部署
+
+在 `zenstats-web/screenshot` 中：
+
+```sh
+npm ci
+npx playwright install chromium
+SCREENSHOT_TOKEN='<random token at least 32 chars>' npm start
+```
+
+API 环境变量：
+
+```sh
+ZENSTATS_HEATMAP_SCREENSHOT_URL=http://heatmap-screenshot:8090/capture
+ZENSTATS_HEATMAP_SCREENSHOT_TOKEN=<same internal token>
+```
+
+令牌仅在内部服务间使用，不进入 Tracker 或管理面板响应。未配置服务时，查看页提示部署方式并保留手动上传。截图服务不应发布到公网端口。
+
+Worker 强制 Chromium 经本地 HTTP/CONNECT 代理访问网络；代理校验 DNS 全部结果，拒绝私有/保留 IP、loopback、link-local、metadata、IPv4-mapped IPv6 等，并直接连接校验后的 IP，避免 DNS 重绑定。此边界覆盖重定向及子资源；浏览器另限制跨主机主框架导航、Service Worker、弹窗、WebSocket、QUIC、WebRTC API 及非代理 UDP。默认仅允许目的端口 80/443。生产不配置私网例外。
+
+仅管理员控制的本地开发可用 `SCREENSHOT_ALLOW_PRIVATE_HOSTS=127.0.0.1,localhost` 和 `SCREENSHOT_ALLOW_PORTS=5173` 放行指定目的主机/端口。没有网页参数可改变这两个限制。Compose/K8s 的可选部署及独立内存/CPU 限制见 `zenstats-deploy/docs/heatmap-screenshot.md`。

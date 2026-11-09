@@ -16,6 +16,10 @@ const (
 	FieldID = "id"
 	// FieldSiteID holds the string denoting the site_id field in the database.
 	FieldSiteID = "site_id"
+	// FieldAggregationKey holds the string denoting the aggregation_key field in the database.
+	FieldAggregationKey = "aggregation_key"
+	// FieldSourceURL holds the string denoting the source_url field in the database.
+	FieldSourceURL = "source_url"
 	// FieldHostname holds the string denoting the hostname field in the database.
 	FieldHostname = "hostname"
 	// FieldPath holds the string denoting the path field in the database.
@@ -63,6 +67,8 @@ const (
 var Columns = []string{
 	FieldID,
 	FieldSiteID,
+	FieldAggregationKey,
+	FieldSourceURL,
 	FieldHostname,
 	FieldPath,
 	FieldVersion,
@@ -91,6 +97,14 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultAggregationKey holds the default value on creation for the "aggregation_key" field.
+	DefaultAggregationKey string
+	// AggregationKeyValidator is a validator for the "aggregation_key" field. It is called by the builders before save.
+	AggregationKeyValidator func(string) error
+	// DefaultSourceURL holds the default value on creation for the "source_url" field.
+	DefaultSourceURL string
+	// SourceURLValidator is a validator for the "source_url" field. It is called by the builders before save.
+	SourceURLValidator func(string) error
 	// HostnameValidator is a validator for the "hostname" field. It is called by the builders before save.
 	HostnameValidator func(string) error
 	// PathValidator is a validator for the "path" field. It is called by the builders before save.
@@ -118,6 +132,16 @@ func ByID(opts ...sql.OrderTermOption) OrderOption {
 // BySiteID orders the results by the site_id field.
 func BySiteID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSiteID, opts...).ToFunc()
+}
+
+// ByAggregationKey orders the results by the aggregation_key field.
+func ByAggregationKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAggregationKey, opts...).ToFunc()
+}
+
+// BySourceURL orders the results by the source_url field.
+func BySourceURL(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceURL, opts...).ToFunc()
 }
 
 // ByHostname orders the results by the hostname field.

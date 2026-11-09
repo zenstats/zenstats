@@ -20,6 +20,10 @@ type HeatmapSnapshot struct {
 	ID int64 `json:"id,omitempty"`
 	// SiteID holds the value of the "site_id" field.
 	SiteID int64 `json:"site_id,omitempty"`
+	// AggregationKey holds the value of the "aggregation_key" field.
+	AggregationKey string `json:"aggregation_key,omitempty"`
+	// SourceURL holds the value of the "source_url" field.
+	SourceURL string `json:"source_url,omitempty"`
 	// Hostname holds the value of the "hostname" field.
 	Hostname string `json:"hostname,omitempty"`
 	// Path holds the value of the "path" field.
@@ -83,7 +87,7 @@ func (*HeatmapSnapshot) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case heatmapsnapshot.FieldID, heatmapsnapshot.FieldSiteID, heatmapsnapshot.FieldViewportWidth, heatmapsnapshot.FieldViewportHeight, heatmapsnapshot.FieldDocumentWidth, heatmapsnapshot.FieldDocumentHeight, heatmapsnapshot.FieldImageWidth, heatmapsnapshot.FieldImageHeight, heatmapsnapshot.FieldFileSize:
 			values[i] = new(sql.NullInt64)
-		case heatmapsnapshot.FieldHostname, heatmapsnapshot.FieldPath, heatmapsnapshot.FieldVersion, heatmapsnapshot.FieldVariant, heatmapsnapshot.FieldFileKey, heatmapsnapshot.FieldContentType:
+		case heatmapsnapshot.FieldAggregationKey, heatmapsnapshot.FieldSourceURL, heatmapsnapshot.FieldHostname, heatmapsnapshot.FieldPath, heatmapsnapshot.FieldVersion, heatmapsnapshot.FieldVariant, heatmapsnapshot.FieldFileKey, heatmapsnapshot.FieldContentType:
 			values[i] = new(sql.NullString)
 		case heatmapsnapshot.FieldCreatedAt, heatmapsnapshot.FieldExpiresAt:
 			values[i] = new(sql.NullTime)
@@ -113,6 +117,18 @@ func (hs *HeatmapSnapshot) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field site_id", values[i])
 			} else if value.Valid {
 				hs.SiteID = value.Int64
+			}
+		case heatmapsnapshot.FieldAggregationKey:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field aggregation_key", values[i])
+			} else if value.Valid {
+				hs.AggregationKey = value.String
+			}
+		case heatmapsnapshot.FieldSourceURL:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field source_url", values[i])
+			} else if value.Valid {
+				hs.SourceURL = value.String
 			}
 		case heatmapsnapshot.FieldHostname:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -247,6 +263,12 @@ func (hs *HeatmapSnapshot) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", hs.ID))
 	builder.WriteString("site_id=")
 	builder.WriteString(fmt.Sprintf("%v", hs.SiteID))
+	builder.WriteString(", ")
+	builder.WriteString("aggregation_key=")
+	builder.WriteString(hs.AggregationKey)
+	builder.WriteString(", ")
+	builder.WriteString("source_url=")
+	builder.WriteString(hs.SourceURL)
 	builder.WriteString(", ")
 	builder.WriteString("hostname=")
 	builder.WriteString(hs.Hostname)

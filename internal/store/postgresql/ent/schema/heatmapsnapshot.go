@@ -14,6 +14,8 @@ type HeatmapSnapshot struct{ ent.Schema }
 func (HeatmapSnapshot) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int64("id").Immutable(), field.Int64("site_id"),
+		field.String("aggregation_key").Default("").MaxLen(120),
+		field.String("source_url").Default("").MaxLen(2000),
 		field.String("hostname").MaxLen(253), field.String("path").MaxLen(2000),
 		field.String("version").MaxLen(120), field.String("variant").MaxLen(120),
 		field.Int("viewport_width"), field.Int("viewport_height"),

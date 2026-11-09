@@ -20,6 +20,11 @@ import (
 var embeddedConfig []byte
 
 type Config struct {
+	Heatmap struct {
+		ScreenshotURL   string `mapstructure:"screenshot_url"`
+		ScreenshotToken string `mapstructure:"screenshot_token"`
+	} `mapstructure:"heatmap"`
+
 	Scheme struct {
 		Address  string `mapstructure:"address"`
 		HttpPort int    `mapstructure:"http_port"`
@@ -233,6 +238,7 @@ func bindAllPaths(v *viper.Viper) {
 		"scheme.address", "scheme.http_port",
 		"base_url", "pool_size", "log_level", "app_debug", "data_path",
 		"maxmind_license_key", "geoip_mirror",
+		"heatmap.screenshot_url", "heatmap.screenshot_token",
 		"smtp.host", "smtp.port", "smtp.username", "smtp.password", "smtp.from",
 		"db.host", "db.port", "db.database", "db.username", "db.password",
 		"clickhouse.addr", "clickhouse.database", "clickhouse.username", "clickhouse.password", "clickhouse.ssl",

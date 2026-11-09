@@ -26,6 +26,7 @@ func registerHeatmapRouterWithService(router *gin.RouterGroup, s *service.Heatma
 	w := g.Group("", middleware.SubAccountReadOnly(), h.WriteAccess())
 	w.PUT("/config", h.SaveConfig)
 	w.POST("/snapshots", h.CreateSnapshot)
+	w.POST("/capture", h.Capture)
 	w.DELETE("/snapshots/:id", h.DeleteSnapshot)
 	w.POST("/replay", h.Replay)
 	router.GET("/admin/heatmap-quality", middleware.JWTAuth(), middleware.AdminAuth(), h.Quality)

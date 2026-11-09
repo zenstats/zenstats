@@ -3,11 +3,13 @@ package router
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
 	"image/png"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -82,6 +84,23 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Simulate an existing installation with a non-empty legacy config table.
+	if _, err := db.Client.HeatmapConfig.Create().SetSiteID(site.ID).SetTimezone("Asia/Kathmandu").Save(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.DB.ExecContext(ctx, "ALTER TABLE heatmap_configs DROP COLUMN groups"); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := db.Client.Schema.Create(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	legacy, err := db.Client.HeatmapConfig.Query().Only(ctx)
+	if err != nil || legacy.Groups == nil || len(legacy.Groups) != 0 {
+		t.Fatalf("legacy config migration: %+v %v", legacy, err)
+	}
+
 	if _, err := db.Client.SiteMembership.Create().SetSiteID(site.ID).SetUserID(owner.ID).SetRole(sitemembership.RoleOwner).Save(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -243,6 +262,94 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 			t.Fatal(res.Code, res.Body.String())
 		}
 	})
+	t.Run("automatic capture ownership permission and layout checks", func(t *testing.T) {
+		cfg.Groups = []heatmap.GroupRule{{Path: "/soft/*.html", Key: "software", ExampleURL: "https://example.test/soft/a.html"}}
+		if _, err := s.SaveConfig(ctx, site.ID, cfg); err != nil {
+			t.Fatal(err)
+		}
+		badCfg := cfg
+		badCfg.Groups = []heatmap.GroupRule{{Path: "/soft/*", Key: "software", ExampleURL: "https://other.test/soft/a"}}
+		if res := call("PUT", base+"/config", token, "application/json", encode(badCfg)); res.Code != 400 {
+			t.Fatal(res.Code, res.Body.String())
+		}
+		var picture bytes.Buffer
+		png.Encode(&picture, image.NewRGBA(image.Rect(0, 0, 400, 800)))
+		actual := page
+		actual.Path = "/soft/a.html"
+		workerCalls := 0
+		wrongSize, wrongVersion, wrongRedirect := false, false, false
+		worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			workerCalls++
+			if r.Header.Get("Authorization") != "Bearer internal-test-token" {
+				t.Error("missing internal authentication")
+			}
+			current := actual
+			if wrongSize {
+				current.DocumentHeight++
+			}
+			if wrongVersion {
+				current.Version = "old"
+			}
+			final := "https://example.test/soft/a.html"
+			if wrongRedirect {
+				final = "https://other.test/soft/a.html"
+			}
+			json.NewEncoder(w).Encode(map[string]any{"url": final, "page": current, "image": base64.StdEncoding.EncodeToString(picture.Bytes())})
+		}))
+		defer worker.Close()
+		config.Conf.Heatmap.ScreenshotURL = worker.URL
+		config.Conf.Heatmap.ScreenshotToken = "internal-test-token"
+		defer func() { config.Conf.Heatmap.ScreenshotURL = ""; config.Conf.Heatmap.ScreenshotToken = "" }()
+		selected := page
+		selected.Path = "/"
+		selected.AggregationKey = "software"
+		payload := map[string]any{"url": "https://example.test/soft/a.html", "scope": "key", "page": selected}
+		for _, tok := range []string{subToken, viewerToken} {
+			if res := call("POST", base+"/capture", tok, "application/json", encode(payload)); code(res) != 403 {
+				t.Fatal(res.Code, res.Body.String())
+			}
+		}
+		for _, url := range []string{"https://other.test/soft/a.html", "file:///etc/passwd", "https://example.test/soft/a.html?token=private", "https://example.test/#/soft/a.html?token=private"} {
+			payload["url"] = url
+			if res := call("POST", base+"/capture", token, "application/json", encode(payload)); res.Code != 400 {
+				t.Fatal(res.Code, res.Body.String())
+			}
+		}
+		if workerCalls != 0 {
+			t.Fatal("invalid requests reached browser")
+		}
+		payload["url"] = "https://example.test/soft/a.html"
+		for _, fault := range []*bool{&wrongSize, &wrongVersion, &wrongRedirect} {
+			*fault = true
+			if res := call("POST", base+"/capture", token, "application/json", encode(payload)); res.Code != 400 {
+				t.Fatal(res.Code, res.Body.String())
+			}
+			*fault = false
+		}
+
+		urlPage := actual
+		urlPage.AggregationKey = "old-key"
+		payload["scope"] = "url"
+		payload["page"] = urlPage
+		if res := call("POST", base+"/capture", token, "application/json", encode(payload)); res.Code != 400 {
+			t.Fatal(res.Code, res.Body.String())
+		}
+		payload["scope"] = "key"
+		payload["page"] = selected
+		res := call("POST", base+"/capture", token, "application/json", encode(payload))
+		if res.Code != 200 {
+			t.Fatal(res.Code, res.Body.String())
+		}
+		var saved struct{ Data service.HeatmapSnapshot }
+		json.Unmarshal(res.Body.Bytes(), &saved)
+		if saved.Data.AggregationKey != "software" || saved.Data.Path != "/soft/a.html" || saved.Data.SourceURL != "https://example.test/soft/a.html" {
+			t.Fatal(saved.Data)
+		}
+		if err := s.DeleteSnapshot(ctx, site.ID, saved.Data.ID); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("snapshots matching permissions and cleanup", func(t *testing.T) {
 		var body bytes.Buffer
 		form := multipart.NewWriter(&body)

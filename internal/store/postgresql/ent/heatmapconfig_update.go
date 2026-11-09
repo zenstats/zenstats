@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
+	"github.com/zenstats/zenstats/internal/heatmap"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
@@ -67,6 +68,18 @@ func (hcu *HeatmapConfigUpdate) SetPaths(s []string) *HeatmapConfigUpdate {
 // AppendPaths appends s to the "paths" field.
 func (hcu *HeatmapConfigUpdate) AppendPaths(s []string) *HeatmapConfigUpdate {
 	hcu.mutation.AppendPaths(s)
+	return hcu
+}
+
+// SetGroups sets the "groups" field.
+func (hcu *HeatmapConfigUpdate) SetGroups(hr []heatmap.GroupRule) *HeatmapConfigUpdate {
+	hcu.mutation.SetGroups(hr)
+	return hcu
+}
+
+// AppendGroups appends hr to the "groups" field.
+func (hcu *HeatmapConfigUpdate) AppendGroups(hr []heatmap.GroupRule) *HeatmapConfigUpdate {
+	hcu.mutation.AppendGroups(hr)
 	return hcu
 }
 
@@ -262,6 +275,14 @@ func (hcu *HeatmapConfigUpdate) sqlSave(ctx context.Context) (n int, err error) 
 			sqljson.Append(u, heatmapconfig.FieldPaths, value)
 		})
 	}
+	if value, ok := hcu.mutation.Groups(); ok {
+		_spec.SetField(heatmapconfig.FieldGroups, field.TypeJSON, value)
+	}
+	if value, ok := hcu.mutation.AppendedGroups(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, heatmapconfig.FieldGroups, value)
+		})
+	}
 	if value, ok := hcu.mutation.SampleRate(); ok {
 		_spec.SetField(heatmapconfig.FieldSampleRate, field.TypeFloat64, value)
 	}
@@ -378,6 +399,18 @@ func (hcuo *HeatmapConfigUpdateOne) SetPaths(s []string) *HeatmapConfigUpdateOne
 // AppendPaths appends s to the "paths" field.
 func (hcuo *HeatmapConfigUpdateOne) AppendPaths(s []string) *HeatmapConfigUpdateOne {
 	hcuo.mutation.AppendPaths(s)
+	return hcuo
+}
+
+// SetGroups sets the "groups" field.
+func (hcuo *HeatmapConfigUpdateOne) SetGroups(hr []heatmap.GroupRule) *HeatmapConfigUpdateOne {
+	hcuo.mutation.SetGroups(hr)
+	return hcuo
+}
+
+// AppendGroups appends hr to the "groups" field.
+func (hcuo *HeatmapConfigUpdateOne) AppendGroups(hr []heatmap.GroupRule) *HeatmapConfigUpdateOne {
+	hcuo.mutation.AppendGroups(hr)
 	return hcuo
 }
 
@@ -601,6 +634,14 @@ func (hcuo *HeatmapConfigUpdateOne) sqlSave(ctx context.Context) (_node *Heatmap
 	if value, ok := hcuo.mutation.AppendedPaths(); ok {
 		_spec.AddModifier(func(u *sql.UpdateBuilder) {
 			sqljson.Append(u, heatmapconfig.FieldPaths, value)
+		})
+	}
+	if value, ok := hcuo.mutation.Groups(); ok {
+		_spec.SetField(heatmapconfig.FieldGroups, field.TypeJSON, value)
+	}
+	if value, ok := hcuo.mutation.AppendedGroups(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, heatmapconfig.FieldGroups, value)
 		})
 	}
 	if value, ok := hcuo.mutation.SampleRate(); ok {
