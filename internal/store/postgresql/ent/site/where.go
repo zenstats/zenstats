@@ -995,6 +995,52 @@ func VerifiedAtNotNil() predicate.Site {
 	return predicate.Site(sql.FieldNotNull(FieldVerifiedAt))
 }
 
+// HasHeatmapConfig applies the HasEdge predicate on the "heatmap_config" edge.
+func HasHeatmapConfig() predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, HeatmapConfigTable, HeatmapConfigColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasHeatmapConfigWith applies the HasEdge predicate on the "heatmap_config" edge with a given conditions (other predicates).
+func HasHeatmapConfigWith(preds ...predicate.HeatmapConfig) predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := newHeatmapConfigStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasHeatmapSnapshots applies the HasEdge predicate on the "heatmap_snapshots" edge.
+func HasHeatmapSnapshots() predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, HeatmapSnapshotsTable, HeatmapSnapshotsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasHeatmapSnapshotsWith applies the HasEdge predicate on the "heatmap_snapshots" edge with a given conditions (other predicates).
+func HasHeatmapSnapshotsWith(preds ...predicate.HeatmapSnapshot) predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := newHeatmapSnapshotsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasFunnels applies the HasEdge predicate on the "funnels" edge.
 func HasFunnels() predicate.Site {
 	return predicate.Site(func(s *sql.Selector) {

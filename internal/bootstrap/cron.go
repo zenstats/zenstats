@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/zenstats/zenstats/internal/event"
 	"github.com/zenstats/zenstats/internal/service"
@@ -50,4 +51,13 @@ func InitCron() {
 
 	// Register traffic anomaly detection cron job (hourly)
 	service.RegisterTrafficAlertCron()
+
+	// Append only: advisory lock keys of existing jobs depend on registration order.
+	cron.AddJob("0 17 * * * *", func(params any) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if err := service.GetHeatmapService().CleanupSnapshots(ctx); err != nil {
+			slog.Error("heatmap snapshot cleanup failed", "error", err)
+		}
+	}, nil)
 }

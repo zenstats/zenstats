@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -102,6 +103,8 @@ func (Site) Indexes() []ent.Index {
 // Edges of the Site.
 func (Site) Edges() []ent.Edge {
 	return []ent.Edge{
+		edge.To("heatmap_config", HeatmapConfig.Type).Unique().Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("heatmap_snapshots", HeatmapSnapshot.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("funnels", Funnel.Type),
 		edge.To("members", User.Type),
 		edge.To("goals", Goal.Type),

@@ -26,6 +26,10 @@ type Tx struct {
 	FunnelStep *FunnelStepClient
 	// Goal is the client for interacting with the Goal builders.
 	Goal *GoalClient
+	// HeatmapConfig is the client for interacting with the HeatmapConfig builders.
+	HeatmapConfig *HeatmapConfigClient
+	// HeatmapSnapshot is the client for interacting with the HeatmapSnapshot builders.
+	HeatmapSnapshot *HeatmapSnapshotClient
 	// MonthlyEventCount is the client for interacting with the MonthlyEventCount builders.
 	MonthlyEventCount *MonthlyEventCountClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
@@ -200,6 +204,8 @@ func (tx *Tx) init() {
 	tx.Funnel = NewFunnelClient(tx.config)
 	tx.FunnelStep = NewFunnelStepClient(tx.config)
 	tx.Goal = NewGoalClient(tx.config)
+	tx.HeatmapConfig = NewHeatmapConfigClient(tx.config)
+	tx.HeatmapSnapshot = NewHeatmapSnapshotClient(tx.config)
 	tx.MonthlyEventCount = NewMonthlyEventCountClient(tx.config)
 	tx.PasswordResetToken = NewPasswordResetTokenClient(tx.config)
 	tx.SavedPanel = NewSavedPanelClient(tx.config)

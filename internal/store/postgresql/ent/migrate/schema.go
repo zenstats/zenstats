@@ -240,6 +240,81 @@ var (
 			},
 		},
 	}
+	// HeatmapConfigsColumns holds the columns for the "heatmap_configs" table.
+	HeatmapConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "enabled", Type: field.TypeBool, Default: false},
+		{Name: "paths", Type: field.TypeJSON},
+		{Name: "sample_rate", Type: field.TypeFloat64, Default: 0.1},
+		{Name: "max_clicks", Type: field.TypeInt, Default: 100},
+		{Name: "raw_days", Type: field.TypeInt, Default: 7},
+		{Name: "aggregate_days", Type: field.TypeInt, Default: 90},
+		{Name: "timezone", Type: field.TypeString, Size: 50, Default: "UTC"},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "site_id", Type: field.TypeInt64, Unique: true},
+	}
+	// HeatmapConfigsTable holds the schema information for the "heatmap_configs" table.
+	HeatmapConfigsTable = &schema.Table{
+		Name:       "heatmap_configs",
+		Columns:    HeatmapConfigsColumns,
+		PrimaryKey: []*schema.Column{HeatmapConfigsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "heatmap_configs_sites_heatmap_config",
+				Columns:    []*schema.Column{HeatmapConfigsColumns[9]},
+				RefColumns: []*schema.Column{SitesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "heatmapconfig_site_id",
+				Unique:  true,
+				Columns: []*schema.Column{HeatmapConfigsColumns[9]},
+			},
+		},
+	}
+	// HeatmapSnapshotsColumns holds the columns for the "heatmap_snapshots" table.
+	HeatmapSnapshotsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "hostname", Type: field.TypeString, Size: 253},
+		{Name: "path", Type: field.TypeString, Size: 2000},
+		{Name: "version", Type: field.TypeString, Size: 120},
+		{Name: "variant", Type: field.TypeString, Size: 120},
+		{Name: "viewport_width", Type: field.TypeInt},
+		{Name: "viewport_height", Type: field.TypeInt},
+		{Name: "document_width", Type: field.TypeInt},
+		{Name: "document_height", Type: field.TypeInt},
+		{Name: "image_width", Type: field.TypeInt},
+		{Name: "image_height", Type: field.TypeInt},
+		{Name: "file_key", Type: field.TypeString, Size: 80},
+		{Name: "content_type", Type: field.TypeString, Size: 30},
+		{Name: "file_size", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "site_id", Type: field.TypeInt64},
+	}
+	// HeatmapSnapshotsTable holds the schema information for the "heatmap_snapshots" table.
+	HeatmapSnapshotsTable = &schema.Table{
+		Name:       "heatmap_snapshots",
+		Columns:    HeatmapSnapshotsColumns,
+		PrimaryKey: []*schema.Column{HeatmapSnapshotsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "heatmap_snapshots_sites_heatmap_snapshots",
+				Columns:    []*schema.Column{HeatmapSnapshotsColumns[16]},
+				RefColumns: []*schema.Column{SitesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "heatmapsnapshot_site_id",
+				Unique:  false,
+				Columns: []*schema.Column{HeatmapSnapshotsColumns[16]},
+			},
+		},
+	}
 	// MonthlyEventCountsColumns holds the columns for the "monthly_event_counts" table.
 	MonthlyEventCountsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -810,6 +885,8 @@ var (
 		FunnelsTable,
 		FunnelStepsTable,
 		GoalsTable,
+		HeatmapConfigsTable,
+		HeatmapSnapshotsTable,
 		MonthlyEventCountsTable,
 		PasswordResetTokensTable,
 		SavedPanelsTable,
@@ -839,6 +916,8 @@ func init() {
 	FunnelStepsTable.ForeignKeys[0].RefTable = FunnelsTable
 	FunnelStepsTable.ForeignKeys[1].RefTable = GoalsTable
 	GoalsTable.ForeignKeys[0].RefTable = SitesTable
+	HeatmapConfigsTable.ForeignKeys[0].RefTable = SitesTable
+	HeatmapSnapshotsTable.ForeignKeys[0].RefTable = SitesTable
 	MonthlyEventCountsTable.ForeignKeys[0].RefTable = UsersTable
 	PasswordResetTokensTable.ForeignKeys[0].RefTable = UsersTable
 	SavedPanelsTable.ForeignKeys[0].RefTable = SitesTable

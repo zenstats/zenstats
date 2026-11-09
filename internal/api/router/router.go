@@ -17,6 +17,7 @@ func RegisterRouter(router *gin.RouterGroup) {
 	router.GET("/health/ready", h.Ready())
 	// event api
 	RegisterExternalRouter(router)
+	RegisterHeatmapRouter(router)
 	// auth api
 	RegisterAuthRouter(router)
 	// stats api

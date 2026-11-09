@@ -18,6 +18,7 @@ import (
 	"github.com/zenstats/zenstats/internal/api/router"
 	eventpkg "github.com/zenstats/zenstats/internal/event"
 	"github.com/zenstats/zenstats/internal/middleware"
+	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/pkg/globals"
 )
 
@@ -54,6 +55,7 @@ the address is defined in config file`,
 		cconfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 		cconfig.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"}
 		cconfig.AllowCredentials = false
+		cconfig.ExposeHeaders = []string{"Retry-After", "X-Zenstats-Accepted"}
 		r.Use(cors.New(cconfig))
 
 		api := r.Group("/api")
@@ -86,6 +88,7 @@ the address is defined in config file`,
 			_ = httpSrv.Close()
 		}
 		event.Shutdown()
+		service.GetHeatmapService().Shutdown()
 
 		// 落盘内存中的月度配额计数，再释放 DB。
 		// 配额此前仅每小时持久化一次，重启会丢失最多约 1 小时的增量（导致少计费）。

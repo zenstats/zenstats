@@ -27,6 +27,12 @@ type FunnelStep func(*sql.Selector)
 // Goal is the predicate function for goal builders.
 type Goal func(*sql.Selector)
 
+// HeatmapConfig is the predicate function for heatmapconfig builders.
+type HeatmapConfig func(*sql.Selector)
+
+// HeatmapSnapshot is the predicate function for heatmapsnapshot builders.
+type HeatmapSnapshot func(*sql.Selector)
+
 // MonthlyEventCount is the predicate function for monthlyeventcount builders.
 type MonthlyEventCount func(*sql.Selector)
 

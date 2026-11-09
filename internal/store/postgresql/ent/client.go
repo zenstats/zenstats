@@ -22,6 +22,8 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapsnapshot"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
@@ -61,6 +63,10 @@ type Client struct {
 	FunnelStep *FunnelStepClient
 	// Goal is the client for interacting with the Goal builders.
 	Goal *GoalClient
+	// HeatmapConfig is the client for interacting with the HeatmapConfig builders.
+	HeatmapConfig *HeatmapConfigClient
+	// HeatmapSnapshot is the client for interacting with the HeatmapSnapshot builders.
+	HeatmapSnapshot *HeatmapSnapshotClient
 	// MonthlyEventCount is the client for interacting with the MonthlyEventCount builders.
 	MonthlyEventCount *MonthlyEventCountClient
 	// PasswordResetToken is the client for interacting with the PasswordResetToken builders.
@@ -115,6 +121,8 @@ func (c *Client) init() {
 	c.Funnel = NewFunnelClient(c.config)
 	c.FunnelStep = NewFunnelStepClient(c.config)
 	c.Goal = NewGoalClient(c.config)
+	c.HeatmapConfig = NewHeatmapConfigClient(c.config)
+	c.HeatmapSnapshot = NewHeatmapSnapshotClient(c.config)
 	c.MonthlyEventCount = NewMonthlyEventCountClient(c.config)
 	c.PasswordResetToken = NewPasswordResetTokenClient(c.config)
 	c.SavedPanel = NewSavedPanelClient(c.config)
@@ -232,6 +240,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Funnel:                 NewFunnelClient(cfg),
 		FunnelStep:             NewFunnelStepClient(cfg),
 		Goal:                   NewGoalClient(cfg),
+		HeatmapConfig:          NewHeatmapConfigClient(cfg),
+		HeatmapSnapshot:        NewHeatmapSnapshotClient(cfg),
 		MonthlyEventCount:      NewMonthlyEventCountClient(cfg),
 		PasswordResetToken:     NewPasswordResetTokenClient(cfg),
 		SavedPanel:             NewSavedPanelClient(cfg),
@@ -276,6 +286,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Funnel:                 NewFunnelClient(cfg),
 		FunnelStep:             NewFunnelStepClient(cfg),
 		Goal:                   NewGoalClient(cfg),
+		HeatmapConfig:          NewHeatmapConfigClient(cfg),
+		HeatmapSnapshot:        NewHeatmapSnapshotClient(cfg),
 		MonthlyEventCount:      NewMonthlyEventCountClient(cfg),
 		PasswordResetToken:     NewPasswordResetTokenClient(cfg),
 		SavedPanel:             NewSavedPanelClient(cfg),
@@ -324,11 +336,11 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.CustomSearchEngine, c.EmailLog, c.EmailVerificationToken, c.Funnel,
-		c.FunnelStep, c.Goal, c.MonthlyEventCount, c.PasswordResetToken, c.SavedPanel,
-		c.SearchEngines, c.Segment, c.SharedLink, c.ShieldRulesCountry,
-		c.ShieldRulesHostname, c.ShieldRulesIp, c.ShieldRulesReferrer, c.Site,
-		c.SiteMembership, c.SubAccount, c.SystemConfig, c.User, c.UserConfig,
-		c.UserGroup, c.UserSession,
+		c.FunnelStep, c.Goal, c.HeatmapConfig, c.HeatmapSnapshot, c.MonthlyEventCount,
+		c.PasswordResetToken, c.SavedPanel, c.SearchEngines, c.Segment, c.SharedLink,
+		c.ShieldRulesCountry, c.ShieldRulesHostname, c.ShieldRulesIp,
+		c.ShieldRulesReferrer, c.Site, c.SiteMembership, c.SubAccount, c.SystemConfig,
+		c.User, c.UserConfig, c.UserGroup, c.UserSession,
 	} {
 		n.Use(hooks...)
 	}
@@ -339,11 +351,11 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.CustomSearchEngine, c.EmailLog, c.EmailVerificationToken, c.Funnel,
-		c.FunnelStep, c.Goal, c.MonthlyEventCount, c.PasswordResetToken, c.SavedPanel,
-		c.SearchEngines, c.Segment, c.SharedLink, c.ShieldRulesCountry,
-		c.ShieldRulesHostname, c.ShieldRulesIp, c.ShieldRulesReferrer, c.Site,
-		c.SiteMembership, c.SubAccount, c.SystemConfig, c.User, c.UserConfig,
-		c.UserGroup, c.UserSession,
+		c.FunnelStep, c.Goal, c.HeatmapConfig, c.HeatmapSnapshot, c.MonthlyEventCount,
+		c.PasswordResetToken, c.SavedPanel, c.SearchEngines, c.Segment, c.SharedLink,
+		c.ShieldRulesCountry, c.ShieldRulesHostname, c.ShieldRulesIp,
+		c.ShieldRulesReferrer, c.Site, c.SiteMembership, c.SubAccount, c.SystemConfig,
+		c.User, c.UserConfig, c.UserGroup, c.UserSession,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -366,6 +378,10 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.FunnelStep.mutate(ctx, m)
 	case *GoalMutation:
 		return c.Goal.mutate(ctx, m)
+	case *HeatmapConfigMutation:
+		return c.HeatmapConfig.mutate(ctx, m)
+	case *HeatmapSnapshotMutation:
+		return c.HeatmapSnapshot.mutate(ctx, m)
 	case *MonthlyEventCountMutation:
 		return c.MonthlyEventCount.mutate(ctx, m)
 	case *PasswordResetTokenMutation:
@@ -1479,6 +1495,304 @@ func (c *GoalClient) mutate(ctx context.Context, m *GoalMutation) (Value, error)
 		return (&GoalDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Goal mutation op: %q", m.Op())
+	}
+}
+
+// HeatmapConfigClient is a client for the HeatmapConfig schema.
+type HeatmapConfigClient struct {
+	config
+}
+
+// NewHeatmapConfigClient returns a client for the HeatmapConfig from the given config.
+func NewHeatmapConfigClient(c config) *HeatmapConfigClient {
+	return &HeatmapConfigClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `heatmapconfig.Hooks(f(g(h())))`.
+func (c *HeatmapConfigClient) Use(hooks ...Hook) {
+	c.hooks.HeatmapConfig = append(c.hooks.HeatmapConfig, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `heatmapconfig.Intercept(f(g(h())))`.
+func (c *HeatmapConfigClient) Intercept(interceptors ...Interceptor) {
+	c.inters.HeatmapConfig = append(c.inters.HeatmapConfig, interceptors...)
+}
+
+// Create returns a builder for creating a HeatmapConfig entity.
+func (c *HeatmapConfigClient) Create() *HeatmapConfigCreate {
+	mutation := newHeatmapConfigMutation(c.config, OpCreate)
+	return &HeatmapConfigCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of HeatmapConfig entities.
+func (c *HeatmapConfigClient) CreateBulk(builders ...*HeatmapConfigCreate) *HeatmapConfigCreateBulk {
+	return &HeatmapConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *HeatmapConfigClient) MapCreateBulk(slice any, setFunc func(*HeatmapConfigCreate, int)) *HeatmapConfigCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &HeatmapConfigCreateBulk{err: fmt.Errorf("calling to HeatmapConfigClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*HeatmapConfigCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &HeatmapConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for HeatmapConfig.
+func (c *HeatmapConfigClient) Update() *HeatmapConfigUpdate {
+	mutation := newHeatmapConfigMutation(c.config, OpUpdate)
+	return &HeatmapConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *HeatmapConfigClient) UpdateOne(hc *HeatmapConfig) *HeatmapConfigUpdateOne {
+	mutation := newHeatmapConfigMutation(c.config, OpUpdateOne, withHeatmapConfig(hc))
+	return &HeatmapConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *HeatmapConfigClient) UpdateOneID(id int64) *HeatmapConfigUpdateOne {
+	mutation := newHeatmapConfigMutation(c.config, OpUpdateOne, withHeatmapConfigID(id))
+	return &HeatmapConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for HeatmapConfig.
+func (c *HeatmapConfigClient) Delete() *HeatmapConfigDelete {
+	mutation := newHeatmapConfigMutation(c.config, OpDelete)
+	return &HeatmapConfigDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *HeatmapConfigClient) DeleteOne(hc *HeatmapConfig) *HeatmapConfigDeleteOne {
+	return c.DeleteOneID(hc.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *HeatmapConfigClient) DeleteOneID(id int64) *HeatmapConfigDeleteOne {
+	builder := c.Delete().Where(heatmapconfig.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &HeatmapConfigDeleteOne{builder}
+}
+
+// Query returns a query builder for HeatmapConfig.
+func (c *HeatmapConfigClient) Query() *HeatmapConfigQuery {
+	return &HeatmapConfigQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeHeatmapConfig},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a HeatmapConfig entity by its id.
+func (c *HeatmapConfigClient) Get(ctx context.Context, id int64) (*HeatmapConfig, error) {
+	return c.Query().Where(heatmapconfig.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *HeatmapConfigClient) GetX(ctx context.Context, id int64) *HeatmapConfig {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySite queries the site edge of a HeatmapConfig.
+func (c *HeatmapConfigClient) QuerySite(hc *HeatmapConfig) *SiteQuery {
+	query := (&SiteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := hc.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(heatmapconfig.Table, heatmapconfig.FieldID, id),
+			sqlgraph.To(site.Table, site.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, heatmapconfig.SiteTable, heatmapconfig.SiteColumn),
+		)
+		fromV = sqlgraph.Neighbors(hc.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *HeatmapConfigClient) Hooks() []Hook {
+	return c.hooks.HeatmapConfig
+}
+
+// Interceptors returns the client interceptors.
+func (c *HeatmapConfigClient) Interceptors() []Interceptor {
+	return c.inters.HeatmapConfig
+}
+
+func (c *HeatmapConfigClient) mutate(ctx context.Context, m *HeatmapConfigMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&HeatmapConfigCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&HeatmapConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&HeatmapConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&HeatmapConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown HeatmapConfig mutation op: %q", m.Op())
+	}
+}
+
+// HeatmapSnapshotClient is a client for the HeatmapSnapshot schema.
+type HeatmapSnapshotClient struct {
+	config
+}
+
+// NewHeatmapSnapshotClient returns a client for the HeatmapSnapshot from the given config.
+func NewHeatmapSnapshotClient(c config) *HeatmapSnapshotClient {
+	return &HeatmapSnapshotClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `heatmapsnapshot.Hooks(f(g(h())))`.
+func (c *HeatmapSnapshotClient) Use(hooks ...Hook) {
+	c.hooks.HeatmapSnapshot = append(c.hooks.HeatmapSnapshot, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `heatmapsnapshot.Intercept(f(g(h())))`.
+func (c *HeatmapSnapshotClient) Intercept(interceptors ...Interceptor) {
+	c.inters.HeatmapSnapshot = append(c.inters.HeatmapSnapshot, interceptors...)
+}
+
+// Create returns a builder for creating a HeatmapSnapshot entity.
+func (c *HeatmapSnapshotClient) Create() *HeatmapSnapshotCreate {
+	mutation := newHeatmapSnapshotMutation(c.config, OpCreate)
+	return &HeatmapSnapshotCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of HeatmapSnapshot entities.
+func (c *HeatmapSnapshotClient) CreateBulk(builders ...*HeatmapSnapshotCreate) *HeatmapSnapshotCreateBulk {
+	return &HeatmapSnapshotCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *HeatmapSnapshotClient) MapCreateBulk(slice any, setFunc func(*HeatmapSnapshotCreate, int)) *HeatmapSnapshotCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &HeatmapSnapshotCreateBulk{err: fmt.Errorf("calling to HeatmapSnapshotClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*HeatmapSnapshotCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &HeatmapSnapshotCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for HeatmapSnapshot.
+func (c *HeatmapSnapshotClient) Update() *HeatmapSnapshotUpdate {
+	mutation := newHeatmapSnapshotMutation(c.config, OpUpdate)
+	return &HeatmapSnapshotUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *HeatmapSnapshotClient) UpdateOne(hs *HeatmapSnapshot) *HeatmapSnapshotUpdateOne {
+	mutation := newHeatmapSnapshotMutation(c.config, OpUpdateOne, withHeatmapSnapshot(hs))
+	return &HeatmapSnapshotUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *HeatmapSnapshotClient) UpdateOneID(id int64) *HeatmapSnapshotUpdateOne {
+	mutation := newHeatmapSnapshotMutation(c.config, OpUpdateOne, withHeatmapSnapshotID(id))
+	return &HeatmapSnapshotUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for HeatmapSnapshot.
+func (c *HeatmapSnapshotClient) Delete() *HeatmapSnapshotDelete {
+	mutation := newHeatmapSnapshotMutation(c.config, OpDelete)
+	return &HeatmapSnapshotDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *HeatmapSnapshotClient) DeleteOne(hs *HeatmapSnapshot) *HeatmapSnapshotDeleteOne {
+	return c.DeleteOneID(hs.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *HeatmapSnapshotClient) DeleteOneID(id int64) *HeatmapSnapshotDeleteOne {
+	builder := c.Delete().Where(heatmapsnapshot.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &HeatmapSnapshotDeleteOne{builder}
+}
+
+// Query returns a query builder for HeatmapSnapshot.
+func (c *HeatmapSnapshotClient) Query() *HeatmapSnapshotQuery {
+	return &HeatmapSnapshotQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeHeatmapSnapshot},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a HeatmapSnapshot entity by its id.
+func (c *HeatmapSnapshotClient) Get(ctx context.Context, id int64) (*HeatmapSnapshot, error) {
+	return c.Query().Where(heatmapsnapshot.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *HeatmapSnapshotClient) GetX(ctx context.Context, id int64) *HeatmapSnapshot {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySite queries the site edge of a HeatmapSnapshot.
+func (c *HeatmapSnapshotClient) QuerySite(hs *HeatmapSnapshot) *SiteQuery {
+	query := (&SiteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := hs.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(heatmapsnapshot.Table, heatmapsnapshot.FieldID, id),
+			sqlgraph.To(site.Table, site.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, heatmapsnapshot.SiteTable, heatmapsnapshot.SiteColumn),
+		)
+		fromV = sqlgraph.Neighbors(hs.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *HeatmapSnapshotClient) Hooks() []Hook {
+	return c.hooks.HeatmapSnapshot
+}
+
+// Interceptors returns the client interceptors.
+func (c *HeatmapSnapshotClient) Interceptors() []Interceptor {
+	return c.inters.HeatmapSnapshot
+}
+
+func (c *HeatmapSnapshotClient) mutate(ctx context.Context, m *HeatmapSnapshotMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&HeatmapSnapshotCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&HeatmapSnapshotUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&HeatmapSnapshotUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&HeatmapSnapshotDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown HeatmapSnapshot mutation op: %q", m.Op())
 	}
 }
 
@@ -3064,6 +3378,38 @@ func (c *SiteClient) GetX(ctx context.Context, id int64) *Site {
 	return obj
 }
 
+// QueryHeatmapConfig queries the heatmap_config edge of a Site.
+func (c *SiteClient) QueryHeatmapConfig(s *Site) *HeatmapConfigQuery {
+	query := (&HeatmapConfigClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, id),
+			sqlgraph.To(heatmapconfig.Table, heatmapconfig.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, site.HeatmapConfigTable, site.HeatmapConfigColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryHeatmapSnapshots queries the heatmap_snapshots edge of a Site.
+func (c *SiteClient) QueryHeatmapSnapshots(s *Site) *HeatmapSnapshotQuery {
+	query := (&HeatmapSnapshotClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, id),
+			sqlgraph.To(heatmapsnapshot.Table, heatmapsnapshot.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.HeatmapSnapshotsTable, site.HeatmapSnapshotsColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryFunnels queries the funnels edge of a Site.
 func (c *SiteClient) QueryFunnels(s *Site) *FunnelQuery {
 	query := (&FunnelClient{config: c.config}).Query()
@@ -4424,16 +4770,18 @@ func (c *UserSessionClient) mutate(ctx context.Context, m *UserSessionMutation) 
 type (
 	hooks struct {
 		APIKey, CustomSearchEngine, EmailLog, EmailVerificationToken, Funnel,
-		FunnelStep, Goal, MonthlyEventCount, PasswordResetToken, SavedPanel,
-		SearchEngines, Segment, SharedLink, ShieldRulesCountry, ShieldRulesHostname,
-		ShieldRulesIp, ShieldRulesReferrer, Site, SiteMembership, SubAccount,
-		SystemConfig, User, UserConfig, UserGroup, UserSession []ent.Hook
+		FunnelStep, Goal, HeatmapConfig, HeatmapSnapshot, MonthlyEventCount,
+		PasswordResetToken, SavedPanel, SearchEngines, Segment, SharedLink,
+		ShieldRulesCountry, ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer,
+		Site, SiteMembership, SubAccount, SystemConfig, User, UserConfig, UserGroup,
+		UserSession []ent.Hook
 	}
 	inters struct {
 		APIKey, CustomSearchEngine, EmailLog, EmailVerificationToken, Funnel,
-		FunnelStep, Goal, MonthlyEventCount, PasswordResetToken, SavedPanel,
-		SearchEngines, Segment, SharedLink, ShieldRulesCountry, ShieldRulesHostname,
-		ShieldRulesIp, ShieldRulesReferrer, Site, SiteMembership, SubAccount,
-		SystemConfig, User, UserConfig, UserGroup, UserSession []ent.Interceptor
+		FunnelStep, Goal, HeatmapConfig, HeatmapSnapshot, MonthlyEventCount,
+		PasswordResetToken, SavedPanel, SearchEngines, Segment, SharedLink,
+		ShieldRulesCountry, ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer,
+		Site, SiteMembership, SubAccount, SystemConfig, User, UserConfig, UserGroup,
+		UserSession []ent.Interceptor
 	}
 )
