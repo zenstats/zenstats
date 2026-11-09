@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -104,7 +106,12 @@ func (h *Handler) Pages(c *gin.Context) {
 		return
 	}
 	defer release()
-	pages, err := h.Service.Repo.Pages(ctx, uint64(siteID), from, to, c.Query("scope") == "key")
+	key, path := c.Query("key"), c.Query("path")
+	if len(key) > 120 || len(path) > 1000 || (path != "" && (!strings.HasPrefix(path, "/") || strings.ContainsAny(path, "?[]\\\r\n"))) {
+		fail(c, 400, errors.New("invalid heatmap filter"))
+		return
+	}
+	pages, err := h.Service.Repo.PagesMatching(ctx, uint64(siteID), from, to, repository.HeatmapPageFilter{ByKey: c.Query("scope") == "key", Key: key, Path: path})
 	if err != nil {
 		fail(c, 503, err)
 		return

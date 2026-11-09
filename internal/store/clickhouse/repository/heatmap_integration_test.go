@@ -197,6 +197,19 @@ func TestHeatmapAggregationIntegration(t *testing.T) {
 	if err != nil || len(grouped) != 4 {
 		t.Fatalf("groups=%+v err=%v", grouped, err)
 	}
+
+	filtered, err := repo.PagesMatching(ctx, 75, now.Add(-time.Hour).Truncate(time.Hour), now.Add(time.Hour), HeatmapPageFilter{ByKey: true, Key: "other"})
+	if err != nil || len(filtered) != 1 || filtered[0].AggregationKey != "other" {
+		t.Fatalf("key filter: %+v %v", filtered, err)
+	}
+	filtered, err = repo.PagesMatching(ctx, 75, now.Add(-time.Hour).Truncate(time.Hour), now.Add(time.Hour), HeatmapPageFilter{Path: "/soft/b.*"})
+	if err != nil || len(filtered) != 1 || filtered[0].Path != "/soft/b.html" {
+		t.Fatalf("path filter: %+v %v", filtered, err)
+	}
+	filtered, err = repo.PagesMatching(ctx, 75, now.Add(-time.Hour).Truncate(time.Hour), now.Add(time.Hour), HeatmapPageFilter{Path: "/soft/b"})
+	if err != nil || len(filtered) != 0 {
+		t.Fatalf("path must be anchored: %+v %v", filtered, err)
+	}
 	groupPage.Path = "/"
 	d, err = repo.Data(ctx, 75, groupPage, now.Add(-time.Hour).Truncate(time.Hour), now.Add(time.Hour), true)
 	if err != nil || d.Clicks != 2 || len(d.Points) != 1 {

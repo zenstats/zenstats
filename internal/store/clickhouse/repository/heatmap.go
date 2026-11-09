@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -41,17 +42,38 @@ func (s *Heatmap) Insert(ctx context.Context, rows []heatmap.Row) error {
 const heatmapQuerySettings = ` SETTINGS max_threads=1, max_execution_time=5, max_memory_usage=134217728`
 const heatmapPageFields = `aggregation_key,hostname,path,version,variant,viewport_width,viewport_height,document_width,document_height`
 
+type HeatmapPageFilter struct {
+	ByKey bool
+	Key   string
+	Path  string
+}
+
 func (s *Heatmap) Pages(ctx context.Context, siteID uint64, from, to time.Time, group ...bool) ([]heatmap.PageCount, error) {
+	return s.PagesMatching(ctx, siteID, from, to, HeatmapPageFilter{ByKey: len(group) > 0 && group[0]})
+}
+
+// Filter before LIMIT so a configured heatmap can be found even when other
+// pages have more recent clicks than the first 200 layouts.
+func (s *Heatmap) PagesMatching(ctx context.Context, siteID uint64, from, to time.Time, filter HeatmapPageFilter) ([]heatmap.PageCount, error) {
 	fields := heatmapPageFields
 	extra := ""
-	if len(group) > 0 && group[0] {
+	if filter.ByKey {
 		fields = strings.Replace(fields, "path,", "'/' AS path,", 1)
 		extra = " AND aggregation_key!=''"
+	}
+	args := []any{siteID, from, to}
+	if filter.Key != "" {
+		extra += " AND aggregation_key=?"
+		args = append(args, filter.Key)
+	}
+	if filter.Path != "" {
+		extra += " AND match(heatmap_clicks_hourly.path,?)"
+		args = append(args, "^"+strings.ReplaceAll(regexp.QuoteMeta(filter.Path), `\*`, `[^/]*`)+"$")
 	}
 	groupFields := strings.Replace(fields, "'/' AS path,", "", 1)
 	rows, err := s.conn.Query(ctx, `SELECT `+fields+`,uniqExactMerge(clicks),max(last_click)
 		FROM heatmap_clicks_hourly WHERE site_id=? AND bucket>=? AND bucket<? AND expires>now()`+extra+`
-		GROUP BY `+groupFields+` ORDER BY max(last_click) DESC LIMIT 200`+heatmapQuerySettings, siteID, from, to)
+		GROUP BY `+groupFields+` ORDER BY max(last_click) DESC LIMIT 200`+heatmapQuerySettings, args...)
 	if err != nil {
 		return nil, err
 	}

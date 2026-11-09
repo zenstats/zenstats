@@ -151,7 +151,7 @@ ZENSTATS_WEB_TEST_URL=http://127.0.0.1:5173 npx playwright test test/heatmap-ui.
 
 ### 配置与查询
 
-站点设置新增独立的「热力图设置」菜单。热力查看页支持「具体 URL / 聚合标识」两种方式，并有设置入口。配置示例：
+站点设置新增独立的「热力图设置」菜单。设置页顶部列出已保存的聚合标识及页面规则，尚无点击数据也会显示；未保存的编辑不进入列表。列表可直接查看对应热力图，统计页域名下拉不再放置热力图入口。热力查看页支持「具体 URL / 聚合标识」两种方式，并有设置入口。配置示例：
 
 ```json
 {
@@ -176,7 +176,7 @@ ZENSTATS_WEB_TEST_URL=http://127.0.0.1:5173 npx playwright test test/heatmap-ui.
   data-heatmap-version="release-1" data-heatmap-variant="default"></script>
 ```
 
-仍保留具体路径。`GET /api/sites/:domain/heatmap/pages` 和 `/data` 可携带 `scope=key`；默认 `scope=url`。按标识查询的 Page `path` 为虚拟 `/`，实际 SQL 按 `aggregation_key` 查询。页面列表上限 200，需留意截断提示。快照保存真实来源路径，不保存虚拟路径。
+仍保留具体路径。`GET /api/sites/:domain/heatmap/pages` 和 `/data` 可携带 `scope=key`；默认 `scope=url`。按标识查询的 Page `path` 为虚拟 `/`，实际 SQL 按 `aggregation_key` 查询。列表跳转可通过 `key` 或 `path` 筛选指定标识 / 路径规则（单层 `*`），数据库在 200 条布局限制前先执行筛选，避免目标被其他页面挤出。页面列表上限 200，需留意截断提示。快照保存真实来源路径，不保存虚拟路径。
 
 跨 URL 仅合并相同 **主机、标识、版本、变体、视口宽高、文档宽高** 的数据，不把不同高度页面纵向拉伸。同尺寸仍可能布局不同，操作者必须选择同模板并及时更新版本。没有元素位置重投影，也不跨 hostname 聚合。元素榜与未映射点击沿用现有语义。
 
