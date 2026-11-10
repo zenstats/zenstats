@@ -36,6 +36,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/siteperformanceconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/systemconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -91,6 +92,8 @@ type Client struct {
 	Site *SiteClient
 	// SiteMembership is the client for interacting with the SiteMembership builders.
 	SiteMembership *SiteMembershipClient
+	// SitePerformanceConfig is the client for interacting with the SitePerformanceConfig builders.
+	SitePerformanceConfig *SitePerformanceConfigClient
 	// SubAccount is the client for interacting with the SubAccount builders.
 	SubAccount *SubAccountClient
 	// SystemConfig is the client for interacting with the SystemConfig builders.
@@ -135,6 +138,7 @@ func (c *Client) init() {
 	c.ShieldRulesReferrer = NewShieldRulesReferrerClient(c.config)
 	c.Site = NewSiteClient(c.config)
 	c.SiteMembership = NewSiteMembershipClient(c.config)
+	c.SitePerformanceConfig = NewSitePerformanceConfigClient(c.config)
 	c.SubAccount = NewSubAccountClient(c.config)
 	c.SystemConfig = NewSystemConfigClient(c.config)
 	c.User = NewUserClient(c.config)
@@ -254,6 +258,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ShieldRulesReferrer:    NewShieldRulesReferrerClient(cfg),
 		Site:                   NewSiteClient(cfg),
 		SiteMembership:         NewSiteMembershipClient(cfg),
+		SitePerformanceConfig:  NewSitePerformanceConfigClient(cfg),
 		SubAccount:             NewSubAccountClient(cfg),
 		SystemConfig:           NewSystemConfigClient(cfg),
 		User:                   NewUserClient(cfg),
@@ -300,6 +305,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ShieldRulesReferrer:    NewShieldRulesReferrerClient(cfg),
 		Site:                   NewSiteClient(cfg),
 		SiteMembership:         NewSiteMembershipClient(cfg),
+		SitePerformanceConfig:  NewSitePerformanceConfigClient(cfg),
 		SubAccount:             NewSubAccountClient(cfg),
 		SystemConfig:           NewSystemConfigClient(cfg),
 		User:                   NewUserClient(cfg),
@@ -339,8 +345,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.FunnelStep, c.Goal, c.HeatmapConfig, c.HeatmapSnapshot, c.MonthlyEventCount,
 		c.PasswordResetToken, c.SavedPanel, c.SearchEngines, c.Segment, c.SharedLink,
 		c.ShieldRulesCountry, c.ShieldRulesHostname, c.ShieldRulesIp,
-		c.ShieldRulesReferrer, c.Site, c.SiteMembership, c.SubAccount, c.SystemConfig,
-		c.User, c.UserConfig, c.UserGroup, c.UserSession,
+		c.ShieldRulesReferrer, c.Site, c.SiteMembership, c.SitePerformanceConfig,
+		c.SubAccount, c.SystemConfig, c.User, c.UserConfig, c.UserGroup, c.UserSession,
 	} {
 		n.Use(hooks...)
 	}
@@ -354,8 +360,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.FunnelStep, c.Goal, c.HeatmapConfig, c.HeatmapSnapshot, c.MonthlyEventCount,
 		c.PasswordResetToken, c.SavedPanel, c.SearchEngines, c.Segment, c.SharedLink,
 		c.ShieldRulesCountry, c.ShieldRulesHostname, c.ShieldRulesIp,
-		c.ShieldRulesReferrer, c.Site, c.SiteMembership, c.SubAccount, c.SystemConfig,
-		c.User, c.UserConfig, c.UserGroup, c.UserSession,
+		c.ShieldRulesReferrer, c.Site, c.SiteMembership, c.SitePerformanceConfig,
+		c.SubAccount, c.SystemConfig, c.User, c.UserConfig, c.UserGroup, c.UserSession,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -406,6 +412,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Site.mutate(ctx, m)
 	case *SiteMembershipMutation:
 		return c.SiteMembership.mutate(ctx, m)
+	case *SitePerformanceConfigMutation:
+		return c.SitePerformanceConfig.mutate(ctx, m)
 	case *SubAccountMutation:
 		return c.SubAccount.mutate(ctx, m)
 	case *SystemConfigMutation:
@@ -3378,6 +3386,22 @@ func (c *SiteClient) GetX(ctx context.Context, id int64) *Site {
 	return obj
 }
 
+// QueryPerformanceConfig queries the performance_config edge of a Site.
+func (c *SiteClient) QueryPerformanceConfig(s *Site) *SitePerformanceConfigQuery {
+	query := (&SitePerformanceConfigClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := s.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, id),
+			sqlgraph.To(siteperformanceconfig.Table, siteperformanceconfig.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, site.PerformanceConfigTable, site.PerformanceConfigColumn),
+		)
+		fromV = sqlgraph.Neighbors(s.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryHeatmapConfig queries the heatmap_config edge of a Site.
 func (c *SiteClient) QueryHeatmapConfig(s *Site) *HeatmapConfigQuery {
 	query := (&HeatmapConfigClient{config: c.config}).Query()
@@ -3773,6 +3797,155 @@ func (c *SiteMembershipClient) mutate(ctx context.Context, m *SiteMembershipMuta
 		return (&SiteMembershipDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown SiteMembership mutation op: %q", m.Op())
+	}
+}
+
+// SitePerformanceConfigClient is a client for the SitePerformanceConfig schema.
+type SitePerformanceConfigClient struct {
+	config
+}
+
+// NewSitePerformanceConfigClient returns a client for the SitePerformanceConfig from the given config.
+func NewSitePerformanceConfigClient(c config) *SitePerformanceConfigClient {
+	return &SitePerformanceConfigClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `siteperformanceconfig.Hooks(f(g(h())))`.
+func (c *SitePerformanceConfigClient) Use(hooks ...Hook) {
+	c.hooks.SitePerformanceConfig = append(c.hooks.SitePerformanceConfig, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `siteperformanceconfig.Intercept(f(g(h())))`.
+func (c *SitePerformanceConfigClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SitePerformanceConfig = append(c.inters.SitePerformanceConfig, interceptors...)
+}
+
+// Create returns a builder for creating a SitePerformanceConfig entity.
+func (c *SitePerformanceConfigClient) Create() *SitePerformanceConfigCreate {
+	mutation := newSitePerformanceConfigMutation(c.config, OpCreate)
+	return &SitePerformanceConfigCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SitePerformanceConfig entities.
+func (c *SitePerformanceConfigClient) CreateBulk(builders ...*SitePerformanceConfigCreate) *SitePerformanceConfigCreateBulk {
+	return &SitePerformanceConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SitePerformanceConfigClient) MapCreateBulk(slice any, setFunc func(*SitePerformanceConfigCreate, int)) *SitePerformanceConfigCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SitePerformanceConfigCreateBulk{err: fmt.Errorf("calling to SitePerformanceConfigClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SitePerformanceConfigCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SitePerformanceConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SitePerformanceConfig.
+func (c *SitePerformanceConfigClient) Update() *SitePerformanceConfigUpdate {
+	mutation := newSitePerformanceConfigMutation(c.config, OpUpdate)
+	return &SitePerformanceConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SitePerformanceConfigClient) UpdateOne(spc *SitePerformanceConfig) *SitePerformanceConfigUpdateOne {
+	mutation := newSitePerformanceConfigMutation(c.config, OpUpdateOne, withSitePerformanceConfig(spc))
+	return &SitePerformanceConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SitePerformanceConfigClient) UpdateOneID(id int64) *SitePerformanceConfigUpdateOne {
+	mutation := newSitePerformanceConfigMutation(c.config, OpUpdateOne, withSitePerformanceConfigID(id))
+	return &SitePerformanceConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SitePerformanceConfig.
+func (c *SitePerformanceConfigClient) Delete() *SitePerformanceConfigDelete {
+	mutation := newSitePerformanceConfigMutation(c.config, OpDelete)
+	return &SitePerformanceConfigDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SitePerformanceConfigClient) DeleteOne(spc *SitePerformanceConfig) *SitePerformanceConfigDeleteOne {
+	return c.DeleteOneID(spc.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SitePerformanceConfigClient) DeleteOneID(id int64) *SitePerformanceConfigDeleteOne {
+	builder := c.Delete().Where(siteperformanceconfig.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SitePerformanceConfigDeleteOne{builder}
+}
+
+// Query returns a query builder for SitePerformanceConfig.
+func (c *SitePerformanceConfigClient) Query() *SitePerformanceConfigQuery {
+	return &SitePerformanceConfigQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSitePerformanceConfig},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SitePerformanceConfig entity by its id.
+func (c *SitePerformanceConfigClient) Get(ctx context.Context, id int64) (*SitePerformanceConfig, error) {
+	return c.Query().Where(siteperformanceconfig.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SitePerformanceConfigClient) GetX(ctx context.Context, id int64) *SitePerformanceConfig {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySite queries the site edge of a SitePerformanceConfig.
+func (c *SitePerformanceConfigClient) QuerySite(spc *SitePerformanceConfig) *SiteQuery {
+	query := (&SiteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := spc.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(siteperformanceconfig.Table, siteperformanceconfig.FieldID, id),
+			sqlgraph.To(site.Table, site.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, siteperformanceconfig.SiteTable, siteperformanceconfig.SiteColumn),
+		)
+		fromV = sqlgraph.Neighbors(spc.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SitePerformanceConfigClient) Hooks() []Hook {
+	return c.hooks.SitePerformanceConfig
+}
+
+// Interceptors returns the client interceptors.
+func (c *SitePerformanceConfigClient) Interceptors() []Interceptor {
+	return c.inters.SitePerformanceConfig
+}
+
+func (c *SitePerformanceConfigClient) mutate(ctx context.Context, m *SitePerformanceConfigMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SitePerformanceConfigCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SitePerformanceConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SitePerformanceConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SitePerformanceConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SitePerformanceConfig mutation op: %q", m.Op())
 	}
 }
 
@@ -4773,15 +4946,15 @@ type (
 		FunnelStep, Goal, HeatmapConfig, HeatmapSnapshot, MonthlyEventCount,
 		PasswordResetToken, SavedPanel, SearchEngines, Segment, SharedLink,
 		ShieldRulesCountry, ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer,
-		Site, SiteMembership, SubAccount, SystemConfig, User, UserConfig, UserGroup,
-		UserSession []ent.Hook
+		Site, SiteMembership, SitePerformanceConfig, SubAccount, SystemConfig, User,
+		UserConfig, UserGroup, UserSession []ent.Hook
 	}
 	inters struct {
 		APIKey, CustomSearchEngine, EmailLog, EmailVerificationToken, Funnel,
 		FunnelStep, Goal, HeatmapConfig, HeatmapSnapshot, MonthlyEventCount,
 		PasswordResetToken, SavedPanel, SearchEngines, Segment, SharedLink,
 		ShieldRulesCountry, ShieldRulesHostname, ShieldRulesIp, ShieldRulesReferrer,
-		Site, SiteMembership, SubAccount, SystemConfig, User, UserConfig, UserGroup,
-		UserSession []ent.Interceptor
+		Site, SiteMembership, SitePerformanceConfig, SubAccount, SystemConfig, User,
+		UserConfig, UserGroup, UserSession []ent.Interceptor
 	}
 )

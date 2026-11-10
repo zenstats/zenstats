@@ -52,6 +52,8 @@ const (
 	FieldTrafficAlertInterval = "traffic_alert_interval"
 	// FieldVerifiedAt holds the string denoting the verified_at field in the database.
 	FieldVerifiedAt = "verified_at"
+	// EdgePerformanceConfig holds the string denoting the performance_config edge name in mutations.
+	EdgePerformanceConfig = "performance_config"
 	// EdgeHeatmapConfig holds the string denoting the heatmap_config edge name in mutations.
 	EdgeHeatmapConfig = "heatmap_config"
 	// EdgeHeatmapSnapshots holds the string denoting the heatmap_snapshots edge name in mutations.
@@ -80,6 +82,13 @@ const (
 	EdgeSavedPanels = "saved_panels"
 	// Table holds the table name of the site in the database.
 	Table = "sites"
+	// PerformanceConfigTable is the table that holds the performance_config relation/edge.
+	PerformanceConfigTable = "site_performance_configs"
+	// PerformanceConfigInverseTable is the table name for the SitePerformanceConfig entity.
+	// It exists in this package in order to avoid circular dependency with the "siteperformanceconfig" package.
+	PerformanceConfigInverseTable = "site_performance_configs"
+	// PerformanceConfigColumn is the table column denoting the performance_config relation/edge.
+	PerformanceConfigColumn = "site_id"
 	// HeatmapConfigTable is the table that holds the heatmap_config relation/edge.
 	HeatmapConfigTable = "heatmap_configs"
 	// HeatmapConfigInverseTable is the table name for the HeatmapConfig entity.
@@ -355,6 +364,13 @@ func ByVerifiedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldVerifiedAt, opts...).ToFunc()
 }
 
+// ByPerformanceConfigField orders the results by performance_config field.
+func ByPerformanceConfigField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPerformanceConfigStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByHeatmapConfigField orders the results by heatmap_config field.
 func ByHeatmapConfigField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -528,6 +544,13 @@ func BySavedPanels(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newSavedPanelsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
+}
+func newPerformanceConfigStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PerformanceConfigInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, PerformanceConfigTable, PerformanceConfigColumn),
+	)
 }
 func newHeatmapConfigStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(

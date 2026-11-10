@@ -995,6 +995,29 @@ func VerifiedAtNotNil() predicate.Site {
 	return predicate.Site(sql.FieldNotNull(FieldVerifiedAt))
 }
 
+// HasPerformanceConfig applies the HasEdge predicate on the "performance_config" edge.
+func HasPerformanceConfig() predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, PerformanceConfigTable, PerformanceConfigColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPerformanceConfigWith applies the HasEdge predicate on the "performance_config" edge with a given conditions (other predicates).
+func HasPerformanceConfigWith(preds ...predicate.SitePerformanceConfig) predicate.Site {
+	return predicate.Site(func(s *sql.Selector) {
+		step := newPerformanceConfigStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasHeatmapConfig applies the HasEdge predicate on the "heatmap_config" edge.
 func HasHeatmapConfig() predicate.Site {
 	return predicate.Site(func(s *sql.Selector) {

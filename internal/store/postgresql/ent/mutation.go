@@ -35,6 +35,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/siteperformanceconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/systemconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -73,6 +74,7 @@ const (
 	TypeShieldRulesReferrer    = "ShieldRulesReferrer"
 	TypeSite                   = "Site"
 	TypeSiteMembership         = "SiteMembership"
+	TypeSitePerformanceConfig  = "SitePerformanceConfig"
 	TypeSubAccount             = "SubAccount"
 	TypeSystemConfig           = "SystemConfig"
 	TypeUser                   = "User"
@@ -14489,6 +14491,8 @@ type SiteMutation struct {
 	traffic_alert_interval             *string
 	verified_at                        *time.Time
 	clearedFields                      map[string]struct{}
+	performance_config                 *int64
+	clearedperformance_config          bool
 	heatmap_config                     *int64
 	clearedheatmap_config              bool
 	heatmap_snapshots                  map[int64]struct{}
@@ -15456,6 +15460,45 @@ func (m *SiteMutation) VerifiedAtCleared() bool {
 func (m *SiteMutation) ResetVerifiedAt() {
 	m.verified_at = nil
 	delete(m.clearedFields, site.FieldVerifiedAt)
+}
+
+// SetPerformanceConfigID sets the "performance_config" edge to the SitePerformanceConfig entity by id.
+func (m *SiteMutation) SetPerformanceConfigID(id int64) {
+	m.performance_config = &id
+}
+
+// ClearPerformanceConfig clears the "performance_config" edge to the SitePerformanceConfig entity.
+func (m *SiteMutation) ClearPerformanceConfig() {
+	m.clearedperformance_config = true
+}
+
+// PerformanceConfigCleared reports if the "performance_config" edge to the SitePerformanceConfig entity was cleared.
+func (m *SiteMutation) PerformanceConfigCleared() bool {
+	return m.clearedperformance_config
+}
+
+// PerformanceConfigID returns the "performance_config" edge ID in the mutation.
+func (m *SiteMutation) PerformanceConfigID() (id int64, exists bool) {
+	if m.performance_config != nil {
+		return *m.performance_config, true
+	}
+	return
+}
+
+// PerformanceConfigIDs returns the "performance_config" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PerformanceConfigID instead. It exists only for internal usage by the builders.
+func (m *SiteMutation) PerformanceConfigIDs() (ids []int64) {
+	if id := m.performance_config; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPerformanceConfig resets all changes to the "performance_config" edge.
+func (m *SiteMutation) ResetPerformanceConfig() {
+	m.performance_config = nil
+	m.clearedperformance_config = false
 }
 
 // SetHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by id.
@@ -16662,7 +16705,10 @@ func (m *SiteMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SiteMutation) AddedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 14)
+	if m.performance_config != nil {
+		edges = append(edges, site.EdgePerformanceConfig)
+	}
 	if m.heatmap_config != nil {
 		edges = append(edges, site.EdgeHeatmapConfig)
 	}
@@ -16709,6 +16755,10 @@ func (m *SiteMutation) AddedEdges() []string {
 // name in this mutation.
 func (m *SiteMutation) AddedIDs(name string) []ent.Value {
 	switch name {
+	case site.EdgePerformanceConfig:
+		if id := m.performance_config; id != nil {
+			return []ent.Value{*id}
+		}
 	case site.EdgeHeatmapConfig:
 		if id := m.heatmap_config; id != nil {
 			return []ent.Value{*id}
@@ -16791,7 +16841,7 @@ func (m *SiteMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SiteMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 14)
 	if m.removedheatmap_snapshots != nil {
 		edges = append(edges, site.EdgeHeatmapSnapshots)
 	}
@@ -16913,7 +16963,10 @@ func (m *SiteMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SiteMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 14)
+	if m.clearedperformance_config {
+		edges = append(edges, site.EdgePerformanceConfig)
+	}
 	if m.clearedheatmap_config {
 		edges = append(edges, site.EdgeHeatmapConfig)
 	}
@@ -16960,6 +17013,8 @@ func (m *SiteMutation) ClearedEdges() []string {
 // was cleared in this mutation.
 func (m *SiteMutation) EdgeCleared(name string) bool {
 	switch name {
+	case site.EdgePerformanceConfig:
+		return m.clearedperformance_config
 	case site.EdgeHeatmapConfig:
 		return m.clearedheatmap_config
 	case site.EdgeHeatmapSnapshots:
@@ -16994,6 +17049,9 @@ func (m *SiteMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *SiteMutation) ClearEdge(name string) error {
 	switch name {
+	case site.EdgePerformanceConfig:
+		m.ClearPerformanceConfig()
+		return nil
 	case site.EdgeHeatmapConfig:
 		m.ClearHeatmapConfig()
 		return nil
@@ -17005,6 +17063,9 @@ func (m *SiteMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *SiteMutation) ResetEdge(name string) error {
 	switch name {
+	case site.EdgePerformanceConfig:
+		m.ResetPerformanceConfig()
+		return nil
 	case site.EdgeHeatmapConfig:
 		m.ResetHeatmapConfig()
 		return nil
@@ -17589,6 +17650,888 @@ func (m *SiteMembershipMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown SiteMembership edge %s", name)
+}
+
+// SitePerformanceConfigMutation represents an operation that mutates the SitePerformanceConfig nodes in the graph.
+type SitePerformanceConfigMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int64
+	enabled           *bool
+	paths             *[]string
+	appendpaths       []string
+	sample_rate       *float64
+	addsample_rate    *float64
+	raw_days          *int
+	addraw_days       *int
+	timezone          *string
+	config_version    *uint64
+	addconfig_version *int64
+	updated_at        *time.Time
+	clearedFields     map[string]struct{}
+	site              *int64
+	clearedsite       bool
+	done              bool
+	oldValue          func(context.Context) (*SitePerformanceConfig, error)
+	predicates        []predicate.SitePerformanceConfig
+}
+
+var _ ent.Mutation = (*SitePerformanceConfigMutation)(nil)
+
+// siteperformanceconfigOption allows management of the mutation configuration using functional options.
+type siteperformanceconfigOption func(*SitePerformanceConfigMutation)
+
+// newSitePerformanceConfigMutation creates new mutation for the SitePerformanceConfig entity.
+func newSitePerformanceConfigMutation(c config, op Op, opts ...siteperformanceconfigOption) *SitePerformanceConfigMutation {
+	m := &SitePerformanceConfigMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSitePerformanceConfig,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSitePerformanceConfigID sets the ID field of the mutation.
+func withSitePerformanceConfigID(id int64) siteperformanceconfigOption {
+	return func(m *SitePerformanceConfigMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SitePerformanceConfig
+		)
+		m.oldValue = func(ctx context.Context) (*SitePerformanceConfig, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SitePerformanceConfig.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSitePerformanceConfig sets the old SitePerformanceConfig of the mutation.
+func withSitePerformanceConfig(node *SitePerformanceConfig) siteperformanceconfigOption {
+	return func(m *SitePerformanceConfigMutation) {
+		m.oldValue = func(context.Context) (*SitePerformanceConfig, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SitePerformanceConfigMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SitePerformanceConfigMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of SitePerformanceConfig entities.
+func (m *SitePerformanceConfigMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SitePerformanceConfigMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SitePerformanceConfigMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SitePerformanceConfig.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *SitePerformanceConfigMutation) SetSiteID(i int64) {
+	m.site = &i
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *SitePerformanceConfigMutation) SiteID() (r int64, exists bool) {
+	v := m.site
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the SitePerformanceConfig entity.
+// If the SitePerformanceConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SitePerformanceConfigMutation) OldSiteID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *SitePerformanceConfigMutation) ResetSiteID() {
+	m.site = nil
+}
+
+// SetEnabled sets the "enabled" field.
+func (m *SitePerformanceConfigMutation) SetEnabled(b bool) {
+	m.enabled = &b
+}
+
+// Enabled returns the value of the "enabled" field in the mutation.
+func (m *SitePerformanceConfigMutation) Enabled() (r bool, exists bool) {
+	v := m.enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnabled returns the old "enabled" field's value of the SitePerformanceConfig entity.
+// If the SitePerformanceConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SitePerformanceConfigMutation) OldEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnabled: %w", err)
+	}
+	return oldValue.Enabled, nil
+}
+
+// ResetEnabled resets all changes to the "enabled" field.
+func (m *SitePerformanceConfigMutation) ResetEnabled() {
+	m.enabled = nil
+}
+
+// SetPaths sets the "paths" field.
+func (m *SitePerformanceConfigMutation) SetPaths(s []string) {
+	m.paths = &s
+	m.appendpaths = nil
+}
+
+// Paths returns the value of the "paths" field in the mutation.
+func (m *SitePerformanceConfigMutation) Paths() (r []string, exists bool) {
+	v := m.paths
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaths returns the old "paths" field's value of the SitePerformanceConfig entity.
+// If the SitePerformanceConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SitePerformanceConfigMutation) OldPaths(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaths is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaths requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaths: %w", err)
+	}
+	return oldValue.Paths, nil
+}
+
+// AppendPaths adds s to the "paths" field.
+func (m *SitePerformanceConfigMutation) AppendPaths(s []string) {
+	m.appendpaths = append(m.appendpaths, s...)
+}
+
+// AppendedPaths returns the list of values that were appended to the "paths" field in this mutation.
+func (m *SitePerformanceConfigMutation) AppendedPaths() ([]string, bool) {
+	if len(m.appendpaths) == 0 {
+		return nil, false
+	}
+	return m.appendpaths, true
+}
+
+// ResetPaths resets all changes to the "paths" field.
+func (m *SitePerformanceConfigMutation) ResetPaths() {
+	m.paths = nil
+	m.appendpaths = nil
+}
+
+// SetSampleRate sets the "sample_rate" field.
+func (m *SitePerformanceConfigMutation) SetSampleRate(f float64) {
+	m.sample_rate = &f
+	m.addsample_rate = nil
+}
+
+// SampleRate returns the value of the "sample_rate" field in the mutation.
+func (m *SitePerformanceConfigMutation) SampleRate() (r float64, exists bool) {
+	v := m.sample_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSampleRate returns the old "sample_rate" field's value of the SitePerformanceConfig entity.
+// If the SitePerformanceConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SitePerformanceConfigMutation) OldSampleRate(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSampleRate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSampleRate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSampleRate: %w", err)
+	}
+	return oldValue.SampleRate, nil
+}
+
+// AddSampleRate adds f to the "sample_rate" field.
+func (m *SitePerformanceConfigMutation) AddSampleRate(f float64) {
+	if m.addsample_rate != nil {
+		*m.addsample_rate += f
+	} else {
+		m.addsample_rate = &f
+	}
+}
+
+// AddedSampleRate returns the value that was added to the "sample_rate" field in this mutation.
+func (m *SitePerformanceConfigMutation) AddedSampleRate() (r float64, exists bool) {
+	v := m.addsample_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSampleRate resets all changes to the "sample_rate" field.
+func (m *SitePerformanceConfigMutation) ResetSampleRate() {
+	m.sample_rate = nil
+	m.addsample_rate = nil
+}
+
+// SetRawDays sets the "raw_days" field.
+func (m *SitePerformanceConfigMutation) SetRawDays(i int) {
+	m.raw_days = &i
+	m.addraw_days = nil
+}
+
+// RawDays returns the value of the "raw_days" field in the mutation.
+func (m *SitePerformanceConfigMutation) RawDays() (r int, exists bool) {
+	v := m.raw_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRawDays returns the old "raw_days" field's value of the SitePerformanceConfig entity.
+// If the SitePerformanceConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SitePerformanceConfigMutation) OldRawDays(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRawDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRawDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRawDays: %w", err)
+	}
+	return oldValue.RawDays, nil
+}
+
+// AddRawDays adds i to the "raw_days" field.
+func (m *SitePerformanceConfigMutation) AddRawDays(i int) {
+	if m.addraw_days != nil {
+		*m.addraw_days += i
+	} else {
+		m.addraw_days = &i
+	}
+}
+
+// AddedRawDays returns the value that was added to the "raw_days" field in this mutation.
+func (m *SitePerformanceConfigMutation) AddedRawDays() (r int, exists bool) {
+	v := m.addraw_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRawDays resets all changes to the "raw_days" field.
+func (m *SitePerformanceConfigMutation) ResetRawDays() {
+	m.raw_days = nil
+	m.addraw_days = nil
+}
+
+// SetTimezone sets the "timezone" field.
+func (m *SitePerformanceConfigMutation) SetTimezone(s string) {
+	m.timezone = &s
+}
+
+// Timezone returns the value of the "timezone" field in the mutation.
+func (m *SitePerformanceConfigMutation) Timezone() (r string, exists bool) {
+	v := m.timezone
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimezone returns the old "timezone" field's value of the SitePerformanceConfig entity.
+// If the SitePerformanceConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SitePerformanceConfigMutation) OldTimezone(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimezone is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimezone requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimezone: %w", err)
+	}
+	return oldValue.Timezone, nil
+}
+
+// ResetTimezone resets all changes to the "timezone" field.
+func (m *SitePerformanceConfigMutation) ResetTimezone() {
+	m.timezone = nil
+}
+
+// SetConfigVersion sets the "config_version" field.
+func (m *SitePerformanceConfigMutation) SetConfigVersion(u uint64) {
+	m.config_version = &u
+	m.addconfig_version = nil
+}
+
+// ConfigVersion returns the value of the "config_version" field in the mutation.
+func (m *SitePerformanceConfigMutation) ConfigVersion() (r uint64, exists bool) {
+	v := m.config_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfigVersion returns the old "config_version" field's value of the SitePerformanceConfig entity.
+// If the SitePerformanceConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SitePerformanceConfigMutation) OldConfigVersion(ctx context.Context) (v uint64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConfigVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConfigVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfigVersion: %w", err)
+	}
+	return oldValue.ConfigVersion, nil
+}
+
+// AddConfigVersion adds u to the "config_version" field.
+func (m *SitePerformanceConfigMutation) AddConfigVersion(u int64) {
+	if m.addconfig_version != nil {
+		*m.addconfig_version += u
+	} else {
+		m.addconfig_version = &u
+	}
+}
+
+// AddedConfigVersion returns the value that was added to the "config_version" field in this mutation.
+func (m *SitePerformanceConfigMutation) AddedConfigVersion() (r int64, exists bool) {
+	v := m.addconfig_version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetConfigVersion resets all changes to the "config_version" field.
+func (m *SitePerformanceConfigMutation) ResetConfigVersion() {
+	m.config_version = nil
+	m.addconfig_version = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *SitePerformanceConfigMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *SitePerformanceConfigMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the SitePerformanceConfig entity.
+// If the SitePerformanceConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SitePerformanceConfigMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *SitePerformanceConfigMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearSite clears the "site" edge to the Site entity.
+func (m *SitePerformanceConfigMutation) ClearSite() {
+	m.clearedsite = true
+	m.clearedFields[siteperformanceconfig.FieldSiteID] = struct{}{}
+}
+
+// SiteCleared reports if the "site" edge to the Site entity was cleared.
+func (m *SitePerformanceConfigMutation) SiteCleared() bool {
+	return m.clearedsite
+}
+
+// SiteIDs returns the "site" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SiteID instead. It exists only for internal usage by the builders.
+func (m *SitePerformanceConfigMutation) SiteIDs() (ids []int64) {
+	if id := m.site; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSite resets all changes to the "site" edge.
+func (m *SitePerformanceConfigMutation) ResetSite() {
+	m.site = nil
+	m.clearedsite = false
+}
+
+// Where appends a list predicates to the SitePerformanceConfigMutation builder.
+func (m *SitePerformanceConfigMutation) Where(ps ...predicate.SitePerformanceConfig) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SitePerformanceConfigMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SitePerformanceConfigMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SitePerformanceConfig, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SitePerformanceConfigMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SitePerformanceConfigMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SitePerformanceConfig).
+func (m *SitePerformanceConfigMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SitePerformanceConfigMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.site != nil {
+		fields = append(fields, siteperformanceconfig.FieldSiteID)
+	}
+	if m.enabled != nil {
+		fields = append(fields, siteperformanceconfig.FieldEnabled)
+	}
+	if m.paths != nil {
+		fields = append(fields, siteperformanceconfig.FieldPaths)
+	}
+	if m.sample_rate != nil {
+		fields = append(fields, siteperformanceconfig.FieldSampleRate)
+	}
+	if m.raw_days != nil {
+		fields = append(fields, siteperformanceconfig.FieldRawDays)
+	}
+	if m.timezone != nil {
+		fields = append(fields, siteperformanceconfig.FieldTimezone)
+	}
+	if m.config_version != nil {
+		fields = append(fields, siteperformanceconfig.FieldConfigVersion)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, siteperformanceconfig.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SitePerformanceConfigMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case siteperformanceconfig.FieldSiteID:
+		return m.SiteID()
+	case siteperformanceconfig.FieldEnabled:
+		return m.Enabled()
+	case siteperformanceconfig.FieldPaths:
+		return m.Paths()
+	case siteperformanceconfig.FieldSampleRate:
+		return m.SampleRate()
+	case siteperformanceconfig.FieldRawDays:
+		return m.RawDays()
+	case siteperformanceconfig.FieldTimezone:
+		return m.Timezone()
+	case siteperformanceconfig.FieldConfigVersion:
+		return m.ConfigVersion()
+	case siteperformanceconfig.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SitePerformanceConfigMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case siteperformanceconfig.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case siteperformanceconfig.FieldEnabled:
+		return m.OldEnabled(ctx)
+	case siteperformanceconfig.FieldPaths:
+		return m.OldPaths(ctx)
+	case siteperformanceconfig.FieldSampleRate:
+		return m.OldSampleRate(ctx)
+	case siteperformanceconfig.FieldRawDays:
+		return m.OldRawDays(ctx)
+	case siteperformanceconfig.FieldTimezone:
+		return m.OldTimezone(ctx)
+	case siteperformanceconfig.FieldConfigVersion:
+		return m.OldConfigVersion(ctx)
+	case siteperformanceconfig.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown SitePerformanceConfig field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SitePerformanceConfigMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case siteperformanceconfig.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case siteperformanceconfig.FieldEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnabled(v)
+		return nil
+	case siteperformanceconfig.FieldPaths:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaths(v)
+		return nil
+	case siteperformanceconfig.FieldSampleRate:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSampleRate(v)
+		return nil
+	case siteperformanceconfig.FieldRawDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRawDays(v)
+		return nil
+	case siteperformanceconfig.FieldTimezone:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimezone(v)
+		return nil
+	case siteperformanceconfig.FieldConfigVersion:
+		v, ok := value.(uint64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfigVersion(v)
+		return nil
+	case siteperformanceconfig.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SitePerformanceConfig field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SitePerformanceConfigMutation) AddedFields() []string {
+	var fields []string
+	if m.addsample_rate != nil {
+		fields = append(fields, siteperformanceconfig.FieldSampleRate)
+	}
+	if m.addraw_days != nil {
+		fields = append(fields, siteperformanceconfig.FieldRawDays)
+	}
+	if m.addconfig_version != nil {
+		fields = append(fields, siteperformanceconfig.FieldConfigVersion)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SitePerformanceConfigMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case siteperformanceconfig.FieldSampleRate:
+		return m.AddedSampleRate()
+	case siteperformanceconfig.FieldRawDays:
+		return m.AddedRawDays()
+	case siteperformanceconfig.FieldConfigVersion:
+		return m.AddedConfigVersion()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SitePerformanceConfigMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case siteperformanceconfig.FieldSampleRate:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSampleRate(v)
+		return nil
+	case siteperformanceconfig.FieldRawDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRawDays(v)
+		return nil
+	case siteperformanceconfig.FieldConfigVersion:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddConfigVersion(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SitePerformanceConfig numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SitePerformanceConfigMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SitePerformanceConfigMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SitePerformanceConfigMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown SitePerformanceConfig nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SitePerformanceConfigMutation) ResetField(name string) error {
+	switch name {
+	case siteperformanceconfig.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case siteperformanceconfig.FieldEnabled:
+		m.ResetEnabled()
+		return nil
+	case siteperformanceconfig.FieldPaths:
+		m.ResetPaths()
+		return nil
+	case siteperformanceconfig.FieldSampleRate:
+		m.ResetSampleRate()
+		return nil
+	case siteperformanceconfig.FieldRawDays:
+		m.ResetRawDays()
+		return nil
+	case siteperformanceconfig.FieldTimezone:
+		m.ResetTimezone()
+		return nil
+	case siteperformanceconfig.FieldConfigVersion:
+		m.ResetConfigVersion()
+		return nil
+	case siteperformanceconfig.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SitePerformanceConfig field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SitePerformanceConfigMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.site != nil {
+		edges = append(edges, siteperformanceconfig.EdgeSite)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SitePerformanceConfigMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case siteperformanceconfig.EdgeSite:
+		if id := m.site; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SitePerformanceConfigMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SitePerformanceConfigMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SitePerformanceConfigMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsite {
+		edges = append(edges, siteperformanceconfig.EdgeSite)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SitePerformanceConfigMutation) EdgeCleared(name string) bool {
+	switch name {
+	case siteperformanceconfig.EdgeSite:
+		return m.clearedsite
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SitePerformanceConfigMutation) ClearEdge(name string) error {
+	switch name {
+	case siteperformanceconfig.EdgeSite:
+		m.ClearSite()
+		return nil
+	}
+	return fmt.Errorf("unknown SitePerformanceConfig unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SitePerformanceConfigMutation) ResetEdge(name string) error {
+	switch name {
+	case siteperformanceconfig.EdgeSite:
+		m.ResetSite()
+		return nil
+	}
+	return fmt.Errorf("unknown SitePerformanceConfig edge %s", name)
 }
 
 // SubAccountMutation represents an operation that mutates the SubAccount nodes in the graph.

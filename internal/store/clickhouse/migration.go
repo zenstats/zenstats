@@ -30,6 +30,9 @@ func (m *Migration) Run() error {
 		return err
 	}
 
+	if err := EnsurePerformanceTables(ctx, m.conn); err != nil {
+		return err
+	}
 	slog.Info("migration completed")
 	return nil
 }

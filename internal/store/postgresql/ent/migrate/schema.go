@@ -700,6 +700,39 @@ var (
 			},
 		},
 	}
+	// SitePerformanceConfigsColumns holds the columns for the "site_performance_configs" table.
+	SitePerformanceConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "enabled", Type: field.TypeBool, Default: false},
+		{Name: "paths", Type: field.TypeJSON, Default: "[\"/*\"]"},
+		{Name: "sample_rate", Type: field.TypeFloat64, Default: 0.1},
+		{Name: "raw_days", Type: field.TypeInt, Default: 7},
+		{Name: "timezone", Type: field.TypeString, Size: 50, Default: "UTC"},
+		{Name: "config_version", Type: field.TypeUint64, Default: 1},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "site_id", Type: field.TypeInt64, Unique: true},
+	}
+	// SitePerformanceConfigsTable holds the schema information for the "site_performance_configs" table.
+	SitePerformanceConfigsTable = &schema.Table{
+		Name:       "site_performance_configs",
+		Columns:    SitePerformanceConfigsColumns,
+		PrimaryKey: []*schema.Column{SitePerformanceConfigsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "site_performance_configs_sites_performance_config",
+				Columns:    []*schema.Column{SitePerformanceConfigsColumns[8]},
+				RefColumns: []*schema.Column{SitesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "siteperformanceconfig_site_id",
+				Unique:  true,
+				Columns: []*schema.Column{SitePerformanceConfigsColumns[8]},
+			},
+		},
+	}
 	// SubAccountsColumns holds the columns for the "sub_accounts" table.
 	SubAccountsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -904,6 +937,7 @@ var (
 		ShieldRulesReferrersTable,
 		SitesTable,
 		SiteMembershipsTable,
+		SitePerformanceConfigsTable,
 		SubAccountsTable,
 		SystemConfigsTable,
 		UsersTable,
@@ -934,6 +968,7 @@ func init() {
 	ShieldRulesReferrersTable.ForeignKeys[0].RefTable = SitesTable
 	SiteMembershipsTable.ForeignKeys[0].RefTable = SitesTable
 	SiteMembershipsTable.ForeignKeys[1].RefTable = UsersTable
+	SitePerformanceConfigsTable.ForeignKeys[0].RefTable = SitesTable
 	SubAccountsTable.ForeignKeys[0].RefTable = UsersTable
 	UsersTable.ForeignKeys[0].RefTable = SitesTable
 	UserConfigsTable.ForeignKeys[0].RefTable = UsersTable

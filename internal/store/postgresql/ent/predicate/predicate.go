@@ -69,6 +69,9 @@ type Site func(*sql.Selector)
 // SiteMembership is the predicate function for sitemembership builders.
 type SiteMembership func(*sql.Selector)
 
+// SitePerformanceConfig is the predicate function for siteperformanceconfig builders.
+type SitePerformanceConfig func(*sql.Selector)
+
 // SubAccount is the predicate function for subaccount builders.
 type SubAccount func(*sql.Selector)
 

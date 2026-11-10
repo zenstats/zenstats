@@ -18,6 +18,7 @@ func RegisterRouter(router *gin.RouterGroup) {
 	// event api
 	RegisterExternalRouter(router)
 	RegisterHeatmapRouter(router)
+	RegisterPerformanceRouter(router)
 	// auth api
 	RegisterAuthRouter(router)
 	// stats api

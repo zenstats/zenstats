@@ -54,6 +54,8 @@ type Tx struct {
 	Site *SiteClient
 	// SiteMembership is the client for interacting with the SiteMembership builders.
 	SiteMembership *SiteMembershipClient
+	// SitePerformanceConfig is the client for interacting with the SitePerformanceConfig builders.
+	SitePerformanceConfig *SitePerformanceConfigClient
 	// SubAccount is the client for interacting with the SubAccount builders.
 	SubAccount *SubAccountClient
 	// SystemConfig is the client for interacting with the SystemConfig builders.
@@ -218,6 +220,7 @@ func (tx *Tx) init() {
 	tx.ShieldRulesReferrer = NewShieldRulesReferrerClient(tx.config)
 	tx.Site = NewSiteClient(tx.config)
 	tx.SiteMembership = NewSiteMembershipClient(tx.config)
+	tx.SitePerformanceConfig = NewSitePerformanceConfigClient(tx.config)
 	tx.SubAccount = NewSubAccountClient(tx.config)
 	tx.SystemConfig = NewSystemConfigClient(tx.config)
 	tx.User = NewUserClient(tx.config)

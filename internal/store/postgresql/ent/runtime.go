@@ -25,6 +25,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesip"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/siteperformanceconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/systemconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -607,6 +608,40 @@ func init() {
 	site.TrafficAlertIntervalValidator = siteDescTrafficAlertInterval.Validators[0].(func(string) error)
 	sitemembershipFields := schema.SiteMembership{}.Fields()
 	_ = sitemembershipFields
+	siteperformanceconfigFields := schema.SitePerformanceConfig{}.Fields()
+	_ = siteperformanceconfigFields
+	// siteperformanceconfigDescEnabled is the schema descriptor for enabled field.
+	siteperformanceconfigDescEnabled := siteperformanceconfigFields[2].Descriptor()
+	// siteperformanceconfig.DefaultEnabled holds the default value on creation for the enabled field.
+	siteperformanceconfig.DefaultEnabled = siteperformanceconfigDescEnabled.Default.(bool)
+	// siteperformanceconfigDescPaths is the schema descriptor for paths field.
+	siteperformanceconfigDescPaths := siteperformanceconfigFields[3].Descriptor()
+	// siteperformanceconfig.DefaultPaths holds the default value on creation for the paths field.
+	siteperformanceconfig.DefaultPaths = siteperformanceconfigDescPaths.Default.([]string)
+	// siteperformanceconfigDescSampleRate is the schema descriptor for sample_rate field.
+	siteperformanceconfigDescSampleRate := siteperformanceconfigFields[4].Descriptor()
+	// siteperformanceconfig.DefaultSampleRate holds the default value on creation for the sample_rate field.
+	siteperformanceconfig.DefaultSampleRate = siteperformanceconfigDescSampleRate.Default.(float64)
+	// siteperformanceconfigDescRawDays is the schema descriptor for raw_days field.
+	siteperformanceconfigDescRawDays := siteperformanceconfigFields[5].Descriptor()
+	// siteperformanceconfig.DefaultRawDays holds the default value on creation for the raw_days field.
+	siteperformanceconfig.DefaultRawDays = siteperformanceconfigDescRawDays.Default.(int)
+	// siteperformanceconfigDescTimezone is the schema descriptor for timezone field.
+	siteperformanceconfigDescTimezone := siteperformanceconfigFields[6].Descriptor()
+	// siteperformanceconfig.DefaultTimezone holds the default value on creation for the timezone field.
+	siteperformanceconfig.DefaultTimezone = siteperformanceconfigDescTimezone.Default.(string)
+	// siteperformanceconfig.TimezoneValidator is a validator for the "timezone" field. It is called by the builders before save.
+	siteperformanceconfig.TimezoneValidator = siteperformanceconfigDescTimezone.Validators[0].(func(string) error)
+	// siteperformanceconfigDescConfigVersion is the schema descriptor for config_version field.
+	siteperformanceconfigDescConfigVersion := siteperformanceconfigFields[7].Descriptor()
+	// siteperformanceconfig.DefaultConfigVersion holds the default value on creation for the config_version field.
+	siteperformanceconfig.DefaultConfigVersion = siteperformanceconfigDescConfigVersion.Default.(uint64)
+	// siteperformanceconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	siteperformanceconfigDescUpdatedAt := siteperformanceconfigFields[8].Descriptor()
+	// siteperformanceconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	siteperformanceconfig.DefaultUpdatedAt = siteperformanceconfigDescUpdatedAt.Default.(func() time.Time)
+	// siteperformanceconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	siteperformanceconfig.UpdateDefaultUpdatedAt = siteperformanceconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
 	subaccountFields := schema.SubAccount{}.Fields()
 	_ = subaccountFields
 	// subaccountDescEmail is the schema descriptor for email field.

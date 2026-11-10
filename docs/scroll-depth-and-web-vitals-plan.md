@@ -1,6 +1,6 @@
 # 滚动深度热力图与 Web Vitals：调研及实施规划
 
-调研日期：2026-11-10。状态：滚动深度第一阶段已实现并在本地验证；历史封账汇总、Core Web Vitals 尚未实施。
+调研日期：2026-11-10。状态：滚动深度第一阶段与 Core Web Vitals 首版已实现并在本地验证；历史封账汇总与生产规模压测尚未完成。
 
 本文补充 `feature-roadmap-and-specifications.md`，作为这两项功能的实施依据。Web 任务见 [Web 实施规划](../../zenstats-web/docs/scroll-depth-and-web-vitals-plan.md)。
 
@@ -15,6 +15,18 @@
 - Web 提供独立滚动页面列表、80段色带、25/50/75/100%触达卡、平均初始首屏线、质量标记与无截图查看，复用聚合标识、设备、版本及截图。
 - 点击／滚动复用热力图专用两连接池及一个查询槽；查询继续限制单线程、5秒、128MiB。保留PV、UV、Session及原有 engagement 滚动指标口径。
 - 当前不支持滚动的90天历史聚合；`aggregate_days` 仍只控制原有点击聚合。后续任务按下文分阶段推进，不应把以下设计视为全部已交付。
+
+## 已实现范围：Core Web Vitals 首版
+
+- 独立站点配置默认关闭；Tracker 需显式设置 `data-performance="true"`。锁定官方 `web-vitals@6.2.3`，采集 LCP、INP、CLS，并提供 TTFB、FCP 辅助指标；不增加普通 PV、UV、Session 或业务事件计数。
+- PostgreSQL `site_performance_configs` 保存采样率、路径白名单、1～7天保留期及配置版本；执行 `migrate` 更新。ClickHouse 创建独立 `web_vitals_reports`，采用 TTL 清理原始报告。
+- `GET /api/performance/config` 与 `POST /api/performance/reports` 提供公开能力配置和独立采集；单批最多20条、16KiB，原子校验、独立限流和有界队列。**202 仅表示进入内存队列，不能推断落库成功**。管理员在采集质量页面及 `/api/admin/performance-quality` 查看接收、待写、持久化、重试和丢弃计数。
+- `GET/PUT /api/sites/:domain/performance/config` 沿用站点读权限及所有者/管理员写权限，子账号只读；`GET /api/sites/:domain/performance/data` 提供 P75、分级、覆盖率、每日趋势和慢页面排行，支持设备、路径、主机、版本、浏览器、国家及导航类型筛选。
+- 按文档导航采集，SPA 路由切换保留初始文档 URL；BFCache 恢复新建生命周期。浏览身份仅保存在内存，不采集 DOM、资源 URL 或持久化用户 ID；不启用 soft navigation、attribution 或 reportAllChanges。
+- 查询先按指标实例解析最新整条 revision，再过滤和计算原始样本 P75；不取最大值、不平均每日 P75。缺失 INP 保持空，CLS=0 有效；后台初始化和截断指标排除有效分母，延迟初始化单列提示；三项核心指标任一不足100有效样本时整体显示“数据不足”（产品展示门槛）。
+- 仅查询冻结站点时区下最近 `raw_days` 个自然日（最多7天）；混合采样率与配置版本会提示。历史封账、30/90天聚合及生产规模压测尚未交付。
+- 与点击/滚动共用专用两连接池及一个查询槽，查询限制单线程、5秒、128MiB；结果缓存5秒、最多100组条件。
+- Web 入口：**统计页面 → Core Web Vitals**；**站点设置 → 性能监控设置 → 查看性能监控**。接入步骤见 Web 文档的性能监控章节。
 
 ## 1. 调研结论
 
