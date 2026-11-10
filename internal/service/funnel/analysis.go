@@ -2,6 +2,7 @@ package funnel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -9,6 +10,15 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	cl "github.com/zenstats/zenstats/internal/store/clickhouse"
 )
+
+// ErrAnalysisBusy indicates that another funnel query is already running.
+var ErrAnalysisBusy = errors.New("funnel analysis is busy; please retry shortly")
+
+// Funnel queries share the database with event ingestion. Bound their combined
+// memory and CPU use across all AnalysisService instances in this process.
+var analysisSlots = make(chan struct{}, 1)
+
+const funnelQuerySettings = ` SETTINGS max_threads=1, max_execution_time=15, max_memory_usage=268435456, max_bytes_before_external_group_by=67108864`
 
 // AnalysisService 漏斗分析服务，基于 ClickHouse 查询漏斗转化数据。
 type AnalysisService struct {
@@ -81,8 +91,19 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 		return nil, fmt.Errorf("funnel must have at most 8 steps")
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	select {
+	case analysisSlots <- struct{}{}:
+		defer func() { <-analysisSlots }()
+	default:
+		return nil, ErrAnalysisBusy
+	}
+
 	// 构建漏斗分析查询
-	// 使用窗口函数计算每个步骤的转化
 	query, args := s.buildFunnelQuery(req)
 
 	var totalVisitors uint64
@@ -190,8 +211,8 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 }
 
 // buildFunnelQuery 构建漏斗分析 SQL 查询。
-// 策略：单次扫描事件表，使用 minIf 按步骤条件计算每个用户各步骤的最早触发时间，
-// 再通过 WHERE 比较时间戳确保严格时序。避免多表 JOIN 的列引用问题，性能更优。
+// 单次扫描事件表并按用户聚合，再一次性 countIf 所有路径，最后展开为步骤行。
+// ClickHouse 会内联 CTE；用 UNION ALL 多次引用会重复扫描和聚合整段事件。
 func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any) {
 	// 参数顺序必须匹配最终 SQL 中 ? 的出现顺序：
 	// minIf 中的 ? (SELECT 子句，最先) → site_id/timestamp 的 ? (WHERE 子句) → WHERE OR 中的 ?
@@ -233,7 +254,7 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 	for i := range req.Steps {
 		conds := pathConditions(parent, i)
 		selectParts[i] = fmt.Sprintf(
-			`SELECT %d AS step_order, count(*) AS visitors FROM funnel_data WHERE %s`,
+			`(toUInt8(%d), countIf(%s))`,
 			i+1, strings.Join(conds, " AND "),
 		)
 	}
@@ -247,13 +268,17 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 				AND timestamp <= ?
 				AND (%s)
 			GROUP BY user_id
-		) %s`,
+		)
+		SELECT tupleElement(step, 1) AS step_order, tupleElement(step, 2) AS visitors
+		FROM (SELECT [%s] AS steps FROM funnel_data)
+		ARRAY JOIN steps AS step
+		ORDER BY step_order`,
 		strings.Join(minIfParts, ", "),
 		strings.Join(orConds, " OR "),
-		strings.Join(selectParts, " UNION ALL "),
+		strings.Join(selectParts, ", "),
 	)
 
-	return query, args
+	return query + funnelQuerySettings, args
 }
 
 // parentIndices 把每个步骤的 ParentStepID 映射为其在数组中的下标；根返回 -1。

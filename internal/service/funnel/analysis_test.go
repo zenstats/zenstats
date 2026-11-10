@@ -1,10 +1,27 @@
 package funnel
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestAnalyzeRejectsBusyAndCancelledRequests(t *testing.T) {
+	svc := &AnalysisService{}
+	req := &AnalysisRequest{Steps: []*FunnelStep{{}, {}}}
+	analysisSlots <- struct{}{}
+	t.Cleanup(func() { <-analysisSlots })
+	if _, err := svc.Analyze(context.Background(), req); !errors.Is(err, ErrAnalysisBusy) {
+		t.Fatalf("want ErrAnalysisBusy, got %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := svc.Analyze(ctx, req); !errors.Is(err, context.Canceled) {
+		t.Fatalf("want context.Canceled, got %v", err)
+	}
+}
 
 // 回归测试：漏斗 CTE 必须用 minOrNullIf。
 // minIf 对非 Nullable DateTime 在无匹配时返回 1970-01-01 而非 NULL，
