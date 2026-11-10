@@ -93,6 +93,30 @@ func (f GoalFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error)
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GoalMutation", m)
 }
 
+// The HeatmapConfigFunc type is an adapter to allow the use of ordinary
+// function as HeatmapConfig mutator.
+type HeatmapConfigFunc func(context.Context, *ent.HeatmapConfigMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f HeatmapConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.HeatmapConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.HeatmapConfigMutation", m)
+}
+
+// The HeatmapSnapshotFunc type is an adapter to allow the use of ordinary
+// function as HeatmapSnapshot mutator.
+type HeatmapSnapshotFunc func(context.Context, *ent.HeatmapSnapshotMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f HeatmapSnapshotFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.HeatmapSnapshotMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.HeatmapSnapshotMutation", m)
+}
+
 // The MonthlyEventCountFunc type is an adapter to allow the use of ordinary
 // function as MonthlyEventCount mutator.
 type MonthlyEventCountFunc func(context.Context, *ent.MonthlyEventCountMutation) (ent.Value, error)

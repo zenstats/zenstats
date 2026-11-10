@@ -19,6 +19,9 @@ default: &default
   maxmind_license_key: ""
   geoip_mirror: ""
   base_url: ""
+  heatmap:
+    screenshot_url: ""
+    screenshot_token: ""
 
 # ClickHouse 公共配置（各环境仅覆盖 addr）
 clickhouse_default: &ch_default

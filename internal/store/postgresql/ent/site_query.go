@@ -14,6 +14,8 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapsnapshot"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
@@ -34,6 +36,8 @@ type SiteQuery struct {
 	order                   []site.OrderOption
 	inters                  []Interceptor
 	predicates              []predicate.Site
+	withHeatmapConfig       *HeatmapConfigQuery
+	withHeatmapSnapshots    *HeatmapSnapshotQuery
 	withFunnels             *FunnelQuery
 	withMembers             *UserQuery
 	withGoals               *GoalQuery
@@ -79,6 +83,50 @@ func (sq *SiteQuery) Unique(unique bool) *SiteQuery {
 func (sq *SiteQuery) Order(o ...site.OrderOption) *SiteQuery {
 	sq.order = append(sq.order, o...)
 	return sq
+}
+
+// QueryHeatmapConfig chains the current query on the "heatmap_config" edge.
+func (sq *SiteQuery) QueryHeatmapConfig() *HeatmapConfigQuery {
+	query := (&HeatmapConfigClient{config: sq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, selector),
+			sqlgraph.To(heatmapconfig.Table, heatmapconfig.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, site.HeatmapConfigTable, site.HeatmapConfigColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryHeatmapSnapshots chains the current query on the "heatmap_snapshots" edge.
+func (sq *SiteQuery) QueryHeatmapSnapshots() *HeatmapSnapshotQuery {
+	query := (&HeatmapSnapshotClient{config: sq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, selector),
+			sqlgraph.To(heatmapsnapshot.Table, heatmapsnapshot.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, site.HeatmapSnapshotsTable, site.HeatmapSnapshotsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // QueryFunnels chains the current query on the "funnels" edge.
@@ -515,6 +563,8 @@ func (sq *SiteQuery) Clone() *SiteQuery {
 		order:                   append([]site.OrderOption{}, sq.order...),
 		inters:                  append([]Interceptor{}, sq.inters...),
 		predicates:              append([]predicate.Site{}, sq.predicates...),
+		withHeatmapConfig:       sq.withHeatmapConfig.Clone(),
+		withHeatmapSnapshots:    sq.withHeatmapSnapshots.Clone(),
 		withFunnels:             sq.withFunnels.Clone(),
 		withMembers:             sq.withMembers.Clone(),
 		withGoals:               sq.withGoals.Clone(),
@@ -530,6 +580,28 @@ func (sq *SiteQuery) Clone() *SiteQuery {
 		sql:  sq.sql.Clone(),
 		path: sq.path,
 	}
+}
+
+// WithHeatmapConfig tells the query-builder to eager-load the nodes that are connected to
+// the "heatmap_config" edge. The optional arguments are used to configure the query builder of the edge.
+func (sq *SiteQuery) WithHeatmapConfig(opts ...func(*HeatmapConfigQuery)) *SiteQuery {
+	query := (&HeatmapConfigClient{config: sq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withHeatmapConfig = query
+	return sq
+}
+
+// WithHeatmapSnapshots tells the query-builder to eager-load the nodes that are connected to
+// the "heatmap_snapshots" edge. The optional arguments are used to configure the query builder of the edge.
+func (sq *SiteQuery) WithHeatmapSnapshots(opts ...func(*HeatmapSnapshotQuery)) *SiteQuery {
+	query := (&HeatmapSnapshotClient{config: sq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withHeatmapSnapshots = query
+	return sq
 }
 
 // WithFunnels tells the query-builder to eager-load the nodes that are connected to
@@ -731,7 +803,9 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 	var (
 		nodes       = []*Site{}
 		_spec       = sq.querySpec()
-		loadedTypes = [11]bool{
+		loadedTypes = [13]bool{
+			sq.withHeatmapConfig != nil,
+			sq.withHeatmapSnapshots != nil,
 			sq.withFunnels != nil,
 			sq.withMembers != nil,
 			sq.withGoals != nil,
@@ -762,6 +836,19 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 	}
 	if len(nodes) == 0 {
 		return nodes, nil
+	}
+	if query := sq.withHeatmapConfig; query != nil {
+		if err := sq.loadHeatmapConfig(ctx, query, nodes, nil,
+			func(n *Site, e *HeatmapConfig) { n.Edges.HeatmapConfig = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := sq.withHeatmapSnapshots; query != nil {
+		if err := sq.loadHeatmapSnapshots(ctx, query, nodes,
+			func(n *Site) { n.Edges.HeatmapSnapshots = []*HeatmapSnapshot{} },
+			func(n *Site, e *HeatmapSnapshot) { n.Edges.HeatmapSnapshots = append(n.Edges.HeatmapSnapshots, e) }); err != nil {
+			return nil, err
+		}
 	}
 	if query := sq.withFunnels; query != nil {
 		if err := sq.loadFunnels(ctx, query, nodes,
@@ -849,6 +936,63 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 	return nodes, nil
 }
 
+func (sq *SiteQuery) loadHeatmapConfig(ctx context.Context, query *HeatmapConfigQuery, nodes []*Site, init func(*Site), assign func(*Site, *HeatmapConfig)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Site)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(heatmapconfig.FieldSiteID)
+	}
+	query.Where(predicate.HeatmapConfig(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(site.HeatmapConfigColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SiteID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "site_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (sq *SiteQuery) loadHeatmapSnapshots(ctx context.Context, query *HeatmapSnapshotQuery, nodes []*Site, init func(*Site), assign func(*Site, *HeatmapSnapshot)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Site)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(heatmapsnapshot.FieldSiteID)
+	}
+	query.Where(predicate.HeatmapSnapshot(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(site.HeatmapSnapshotsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SiteID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "site_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
 func (sq *SiteQuery) loadFunnels(ctx context.Context, query *FunnelQuery, nodes []*Site, init func(*Site), assign func(*Site, *Funnel)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[int64]*Site)

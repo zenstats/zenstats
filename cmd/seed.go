@@ -17,6 +17,7 @@ var (
 	seedDays  int
 	seedClean bool
 	seedTest  bool
+	seedSite  string
 )
 
 var seedCmd = &cobra.Command{
@@ -52,9 +53,10 @@ var seedCmd = &cobra.Command{
 
 		gen := seed.NewGenerator(queue, eventWork, postgresql.NewClient())
 		if err := gen.Run(context.Background(), seed.RunOptions{
-			Days:  seedDays,
-			Clean: seedClean,
-			Test:  seedTest,
+			Days:   seedDays,
+			Clean:  seedClean,
+			Test:   seedTest,
+			Domain: seedSite,
 		}); err != nil {
 			fmt.Printf("生成数据失败: %v\n", err)
 		}
@@ -65,5 +67,6 @@ func init() {
 	seedCmd.Flags().IntVarP(&seedDays, "days", "d", 30, "生成多少天的历史数据")
 	seedCmd.Flags().BoolVarP(&seedClean, "clean", "c", false, "生成前清空已有数据")
 	seedCmd.Flags().BoolVar(&seedTest, "test", false, "测试模式：固定随机种子，生成确定性小数据集")
+	seedCmd.Flags().StringVar(&seedSite, "site", "", "仅为指定站点域名生成数据")
 	RootCmd.AddCommand(seedCmd)
 }

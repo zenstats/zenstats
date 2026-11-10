@@ -52,6 +52,10 @@ const (
 	FieldTrafficAlertInterval = "traffic_alert_interval"
 	// FieldVerifiedAt holds the string denoting the verified_at field in the database.
 	FieldVerifiedAt = "verified_at"
+	// EdgeHeatmapConfig holds the string denoting the heatmap_config edge name in mutations.
+	EdgeHeatmapConfig = "heatmap_config"
+	// EdgeHeatmapSnapshots holds the string denoting the heatmap_snapshots edge name in mutations.
+	EdgeHeatmapSnapshots = "heatmap_snapshots"
 	// EdgeFunnels holds the string denoting the funnels edge name in mutations.
 	EdgeFunnels = "funnels"
 	// EdgeMembers holds the string denoting the members edge name in mutations.
@@ -76,6 +80,20 @@ const (
 	EdgeSavedPanels = "saved_panels"
 	// Table holds the table name of the site in the database.
 	Table = "sites"
+	// HeatmapConfigTable is the table that holds the heatmap_config relation/edge.
+	HeatmapConfigTable = "heatmap_configs"
+	// HeatmapConfigInverseTable is the table name for the HeatmapConfig entity.
+	// It exists in this package in order to avoid circular dependency with the "heatmapconfig" package.
+	HeatmapConfigInverseTable = "heatmap_configs"
+	// HeatmapConfigColumn is the table column denoting the heatmap_config relation/edge.
+	HeatmapConfigColumn = "site_id"
+	// HeatmapSnapshotsTable is the table that holds the heatmap_snapshots relation/edge.
+	HeatmapSnapshotsTable = "heatmap_snapshots"
+	// HeatmapSnapshotsInverseTable is the table name for the HeatmapSnapshot entity.
+	// It exists in this package in order to avoid circular dependency with the "heatmapsnapshot" package.
+	HeatmapSnapshotsInverseTable = "heatmap_snapshots"
+	// HeatmapSnapshotsColumn is the table column denoting the heatmap_snapshots relation/edge.
+	HeatmapSnapshotsColumn = "site_id"
 	// FunnelsTable is the table that holds the funnels relation/edge.
 	FunnelsTable = "funnels"
 	// FunnelsInverseTable is the table name for the Funnel entity.
@@ -337,6 +355,27 @@ func ByVerifiedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldVerifiedAt, opts...).ToFunc()
 }
 
+// ByHeatmapConfigField orders the results by heatmap_config field.
+func ByHeatmapConfigField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newHeatmapConfigStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByHeatmapSnapshotsCount orders the results by heatmap_snapshots count.
+func ByHeatmapSnapshotsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newHeatmapSnapshotsStep(), opts...)
+	}
+}
+
+// ByHeatmapSnapshots orders the results by heatmap_snapshots terms.
+func ByHeatmapSnapshots(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newHeatmapSnapshotsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByFunnelsCount orders the results by funnels count.
 func ByFunnelsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -489,6 +528,20 @@ func BySavedPanels(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newSavedPanelsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
+}
+func newHeatmapConfigStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(HeatmapConfigInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, HeatmapConfigTable, HeatmapConfigColumn),
+	)
+}
+func newHeatmapSnapshotsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(HeatmapSnapshotsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, HeatmapSnapshotsTable, HeatmapSnapshotsColumn),
+	)
 }
 func newFunnelsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(

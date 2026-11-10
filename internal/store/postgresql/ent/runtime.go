@@ -5,11 +5,14 @@ package ent
 import (
 	"time"
 
+	"github.com/zenstats/zenstats/internal/heatmap"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emaillog"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emailverificationtoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapsnapshot"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
@@ -136,6 +139,90 @@ func init() {
 	funnelDescName := funnelFields[2].Descriptor()
 	// funnel.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	funnel.NameValidator = funnelDescName.Validators[0].(func(string) error)
+	heatmapconfigFields := schema.HeatmapConfig{}.Fields()
+	_ = heatmapconfigFields
+	// heatmapconfigDescEnabled is the schema descriptor for enabled field.
+	heatmapconfigDescEnabled := heatmapconfigFields[2].Descriptor()
+	// heatmapconfig.DefaultEnabled holds the default value on creation for the enabled field.
+	heatmapconfig.DefaultEnabled = heatmapconfigDescEnabled.Default.(bool)
+	// heatmapconfigDescPaths is the schema descriptor for paths field.
+	heatmapconfigDescPaths := heatmapconfigFields[3].Descriptor()
+	// heatmapconfig.DefaultPaths holds the default value on creation for the paths field.
+	heatmapconfig.DefaultPaths = heatmapconfigDescPaths.Default.([]string)
+	// heatmapconfigDescGroups is the schema descriptor for groups field.
+	heatmapconfigDescGroups := heatmapconfigFields[4].Descriptor()
+	// heatmapconfig.DefaultGroups holds the default value on creation for the groups field.
+	heatmapconfig.DefaultGroups = heatmapconfigDescGroups.Default.([]heatmap.GroupRule)
+	// heatmapconfigDescSampleRate is the schema descriptor for sample_rate field.
+	heatmapconfigDescSampleRate := heatmapconfigFields[5].Descriptor()
+	// heatmapconfig.DefaultSampleRate holds the default value on creation for the sample_rate field.
+	heatmapconfig.DefaultSampleRate = heatmapconfigDescSampleRate.Default.(float64)
+	// heatmapconfigDescMaxClicks is the schema descriptor for max_clicks field.
+	heatmapconfigDescMaxClicks := heatmapconfigFields[6].Descriptor()
+	// heatmapconfig.DefaultMaxClicks holds the default value on creation for the max_clicks field.
+	heatmapconfig.DefaultMaxClicks = heatmapconfigDescMaxClicks.Default.(int)
+	// heatmapconfigDescRawDays is the schema descriptor for raw_days field.
+	heatmapconfigDescRawDays := heatmapconfigFields[7].Descriptor()
+	// heatmapconfig.DefaultRawDays holds the default value on creation for the raw_days field.
+	heatmapconfig.DefaultRawDays = heatmapconfigDescRawDays.Default.(int)
+	// heatmapconfigDescAggregateDays is the schema descriptor for aggregate_days field.
+	heatmapconfigDescAggregateDays := heatmapconfigFields[8].Descriptor()
+	// heatmapconfig.DefaultAggregateDays holds the default value on creation for the aggregate_days field.
+	heatmapconfig.DefaultAggregateDays = heatmapconfigDescAggregateDays.Default.(int)
+	// heatmapconfigDescTimezone is the schema descriptor for timezone field.
+	heatmapconfigDescTimezone := heatmapconfigFields[9].Descriptor()
+	// heatmapconfig.DefaultTimezone holds the default value on creation for the timezone field.
+	heatmapconfig.DefaultTimezone = heatmapconfigDescTimezone.Default.(string)
+	// heatmapconfig.TimezoneValidator is a validator for the "timezone" field. It is called by the builders before save.
+	heatmapconfig.TimezoneValidator = heatmapconfigDescTimezone.Validators[0].(func(string) error)
+	// heatmapconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	heatmapconfigDescUpdatedAt := heatmapconfigFields[10].Descriptor()
+	// heatmapconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	heatmapconfig.DefaultUpdatedAt = heatmapconfigDescUpdatedAt.Default.(func() time.Time)
+	// heatmapconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	heatmapconfig.UpdateDefaultUpdatedAt = heatmapconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
+	heatmapsnapshotFields := schema.HeatmapSnapshot{}.Fields()
+	_ = heatmapsnapshotFields
+	// heatmapsnapshotDescAggregationKey is the schema descriptor for aggregation_key field.
+	heatmapsnapshotDescAggregationKey := heatmapsnapshotFields[2].Descriptor()
+	// heatmapsnapshot.DefaultAggregationKey holds the default value on creation for the aggregation_key field.
+	heatmapsnapshot.DefaultAggregationKey = heatmapsnapshotDescAggregationKey.Default.(string)
+	// heatmapsnapshot.AggregationKeyValidator is a validator for the "aggregation_key" field. It is called by the builders before save.
+	heatmapsnapshot.AggregationKeyValidator = heatmapsnapshotDescAggregationKey.Validators[0].(func(string) error)
+	// heatmapsnapshotDescSourceURL is the schema descriptor for source_url field.
+	heatmapsnapshotDescSourceURL := heatmapsnapshotFields[3].Descriptor()
+	// heatmapsnapshot.DefaultSourceURL holds the default value on creation for the source_url field.
+	heatmapsnapshot.DefaultSourceURL = heatmapsnapshotDescSourceURL.Default.(string)
+	// heatmapsnapshot.SourceURLValidator is a validator for the "source_url" field. It is called by the builders before save.
+	heatmapsnapshot.SourceURLValidator = heatmapsnapshotDescSourceURL.Validators[0].(func(string) error)
+	// heatmapsnapshotDescHostname is the schema descriptor for hostname field.
+	heatmapsnapshotDescHostname := heatmapsnapshotFields[4].Descriptor()
+	// heatmapsnapshot.HostnameValidator is a validator for the "hostname" field. It is called by the builders before save.
+	heatmapsnapshot.HostnameValidator = heatmapsnapshotDescHostname.Validators[0].(func(string) error)
+	// heatmapsnapshotDescPath is the schema descriptor for path field.
+	heatmapsnapshotDescPath := heatmapsnapshotFields[5].Descriptor()
+	// heatmapsnapshot.PathValidator is a validator for the "path" field. It is called by the builders before save.
+	heatmapsnapshot.PathValidator = heatmapsnapshotDescPath.Validators[0].(func(string) error)
+	// heatmapsnapshotDescVersion is the schema descriptor for version field.
+	heatmapsnapshotDescVersion := heatmapsnapshotFields[6].Descriptor()
+	// heatmapsnapshot.VersionValidator is a validator for the "version" field. It is called by the builders before save.
+	heatmapsnapshot.VersionValidator = heatmapsnapshotDescVersion.Validators[0].(func(string) error)
+	// heatmapsnapshotDescVariant is the schema descriptor for variant field.
+	heatmapsnapshotDescVariant := heatmapsnapshotFields[7].Descriptor()
+	// heatmapsnapshot.VariantValidator is a validator for the "variant" field. It is called by the builders before save.
+	heatmapsnapshot.VariantValidator = heatmapsnapshotDescVariant.Validators[0].(func(string) error)
+	// heatmapsnapshotDescFileKey is the schema descriptor for file_key field.
+	heatmapsnapshotDescFileKey := heatmapsnapshotFields[14].Descriptor()
+	// heatmapsnapshot.FileKeyValidator is a validator for the "file_key" field. It is called by the builders before save.
+	heatmapsnapshot.FileKeyValidator = heatmapsnapshotDescFileKey.Validators[0].(func(string) error)
+	// heatmapsnapshotDescContentType is the schema descriptor for content_type field.
+	heatmapsnapshotDescContentType := heatmapsnapshotFields[15].Descriptor()
+	// heatmapsnapshot.ContentTypeValidator is a validator for the "content_type" field. It is called by the builders before save.
+	heatmapsnapshot.ContentTypeValidator = heatmapsnapshotDescContentType.Validators[0].(func(string) error)
+	// heatmapsnapshotDescCreatedAt is the schema descriptor for created_at field.
+	heatmapsnapshotDescCreatedAt := heatmapsnapshotFields[17].Descriptor()
+	// heatmapsnapshot.DefaultCreatedAt holds the default value on creation for the created_at field.
+	heatmapsnapshot.DefaultCreatedAt = heatmapsnapshotDescCreatedAt.Default.(func() time.Time)
 	monthlyeventcountFields := schema.MonthlyEventCount{}.Fields()
 	_ = monthlyeventcountFields
 	// monthlyeventcountDescCount is the schema descriptor for count field.

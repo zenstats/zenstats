@@ -27,6 +27,9 @@ func NewWhereBuilder(siteID string) *WhereBuilder {
 	return &WhereBuilder{siteID: siteID}
 }
 
+// SetUserID preserves the user's custom source mappings in specialized queries.
+func (wb *WhereBuilder) SetUserID(userID int64) { wb.userID = userID }
+
 // Build 构建完整的WHERE子句
 func (wb *WhereBuilder) Build() (string, []any) {
 	if len(wb.conditions) == 0 {
@@ -179,7 +182,7 @@ func (wb *WhereBuilder) addSessionMembership(table string, filter *types.Filter,
 	if negate {
 		op = "NOT IN"
 	}
-	wb.AddCondition(fmt.Sprintf("session_id %s (SELECT session_id FROM %s WHERE %s)", op, from, condition), params...)
+	wb.AddCondition(fmt.Sprintf("(user_id, session_id) %s (SELECT user_id, session_id FROM %s WHERE %s)", op, from, condition), params...)
 	return nil
 }
 

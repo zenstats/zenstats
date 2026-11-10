@@ -57,3 +57,18 @@ func GetConnection() driver.Conn {
 
 	return globalConn
 }
+
+// NewHeatmapConnection reserves a small pool for optional heatmap work so its
+// queries cannot exhaust connections used by events and session restoration.
+func NewHeatmapConnection() (driver.Conn, error) {
+	opts := &clickhouse.Options{
+		Addr:        config.Conf.Clickhouse.Addr,
+		Auth:        clickhouse.Auth{Database: config.Conf.Clickhouse.Database, Username: config.Conf.Clickhouse.Username, Password: config.Conf.Clickhouse.Password},
+		DialTimeout: 2 * time.Second, ReadTimeout: 6 * time.Second,
+		MaxOpenConns: 2, MaxIdleConns: 1,
+	}
+	if config.Conf.Clickhouse.Ssl {
+		opts.TLS = &tls.Config{}
+	}
+	return clickhouse.Open(opts)
+}

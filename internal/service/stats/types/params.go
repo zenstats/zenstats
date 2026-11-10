@@ -50,12 +50,13 @@ type Params struct {
 
 // ParsePeriodToUTCTimeRange 根据Period参数解析UTC时间范围
 func (p *Params) ParsePeriodToUTCTimeRange(siteTimezone string) error {
+	// Carbon mutates its receiver: start and end must never share a pointer.
 	var start, end *carbon.Carbon
 	now := carbon.Now(siteTimezone)
 
 	switch p.Period {
 	case "realtime":
-		start = now.SubMinutes(30)
+		start = now.Copy().SubMinutes(30)
 		end = now
 	case "day", "yesterday":
 		// 解析日期并转换为UTC
@@ -63,28 +64,28 @@ func (p *Params) ParsePeriodToUTCTimeRange(siteTimezone string) error {
 		if localDate.Error != nil {
 			return localDate.Error
 		}
-		start = localDate.StartOfDay()
+		start = localDate.Copy().StartOfDay()
 		end = localDate.EndOfDay()
 	case "p7":
 		localEndDate := carbon.Parse(p.Date, siteTimezone)
 		if localEndDate.Error != nil {
 			return localEndDate.Error
 		}
-		start = localEndDate.SubDays(6).StartOfDay()
+		start = localEndDate.Copy().SubDays(6).StartOfDay()
 		end = localEndDate.EndOfDay()
 	case "p14":
 		localEndDate := carbon.Parse(p.Date, siteTimezone)
 		if localEndDate.Error != nil {
 			return localEndDate.Error
 		}
-		start = localEndDate.SubDays(13).StartOfDay()
+		start = localEndDate.Copy().SubDays(13).StartOfDay()
 		end = localEndDate.EndOfDay()
 	case "p30":
 		localEndDate := carbon.Parse(p.Date, siteTimezone)
 		if localEndDate.Error != nil {
 			return localEndDate.Error
 		}
-		start = localEndDate.SubDays(29).StartOfDay()
+		start = localEndDate.Copy().SubDays(29).StartOfDay()
 		end = localEndDate.EndOfDay()
 	case "w":
 		// 遗留别名：最近 7 天（此前通过校验但未实现，会触发 default 报错）
@@ -92,7 +93,7 @@ func (p *Params) ParsePeriodToUTCTimeRange(siteTimezone string) error {
 		if localEndDate.Error != nil {
 			return localEndDate.Error
 		}
-		start = localEndDate.SubDays(6).StartOfDay()
+		start = localEndDate.Copy().SubDays(6).StartOfDay()
 		end = localEndDate.EndOfDay()
 	case "month", "m":
 		// 日期所在的自然月（1 号到月末），与 Plausible `month` 对齐
@@ -100,7 +101,7 @@ func (p *Params) ParsePeriodToUTCTimeRange(siteTimezone string) error {
 		if localDate.Error != nil {
 			return localDate.Error
 		}
-		start = localDate.StartOfMonth()
+		start = localDate.Copy().StartOfMonth()
 		end = localDate.EndOfMonth()
 	case "6mo":
 		// 注意：carbon v2 的 AddMonths/SubMonths 会原地修改接收者，必须先 Copy()，
@@ -124,7 +125,7 @@ func (p *Params) ParsePeriodToUTCTimeRange(siteTimezone string) error {
 		if localDate.Error != nil {
 			return localDate.Error
 		}
-		start = localDate.StartOfYear()
+		start = localDate.Copy().StartOfYear()
 		end = localDate.EndOfYear()
 	case "all":
 		// 全部数据：Params 不携带站点起始日期，退化为最近 5 年的宽窗口作为近似。
@@ -139,6 +140,12 @@ func (p *Params) ParsePeriodToUTCTimeRange(siteTimezone string) error {
 		}
 		if end.Error != nil {
 			return end.Error
+		}
+		if len(p.From) == 10 {
+			start = start.StartOfDay()
+		}
+		if len(p.To) == 10 {
+			end = end.EndOfDay()
 		}
 	default:
 		// Plausible 风格相对区间简写：Nd（最近 N 天）、Nmo（最近 N 个月）

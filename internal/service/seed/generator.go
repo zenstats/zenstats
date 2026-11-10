@@ -7,9 +7,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/zenstats/zenstats/internal/model"
 	"github.com/zenstats/zenstats/internal/event"
+	"github.com/zenstats/zenstats/internal/model"
 	"github.com/zenstats/zenstats/internal/store/postgresql"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/pkg/generic"
 
 	cl "github.com/zenstats/zenstats/internal/store/clickhouse"
@@ -34,14 +35,22 @@ func NewGenerator(queue *generic.DynamicQueue[*model.EventRequest], eventWork *e
 
 // RunOptions 种子生成运行参数。
 type RunOptions struct {
-	Days  int  // 生成天数
-	Clean bool // 是否清空已有 ClickHouse 数据
-	Test  bool // 测试模式（固定随机种子 + 缩减数据量）
+	Days   int    // 生成天数
+	Clean  bool   // 是否清空已有 ClickHouse 数据
+	Test   bool   // 测试模式（固定随机种子 + 缩减数据量）
+	Domain string // 可选：仅向指定站点追加数据
 }
 
 // Run 执行种子数据生成。
 func (g *Generator) Run(ctx context.Context, opts RunOptions) error {
-	sites, err := g.client.Client.Site.Query().All(ctx)
+	query := g.client.Client.Site.Query()
+	if opts.Domain != "" {
+		if opts.Clean {
+			return fmt.Errorf("--site cannot be combined with --clean (clean truncates all sites)")
+		}
+		query.Where(site.Domain(opts.Domain))
+	}
+	sites, err := query.All(ctx)
 	if err != nil {
 		return fmt.Errorf("读取站点失败: %w", err)
 	}

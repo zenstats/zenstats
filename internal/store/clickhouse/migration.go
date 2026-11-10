@@ -26,6 +26,9 @@ func (m *Migration) Run() error {
 	if err != nil {
 		return err
 	}
+	if err := EnsureHeatmapTables(ctx, m.conn); err != nil {
+		return err
+	}
 
 	slog.Info("migration completed")
 	return nil

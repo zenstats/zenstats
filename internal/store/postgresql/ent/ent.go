@@ -19,6 +19,8 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapsnapshot"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
@@ -104,6 +106,8 @@ func checkColumn(table, column string) error {
 			funnel.Table:                 funnel.ValidColumn,
 			funnelstep.Table:             funnelstep.ValidColumn,
 			goal.Table:                   goal.ValidColumn,
+			heatmapconfig.Table:          heatmapconfig.ValidColumn,
+			heatmapsnapshot.Table:        heatmapsnapshot.ValidColumn,
 			monthlyeventcount.Table:      monthlyeventcount.ValidColumn,
 			passwordresettoken.Table:     passwordresettoken.ValidColumn,
 			savedpanel.Table:             savedpanel.ValidColumn,

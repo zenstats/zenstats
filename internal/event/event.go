@@ -485,16 +485,23 @@ func (e *EventWork) PutGeolocation(event *models.Events) {
 		event.CountryCode = "UN"
 		return
 	}
+	// Missing city/continent names are not valid dictionary entries. In
+	// particular, a Country-only DB must not create a synthetic empty city.
 	repository := repository.GetLocationRepository()
-	// create country
-	repository.GetOrCreateById(context.Background(), "country", geoData.Country, geoData.IsoCode)
-	city, err := repository.GetOrCreate(context.Background(), "city", geoData.City)
-	if err == nil {
-		event.CityGeonameId = city.ID
+	if geoData.IsoCode != "" && geoData.Country != "" {
+		if _, err := repository.GetOrCreateById(context.Background(), "country", geoData.Country, geoData.IsoCode); err != nil {
+			slog.Debug("country dictionary write failed", "error", err)
+		}
 	}
-	continent, err := repository.GetOrCreate(context.Background(), "continent", geoData.Continent)
-	if err == nil {
-		event.ContinentGeonameId = continent.ID
+	if geoData.City != "" {
+		if city, err := repository.GetOrCreate(context.Background(), "city", geoData.City); err == nil {
+			event.CityGeonameId = city.ID
+		}
+	}
+	if geoData.Continent != "" {
+		if continent, err := repository.GetOrCreate(context.Background(), "continent", geoData.Continent); err == nil {
+			event.ContinentGeonameId = continent.ID
+		}
 	}
 
 	event.CountryCode = geoData.IsoCode

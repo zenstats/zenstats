@@ -12,6 +12,8 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapsnapshot"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sharedlink"
@@ -293,6 +295,40 @@ func (sc *SiteCreate) SetNillableVerifiedAt(t *time.Time) *SiteCreate {
 func (sc *SiteCreate) SetID(i int64) *SiteCreate {
 	sc.mutation.SetID(i)
 	return sc
+}
+
+// SetHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by ID.
+func (sc *SiteCreate) SetHeatmapConfigID(id int64) *SiteCreate {
+	sc.mutation.SetHeatmapConfigID(id)
+	return sc
+}
+
+// SetNillableHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by ID if the given value is not nil.
+func (sc *SiteCreate) SetNillableHeatmapConfigID(id *int64) *SiteCreate {
+	if id != nil {
+		sc = sc.SetHeatmapConfigID(*id)
+	}
+	return sc
+}
+
+// SetHeatmapConfig sets the "heatmap_config" edge to the HeatmapConfig entity.
+func (sc *SiteCreate) SetHeatmapConfig(h *HeatmapConfig) *SiteCreate {
+	return sc.SetHeatmapConfigID(h.ID)
+}
+
+// AddHeatmapSnapshotIDs adds the "heatmap_snapshots" edge to the HeatmapSnapshot entity by IDs.
+func (sc *SiteCreate) AddHeatmapSnapshotIDs(ids ...int64) *SiteCreate {
+	sc.mutation.AddHeatmapSnapshotIDs(ids...)
+	return sc
+}
+
+// AddHeatmapSnapshots adds the "heatmap_snapshots" edges to the HeatmapSnapshot entity.
+func (sc *SiteCreate) AddHeatmapSnapshots(h ...*HeatmapSnapshot) *SiteCreate {
+	ids := make([]int64, len(h))
+	for i := range h {
+		ids[i] = h[i].ID
+	}
+	return sc.AddHeatmapSnapshotIDs(ids...)
 }
 
 // AddFunnelIDs adds the "funnels" edge to the Funnel entity by IDs.
@@ -733,6 +769,38 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 	if value, ok := sc.mutation.VerifiedAt(); ok {
 		_spec.SetField(site.FieldVerifiedAt, field.TypeTime, value)
 		_node.VerifiedAt = &value
+	}
+	if nodes := sc.mutation.HeatmapConfigIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   site.HeatmapConfigTable,
+			Columns: []string{site.HeatmapConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapconfig.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := sc.mutation.HeatmapSnapshotsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.HeatmapSnapshotsTable,
+			Columns: []string{site.HeatmapSnapshotsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapsnapshot.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := sc.mutation.FunnelsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

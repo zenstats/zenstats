@@ -11,6 +11,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/zenstats/zenstats/internal/heatmap"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/apikey"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/customsearchengine"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/emaillog"
@@ -18,6 +19,8 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnelstep"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapsnapshot"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/monthlyeventcount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/passwordresettoken"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
@@ -56,6 +59,8 @@ const (
 	TypeFunnel                 = "Funnel"
 	TypeFunnelStep             = "FunnelStep"
 	TypeGoal                   = "Goal"
+	TypeHeatmapConfig          = "HeatmapConfig"
+	TypeHeatmapSnapshot        = "HeatmapSnapshot"
 	TypeMonthlyEventCount      = "MonthlyEventCount"
 	TypePasswordResetToken     = "PasswordResetToken"
 	TypeSavedPanel             = "SavedPanel"
@@ -4708,6 +4713,2583 @@ func (m *GoalMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Goal edge %s", name)
+}
+
+// HeatmapConfigMutation represents an operation that mutates the HeatmapConfig nodes in the graph.
+type HeatmapConfigMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *int64
+	enabled           *bool
+	paths             *[]string
+	appendpaths       []string
+	groups            *[]heatmap.GroupRule
+	appendgroups      []heatmap.GroupRule
+	sample_rate       *float64
+	addsample_rate    *float64
+	max_clicks        *int
+	addmax_clicks     *int
+	raw_days          *int
+	addraw_days       *int
+	aggregate_days    *int
+	addaggregate_days *int
+	timezone          *string
+	updated_at        *time.Time
+	clearedFields     map[string]struct{}
+	site              *int64
+	clearedsite       bool
+	done              bool
+	oldValue          func(context.Context) (*HeatmapConfig, error)
+	predicates        []predicate.HeatmapConfig
+}
+
+var _ ent.Mutation = (*HeatmapConfigMutation)(nil)
+
+// heatmapconfigOption allows management of the mutation configuration using functional options.
+type heatmapconfigOption func(*HeatmapConfigMutation)
+
+// newHeatmapConfigMutation creates new mutation for the HeatmapConfig entity.
+func newHeatmapConfigMutation(c config, op Op, opts ...heatmapconfigOption) *HeatmapConfigMutation {
+	m := &HeatmapConfigMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeHeatmapConfig,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withHeatmapConfigID sets the ID field of the mutation.
+func withHeatmapConfigID(id int64) heatmapconfigOption {
+	return func(m *HeatmapConfigMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *HeatmapConfig
+		)
+		m.oldValue = func(ctx context.Context) (*HeatmapConfig, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().HeatmapConfig.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withHeatmapConfig sets the old HeatmapConfig of the mutation.
+func withHeatmapConfig(node *HeatmapConfig) heatmapconfigOption {
+	return func(m *HeatmapConfigMutation) {
+		m.oldValue = func(context.Context) (*HeatmapConfig, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m HeatmapConfigMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m HeatmapConfigMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of HeatmapConfig entities.
+func (m *HeatmapConfigMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *HeatmapConfigMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *HeatmapConfigMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().HeatmapConfig.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *HeatmapConfigMutation) SetSiteID(i int64) {
+	m.site = &i
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *HeatmapConfigMutation) SiteID() (r int64, exists bool) {
+	v := m.site
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldSiteID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *HeatmapConfigMutation) ResetSiteID() {
+	m.site = nil
+}
+
+// SetEnabled sets the "enabled" field.
+func (m *HeatmapConfigMutation) SetEnabled(b bool) {
+	m.enabled = &b
+}
+
+// Enabled returns the value of the "enabled" field in the mutation.
+func (m *HeatmapConfigMutation) Enabled() (r bool, exists bool) {
+	v := m.enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnabled returns the old "enabled" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnabled: %w", err)
+	}
+	return oldValue.Enabled, nil
+}
+
+// ResetEnabled resets all changes to the "enabled" field.
+func (m *HeatmapConfigMutation) ResetEnabled() {
+	m.enabled = nil
+}
+
+// SetPaths sets the "paths" field.
+func (m *HeatmapConfigMutation) SetPaths(s []string) {
+	m.paths = &s
+	m.appendpaths = nil
+}
+
+// Paths returns the value of the "paths" field in the mutation.
+func (m *HeatmapConfigMutation) Paths() (r []string, exists bool) {
+	v := m.paths
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaths returns the old "paths" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldPaths(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaths is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaths requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaths: %w", err)
+	}
+	return oldValue.Paths, nil
+}
+
+// AppendPaths adds s to the "paths" field.
+func (m *HeatmapConfigMutation) AppendPaths(s []string) {
+	m.appendpaths = append(m.appendpaths, s...)
+}
+
+// AppendedPaths returns the list of values that were appended to the "paths" field in this mutation.
+func (m *HeatmapConfigMutation) AppendedPaths() ([]string, bool) {
+	if len(m.appendpaths) == 0 {
+		return nil, false
+	}
+	return m.appendpaths, true
+}
+
+// ResetPaths resets all changes to the "paths" field.
+func (m *HeatmapConfigMutation) ResetPaths() {
+	m.paths = nil
+	m.appendpaths = nil
+}
+
+// SetGroups sets the "groups" field.
+func (m *HeatmapConfigMutation) SetGroups(hr []heatmap.GroupRule) {
+	m.groups = &hr
+	m.appendgroups = nil
+}
+
+// Groups returns the value of the "groups" field in the mutation.
+func (m *HeatmapConfigMutation) Groups() (r []heatmap.GroupRule, exists bool) {
+	v := m.groups
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroups returns the old "groups" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldGroups(ctx context.Context) (v []heatmap.GroupRule, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroups is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroups requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroups: %w", err)
+	}
+	return oldValue.Groups, nil
+}
+
+// AppendGroups adds hr to the "groups" field.
+func (m *HeatmapConfigMutation) AppendGroups(hr []heatmap.GroupRule) {
+	m.appendgroups = append(m.appendgroups, hr...)
+}
+
+// AppendedGroups returns the list of values that were appended to the "groups" field in this mutation.
+func (m *HeatmapConfigMutation) AppendedGroups() ([]heatmap.GroupRule, bool) {
+	if len(m.appendgroups) == 0 {
+		return nil, false
+	}
+	return m.appendgroups, true
+}
+
+// ResetGroups resets all changes to the "groups" field.
+func (m *HeatmapConfigMutation) ResetGroups() {
+	m.groups = nil
+	m.appendgroups = nil
+}
+
+// SetSampleRate sets the "sample_rate" field.
+func (m *HeatmapConfigMutation) SetSampleRate(f float64) {
+	m.sample_rate = &f
+	m.addsample_rate = nil
+}
+
+// SampleRate returns the value of the "sample_rate" field in the mutation.
+func (m *HeatmapConfigMutation) SampleRate() (r float64, exists bool) {
+	v := m.sample_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSampleRate returns the old "sample_rate" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldSampleRate(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSampleRate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSampleRate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSampleRate: %w", err)
+	}
+	return oldValue.SampleRate, nil
+}
+
+// AddSampleRate adds f to the "sample_rate" field.
+func (m *HeatmapConfigMutation) AddSampleRate(f float64) {
+	if m.addsample_rate != nil {
+		*m.addsample_rate += f
+	} else {
+		m.addsample_rate = &f
+	}
+}
+
+// AddedSampleRate returns the value that was added to the "sample_rate" field in this mutation.
+func (m *HeatmapConfigMutation) AddedSampleRate() (r float64, exists bool) {
+	v := m.addsample_rate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSampleRate resets all changes to the "sample_rate" field.
+func (m *HeatmapConfigMutation) ResetSampleRate() {
+	m.sample_rate = nil
+	m.addsample_rate = nil
+}
+
+// SetMaxClicks sets the "max_clicks" field.
+func (m *HeatmapConfigMutation) SetMaxClicks(i int) {
+	m.max_clicks = &i
+	m.addmax_clicks = nil
+}
+
+// MaxClicks returns the value of the "max_clicks" field in the mutation.
+func (m *HeatmapConfigMutation) MaxClicks() (r int, exists bool) {
+	v := m.max_clicks
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMaxClicks returns the old "max_clicks" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldMaxClicks(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMaxClicks is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMaxClicks requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMaxClicks: %w", err)
+	}
+	return oldValue.MaxClicks, nil
+}
+
+// AddMaxClicks adds i to the "max_clicks" field.
+func (m *HeatmapConfigMutation) AddMaxClicks(i int) {
+	if m.addmax_clicks != nil {
+		*m.addmax_clicks += i
+	} else {
+		m.addmax_clicks = &i
+	}
+}
+
+// AddedMaxClicks returns the value that was added to the "max_clicks" field in this mutation.
+func (m *HeatmapConfigMutation) AddedMaxClicks() (r int, exists bool) {
+	v := m.addmax_clicks
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetMaxClicks resets all changes to the "max_clicks" field.
+func (m *HeatmapConfigMutation) ResetMaxClicks() {
+	m.max_clicks = nil
+	m.addmax_clicks = nil
+}
+
+// SetRawDays sets the "raw_days" field.
+func (m *HeatmapConfigMutation) SetRawDays(i int) {
+	m.raw_days = &i
+	m.addraw_days = nil
+}
+
+// RawDays returns the value of the "raw_days" field in the mutation.
+func (m *HeatmapConfigMutation) RawDays() (r int, exists bool) {
+	v := m.raw_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRawDays returns the old "raw_days" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldRawDays(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRawDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRawDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRawDays: %w", err)
+	}
+	return oldValue.RawDays, nil
+}
+
+// AddRawDays adds i to the "raw_days" field.
+func (m *HeatmapConfigMutation) AddRawDays(i int) {
+	if m.addraw_days != nil {
+		*m.addraw_days += i
+	} else {
+		m.addraw_days = &i
+	}
+}
+
+// AddedRawDays returns the value that was added to the "raw_days" field in this mutation.
+func (m *HeatmapConfigMutation) AddedRawDays() (r int, exists bool) {
+	v := m.addraw_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRawDays resets all changes to the "raw_days" field.
+func (m *HeatmapConfigMutation) ResetRawDays() {
+	m.raw_days = nil
+	m.addraw_days = nil
+}
+
+// SetAggregateDays sets the "aggregate_days" field.
+func (m *HeatmapConfigMutation) SetAggregateDays(i int) {
+	m.aggregate_days = &i
+	m.addaggregate_days = nil
+}
+
+// AggregateDays returns the value of the "aggregate_days" field in the mutation.
+func (m *HeatmapConfigMutation) AggregateDays() (r int, exists bool) {
+	v := m.aggregate_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAggregateDays returns the old "aggregate_days" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldAggregateDays(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAggregateDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAggregateDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAggregateDays: %w", err)
+	}
+	return oldValue.AggregateDays, nil
+}
+
+// AddAggregateDays adds i to the "aggregate_days" field.
+func (m *HeatmapConfigMutation) AddAggregateDays(i int) {
+	if m.addaggregate_days != nil {
+		*m.addaggregate_days += i
+	} else {
+		m.addaggregate_days = &i
+	}
+}
+
+// AddedAggregateDays returns the value that was added to the "aggregate_days" field in this mutation.
+func (m *HeatmapConfigMutation) AddedAggregateDays() (r int, exists bool) {
+	v := m.addaggregate_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAggregateDays resets all changes to the "aggregate_days" field.
+func (m *HeatmapConfigMutation) ResetAggregateDays() {
+	m.aggregate_days = nil
+	m.addaggregate_days = nil
+}
+
+// SetTimezone sets the "timezone" field.
+func (m *HeatmapConfigMutation) SetTimezone(s string) {
+	m.timezone = &s
+}
+
+// Timezone returns the value of the "timezone" field in the mutation.
+func (m *HeatmapConfigMutation) Timezone() (r string, exists bool) {
+	v := m.timezone
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimezone returns the old "timezone" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldTimezone(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimezone is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimezone requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimezone: %w", err)
+	}
+	return oldValue.Timezone, nil
+}
+
+// ResetTimezone resets all changes to the "timezone" field.
+func (m *HeatmapConfigMutation) ResetTimezone() {
+	m.timezone = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *HeatmapConfigMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *HeatmapConfigMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *HeatmapConfigMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearSite clears the "site" edge to the Site entity.
+func (m *HeatmapConfigMutation) ClearSite() {
+	m.clearedsite = true
+	m.clearedFields[heatmapconfig.FieldSiteID] = struct{}{}
+}
+
+// SiteCleared reports if the "site" edge to the Site entity was cleared.
+func (m *HeatmapConfigMutation) SiteCleared() bool {
+	return m.clearedsite
+}
+
+// SiteIDs returns the "site" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SiteID instead. It exists only for internal usage by the builders.
+func (m *HeatmapConfigMutation) SiteIDs() (ids []int64) {
+	if id := m.site; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSite resets all changes to the "site" edge.
+func (m *HeatmapConfigMutation) ResetSite() {
+	m.site = nil
+	m.clearedsite = false
+}
+
+// Where appends a list predicates to the HeatmapConfigMutation builder.
+func (m *HeatmapConfigMutation) Where(ps ...predicate.HeatmapConfig) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the HeatmapConfigMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *HeatmapConfigMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.HeatmapConfig, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *HeatmapConfigMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *HeatmapConfigMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (HeatmapConfig).
+func (m *HeatmapConfigMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *HeatmapConfigMutation) Fields() []string {
+	fields := make([]string, 0, 10)
+	if m.site != nil {
+		fields = append(fields, heatmapconfig.FieldSiteID)
+	}
+	if m.enabled != nil {
+		fields = append(fields, heatmapconfig.FieldEnabled)
+	}
+	if m.paths != nil {
+		fields = append(fields, heatmapconfig.FieldPaths)
+	}
+	if m.groups != nil {
+		fields = append(fields, heatmapconfig.FieldGroups)
+	}
+	if m.sample_rate != nil {
+		fields = append(fields, heatmapconfig.FieldSampleRate)
+	}
+	if m.max_clicks != nil {
+		fields = append(fields, heatmapconfig.FieldMaxClicks)
+	}
+	if m.raw_days != nil {
+		fields = append(fields, heatmapconfig.FieldRawDays)
+	}
+	if m.aggregate_days != nil {
+		fields = append(fields, heatmapconfig.FieldAggregateDays)
+	}
+	if m.timezone != nil {
+		fields = append(fields, heatmapconfig.FieldTimezone)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, heatmapconfig.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *HeatmapConfigMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case heatmapconfig.FieldSiteID:
+		return m.SiteID()
+	case heatmapconfig.FieldEnabled:
+		return m.Enabled()
+	case heatmapconfig.FieldPaths:
+		return m.Paths()
+	case heatmapconfig.FieldGroups:
+		return m.Groups()
+	case heatmapconfig.FieldSampleRate:
+		return m.SampleRate()
+	case heatmapconfig.FieldMaxClicks:
+		return m.MaxClicks()
+	case heatmapconfig.FieldRawDays:
+		return m.RawDays()
+	case heatmapconfig.FieldAggregateDays:
+		return m.AggregateDays()
+	case heatmapconfig.FieldTimezone:
+		return m.Timezone()
+	case heatmapconfig.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *HeatmapConfigMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case heatmapconfig.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case heatmapconfig.FieldEnabled:
+		return m.OldEnabled(ctx)
+	case heatmapconfig.FieldPaths:
+		return m.OldPaths(ctx)
+	case heatmapconfig.FieldGroups:
+		return m.OldGroups(ctx)
+	case heatmapconfig.FieldSampleRate:
+		return m.OldSampleRate(ctx)
+	case heatmapconfig.FieldMaxClicks:
+		return m.OldMaxClicks(ctx)
+	case heatmapconfig.FieldRawDays:
+		return m.OldRawDays(ctx)
+	case heatmapconfig.FieldAggregateDays:
+		return m.OldAggregateDays(ctx)
+	case heatmapconfig.FieldTimezone:
+		return m.OldTimezone(ctx)
+	case heatmapconfig.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown HeatmapConfig field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *HeatmapConfigMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case heatmapconfig.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case heatmapconfig.FieldEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnabled(v)
+		return nil
+	case heatmapconfig.FieldPaths:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaths(v)
+		return nil
+	case heatmapconfig.FieldGroups:
+		v, ok := value.([]heatmap.GroupRule)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroups(v)
+		return nil
+	case heatmapconfig.FieldSampleRate:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSampleRate(v)
+		return nil
+	case heatmapconfig.FieldMaxClicks:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMaxClicks(v)
+		return nil
+	case heatmapconfig.FieldRawDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRawDays(v)
+		return nil
+	case heatmapconfig.FieldAggregateDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAggregateDays(v)
+		return nil
+	case heatmapconfig.FieldTimezone:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimezone(v)
+		return nil
+	case heatmapconfig.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown HeatmapConfig field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *HeatmapConfigMutation) AddedFields() []string {
+	var fields []string
+	if m.addsample_rate != nil {
+		fields = append(fields, heatmapconfig.FieldSampleRate)
+	}
+	if m.addmax_clicks != nil {
+		fields = append(fields, heatmapconfig.FieldMaxClicks)
+	}
+	if m.addraw_days != nil {
+		fields = append(fields, heatmapconfig.FieldRawDays)
+	}
+	if m.addaggregate_days != nil {
+		fields = append(fields, heatmapconfig.FieldAggregateDays)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *HeatmapConfigMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case heatmapconfig.FieldSampleRate:
+		return m.AddedSampleRate()
+	case heatmapconfig.FieldMaxClicks:
+		return m.AddedMaxClicks()
+	case heatmapconfig.FieldRawDays:
+		return m.AddedRawDays()
+	case heatmapconfig.FieldAggregateDays:
+		return m.AddedAggregateDays()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *HeatmapConfigMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case heatmapconfig.FieldSampleRate:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSampleRate(v)
+		return nil
+	case heatmapconfig.FieldMaxClicks:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddMaxClicks(v)
+		return nil
+	case heatmapconfig.FieldRawDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRawDays(v)
+		return nil
+	case heatmapconfig.FieldAggregateDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAggregateDays(v)
+		return nil
+	}
+	return fmt.Errorf("unknown HeatmapConfig numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *HeatmapConfigMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *HeatmapConfigMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *HeatmapConfigMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown HeatmapConfig nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *HeatmapConfigMutation) ResetField(name string) error {
+	switch name {
+	case heatmapconfig.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case heatmapconfig.FieldEnabled:
+		m.ResetEnabled()
+		return nil
+	case heatmapconfig.FieldPaths:
+		m.ResetPaths()
+		return nil
+	case heatmapconfig.FieldGroups:
+		m.ResetGroups()
+		return nil
+	case heatmapconfig.FieldSampleRate:
+		m.ResetSampleRate()
+		return nil
+	case heatmapconfig.FieldMaxClicks:
+		m.ResetMaxClicks()
+		return nil
+	case heatmapconfig.FieldRawDays:
+		m.ResetRawDays()
+		return nil
+	case heatmapconfig.FieldAggregateDays:
+		m.ResetAggregateDays()
+		return nil
+	case heatmapconfig.FieldTimezone:
+		m.ResetTimezone()
+		return nil
+	case heatmapconfig.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown HeatmapConfig field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *HeatmapConfigMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.site != nil {
+		edges = append(edges, heatmapconfig.EdgeSite)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *HeatmapConfigMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case heatmapconfig.EdgeSite:
+		if id := m.site; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *HeatmapConfigMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *HeatmapConfigMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *HeatmapConfigMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsite {
+		edges = append(edges, heatmapconfig.EdgeSite)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *HeatmapConfigMutation) EdgeCleared(name string) bool {
+	switch name {
+	case heatmapconfig.EdgeSite:
+		return m.clearedsite
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *HeatmapConfigMutation) ClearEdge(name string) error {
+	switch name {
+	case heatmapconfig.EdgeSite:
+		m.ClearSite()
+		return nil
+	}
+	return fmt.Errorf("unknown HeatmapConfig unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *HeatmapConfigMutation) ResetEdge(name string) error {
+	switch name {
+	case heatmapconfig.EdgeSite:
+		m.ResetSite()
+		return nil
+	}
+	return fmt.Errorf("unknown HeatmapConfig edge %s", name)
+}
+
+// HeatmapSnapshotMutation represents an operation that mutates the HeatmapSnapshot nodes in the graph.
+type HeatmapSnapshotMutation struct {
+	config
+	op                 Op
+	typ                string
+	id                 *int64
+	aggregation_key    *string
+	source_url         *string
+	hostname           *string
+	_path              *string
+	version            *string
+	variant            *string
+	viewport_width     *int
+	addviewport_width  *int
+	viewport_height    *int
+	addviewport_height *int
+	document_width     *int
+	adddocument_width  *int
+	document_height    *int
+	adddocument_height *int
+	image_width        *int
+	addimage_width     *int
+	image_height       *int
+	addimage_height    *int
+	file_key           *string
+	content_type       *string
+	file_size          *int
+	addfile_size       *int
+	created_at         *time.Time
+	expires_at         *time.Time
+	clearedFields      map[string]struct{}
+	site               *int64
+	clearedsite        bool
+	done               bool
+	oldValue           func(context.Context) (*HeatmapSnapshot, error)
+	predicates         []predicate.HeatmapSnapshot
+}
+
+var _ ent.Mutation = (*HeatmapSnapshotMutation)(nil)
+
+// heatmapsnapshotOption allows management of the mutation configuration using functional options.
+type heatmapsnapshotOption func(*HeatmapSnapshotMutation)
+
+// newHeatmapSnapshotMutation creates new mutation for the HeatmapSnapshot entity.
+func newHeatmapSnapshotMutation(c config, op Op, opts ...heatmapsnapshotOption) *HeatmapSnapshotMutation {
+	m := &HeatmapSnapshotMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeHeatmapSnapshot,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withHeatmapSnapshotID sets the ID field of the mutation.
+func withHeatmapSnapshotID(id int64) heatmapsnapshotOption {
+	return func(m *HeatmapSnapshotMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *HeatmapSnapshot
+		)
+		m.oldValue = func(ctx context.Context) (*HeatmapSnapshot, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().HeatmapSnapshot.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withHeatmapSnapshot sets the old HeatmapSnapshot of the mutation.
+func withHeatmapSnapshot(node *HeatmapSnapshot) heatmapsnapshotOption {
+	return func(m *HeatmapSnapshotMutation) {
+		m.oldValue = func(context.Context) (*HeatmapSnapshot, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m HeatmapSnapshotMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m HeatmapSnapshotMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of HeatmapSnapshot entities.
+func (m *HeatmapSnapshotMutation) SetID(id int64) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *HeatmapSnapshotMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *HeatmapSnapshotMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().HeatmapSnapshot.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSiteID sets the "site_id" field.
+func (m *HeatmapSnapshotMutation) SetSiteID(i int64) {
+	m.site = &i
+}
+
+// SiteID returns the value of the "site_id" field in the mutation.
+func (m *HeatmapSnapshotMutation) SiteID() (r int64, exists bool) {
+	v := m.site
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSiteID returns the old "site_id" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldSiteID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSiteID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSiteID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSiteID: %w", err)
+	}
+	return oldValue.SiteID, nil
+}
+
+// ResetSiteID resets all changes to the "site_id" field.
+func (m *HeatmapSnapshotMutation) ResetSiteID() {
+	m.site = nil
+}
+
+// SetAggregationKey sets the "aggregation_key" field.
+func (m *HeatmapSnapshotMutation) SetAggregationKey(s string) {
+	m.aggregation_key = &s
+}
+
+// AggregationKey returns the value of the "aggregation_key" field in the mutation.
+func (m *HeatmapSnapshotMutation) AggregationKey() (r string, exists bool) {
+	v := m.aggregation_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAggregationKey returns the old "aggregation_key" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldAggregationKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAggregationKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAggregationKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAggregationKey: %w", err)
+	}
+	return oldValue.AggregationKey, nil
+}
+
+// ResetAggregationKey resets all changes to the "aggregation_key" field.
+func (m *HeatmapSnapshotMutation) ResetAggregationKey() {
+	m.aggregation_key = nil
+}
+
+// SetSourceURL sets the "source_url" field.
+func (m *HeatmapSnapshotMutation) SetSourceURL(s string) {
+	m.source_url = &s
+}
+
+// SourceURL returns the value of the "source_url" field in the mutation.
+func (m *HeatmapSnapshotMutation) SourceURL() (r string, exists bool) {
+	v := m.source_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceURL returns the old "source_url" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldSourceURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceURL: %w", err)
+	}
+	return oldValue.SourceURL, nil
+}
+
+// ResetSourceURL resets all changes to the "source_url" field.
+func (m *HeatmapSnapshotMutation) ResetSourceURL() {
+	m.source_url = nil
+}
+
+// SetHostname sets the "hostname" field.
+func (m *HeatmapSnapshotMutation) SetHostname(s string) {
+	m.hostname = &s
+}
+
+// Hostname returns the value of the "hostname" field in the mutation.
+func (m *HeatmapSnapshotMutation) Hostname() (r string, exists bool) {
+	v := m.hostname
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHostname returns the old "hostname" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldHostname(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHostname is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHostname requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHostname: %w", err)
+	}
+	return oldValue.Hostname, nil
+}
+
+// ResetHostname resets all changes to the "hostname" field.
+func (m *HeatmapSnapshotMutation) ResetHostname() {
+	m.hostname = nil
+}
+
+// SetPath sets the "path" field.
+func (m *HeatmapSnapshotMutation) SetPath(s string) {
+	m._path = &s
+}
+
+// Path returns the value of the "path" field in the mutation.
+func (m *HeatmapSnapshotMutation) Path() (r string, exists bool) {
+	v := m._path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPath returns the old "path" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPath: %w", err)
+	}
+	return oldValue.Path, nil
+}
+
+// ResetPath resets all changes to the "path" field.
+func (m *HeatmapSnapshotMutation) ResetPath() {
+	m._path = nil
+}
+
+// SetVersion sets the "version" field.
+func (m *HeatmapSnapshotMutation) SetVersion(s string) {
+	m.version = &s
+}
+
+// Version returns the value of the "version" field in the mutation.
+func (m *HeatmapSnapshotMutation) Version() (r string, exists bool) {
+	v := m.version
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVersion returns the old "version" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldVersion(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVersion is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVersion requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVersion: %w", err)
+	}
+	return oldValue.Version, nil
+}
+
+// ResetVersion resets all changes to the "version" field.
+func (m *HeatmapSnapshotMutation) ResetVersion() {
+	m.version = nil
+}
+
+// SetVariant sets the "variant" field.
+func (m *HeatmapSnapshotMutation) SetVariant(s string) {
+	m.variant = &s
+}
+
+// Variant returns the value of the "variant" field in the mutation.
+func (m *HeatmapSnapshotMutation) Variant() (r string, exists bool) {
+	v := m.variant
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVariant returns the old "variant" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldVariant(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVariant is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVariant requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVariant: %w", err)
+	}
+	return oldValue.Variant, nil
+}
+
+// ResetVariant resets all changes to the "variant" field.
+func (m *HeatmapSnapshotMutation) ResetVariant() {
+	m.variant = nil
+}
+
+// SetViewportWidth sets the "viewport_width" field.
+func (m *HeatmapSnapshotMutation) SetViewportWidth(i int) {
+	m.viewport_width = &i
+	m.addviewport_width = nil
+}
+
+// ViewportWidth returns the value of the "viewport_width" field in the mutation.
+func (m *HeatmapSnapshotMutation) ViewportWidth() (r int, exists bool) {
+	v := m.viewport_width
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldViewportWidth returns the old "viewport_width" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldViewportWidth(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldViewportWidth is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldViewportWidth requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldViewportWidth: %w", err)
+	}
+	return oldValue.ViewportWidth, nil
+}
+
+// AddViewportWidth adds i to the "viewport_width" field.
+func (m *HeatmapSnapshotMutation) AddViewportWidth(i int) {
+	if m.addviewport_width != nil {
+		*m.addviewport_width += i
+	} else {
+		m.addviewport_width = &i
+	}
+}
+
+// AddedViewportWidth returns the value that was added to the "viewport_width" field in this mutation.
+func (m *HeatmapSnapshotMutation) AddedViewportWidth() (r int, exists bool) {
+	v := m.addviewport_width
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetViewportWidth resets all changes to the "viewport_width" field.
+func (m *HeatmapSnapshotMutation) ResetViewportWidth() {
+	m.viewport_width = nil
+	m.addviewport_width = nil
+}
+
+// SetViewportHeight sets the "viewport_height" field.
+func (m *HeatmapSnapshotMutation) SetViewportHeight(i int) {
+	m.viewport_height = &i
+	m.addviewport_height = nil
+}
+
+// ViewportHeight returns the value of the "viewport_height" field in the mutation.
+func (m *HeatmapSnapshotMutation) ViewportHeight() (r int, exists bool) {
+	v := m.viewport_height
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldViewportHeight returns the old "viewport_height" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldViewportHeight(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldViewportHeight is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldViewportHeight requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldViewportHeight: %w", err)
+	}
+	return oldValue.ViewportHeight, nil
+}
+
+// AddViewportHeight adds i to the "viewport_height" field.
+func (m *HeatmapSnapshotMutation) AddViewportHeight(i int) {
+	if m.addviewport_height != nil {
+		*m.addviewport_height += i
+	} else {
+		m.addviewport_height = &i
+	}
+}
+
+// AddedViewportHeight returns the value that was added to the "viewport_height" field in this mutation.
+func (m *HeatmapSnapshotMutation) AddedViewportHeight() (r int, exists bool) {
+	v := m.addviewport_height
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetViewportHeight resets all changes to the "viewport_height" field.
+func (m *HeatmapSnapshotMutation) ResetViewportHeight() {
+	m.viewport_height = nil
+	m.addviewport_height = nil
+}
+
+// SetDocumentWidth sets the "document_width" field.
+func (m *HeatmapSnapshotMutation) SetDocumentWidth(i int) {
+	m.document_width = &i
+	m.adddocument_width = nil
+}
+
+// DocumentWidth returns the value of the "document_width" field in the mutation.
+func (m *HeatmapSnapshotMutation) DocumentWidth() (r int, exists bool) {
+	v := m.document_width
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDocumentWidth returns the old "document_width" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldDocumentWidth(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDocumentWidth is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDocumentWidth requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDocumentWidth: %w", err)
+	}
+	return oldValue.DocumentWidth, nil
+}
+
+// AddDocumentWidth adds i to the "document_width" field.
+func (m *HeatmapSnapshotMutation) AddDocumentWidth(i int) {
+	if m.adddocument_width != nil {
+		*m.adddocument_width += i
+	} else {
+		m.adddocument_width = &i
+	}
+}
+
+// AddedDocumentWidth returns the value that was added to the "document_width" field in this mutation.
+func (m *HeatmapSnapshotMutation) AddedDocumentWidth() (r int, exists bool) {
+	v := m.adddocument_width
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDocumentWidth resets all changes to the "document_width" field.
+func (m *HeatmapSnapshotMutation) ResetDocumentWidth() {
+	m.document_width = nil
+	m.adddocument_width = nil
+}
+
+// SetDocumentHeight sets the "document_height" field.
+func (m *HeatmapSnapshotMutation) SetDocumentHeight(i int) {
+	m.document_height = &i
+	m.adddocument_height = nil
+}
+
+// DocumentHeight returns the value of the "document_height" field in the mutation.
+func (m *HeatmapSnapshotMutation) DocumentHeight() (r int, exists bool) {
+	v := m.document_height
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDocumentHeight returns the old "document_height" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldDocumentHeight(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDocumentHeight is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDocumentHeight requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDocumentHeight: %w", err)
+	}
+	return oldValue.DocumentHeight, nil
+}
+
+// AddDocumentHeight adds i to the "document_height" field.
+func (m *HeatmapSnapshotMutation) AddDocumentHeight(i int) {
+	if m.adddocument_height != nil {
+		*m.adddocument_height += i
+	} else {
+		m.adddocument_height = &i
+	}
+}
+
+// AddedDocumentHeight returns the value that was added to the "document_height" field in this mutation.
+func (m *HeatmapSnapshotMutation) AddedDocumentHeight() (r int, exists bool) {
+	v := m.adddocument_height
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDocumentHeight resets all changes to the "document_height" field.
+func (m *HeatmapSnapshotMutation) ResetDocumentHeight() {
+	m.document_height = nil
+	m.adddocument_height = nil
+}
+
+// SetImageWidth sets the "image_width" field.
+func (m *HeatmapSnapshotMutation) SetImageWidth(i int) {
+	m.image_width = &i
+	m.addimage_width = nil
+}
+
+// ImageWidth returns the value of the "image_width" field in the mutation.
+func (m *HeatmapSnapshotMutation) ImageWidth() (r int, exists bool) {
+	v := m.image_width
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldImageWidth returns the old "image_width" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldImageWidth(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldImageWidth is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldImageWidth requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldImageWidth: %w", err)
+	}
+	return oldValue.ImageWidth, nil
+}
+
+// AddImageWidth adds i to the "image_width" field.
+func (m *HeatmapSnapshotMutation) AddImageWidth(i int) {
+	if m.addimage_width != nil {
+		*m.addimage_width += i
+	} else {
+		m.addimage_width = &i
+	}
+}
+
+// AddedImageWidth returns the value that was added to the "image_width" field in this mutation.
+func (m *HeatmapSnapshotMutation) AddedImageWidth() (r int, exists bool) {
+	v := m.addimage_width
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetImageWidth resets all changes to the "image_width" field.
+func (m *HeatmapSnapshotMutation) ResetImageWidth() {
+	m.image_width = nil
+	m.addimage_width = nil
+}
+
+// SetImageHeight sets the "image_height" field.
+func (m *HeatmapSnapshotMutation) SetImageHeight(i int) {
+	m.image_height = &i
+	m.addimage_height = nil
+}
+
+// ImageHeight returns the value of the "image_height" field in the mutation.
+func (m *HeatmapSnapshotMutation) ImageHeight() (r int, exists bool) {
+	v := m.image_height
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldImageHeight returns the old "image_height" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldImageHeight(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldImageHeight is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldImageHeight requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldImageHeight: %w", err)
+	}
+	return oldValue.ImageHeight, nil
+}
+
+// AddImageHeight adds i to the "image_height" field.
+func (m *HeatmapSnapshotMutation) AddImageHeight(i int) {
+	if m.addimage_height != nil {
+		*m.addimage_height += i
+	} else {
+		m.addimage_height = &i
+	}
+}
+
+// AddedImageHeight returns the value that was added to the "image_height" field in this mutation.
+func (m *HeatmapSnapshotMutation) AddedImageHeight() (r int, exists bool) {
+	v := m.addimage_height
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetImageHeight resets all changes to the "image_height" field.
+func (m *HeatmapSnapshotMutation) ResetImageHeight() {
+	m.image_height = nil
+	m.addimage_height = nil
+}
+
+// SetFileKey sets the "file_key" field.
+func (m *HeatmapSnapshotMutation) SetFileKey(s string) {
+	m.file_key = &s
+}
+
+// FileKey returns the value of the "file_key" field in the mutation.
+func (m *HeatmapSnapshotMutation) FileKey() (r string, exists bool) {
+	v := m.file_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileKey returns the old "file_key" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldFileKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileKey: %w", err)
+	}
+	return oldValue.FileKey, nil
+}
+
+// ResetFileKey resets all changes to the "file_key" field.
+func (m *HeatmapSnapshotMutation) ResetFileKey() {
+	m.file_key = nil
+}
+
+// SetContentType sets the "content_type" field.
+func (m *HeatmapSnapshotMutation) SetContentType(s string) {
+	m.content_type = &s
+}
+
+// ContentType returns the value of the "content_type" field in the mutation.
+func (m *HeatmapSnapshotMutation) ContentType() (r string, exists bool) {
+	v := m.content_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldContentType returns the old "content_type" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldContentType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldContentType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldContentType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldContentType: %w", err)
+	}
+	return oldValue.ContentType, nil
+}
+
+// ResetContentType resets all changes to the "content_type" field.
+func (m *HeatmapSnapshotMutation) ResetContentType() {
+	m.content_type = nil
+}
+
+// SetFileSize sets the "file_size" field.
+func (m *HeatmapSnapshotMutation) SetFileSize(i int) {
+	m.file_size = &i
+	m.addfile_size = nil
+}
+
+// FileSize returns the value of the "file_size" field in the mutation.
+func (m *HeatmapSnapshotMutation) FileSize() (r int, exists bool) {
+	v := m.file_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFileSize returns the old "file_size" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldFileSize(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFileSize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFileSize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFileSize: %w", err)
+	}
+	return oldValue.FileSize, nil
+}
+
+// AddFileSize adds i to the "file_size" field.
+func (m *HeatmapSnapshotMutation) AddFileSize(i int) {
+	if m.addfile_size != nil {
+		*m.addfile_size += i
+	} else {
+		m.addfile_size = &i
+	}
+}
+
+// AddedFileSize returns the value that was added to the "file_size" field in this mutation.
+func (m *HeatmapSnapshotMutation) AddedFileSize() (r int, exists bool) {
+	v := m.addfile_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFileSize resets all changes to the "file_size" field.
+func (m *HeatmapSnapshotMutation) ResetFileSize() {
+	m.file_size = nil
+	m.addfile_size = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *HeatmapSnapshotMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *HeatmapSnapshotMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *HeatmapSnapshotMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *HeatmapSnapshotMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *HeatmapSnapshotMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the HeatmapSnapshot entity.
+// If the HeatmapSnapshot object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapSnapshotMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *HeatmapSnapshotMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// ClearSite clears the "site" edge to the Site entity.
+func (m *HeatmapSnapshotMutation) ClearSite() {
+	m.clearedsite = true
+	m.clearedFields[heatmapsnapshot.FieldSiteID] = struct{}{}
+}
+
+// SiteCleared reports if the "site" edge to the Site entity was cleared.
+func (m *HeatmapSnapshotMutation) SiteCleared() bool {
+	return m.clearedsite
+}
+
+// SiteIDs returns the "site" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SiteID instead. It exists only for internal usage by the builders.
+func (m *HeatmapSnapshotMutation) SiteIDs() (ids []int64) {
+	if id := m.site; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSite resets all changes to the "site" edge.
+func (m *HeatmapSnapshotMutation) ResetSite() {
+	m.site = nil
+	m.clearedsite = false
+}
+
+// Where appends a list predicates to the HeatmapSnapshotMutation builder.
+func (m *HeatmapSnapshotMutation) Where(ps ...predicate.HeatmapSnapshot) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the HeatmapSnapshotMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *HeatmapSnapshotMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.HeatmapSnapshot, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *HeatmapSnapshotMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *HeatmapSnapshotMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (HeatmapSnapshot).
+func (m *HeatmapSnapshotMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *HeatmapSnapshotMutation) Fields() []string {
+	fields := make([]string, 0, 18)
+	if m.site != nil {
+		fields = append(fields, heatmapsnapshot.FieldSiteID)
+	}
+	if m.aggregation_key != nil {
+		fields = append(fields, heatmapsnapshot.FieldAggregationKey)
+	}
+	if m.source_url != nil {
+		fields = append(fields, heatmapsnapshot.FieldSourceURL)
+	}
+	if m.hostname != nil {
+		fields = append(fields, heatmapsnapshot.FieldHostname)
+	}
+	if m._path != nil {
+		fields = append(fields, heatmapsnapshot.FieldPath)
+	}
+	if m.version != nil {
+		fields = append(fields, heatmapsnapshot.FieldVersion)
+	}
+	if m.variant != nil {
+		fields = append(fields, heatmapsnapshot.FieldVariant)
+	}
+	if m.viewport_width != nil {
+		fields = append(fields, heatmapsnapshot.FieldViewportWidth)
+	}
+	if m.viewport_height != nil {
+		fields = append(fields, heatmapsnapshot.FieldViewportHeight)
+	}
+	if m.document_width != nil {
+		fields = append(fields, heatmapsnapshot.FieldDocumentWidth)
+	}
+	if m.document_height != nil {
+		fields = append(fields, heatmapsnapshot.FieldDocumentHeight)
+	}
+	if m.image_width != nil {
+		fields = append(fields, heatmapsnapshot.FieldImageWidth)
+	}
+	if m.image_height != nil {
+		fields = append(fields, heatmapsnapshot.FieldImageHeight)
+	}
+	if m.file_key != nil {
+		fields = append(fields, heatmapsnapshot.FieldFileKey)
+	}
+	if m.content_type != nil {
+		fields = append(fields, heatmapsnapshot.FieldContentType)
+	}
+	if m.file_size != nil {
+		fields = append(fields, heatmapsnapshot.FieldFileSize)
+	}
+	if m.created_at != nil {
+		fields = append(fields, heatmapsnapshot.FieldCreatedAt)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, heatmapsnapshot.FieldExpiresAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *HeatmapSnapshotMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case heatmapsnapshot.FieldSiteID:
+		return m.SiteID()
+	case heatmapsnapshot.FieldAggregationKey:
+		return m.AggregationKey()
+	case heatmapsnapshot.FieldSourceURL:
+		return m.SourceURL()
+	case heatmapsnapshot.FieldHostname:
+		return m.Hostname()
+	case heatmapsnapshot.FieldPath:
+		return m.Path()
+	case heatmapsnapshot.FieldVersion:
+		return m.Version()
+	case heatmapsnapshot.FieldVariant:
+		return m.Variant()
+	case heatmapsnapshot.FieldViewportWidth:
+		return m.ViewportWidth()
+	case heatmapsnapshot.FieldViewportHeight:
+		return m.ViewportHeight()
+	case heatmapsnapshot.FieldDocumentWidth:
+		return m.DocumentWidth()
+	case heatmapsnapshot.FieldDocumentHeight:
+		return m.DocumentHeight()
+	case heatmapsnapshot.FieldImageWidth:
+		return m.ImageWidth()
+	case heatmapsnapshot.FieldImageHeight:
+		return m.ImageHeight()
+	case heatmapsnapshot.FieldFileKey:
+		return m.FileKey()
+	case heatmapsnapshot.FieldContentType:
+		return m.ContentType()
+	case heatmapsnapshot.FieldFileSize:
+		return m.FileSize()
+	case heatmapsnapshot.FieldCreatedAt:
+		return m.CreatedAt()
+	case heatmapsnapshot.FieldExpiresAt:
+		return m.ExpiresAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *HeatmapSnapshotMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case heatmapsnapshot.FieldSiteID:
+		return m.OldSiteID(ctx)
+	case heatmapsnapshot.FieldAggregationKey:
+		return m.OldAggregationKey(ctx)
+	case heatmapsnapshot.FieldSourceURL:
+		return m.OldSourceURL(ctx)
+	case heatmapsnapshot.FieldHostname:
+		return m.OldHostname(ctx)
+	case heatmapsnapshot.FieldPath:
+		return m.OldPath(ctx)
+	case heatmapsnapshot.FieldVersion:
+		return m.OldVersion(ctx)
+	case heatmapsnapshot.FieldVariant:
+		return m.OldVariant(ctx)
+	case heatmapsnapshot.FieldViewportWidth:
+		return m.OldViewportWidth(ctx)
+	case heatmapsnapshot.FieldViewportHeight:
+		return m.OldViewportHeight(ctx)
+	case heatmapsnapshot.FieldDocumentWidth:
+		return m.OldDocumentWidth(ctx)
+	case heatmapsnapshot.FieldDocumentHeight:
+		return m.OldDocumentHeight(ctx)
+	case heatmapsnapshot.FieldImageWidth:
+		return m.OldImageWidth(ctx)
+	case heatmapsnapshot.FieldImageHeight:
+		return m.OldImageHeight(ctx)
+	case heatmapsnapshot.FieldFileKey:
+		return m.OldFileKey(ctx)
+	case heatmapsnapshot.FieldContentType:
+		return m.OldContentType(ctx)
+	case heatmapsnapshot.FieldFileSize:
+		return m.OldFileSize(ctx)
+	case heatmapsnapshot.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case heatmapsnapshot.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown HeatmapSnapshot field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *HeatmapSnapshotMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case heatmapsnapshot.FieldSiteID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSiteID(v)
+		return nil
+	case heatmapsnapshot.FieldAggregationKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAggregationKey(v)
+		return nil
+	case heatmapsnapshot.FieldSourceURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceURL(v)
+		return nil
+	case heatmapsnapshot.FieldHostname:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHostname(v)
+		return nil
+	case heatmapsnapshot.FieldPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPath(v)
+		return nil
+	case heatmapsnapshot.FieldVersion:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVersion(v)
+		return nil
+	case heatmapsnapshot.FieldVariant:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVariant(v)
+		return nil
+	case heatmapsnapshot.FieldViewportWidth:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetViewportWidth(v)
+		return nil
+	case heatmapsnapshot.FieldViewportHeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetViewportHeight(v)
+		return nil
+	case heatmapsnapshot.FieldDocumentWidth:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDocumentWidth(v)
+		return nil
+	case heatmapsnapshot.FieldDocumentHeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDocumentHeight(v)
+		return nil
+	case heatmapsnapshot.FieldImageWidth:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetImageWidth(v)
+		return nil
+	case heatmapsnapshot.FieldImageHeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetImageHeight(v)
+		return nil
+	case heatmapsnapshot.FieldFileKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileKey(v)
+		return nil
+	case heatmapsnapshot.FieldContentType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetContentType(v)
+		return nil
+	case heatmapsnapshot.FieldFileSize:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFileSize(v)
+		return nil
+	case heatmapsnapshot.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case heatmapsnapshot.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown HeatmapSnapshot field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *HeatmapSnapshotMutation) AddedFields() []string {
+	var fields []string
+	if m.addviewport_width != nil {
+		fields = append(fields, heatmapsnapshot.FieldViewportWidth)
+	}
+	if m.addviewport_height != nil {
+		fields = append(fields, heatmapsnapshot.FieldViewportHeight)
+	}
+	if m.adddocument_width != nil {
+		fields = append(fields, heatmapsnapshot.FieldDocumentWidth)
+	}
+	if m.adddocument_height != nil {
+		fields = append(fields, heatmapsnapshot.FieldDocumentHeight)
+	}
+	if m.addimage_width != nil {
+		fields = append(fields, heatmapsnapshot.FieldImageWidth)
+	}
+	if m.addimage_height != nil {
+		fields = append(fields, heatmapsnapshot.FieldImageHeight)
+	}
+	if m.addfile_size != nil {
+		fields = append(fields, heatmapsnapshot.FieldFileSize)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *HeatmapSnapshotMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case heatmapsnapshot.FieldViewportWidth:
+		return m.AddedViewportWidth()
+	case heatmapsnapshot.FieldViewportHeight:
+		return m.AddedViewportHeight()
+	case heatmapsnapshot.FieldDocumentWidth:
+		return m.AddedDocumentWidth()
+	case heatmapsnapshot.FieldDocumentHeight:
+		return m.AddedDocumentHeight()
+	case heatmapsnapshot.FieldImageWidth:
+		return m.AddedImageWidth()
+	case heatmapsnapshot.FieldImageHeight:
+		return m.AddedImageHeight()
+	case heatmapsnapshot.FieldFileSize:
+		return m.AddedFileSize()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *HeatmapSnapshotMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case heatmapsnapshot.FieldViewportWidth:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddViewportWidth(v)
+		return nil
+	case heatmapsnapshot.FieldViewportHeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddViewportHeight(v)
+		return nil
+	case heatmapsnapshot.FieldDocumentWidth:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDocumentWidth(v)
+		return nil
+	case heatmapsnapshot.FieldDocumentHeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDocumentHeight(v)
+		return nil
+	case heatmapsnapshot.FieldImageWidth:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddImageWidth(v)
+		return nil
+	case heatmapsnapshot.FieldImageHeight:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddImageHeight(v)
+		return nil
+	case heatmapsnapshot.FieldFileSize:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFileSize(v)
+		return nil
+	}
+	return fmt.Errorf("unknown HeatmapSnapshot numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *HeatmapSnapshotMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *HeatmapSnapshotMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *HeatmapSnapshotMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown HeatmapSnapshot nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *HeatmapSnapshotMutation) ResetField(name string) error {
+	switch name {
+	case heatmapsnapshot.FieldSiteID:
+		m.ResetSiteID()
+		return nil
+	case heatmapsnapshot.FieldAggregationKey:
+		m.ResetAggregationKey()
+		return nil
+	case heatmapsnapshot.FieldSourceURL:
+		m.ResetSourceURL()
+		return nil
+	case heatmapsnapshot.FieldHostname:
+		m.ResetHostname()
+		return nil
+	case heatmapsnapshot.FieldPath:
+		m.ResetPath()
+		return nil
+	case heatmapsnapshot.FieldVersion:
+		m.ResetVersion()
+		return nil
+	case heatmapsnapshot.FieldVariant:
+		m.ResetVariant()
+		return nil
+	case heatmapsnapshot.FieldViewportWidth:
+		m.ResetViewportWidth()
+		return nil
+	case heatmapsnapshot.FieldViewportHeight:
+		m.ResetViewportHeight()
+		return nil
+	case heatmapsnapshot.FieldDocumentWidth:
+		m.ResetDocumentWidth()
+		return nil
+	case heatmapsnapshot.FieldDocumentHeight:
+		m.ResetDocumentHeight()
+		return nil
+	case heatmapsnapshot.FieldImageWidth:
+		m.ResetImageWidth()
+		return nil
+	case heatmapsnapshot.FieldImageHeight:
+		m.ResetImageHeight()
+		return nil
+	case heatmapsnapshot.FieldFileKey:
+		m.ResetFileKey()
+		return nil
+	case heatmapsnapshot.FieldContentType:
+		m.ResetContentType()
+		return nil
+	case heatmapsnapshot.FieldFileSize:
+		m.ResetFileSize()
+		return nil
+	case heatmapsnapshot.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case heatmapsnapshot.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	}
+	return fmt.Errorf("unknown HeatmapSnapshot field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *HeatmapSnapshotMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.site != nil {
+		edges = append(edges, heatmapsnapshot.EdgeSite)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *HeatmapSnapshotMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case heatmapsnapshot.EdgeSite:
+		if id := m.site; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *HeatmapSnapshotMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *HeatmapSnapshotMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *HeatmapSnapshotMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedsite {
+		edges = append(edges, heatmapsnapshot.EdgeSite)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *HeatmapSnapshotMutation) EdgeCleared(name string) bool {
+	switch name {
+	case heatmapsnapshot.EdgeSite:
+		return m.clearedsite
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *HeatmapSnapshotMutation) ClearEdge(name string) error {
+	switch name {
+	case heatmapsnapshot.EdgeSite:
+		m.ClearSite()
+		return nil
+	}
+	return fmt.Errorf("unknown HeatmapSnapshot unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *HeatmapSnapshotMutation) ResetEdge(name string) error {
+	switch name {
+	case heatmapsnapshot.EdgeSite:
+		m.ResetSite()
+		return nil
+	}
+	return fmt.Errorf("unknown HeatmapSnapshot edge %s", name)
 }
 
 // MonthlyEventCountMutation represents an operation that mutates the MonthlyEventCount nodes in the graph.
@@ -11799,6 +14381,11 @@ type SiteMutation struct {
 	traffic_alert_interval             *string
 	verified_at                        *time.Time
 	clearedFields                      map[string]struct{}
+	heatmap_config                     *int64
+	clearedheatmap_config              bool
+	heatmap_snapshots                  map[int64]struct{}
+	removedheatmap_snapshots           map[int64]struct{}
+	clearedheatmap_snapshots           bool
 	funnels                            map[int64]struct{}
 	removedfunnels                     map[int64]struct{}
 	clearedfunnels                     bool
@@ -12761,6 +15348,99 @@ func (m *SiteMutation) VerifiedAtCleared() bool {
 func (m *SiteMutation) ResetVerifiedAt() {
 	m.verified_at = nil
 	delete(m.clearedFields, site.FieldVerifiedAt)
+}
+
+// SetHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by id.
+func (m *SiteMutation) SetHeatmapConfigID(id int64) {
+	m.heatmap_config = &id
+}
+
+// ClearHeatmapConfig clears the "heatmap_config" edge to the HeatmapConfig entity.
+func (m *SiteMutation) ClearHeatmapConfig() {
+	m.clearedheatmap_config = true
+}
+
+// HeatmapConfigCleared reports if the "heatmap_config" edge to the HeatmapConfig entity was cleared.
+func (m *SiteMutation) HeatmapConfigCleared() bool {
+	return m.clearedheatmap_config
+}
+
+// HeatmapConfigID returns the "heatmap_config" edge ID in the mutation.
+func (m *SiteMutation) HeatmapConfigID() (id int64, exists bool) {
+	if m.heatmap_config != nil {
+		return *m.heatmap_config, true
+	}
+	return
+}
+
+// HeatmapConfigIDs returns the "heatmap_config" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// HeatmapConfigID instead. It exists only for internal usage by the builders.
+func (m *SiteMutation) HeatmapConfigIDs() (ids []int64) {
+	if id := m.heatmap_config; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetHeatmapConfig resets all changes to the "heatmap_config" edge.
+func (m *SiteMutation) ResetHeatmapConfig() {
+	m.heatmap_config = nil
+	m.clearedheatmap_config = false
+}
+
+// AddHeatmapSnapshotIDs adds the "heatmap_snapshots" edge to the HeatmapSnapshot entity by ids.
+func (m *SiteMutation) AddHeatmapSnapshotIDs(ids ...int64) {
+	if m.heatmap_snapshots == nil {
+		m.heatmap_snapshots = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.heatmap_snapshots[ids[i]] = struct{}{}
+	}
+}
+
+// ClearHeatmapSnapshots clears the "heatmap_snapshots" edge to the HeatmapSnapshot entity.
+func (m *SiteMutation) ClearHeatmapSnapshots() {
+	m.clearedheatmap_snapshots = true
+}
+
+// HeatmapSnapshotsCleared reports if the "heatmap_snapshots" edge to the HeatmapSnapshot entity was cleared.
+func (m *SiteMutation) HeatmapSnapshotsCleared() bool {
+	return m.clearedheatmap_snapshots
+}
+
+// RemoveHeatmapSnapshotIDs removes the "heatmap_snapshots" edge to the HeatmapSnapshot entity by IDs.
+func (m *SiteMutation) RemoveHeatmapSnapshotIDs(ids ...int64) {
+	if m.removedheatmap_snapshots == nil {
+		m.removedheatmap_snapshots = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.heatmap_snapshots, ids[i])
+		m.removedheatmap_snapshots[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedHeatmapSnapshots returns the removed IDs of the "heatmap_snapshots" edge to the HeatmapSnapshot entity.
+func (m *SiteMutation) RemovedHeatmapSnapshotsIDs() (ids []int64) {
+	for id := range m.removedheatmap_snapshots {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// HeatmapSnapshotsIDs returns the "heatmap_snapshots" edge IDs in the mutation.
+func (m *SiteMutation) HeatmapSnapshotsIDs() (ids []int64) {
+	for id := range m.heatmap_snapshots {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetHeatmapSnapshots resets all changes to the "heatmap_snapshots" edge.
+func (m *SiteMutation) ResetHeatmapSnapshots() {
+	m.heatmap_snapshots = nil
+	m.clearedheatmap_snapshots = false
+	m.removedheatmap_snapshots = nil
 }
 
 // AddFunnelIDs adds the "funnels" edge to the Funnel entity by ids.
@@ -13874,7 +16554,13 @@ func (m *SiteMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SiteMutation) AddedEdges() []string {
-	edges := make([]string, 0, 11)
+	edges := make([]string, 0, 13)
+	if m.heatmap_config != nil {
+		edges = append(edges, site.EdgeHeatmapConfig)
+	}
+	if m.heatmap_snapshots != nil {
+		edges = append(edges, site.EdgeHeatmapSnapshots)
+	}
 	if m.funnels != nil {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -13915,6 +16601,16 @@ func (m *SiteMutation) AddedEdges() []string {
 // name in this mutation.
 func (m *SiteMutation) AddedIDs(name string) []ent.Value {
 	switch name {
+	case site.EdgeHeatmapConfig:
+		if id := m.heatmap_config; id != nil {
+			return []ent.Value{*id}
+		}
+	case site.EdgeHeatmapSnapshots:
+		ids := make([]ent.Value, 0, len(m.heatmap_snapshots))
+		for id := range m.heatmap_snapshots {
+			ids = append(ids, id)
+		}
+		return ids
 	case site.EdgeFunnels:
 		ids := make([]ent.Value, 0, len(m.funnels))
 		for id := range m.funnels {
@@ -13987,7 +16683,10 @@ func (m *SiteMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SiteMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 11)
+	edges := make([]string, 0, 13)
+	if m.removedheatmap_snapshots != nil {
+		edges = append(edges, site.EdgeHeatmapSnapshots)
+	}
 	if m.removedfunnels != nil {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -14028,6 +16727,12 @@ func (m *SiteMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *SiteMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
+	case site.EdgeHeatmapSnapshots:
+		ids := make([]ent.Value, 0, len(m.removedheatmap_snapshots))
+		for id := range m.removedheatmap_snapshots {
+			ids = append(ids, id)
+		}
+		return ids
 	case site.EdgeFunnels:
 		ids := make([]ent.Value, 0, len(m.removedfunnels))
 		for id := range m.removedfunnels {
@@ -14100,7 +16805,13 @@ func (m *SiteMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SiteMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 11)
+	edges := make([]string, 0, 13)
+	if m.clearedheatmap_config {
+		edges = append(edges, site.EdgeHeatmapConfig)
+	}
+	if m.clearedheatmap_snapshots {
+		edges = append(edges, site.EdgeHeatmapSnapshots)
+	}
 	if m.clearedfunnels {
 		edges = append(edges, site.EdgeFunnels)
 	}
@@ -14141,6 +16852,10 @@ func (m *SiteMutation) ClearedEdges() []string {
 // was cleared in this mutation.
 func (m *SiteMutation) EdgeCleared(name string) bool {
 	switch name {
+	case site.EdgeHeatmapConfig:
+		return m.clearedheatmap_config
+	case site.EdgeHeatmapSnapshots:
+		return m.clearedheatmap_snapshots
 	case site.EdgeFunnels:
 		return m.clearedfunnels
 	case site.EdgeMembers:
@@ -14171,6 +16886,9 @@ func (m *SiteMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *SiteMutation) ClearEdge(name string) error {
 	switch name {
+	case site.EdgeHeatmapConfig:
+		m.ClearHeatmapConfig()
+		return nil
 	}
 	return fmt.Errorf("unknown Site unique edge %s", name)
 }
@@ -14179,6 +16897,12 @@ func (m *SiteMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *SiteMutation) ResetEdge(name string) error {
 	switch name {
+	case site.EdgeHeatmapConfig:
+		m.ResetHeatmapConfig()
+		return nil
+	case site.EdgeHeatmapSnapshots:
+		m.ResetHeatmapSnapshots()
+		return nil
 	case site.EdgeFunnels:
 		m.ResetFunnels()
 		return nil

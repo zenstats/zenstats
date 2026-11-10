@@ -13,6 +13,8 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/funnel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/goal"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapsnapshot"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/predicate"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/savedpanel"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/segment"
@@ -320,6 +322,40 @@ func (su *SiteUpdate) ClearVerifiedAt() *SiteUpdate {
 	return su
 }
 
+// SetHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by ID.
+func (su *SiteUpdate) SetHeatmapConfigID(id int64) *SiteUpdate {
+	su.mutation.SetHeatmapConfigID(id)
+	return su
+}
+
+// SetNillableHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by ID if the given value is not nil.
+func (su *SiteUpdate) SetNillableHeatmapConfigID(id *int64) *SiteUpdate {
+	if id != nil {
+		su = su.SetHeatmapConfigID(*id)
+	}
+	return su
+}
+
+// SetHeatmapConfig sets the "heatmap_config" edge to the HeatmapConfig entity.
+func (su *SiteUpdate) SetHeatmapConfig(h *HeatmapConfig) *SiteUpdate {
+	return su.SetHeatmapConfigID(h.ID)
+}
+
+// AddHeatmapSnapshotIDs adds the "heatmap_snapshots" edge to the HeatmapSnapshot entity by IDs.
+func (su *SiteUpdate) AddHeatmapSnapshotIDs(ids ...int64) *SiteUpdate {
+	su.mutation.AddHeatmapSnapshotIDs(ids...)
+	return su
+}
+
+// AddHeatmapSnapshots adds the "heatmap_snapshots" edges to the HeatmapSnapshot entity.
+func (su *SiteUpdate) AddHeatmapSnapshots(h ...*HeatmapSnapshot) *SiteUpdate {
+	ids := make([]int64, len(h))
+	for i := range h {
+		ids[i] = h[i].ID
+	}
+	return su.AddHeatmapSnapshotIDs(ids...)
+}
+
 // AddFunnelIDs adds the "funnels" edge to the Funnel entity by IDs.
 func (su *SiteUpdate) AddFunnelIDs(ids ...int64) *SiteUpdate {
 	su.mutation.AddFunnelIDs(ids...)
@@ -488,6 +524,33 @@ func (su *SiteUpdate) AddSavedPanels(s ...*SavedPanel) *SiteUpdate {
 // Mutation returns the SiteMutation object of the builder.
 func (su *SiteUpdate) Mutation() *SiteMutation {
 	return su.mutation
+}
+
+// ClearHeatmapConfig clears the "heatmap_config" edge to the HeatmapConfig entity.
+func (su *SiteUpdate) ClearHeatmapConfig() *SiteUpdate {
+	su.mutation.ClearHeatmapConfig()
+	return su
+}
+
+// ClearHeatmapSnapshots clears all "heatmap_snapshots" edges to the HeatmapSnapshot entity.
+func (su *SiteUpdate) ClearHeatmapSnapshots() *SiteUpdate {
+	su.mutation.ClearHeatmapSnapshots()
+	return su
+}
+
+// RemoveHeatmapSnapshotIDs removes the "heatmap_snapshots" edge to HeatmapSnapshot entities by IDs.
+func (su *SiteUpdate) RemoveHeatmapSnapshotIDs(ids ...int64) *SiteUpdate {
+	su.mutation.RemoveHeatmapSnapshotIDs(ids...)
+	return su
+}
+
+// RemoveHeatmapSnapshots removes "heatmap_snapshots" edges to HeatmapSnapshot entities.
+func (su *SiteUpdate) RemoveHeatmapSnapshots(h ...*HeatmapSnapshot) *SiteUpdate {
+	ids := make([]int64, len(h))
+	for i := range h {
+		ids[i] = h[i].ID
+	}
+	return su.RemoveHeatmapSnapshotIDs(ids...)
 }
 
 // ClearFunnels clears all "funnels" edges to the Funnel entity.
@@ -886,6 +949,80 @@ func (su *SiteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if su.mutation.VerifiedAtCleared() {
 		_spec.ClearField(site.FieldVerifiedAt, field.TypeTime)
+	}
+	if su.mutation.HeatmapConfigCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   site.HeatmapConfigTable,
+			Columns: []string{site.HeatmapConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapconfig.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.HeatmapConfigIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   site.HeatmapConfigTable,
+			Columns: []string{site.HeatmapConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapconfig.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if su.mutation.HeatmapSnapshotsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.HeatmapSnapshotsTable,
+			Columns: []string{site.HeatmapSnapshotsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapsnapshot.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.RemovedHeatmapSnapshotsIDs(); len(nodes) > 0 && !su.mutation.HeatmapSnapshotsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.HeatmapSnapshotsTable,
+			Columns: []string{site.HeatmapSnapshotsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapsnapshot.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.HeatmapSnapshotsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.HeatmapSnapshotsTable,
+			Columns: []string{site.HeatmapSnapshotsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapsnapshot.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if su.mutation.FunnelsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1683,6 +1820,40 @@ func (suo *SiteUpdateOne) ClearVerifiedAt() *SiteUpdateOne {
 	return suo
 }
 
+// SetHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by ID.
+func (suo *SiteUpdateOne) SetHeatmapConfigID(id int64) *SiteUpdateOne {
+	suo.mutation.SetHeatmapConfigID(id)
+	return suo
+}
+
+// SetNillableHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by ID if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillableHeatmapConfigID(id *int64) *SiteUpdateOne {
+	if id != nil {
+		suo = suo.SetHeatmapConfigID(*id)
+	}
+	return suo
+}
+
+// SetHeatmapConfig sets the "heatmap_config" edge to the HeatmapConfig entity.
+func (suo *SiteUpdateOne) SetHeatmapConfig(h *HeatmapConfig) *SiteUpdateOne {
+	return suo.SetHeatmapConfigID(h.ID)
+}
+
+// AddHeatmapSnapshotIDs adds the "heatmap_snapshots" edge to the HeatmapSnapshot entity by IDs.
+func (suo *SiteUpdateOne) AddHeatmapSnapshotIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.AddHeatmapSnapshotIDs(ids...)
+	return suo
+}
+
+// AddHeatmapSnapshots adds the "heatmap_snapshots" edges to the HeatmapSnapshot entity.
+func (suo *SiteUpdateOne) AddHeatmapSnapshots(h ...*HeatmapSnapshot) *SiteUpdateOne {
+	ids := make([]int64, len(h))
+	for i := range h {
+		ids[i] = h[i].ID
+	}
+	return suo.AddHeatmapSnapshotIDs(ids...)
+}
+
 // AddFunnelIDs adds the "funnels" edge to the Funnel entity by IDs.
 func (suo *SiteUpdateOne) AddFunnelIDs(ids ...int64) *SiteUpdateOne {
 	suo.mutation.AddFunnelIDs(ids...)
@@ -1851,6 +2022,33 @@ func (suo *SiteUpdateOne) AddSavedPanels(s ...*SavedPanel) *SiteUpdateOne {
 // Mutation returns the SiteMutation object of the builder.
 func (suo *SiteUpdateOne) Mutation() *SiteMutation {
 	return suo.mutation
+}
+
+// ClearHeatmapConfig clears the "heatmap_config" edge to the HeatmapConfig entity.
+func (suo *SiteUpdateOne) ClearHeatmapConfig() *SiteUpdateOne {
+	suo.mutation.ClearHeatmapConfig()
+	return suo
+}
+
+// ClearHeatmapSnapshots clears all "heatmap_snapshots" edges to the HeatmapSnapshot entity.
+func (suo *SiteUpdateOne) ClearHeatmapSnapshots() *SiteUpdateOne {
+	suo.mutation.ClearHeatmapSnapshots()
+	return suo
+}
+
+// RemoveHeatmapSnapshotIDs removes the "heatmap_snapshots" edge to HeatmapSnapshot entities by IDs.
+func (suo *SiteUpdateOne) RemoveHeatmapSnapshotIDs(ids ...int64) *SiteUpdateOne {
+	suo.mutation.RemoveHeatmapSnapshotIDs(ids...)
+	return suo
+}
+
+// RemoveHeatmapSnapshots removes "heatmap_snapshots" edges to HeatmapSnapshot entities.
+func (suo *SiteUpdateOne) RemoveHeatmapSnapshots(h ...*HeatmapSnapshot) *SiteUpdateOne {
+	ids := make([]int64, len(h))
+	for i := range h {
+		ids[i] = h[i].ID
+	}
+	return suo.RemoveHeatmapSnapshotIDs(ids...)
 }
 
 // ClearFunnels clears all "funnels" edges to the Funnel entity.
@@ -2279,6 +2477,80 @@ func (suo *SiteUpdateOne) sqlSave(ctx context.Context) (_node *Site, err error) 
 	}
 	if suo.mutation.VerifiedAtCleared() {
 		_spec.ClearField(site.FieldVerifiedAt, field.TypeTime)
+	}
+	if suo.mutation.HeatmapConfigCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   site.HeatmapConfigTable,
+			Columns: []string{site.HeatmapConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapconfig.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.HeatmapConfigIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   site.HeatmapConfigTable,
+			Columns: []string{site.HeatmapConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapconfig.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if suo.mutation.HeatmapSnapshotsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.HeatmapSnapshotsTable,
+			Columns: []string{site.HeatmapSnapshotsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapsnapshot.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.RemovedHeatmapSnapshotsIDs(); len(nodes) > 0 && !suo.mutation.HeatmapSnapshotsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.HeatmapSnapshotsTable,
+			Columns: []string{site.HeatmapSnapshotsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapsnapshot.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.HeatmapSnapshotsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   site.HeatmapSnapshotsTable,
+			Columns: []string{site.HeatmapSnapshotsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(heatmapsnapshot.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if suo.mutation.FunnelsCleared() {
 		edge := &sqlgraph.EdgeSpec{
