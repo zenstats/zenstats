@@ -2,6 +2,7 @@
 package funnels
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -285,13 +286,17 @@ func (h *FunnelsHandler) Analyze() gin.HandlerFunc {
 		}
 
 		// 执行分析
-		result, err := h.analysisService.Analyze(c, &funnel.AnalysisRequest{
+		result, err := h.analysisService.Analyze(c.Request.Context(), &funnel.AnalysisRequest{
 			SiteID:    strconv.FormatInt(siteID, 10),
 			Steps:     steps,
 			StartTime: start,
 			EndTime:   end,
 		})
 		if err != nil {
+			if errors.Is(err, funnel.ErrAnalysisBusy) {
+				response.Error(c, http.StatusServiceUnavailable, err)
+				return
+			}
 			response.Error(c, http.StatusInternalServerError, err)
 			return
 		}
