@@ -14,7 +14,9 @@ import (
 
 const (
 	ProtocolVersion = 1
-	GridSize        = 16
+	GridSize        = 16 // Legacy CSS grid, retained for historical aggregates.
+	GridColumns     = 40
+	GridRows        = 80
 	MaxBatchSize    = 20
 	MaxBodySize     = 16 << 10
 	MaxDocumentSize = 100000
@@ -22,7 +24,8 @@ const (
 
 var labelPattern = regexp.MustCompile(`^[a-zA-Z0-9_.:/@-]{1,120}$`)
 
-// Page identifies one reproducible page layout. Dimensions are CSS pixels.
+// Page carries actual CSS dimensions for raw clicks and snapshots. Page lists
+// use a representative viewport for each responsive device class.
 type Page struct {
 	AggregationKey string `json:"aggregation_key"`
 	Hostname       string `json:"hostname"`
@@ -33,6 +36,31 @@ type Page struct {
 	ViewportHeight uint16 `json:"viewport_height"`
 	DocumentWidth  uint32 `json:"document_width"`
 	DocumentHeight uint32 `json:"document_height"`
+}
+
+// Device groups by layout width, not UA. A resized desktop browser can belong
+// to the mobile layout. Keep these breakpoints stable for retained data.
+func (p Page) Device() string {
+	if p.ViewportWidth < 768 {
+		return "mobile"
+	}
+	if p.ViewportWidth < 1024 {
+		return "tablet"
+	}
+	return "desktop"
+}
+
+func (p Page) Representative() Page {
+	switch p.Device() {
+	case "mobile":
+		p.ViewportWidth, p.ViewportHeight = 390, 844
+	case "tablet":
+		p.ViewportWidth, p.ViewportHeight = 768, 1024
+	default:
+		p.ViewportWidth, p.ViewportHeight = 1440, 900
+	}
+	p.DocumentWidth, p.DocumentHeight = uint32(p.ViewportWidth), uint32(p.ViewportHeight)
+	return p
 }
 
 func (p *Page) Validate() error {
@@ -242,12 +270,15 @@ type ElementCount struct {
 	Count   uint64 `json:"count"`
 }
 type Data struct {
-	Points    []Point        `json:"points"`
-	Elements  []ElementCount `json:"elements"`
-	Clicks    uint64         `json:"clicks"`
-	Unmapped  uint64         `json:"unmapped"`
-	Truncated bool           `json:"truncated"`
-	GridSize  int            `json:"grid_size"`
+	Points          []Point        `json:"points"`
+	Elements        []ElementCount `json:"elements"`
+	Clicks          uint64         `json:"clicks"`
+	Unmapped        uint64         `json:"unmapped"`
+	Truncated       bool           `json:"truncated"`
+	GridSize        int            `json:"grid_size"`
+	CoordinateSpace string         `json:"coordinate_space"`
+	GridColumns     int            `json:"grid_columns"`
+	GridRows        int            `json:"grid_rows"`
 }
 
 // HostAllowed applies the same explicit-host / wildcard-origin policy to clicks

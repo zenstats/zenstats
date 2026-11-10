@@ -27,6 +27,8 @@ func RegisterStatsRouter(router *gin.RouterGroup) {
 	statsGroup.GET("/:domain/time_series", handle.GetTimeSeries())
 	// Filter suggestions (autocomplete)
 	statsGroup.GET("/:domain/suggestions", handle.GetSuggestions())
+	// User flows (Sankey path analysis)
+	statsGroup.GET("/:domain/user-flows", handle.GetUserFlows())
 
 	// v2 unified query API (POST body, multi-dimension / order_by / offset)
 	v2Group := router.Group("/v2", middleware.APIKeyOrJWTAuth(), middleware.SiteMembershipAndVerificationAuth())

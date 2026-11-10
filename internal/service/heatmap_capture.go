@@ -24,7 +24,7 @@ func ScreenshotAvailable() bool {
 }
 
 // Capture is isolated from event ingestion. The worker enforces network policy;
-// the API enforces site membership, URL ownership and exact layout compatibility.
+// the API enforces site membership, URL ownership and responsive layout compatibility.
 func (s *HeatmapService) Capture(ctx context.Context, siteID int64, rawURL string, expected heatmap.Page, byKey bool) (HeatmapSnapshot, error) {
 	select {
 	case s.captures <- struct{}{}:
@@ -69,7 +69,8 @@ func (s *HeatmapService) Capture(ctx context.Context, siteID int64, rawURL strin
 	}
 	ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
 	defer cancel()
-	payload, _ := json.Marshal(map[string]any{"url": rawURL, "viewport_width": expected.ViewportWidth, "viewport_height": expected.ViewportHeight})
+	viewport := expected.Representative()
+	payload, _ := json.Marshal(map[string]any{"url": rawURL, "viewport_width": viewport.ViewportWidth, "viewport_height": viewport.ViewportHeight})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, config.Conf.Heatmap.ScreenshotURL, bytes.NewReader(payload))
 	if err != nil {
 		return HeatmapSnapshot{}, err
@@ -116,8 +117,11 @@ func (s *HeatmapService) Capture(ctx context.Context, siteID int64, rawURL strin
 		return invalid("inconsistent screenshot metadata")
 	}
 	actual.AggregationKey = cfg.KeyFor(actual.Path, actual.AggregationKey)
-	if actual.Version != expected.Version || actual.Variant != expected.Variant || actual.ViewportWidth != expected.ViewportWidth || actual.ViewportHeight != expected.ViewportHeight || actual.DocumentWidth != expected.DocumentWidth || actual.DocumentHeight != expected.DocumentHeight {
-		return invalid(fmt.Sprintf("layout mismatch: current %s/%s %dx%d -> %dx%d, selected %s/%s %dx%d -> %dx%d; choose a matching layout or upload a historical screenshot", actual.Version, actual.Variant, actual.ViewportWidth, actual.ViewportHeight, actual.DocumentWidth, actual.DocumentHeight, expected.Version, expected.Variant, expected.ViewportWidth, expected.ViewportHeight, expected.DocumentWidth, expected.DocumentHeight))
+	if err := actual.Validate(); err != nil {
+		return invalid("invalid screenshot metadata")
+	}
+	if actual.Version != expected.Version || actual.Variant != expected.Variant || actual.Device() != expected.Device() {
+		return invalid(fmt.Sprintf("layout mismatch: current %s/%s/%s, selected %s/%s/%s; choose the matching device and version or upload a historical screenshot", actual.Version, actual.Variant, actual.Device(), expected.Version, expected.Variant, expected.Device()))
 	}
 	if actual.AggregationKey != expected.AggregationKey {
 		return invalid("captured page aggregation key differs from selection")

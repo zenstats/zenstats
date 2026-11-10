@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,6 +56,9 @@ func GetLocationRepository() *LocationRepository {
 }
 
 func (r *LocationRepository) GetOrCreate(ctx context.Context, dictType, name string) (*models.LocationData, error) {
+	if strings.TrimSpace(name) == "" {
+		return nil, errors.New("location name is empty")
+	}
 
 	cacheKey := fmt.Sprintf("location_data_%s_%s", dictType, name)
 	if val, ok := r.cache.Get(cacheKey); ok {
@@ -89,6 +94,9 @@ func (r *LocationRepository) GetOrCreate(ctx context.Context, dictType, name str
 }
 
 func (r *LocationRepository) GetOrCreateById(ctx context.Context, dictType, name, id string) (*models.LocationData, error) {
+	if strings.TrimSpace(name) == "" || strings.TrimSpace(id) == "" {
+		return nil, errors.New("location id and name are required")
+	}
 
 	cacheKey := fmt.Sprintf("location_data_id_%s_%s_%s", dictType, name, id)
 	if val, ok := r.cache.Get(cacheKey); ok {
@@ -106,7 +114,7 @@ func (r *LocationRepository) GetOrCreateById(ctx context.Context, dictType, name
 	}
 
 	// 1. 尝试查询现有数据
-	data, err := r.getByName(ctx, dictType, name)
+	data, err := r.getByID(ctx, dictType, id)
 	if err == nil && data != nil {
 		r.cache.Add(cacheKey, data)
 
@@ -189,11 +197,13 @@ func (r *LocationRepository) createById(ctx context.Context, dictType, name, id 
 		return nil, fmt.Errorf("插入失败: %w", err)
 	}
 
-	// 获取刚插入的记录的ID（如果表有自增ID）
-	row := r.conn.QueryRow(ctx, "SELECT id FROM location_data WHERE type = ? AND name = ? LIMIT 1", dictType, name)
-	if err := row.Scan(&data.ID); err != nil {
-		return nil, fmt.Errorf("获取ID失败: %w", err)
-	}
+	data.ID = id
 
 	return data, nil
+}
+
+func (r *LocationRepository) getByID(ctx context.Context, dictType, id string) (*models.LocationData, error) {
+	var data models.LocationData
+	err := r.conn.QueryRow(ctx, "SELECT id,name,type FROM location_data WHERE type=? AND id=? LIMIT 1", dictType, id).Scan(&data.ID, &data.Name, &data.Type)
+	return &data, err
 }

@@ -277,18 +277,29 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 		actual := page
 		actual.Path = "/soft/a.html"
 		workerCalls := 0
-		wrongSize, wrongVersion, wrongRedirect := false, false, false
+		wrongDevice, wrongVersion, wrongVariant, wrongRedirect := false, false, false, false
 		worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			workerCalls++
 			if r.Header.Get("Authorization") != "Bearer internal-test-token" {
 				t.Error("missing internal authentication")
 			}
+			var request struct {
+				ViewportWidth  uint16 `json:"viewport_width"`
+				ViewportHeight uint16 `json:"viewport_height"`
+			}
+			json.NewDecoder(r.Body).Decode(&request)
+			if request.ViewportWidth != 768 || request.ViewportHeight != 1024 {
+				t.Errorf("nonstandard viewport: %+v", request)
+			}
 			current := actual
-			if wrongSize {
-				current.DocumentHeight++
+			if wrongDevice {
+				current.ViewportWidth = 390
 			}
 			if wrongVersion {
 				current.Version = "old"
+			}
+			if wrongVariant {
+				current.Variant = "experiment"
 			}
 			final := "https://example.test/soft/a.html"
 			if wrongRedirect {
@@ -303,6 +314,7 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 		selected := page
 		selected.Path = "/"
 		selected.AggregationKey = "software"
+		selected = selected.Representative()
 		payload := map[string]any{"url": "https://example.test/soft/a.html", "scope": "key", "page": selected}
 		for _, tok := range []string{subToken, viewerToken} {
 			if res := call("POST", base+"/capture", tok, "application/json", encode(payload)); code(res) != 403 {
@@ -319,7 +331,7 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 			t.Fatal("invalid requests reached browser")
 		}
 		payload["url"] = "https://example.test/soft/a.html"
-		for _, fault := range []*bool{&wrongSize, &wrongVersion, &wrongRedirect} {
+		for _, fault := range []*bool{&wrongDevice, &wrongVersion, &wrongVariant, &wrongRedirect} {
 			*fault = true
 			if res := call("POST", base+"/capture", token, "application/json", encode(payload)); res.Code != 400 {
 				t.Fatal(res.Code, res.Body.String())
@@ -353,7 +365,7 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 	t.Run("snapshots matching permissions and cleanup", func(t *testing.T) {
 		var body bytes.Buffer
 		form := multipart.NewWriter(&body)
-		if err := form.WriteField("page", string(encode(page))); err != nil {
+		if err := form.WriteField("page", string(encode(page.Representative()))); err != nil {
 			t.Fatal(err)
 		}
 		imageField, err := form.CreateFormFile("image", "page.png")
@@ -378,7 +390,7 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 		if err := json.Unmarshal(res.Body.Bytes(), &saved); err != nil {
 			t.Fatal(err)
 		}
-		if saved.Data.ImageWidth != 400 || saved.Data.DocumentWidth != 800 {
+		if saved.Data.ImageWidth != 400 || saved.Data.DocumentWidth != 768 || saved.Data.DocumentHeight != 1536 {
 			t.Fatal(saved.Data)
 		}
 		imageURL := fmt.Sprintf("%s/snapshots/%d/image", base, saved.Data.ID)
@@ -401,7 +413,7 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 		}
 		var wrong bytes.Buffer
 		png.Encode(&wrong, image.NewRGBA(image.Rect(0, 0, 400, 400)))
-		if _, err := s.CreateSnapshot(ctx, site.ID, page, &wrong); err == nil {
+		if _, err := s.CreateSnapshot(ctx, site.ID, page, &wrong, "https://example.test/pricing"); err == nil {
 			t.Fatal("wrong aspect ratio accepted")
 		}
 		entries, err := os.ReadDir(filepath.Join(storage, "heatmaps"))

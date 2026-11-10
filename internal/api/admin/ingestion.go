@@ -3,6 +3,7 @@ package admin
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/ingestion"
+	"github.com/zenstats/zenstats/pkg/geoip"
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
@@ -18,6 +19,9 @@ import (
 func (h *AdminHandler) GetIngestionQuality() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
-		response.Success(c, ingestion.Default.Snapshot())
+		response.Success(c, struct {
+			ingestion.Snapshot
+			GeoIP geoip.Status `json:"geoip"`
+		}{ingestion.Default.Snapshot(), geoip.GetGeoIP().Status()})
 	}
 }

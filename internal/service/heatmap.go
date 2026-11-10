@@ -256,10 +256,22 @@ func (s *HeatmapService) CreateSnapshot(ctx context.Context, siteID int64, page 
 	if err != nil || (format != "png" && format != "jpeg") || imageCfg.Width < 1 || imageCfg.Height < 1 || imageCfg.Width > 8192 || imageCfg.Height > 100000 || int64(imageCfg.Width)*int64(imageCfg.Height) > 25000000 {
 		return HeatmapSnapshot{}, fmt.Errorf("%w: invalid PNG/JPEG or image dimensions exceed 25 megapixels", ErrHeatmapInvalid)
 	}
-	// Require a full-page image with matching CSS aspect ratio, allowing a pixel
-	// of screenshot rounding. DPR is handled by the image/CSS dimension ratio.
+	// Uploaded backgrounds identify a device and version, not an exact recorded
+	// document size. Infer their CSS aspect at that device's viewport width.
+	// Automatic captures already supply the actual browser document dimensions.
+	if len(sourceURL) == 0 {
+		page.DocumentWidth = uint32(page.ViewportWidth)
+		page.DocumentHeight = uint32(math.Round(float64(page.DocumentWidth) * float64(imageCfg.Height) / float64(imageCfg.Width)))
+		if page.DocumentHeight < uint32(page.ViewportHeight) {
+			page.ViewportHeight = uint16(page.DocumentHeight)
+		}
+		if err := page.Validate(); err != nil {
+			return HeatmapSnapshot{}, fmt.Errorf("%w: invalid full-page image proportions", ErrHeatmapInvalid)
+		}
+	}
 	expectedHeight := float64(imageCfg.Width) * float64(page.DocumentHeight) / float64(page.DocumentWidth)
-	if math.Abs(float64(imageCfg.Height)-expectedHeight) > 2 {
+	rounding := math.Max(2, float64(imageCfg.Width)/float64(page.DocumentWidth))
+	if math.Abs(float64(imageCfg.Height)-expectedHeight) > rounding {
 		return HeatmapSnapshot{}, fmt.Errorf("%w: image aspect ratio does not match document dimensions", ErrHeatmapInvalid)
 	}
 	if err := os.MkdirAll(s.directory, 0700); err != nil {

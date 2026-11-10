@@ -1,11 +1,28 @@
 package stats
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
+
+func TestTranslateQueryErrorResourceLimit(t *testing.T) {
+	for _, cause := range []error{
+		&clickhouse.Exception{Code: 241},
+		&clickhouse.Exception{Code: 159},
+		&clickhouse.Exception{Code: 202},
+		context.DeadlineExceeded,
+	} {
+		err := translateQueryError(fmt.Errorf("wrapped: %w", cause))
+		var ve *ValidationError
+		if !errors.As(err, &ve) || ve.StatusCode != 503 {
+			t.Fatalf("%v: expected resource limit response, got %v", cause, err)
+		}
+	}
+}
 
 // TestTranslateQueryErrorMalformed 验证非法查询的 CH 异常被翻译成 400 校验错误。
 func TestTranslateQueryErrorMalformed(t *testing.T) {

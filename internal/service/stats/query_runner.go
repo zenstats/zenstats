@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -32,10 +33,14 @@ var malformedQueryCHCodes = map[int32]bool{
 	62:  true, // SYNTAX_ERROR
 }
 
-// translateQueryError 将 ClickHouse 的"非法查询"异常翻译为 400 校验错误（不支持的查询组合），
-// 其余错误按查询执行失败返回，避免把原始 SQL 错误暴露给客户端。
+// translateQueryError separates unsupported combinations and temporary resource
+// limits, without exposing database errors to clients.
 func translateQueryError(err error) error {
 	var chErr *clickhouse.Exception
+	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &chErr) && (chErr.Code == 241 || chErr.Code == 159 || chErr.Code == 202)) {
+		slog.Warn("statistics query resource limit", "error", err)
+		return &ValidationError{StatusCode: 503, Message: "statistics query is temporarily resource limited; please retry or narrow the date range"}
+	}
 	if errors.As(err, &chErr) && malformedQueryCHCodes[chErr.Code] {
 		slog.Warn("unsupported query combination", "ch_code", chErr.Code, "ch_message", chErr.Message)
 		return &ValidationError{
@@ -46,7 +51,26 @@ func translateQueryError(err error) error {
 	return fmt.Errorf("query execution failed: %v", err)
 }
 
+// TranslateQueryError applies the same resource/error contract to specialized
+// statistics queries that do not use QueryBuilder.
+func TranslateQueryError(err error) error { return translateQueryError(err) }
+
 // QueryRunner 执行统计查询并返回结果
+// Shared across runner instances: dashboard cards must not occupy all database
+// connections or compete with event/session writes.
+var statsQuerySlots = make(chan struct{}, 2)
+
+// AcquireQuerySlot shares the read budget with specialized statistics queries.
+// Callers supply a deadline that includes queueing and release after reading.
+func AcquireQuerySlot(ctx context.Context) (func(), error) {
+	select {
+	case statsQuerySlots <- struct{}{}:
+		return func() { <-statsQuerySlots }, nil
+	case <-ctx.Done():
+		return nil, &ValidationError{StatusCode: 503, Message: "statistics query queue is busy; please retry"}
+	}
+}
+
 type QueryRunner struct {
 	conn driver.Conn
 }
@@ -66,15 +90,16 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 		return nil, fmt.Errorf("failed to build query: %v", err)
 	}
 
-	// 当需要分页时，先执行 COUNT 查询获取总行数
-	var totalRows int
-	if builder.NeedsTotalRows(query) {
-		totalRows, err = qr.runCountQuery(ctx, sqlStr, args)
-		if err != nil {
-			slog.Warn("failed to count total rows", "error", err)
-			totalRows = 0
-		}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	release, err := AcquireQuerySlot(ctx)
+	if err != nil {
+		return nil, err
 	}
+	defer release()
+	ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+		"max_threads": 1, "max_memory_usage": 268435456, "max_bytes_before_external_group_by": 67108864, "max_execution_time": 20,
+	}))
 
 	// 执行查询
 	rows, err := qr.conn.Query(ctx, sqlStr, args...)
@@ -87,12 +112,21 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 	// 处理结果
 	result, err := qr.processResults(rows, query.Dimensions, builder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to process results: %v", err)
+		return nil, translateQueryError(err)
+	}
+	// Release the connection before the out-of-range page count, including when
+	// the pool only has one available connection.
+	if err := rows.Close(); err != nil {
+		return nil, translateQueryError(err)
 	}
 
-	// 设置分页元数据
-	if builder.NeedsTotalRows(query) {
-		result.TotalRows = totalRows
+	// A page beyond the end has no row carrying the window count. Only that
+	// uncommon case needs a separate count; regular dashboard cards scan once.
+	if builder.NeedsTotalRows(query) && len(result.Data) == 0 && query.Pagination.Offset > 0 {
+		result.TotalRows, err = qr.runCountQuery(ctx, sqlStr, args)
+		if err != nil {
+			return nil, translateQueryError(err)
+		}
 	}
 
 	return result, nil
@@ -146,6 +180,7 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 
 	// 准备结果容器
 	var results []map[string]any
+	totalRows := 0
 
 	// 列类型在所有行中不变：提前取一次并预计算每列的 kind，避免在行循环内
 	// 重复调用 rows.ColumnTypes() 并对 DatabaseTypeName() 做两遍字符串 switch。
@@ -211,6 +246,10 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 
 		// 处理每一列数据
 		for i, col := range newColumns {
+			if col == sql.TotalRowsColumn {
+				totalRows = int(*values[i].(*uint64))
+				continue
+			}
 			var val any
 			switch kinds[i] {
 			case kindUint8:
@@ -243,9 +282,16 @@ func (qr *QueryRunner) processResults(rows driver.Rows, dimensions []string, bui
 		return nil, err
 	}
 
+	visibleColumns := make([]string, 0, len(newColumns))
+	for _, col := range newColumns {
+		if col != sql.TotalRowsColumn {
+			visibleColumns = append(visibleColumns, col)
+		}
+	}
 	return &types.QueryResult{
-		Columns: newColumns,
-		Data:    results,
+		TotalRows: totalRows,
+		Columns:   visibleColumns,
+		Data:      results,
 	}, nil
 }
 

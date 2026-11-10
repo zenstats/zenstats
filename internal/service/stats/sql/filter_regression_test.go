@@ -58,7 +58,7 @@ func TestCrossTableFiltersKeepScopeAndBooleanTree(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(statement, "session_id IN (SELECT session_id FROM") {
+		if !strings.Contains(statement, "(user_id, session_id) IN (SELECT user_id, session_id FROM") {
 			t.Fatalf("missing membership filter: %s", statement)
 		}
 		found := false

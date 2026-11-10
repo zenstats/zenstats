@@ -103,3 +103,18 @@ func TestAggregationRules(t *testing.T) {
 		}
 	}
 }
+
+func TestResponsiveDeviceBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		width    uint16
+		device   string
+		standard uint16
+	}{
+		{100, "mobile", 390}, {767, "mobile", 390}, {768, "tablet", 768}, {1023, "tablet", 768}, {1024, "desktop", 1440}, {8192, "desktop", 1440},
+	} {
+		p := Page{ViewportWidth: tc.width}
+		if p.Device() != tc.device || p.Representative().ViewportWidth != tc.standard {
+			t.Fatalf("device width %d: %+v", tc.width, p.Representative())
+		}
+	}
+}

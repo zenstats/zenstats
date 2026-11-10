@@ -48,11 +48,8 @@ func (qb *QueryBuilder) Build(query *types.Query, site *types.Site) (string, []a
 		return "", nil, err
 	}
 
-	// Apply pagination
-	paginatedSQL := qb.paginate(joinedSQL, query)
-
-	// Add total rows selection only when pagination is requested
-	finalSQL := qb.selectTotalRows(paginatedSQL, query)
+	// Count result groups before applying the page limit.
+	finalSQL := qb.paginate(qb.selectTotalRows(joinedSQL, query), query)
 
 	return finalSQL, params, nil
 }
@@ -694,9 +691,15 @@ func (qb *QueryBuilder) paginate(sql string, query *types.Query) string {
 	return sql
 }
 
-// selectTotalRows wraps the query with a total_rows count column when pagination is active.
-// It returns the original SQL unchanged; total_rows is handled separately in processResults.
+// TotalRowsColumn is internal pagination metadata, removed by QueryRunner.
+const TotalRowsColumn = "__zenstats_total_rows"
+
+// Count grouped result rows before LIMIT in the same execution, avoiding a
+// second full aggregation (including exact visitor sets) just for pagination.
 func (qb *QueryBuilder) selectTotalRows(sql string, query *types.Query) string {
+	if qb.NeedsTotalRows(query) {
+		return strings.Replace(sql, "SELECT ", "SELECT count() OVER() AS "+TotalRowsColumn+", ", 1)
+	}
 	return sql
 }
 

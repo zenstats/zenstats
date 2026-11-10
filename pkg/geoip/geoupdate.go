@@ -12,15 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dromara/carbon/v2"
-	"github.com/oschwald/geoip2-golang"
 	"github.com/zenstats/zenstats/config"
-	"github.com/zenstats/zenstats/pkg/file"
 )
 
 const (
 	maxMindDownloadURL = "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-City&license_key=%s&suffix=tar.gz"
 	httpTimeout        = 60 * time.Second
+	maxDatabaseBytes   = 256 << 20
 )
 
 var fallbackDownloadURLs = []string{
@@ -29,216 +27,220 @@ var fallbackDownloadURLs = []string{
 }
 
 func (g *GeoIP) UpdateGeoIPDB(path string) error {
-	// Download the new GeoIP database
+	g.updateMu.Lock()
+	defer g.updateMu.Unlock()
 	if path == "" {
-		newDBPath, err := g.DownloadGeoIPDB()
+		var err error
+		path, err = g.DownloadGeoIPDB()
 		if err != nil {
-			return fmt.Errorf("download geoip file failed with error: %v", err)
-		}
-		path = newDBPath
-	}
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	// Generate a random backup name for the old database
-	backupName := "geoip_backup.mmdb"
-	backupPath := filepath.Join(filepath.Dir(g.geoDBPath), backupName)
-
-	// Delete old backup file
-	if _, err := os.Stat(backupPath); err == nil {
-		if err := os.Remove(backupPath); err != nil {
-			return fmt.Errorf("failed to remove gz file: %v", err)
-		}
-	}
-
-	// Rename the old database to the backup name
-	if !strings.HasSuffix(g.geoDBPath, "GeoLite2-City.mmdb") {
-		if err := os.Rename(g.geoDBPath, backupPath); err != nil {
 			return err
 		}
+		defer os.Remove(path)
 	}
-
-	// Open the new GeoIP database
-	newDB, err := geoip2.Open(path)
+	// Stage, validate and atomically rename a NEW inode. Never truncate the file
+	// behind a live mmap, and leave the current reader/cache intact on failure.
+	target := g.geoDBPath
+	if target == "" {
+		target = filepath.Join(config.Conf.DataPath, "GeoLite2-City.mmdb")
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		return err
+	}
+	input, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-
-	// Close the current GeoIP database
-	if err := g.geoDB.Close(); err != nil {
+	defer input.Close()
+	staged, err := os.CreateTemp(filepath.Dir(target), ".geoip-install-*.mmdb")
+	if err != nil {
 		return err
 	}
-	// Replace the old GeoIP database with the new one
-	g.geoDB = newDB
-	g.geoDBPath = path
-
-	slog.Info(fmt.Sprintf("GeoIP database updated to %s. Old database backed up to %s", path, backupPath))
-	// Copy the new database to default file
-	file.CopyFile(g.geoDBPath, filepath.Join(config.Conf.DataPath, "GeoLite2-City.mmdb"))
-
+	stagedPath := staged.Name()
+	defer os.Remove(stagedPath)
+	if err = copyBounded(staged, input); err != nil {
+		staged.Close()
+		return err
+	}
+	if err = staged.Sync(); err != nil {
+		staged.Close()
+		return err
+	}
+	if err = staged.Close(); err != nil {
+		return err
+	}
+	next, err := openDatabase(stagedPath)
+	if err != nil {
+		return fmt.Errorf("invalid GeoIP update: %w", err)
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	// A Country-only update can refresh country misses without discarding an
+	// existing City DB. City information is never fabricated from a country.
+	secondary := g.geoDB != nil && cityDatabase(g.geoDB.Metadata().DatabaseType) && !cityDatabase(next.Metadata().DatabaseType)
+	if secondary {
+		target = filepath.Join(filepath.Dir(target), "GeoLite2-City-fallback.mmdb")
+	}
+	if err = os.Rename(stagedPath, target); err != nil {
+		next.Close()
+		return err
+	}
+	if secondary {
+		previous := g.countryDB
+		g.countryDB = next
+		if previous != nil {
+			_ = previous.Close()
+		}
+	} else {
+		previous := g.geoDB
+		g.geoDB = next
+		g.geoDBPath = target
+		if previous != nil {
+			_ = previous.Close()
+		}
+	}
+	if g.cache != nil {
+		g.cache.Purge()
+	}
+	slog.Info("GeoIP database updated", "type", next.Metadata().DatabaseType, "country_fallback", secondary, "built_at", time.Unix(int64(next.Metadata().BuildEpoch), 0))
 	return nil
 }
 
+// Downloads always return a temporary candidate; only UpdateGeoIPDB installs it.
 func (g *GeoIP) DownloadGeoIPDB() (string, error) {
 	if config.Conf.MaxmindLicenseKey != "" {
 		path, err := g.downloadFromMaxMind()
 		if err == nil {
 			return path, nil
 		}
-		slog.Warn("MaxMind download failed, falling back to Loyalsoldier/geoip", "error", err)
+		slog.Warn("MaxMind download failed; trying country-level fallback", "error", err)
 	} else {
-		slog.Warn("MaxMind license key not configured, using Loyalsoldier/geoip as fallback")
+		slog.Warn("MaxMind license key not configured; fallback provides country data only")
 	}
-
 	return g.downloadFromFallback()
 }
-
 func (g *GeoIP) downloadFromMaxMind() (string, error) {
-	url := fmt.Sprintf(maxMindDownloadURL, config.Conf.MaxmindLicenseKey)
-
-	if _, err := os.Stat(config.Conf.DataPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(config.Conf.DataPath, os.ModePerm); err != nil {
-			return "", fmt.Errorf("failed to create directory: %v", err)
-		}
-	}
-
 	client := &http.Client{Timeout: httpTimeout}
-	resp, err := client.Get(url)
+	res, err := client.Get(fmt.Sprintf(maxMindDownloadURL, config.Conf.MaxmindLicenseKey))
+	// net/http errors include the URL and license key. Do not log or wrap them.
 	if err != nil {
-		return "", fmt.Errorf("failed to download from MaxMind: %v", err)
+		return "", fmt.Errorf("MaxMind request failed")
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("MaxMind download returned status %d", resp.StatusCode)
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("MaxMind returned HTTP %d", res.StatusCode)
 	}
-
-	outputPath := filepath.Join(config.Conf.DataPath, "GeoLite2-City.mmdb.tar.gz")
-
-	outFile, err := os.Create(outputPath)
+	archive, err := candidateFile()
 	if err != nil {
-		slog.Error("failed to create file: " + err.Error())
 		return "", err
 	}
-	if _, err := io.Copy(outFile, resp.Body); err != nil {
-		outFile.Close()
-		slog.Error("failed to write file: " + err.Error())
+	defer os.Remove(archive.Name())
+	if err = copyBounded(archive, res.Body); err != nil {
+		archive.Close()
 		return "", err
 	}
-	outFile.Close()
-
-	mmdbPath, err := g.extractGzFile(outputPath)
-	if err != nil {
-		slog.Error("failed to extract gz file: " + err.Error())
+	if err = archive.Close(); err != nil {
 		return "", err
 	}
-
-	return mmdbPath, nil
+	return g.extractGzFile(archive.Name())
 }
-
 func (g *GeoIP) downloadFromFallback() (string, error) {
-	if _, err := os.Stat(config.Conf.DataPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(config.Conf.DataPath, os.ModePerm); err != nil {
-			return "", fmt.Errorf("failed to create directory: %v", err)
-		}
-	}
-
 	client := &http.Client{Timeout: httpTimeout}
-
 	var lastErr error
-	for _, rawURL := range fallbackDownloadURLs {
-		url := rawURL
-		if config.Conf.GeoIPMirror != "" {
-			url = config.Conf.GeoIPMirror + url
-		}
-		slog.Info("Trying fallback GeoIP source", "url", url)
-		resp, err := client.Get(url)
+	for _, source := range fallbackDownloadURLs {
+		url := config.Conf.GeoIPMirror + source
+		res, err := client.Get(url)
 		if err != nil {
-			lastErr = fmt.Errorf("failed to download from %s: %v", url, err)
-			slog.Warn("Fallback download failed", "url", url, "error", err)
+			lastErr = fmt.Errorf("country database request failed")
 			continue
 		}
-
-		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
-			lastErr = fmt.Errorf("fallback download returned status %d from %s", resp.StatusCode, url)
-			slog.Warn("Fallback download returned non-200", "url", url, "status", resp.StatusCode)
+		if res.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("country database returned HTTP %d", res.StatusCode)
+			res.Body.Close()
 			continue
 		}
-
-		outputPath := filepath.Join(config.Conf.DataPath, "GeoLite2-City-fallback.mmdb")
-		outFile, err := os.Create(outputPath)
+		out, err := candidateFile()
 		if err != nil {
-			resp.Body.Close()
-			return "", fmt.Errorf("failed to create fallback file: %v", err)
+			res.Body.Close()
+			return "", err
 		}
-		if _, err := io.Copy(outFile, resp.Body); err != nil {
-			outFile.Close()
-			resp.Body.Close()
-			return "", fmt.Errorf("failed to write fallback file: %v", err)
+		err = copyBounded(out, res.Body)
+		res.Body.Close()
+		closeErr := out.Close()
+		if err == nil {
+			err = closeErr
 		}
-		outFile.Close()
-		resp.Body.Close()
-
-		slog.Info("Successfully downloaded fallback GeoIP database", "url", url)
-		return outputPath, nil
+		if err == nil {
+			var dbErr error
+			db, openErr := openDatabase(out.Name())
+			dbErr = openErr
+			if db != nil {
+				db.Close()
+			}
+			err = dbErr
+		}
+		if err == nil {
+			return out.Name(), nil
+		}
+		os.Remove(out.Name())
+		lastErr = err
 	}
-
-	return "", fmt.Errorf("all fallback sources failed, last error: %v", lastErr)
+	return "", fmt.Errorf("all country GeoIP sources failed: %v", lastErr)
 }
-
-func (g *GeoIP) extractGzFile(gzFilePath string) (string, error) {
-	// 判断默认文件是否存在 如果不存在则保存至默认文件
-	outPutFile := defaultDB
-	if _, err := os.Stat(defaultDB); err == nil {
-		outPutFile = filepath.Join(config.Conf.DataPath, fmt.Sprintf("GeoLite2-City-%s.mmdb", carbon.Now().ToDateString()))
-		slog.Info("The default file does not exist, save to default file", "geoipFile", outPutFile)
+func candidateFile() (*os.File, error) {
+	if err := os.MkdirAll(config.Conf.DataPath, 0755); err != nil {
+		return nil, err
 	}
-
-	// 打开 .gz 文件
-	file, err := os.Open(gzFilePath)
+	return os.CreateTemp(config.Conf.DataPath, ".geoip-download-*.mmdb")
+}
+func copyBounded(dst io.Writer, src io.Reader) error {
+	n, err := io.Copy(dst, io.LimitReader(src, maxDatabaseBytes+1))
 	if err != nil {
-		return "", fmt.Errorf("failed to open .gz file: %v", err)
+		return err
 	}
-
-	// 创建 gzip 解压器
-	gzipReader, err := gzip.NewReader(file)
+	if n > maxDatabaseBytes {
+		return fmt.Errorf("GeoIP file exceeds %d MiB", maxDatabaseBytes>>20)
+	}
+	return nil
+}
+func (g *GeoIP) extractGzFile(path string) (string, error) {
+	input, err := os.Open(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to create gzip reader: %v", err)
+		return "", err
 	}
-	defer gzipReader.Close()
-
-	// 创建 tar 解析器
-	tarReader := tar.NewReader(gzipReader)
-
-	// 遍历 tar 文件中的每个文件
+	defer input.Close()
+	gz, err := gzip.NewReader(input)
+	if err != nil {
+		return "", err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
 	for {
-		header, err := tarReader.Next()
+		header, err := tr.Next()
 		if err == io.EOF {
-			break // 结束遍历
+			return "", fmt.Errorf("GeoIP archive contains no MMDB")
 		}
 		if err != nil {
-			return "", fmt.Errorf("failed to read tar header: %v", err)
+			return "", err
 		}
-		if strings.HasSuffix(header.Name, ".mmdb") {
-			// 创建文件
-			file, err := os.OpenFile(outPutFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, header.FileInfo().Mode())
-			if err != nil {
-				return "", fmt.Errorf("failed to create file: %v", err)
-			}
-			defer file.Close()
-
-			// 将内容写入文件
-			if _, err := io.Copy(file, tarReader); err != nil {
-				return "", fmt.Errorf("failed to write file: %v", err)
-			}
+		if header.Typeflag != tar.TypeReg || !strings.HasSuffix(header.Name, ".mmdb") {
+			continue
 		}
+		if header.Size > maxDatabaseBytes {
+			return "", fmt.Errorf("GeoIP archive entry is too large")
+		}
+		out, err := candidateFile()
+		if err != nil {
+			return "", err
+		}
+		err = copyBounded(out, tr)
+		closeErr := out.Close()
+		if err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			os.Remove(out.Name())
+			return "", err
+		}
+		return out.Name(), nil
 	}
-	file.Close()
-	// 删除gz文件
-	if err := os.Remove(gzFilePath); err != nil {
-		return "", fmt.Errorf("failed to remove gz file: %v", err)
-	}
-
-	return outPutFile, nil
 }

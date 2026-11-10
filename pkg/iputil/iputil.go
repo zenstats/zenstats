@@ -12,21 +12,18 @@ import (
 
 // ClientIP 从 HTTP 请求中提取客户端 IP（优先 X-Forwarded-For）。
 func ClientIP(r *http.Request) string {
-	xForwardedFor := r.Header.Get("X-Forwarded-For")
-	ip := strings.TrimSpace(strings.Split(xForwardedFor, ",")[0])
-	if ip != "" {
-		return ip
+	// Keep the existing forwarding-header policy, but never let a malformed
+	// header prevent a valid real/peer IP from being used for geolocation.
+	first := strings.SplitN(r.Header.Get("X-Forwarded-For"), ",", 2)[0]
+	for _, value := range []string{first, r.Header.Get("X-Real-IP"), r.RemoteAddr} {
+		value = strings.TrimSpace(value)
+		if net.ParseIP(value) != nil {
+			return value
+		}
+		if host, _, err := net.SplitHostPort(value); err == nil && net.ParseIP(host) != nil {
+			return host
+		}
 	}
-
-	ip = strings.TrimSpace(r.Header.Get("X-Real-Ip"))
-	if ip != "" {
-		return ip
-	}
-
-	if ip, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr)); err == nil {
-		return ip
-	}
-
 	return ""
 }
 
