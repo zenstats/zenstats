@@ -1,8 +1,20 @@
 # 滚动深度热力图与 Web Vitals：调研及实施规划
 
-调研日期：2026-11-10。状态：设计建议，尚未实施采集、数据库和页面功能。
+调研日期：2026-11-10。状态：滚动深度第一阶段已实现并在本地验证；历史封账汇总、Core Web Vitals 尚未实施。
 
 本文补充 `feature-roadmap-and-specifications.md`，作为这两项功能的实施依据。Web 任务见 [Web 实施规划](../../zenstats-web/docs/scroll-depth-and-web-vitals-plan.md)。
+
+## 已实现范围：滚动深度第一阶段
+
+- 热力图总开关下新增独立 `clicks_enabled`（默认 true）和 `scroll_enabled`（默认 false）。升级需执行 PostgreSQL `migrate`；ClickHouse 启动时幂等创建 `heatmap_scroll_reports`。
+- Tracker 沿用 `data-heatmap="true"`，更新自托管 `heatmap.js` 后即可根据新能力字段启用滚动。未开启滚动时不发送滚动报告；页面未点击、未滚动也记录初始可见样本。
+- `POST /api/heatmap/scroll` 使用独立有界队列、原子批校验、站点／Origin／屏蔽校验、有限重试和管理员质量计数。**202 表示进入内存队列，不能视为落库成功**；质量计数记录报告条数，去重后的浏览数由查询产生。
+- `GET /api/sites/:domain/heatmap/scroll/pages` 与 `/scroll/data` 只允许查询最近 `min(raw_days, 7)` 个自然日，使用冻结站点时区。沿用读权限，跨站成员不可访问；`GET /api/admin/scroll-quality` 仅管理员可读。
+- 浏览 ID 只存内存；报告最多12个 revision。查询先按浏览解析最新整条快照，再按维度过滤；不依赖后台合并，也不会把重试或每次增量上报累加为新浏览。
+- 页面最大高度增长超过初始高度25%、报告截断、不支持布局的浏览不计入有效分母。标记可能重叠；延迟初始化保留在样本中并单独提示。比例表示实际采样浏览的几何触达，不能外推为独立访客、阅读完成率或元素曝光。
+- Web 提供独立滚动页面列表、80段色带、25/50/75/100%触达卡、平均初始首屏线、质量标记与无截图查看，复用聚合标识、设备、版本及截图。
+- 点击／滚动复用热力图专用两连接池及一个查询槽；查询继续限制单线程、5秒、128MiB。保留PV、UV、Session及原有 engagement 滚动指标口径。
+- 当前不支持滚动的90天历史聚合；`aggregate_days` 仍只控制原有点击聚合。后续任务按下文分阶段推进，不应把以下设计视为全部已交付。
 
 ## 1. 调研结论
 

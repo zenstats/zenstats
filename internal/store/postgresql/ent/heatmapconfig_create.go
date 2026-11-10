@@ -42,6 +42,34 @@ func (hcc *HeatmapConfigCreate) SetNillableEnabled(b *bool) *HeatmapConfigCreate
 	return hcc
 }
 
+// SetClicksEnabled sets the "clicks_enabled" field.
+func (hcc *HeatmapConfigCreate) SetClicksEnabled(b bool) *HeatmapConfigCreate {
+	hcc.mutation.SetClicksEnabled(b)
+	return hcc
+}
+
+// SetNillableClicksEnabled sets the "clicks_enabled" field if the given value is not nil.
+func (hcc *HeatmapConfigCreate) SetNillableClicksEnabled(b *bool) *HeatmapConfigCreate {
+	if b != nil {
+		hcc.SetClicksEnabled(*b)
+	}
+	return hcc
+}
+
+// SetScrollEnabled sets the "scroll_enabled" field.
+func (hcc *HeatmapConfigCreate) SetScrollEnabled(b bool) *HeatmapConfigCreate {
+	hcc.mutation.SetScrollEnabled(b)
+	return hcc
+}
+
+// SetNillableScrollEnabled sets the "scroll_enabled" field if the given value is not nil.
+func (hcc *HeatmapConfigCreate) SetNillableScrollEnabled(b *bool) *HeatmapConfigCreate {
+	if b != nil {
+		hcc.SetScrollEnabled(*b)
+	}
+	return hcc
+}
+
 // SetPaths sets the "paths" field.
 func (hcc *HeatmapConfigCreate) SetPaths(s []string) *HeatmapConfigCreate {
 	hcc.mutation.SetPaths(s)
@@ -188,6 +216,14 @@ func (hcc *HeatmapConfigCreate) defaults() {
 		v := heatmapconfig.DefaultEnabled
 		hcc.mutation.SetEnabled(v)
 	}
+	if _, ok := hcc.mutation.ClicksEnabled(); !ok {
+		v := heatmapconfig.DefaultClicksEnabled
+		hcc.mutation.SetClicksEnabled(v)
+	}
+	if _, ok := hcc.mutation.ScrollEnabled(); !ok {
+		v := heatmapconfig.DefaultScrollEnabled
+		hcc.mutation.SetScrollEnabled(v)
+	}
 	if _, ok := hcc.mutation.Paths(); !ok {
 		v := heatmapconfig.DefaultPaths
 		hcc.mutation.SetPaths(v)
@@ -229,6 +265,12 @@ func (hcc *HeatmapConfigCreate) check() error {
 	}
 	if _, ok := hcc.mutation.Enabled(); !ok {
 		return &ValidationError{Name: "enabled", err: errors.New(`ent: missing required field "HeatmapConfig.enabled"`)}
+	}
+	if _, ok := hcc.mutation.ClicksEnabled(); !ok {
+		return &ValidationError{Name: "clicks_enabled", err: errors.New(`ent: missing required field "HeatmapConfig.clicks_enabled"`)}
+	}
+	if _, ok := hcc.mutation.ScrollEnabled(); !ok {
+		return &ValidationError{Name: "scroll_enabled", err: errors.New(`ent: missing required field "HeatmapConfig.scroll_enabled"`)}
 	}
 	if _, ok := hcc.mutation.Paths(); !ok {
 		return &ValidationError{Name: "paths", err: errors.New(`ent: missing required field "HeatmapConfig.paths"`)}
@@ -297,6 +339,14 @@ func (hcc *HeatmapConfigCreate) createSpec() (*HeatmapConfig, *sqlgraph.CreateSp
 	if value, ok := hcc.mutation.Enabled(); ok {
 		_spec.SetField(heatmapconfig.FieldEnabled, field.TypeBool, value)
 		_node.Enabled = value
+	}
+	if value, ok := hcc.mutation.ClicksEnabled(); ok {
+		_spec.SetField(heatmapconfig.FieldClicksEnabled, field.TypeBool, value)
+		_node.ClicksEnabled = value
+	}
+	if value, ok := hcc.mutation.ScrollEnabled(); ok {
+		_spec.SetField(heatmapconfig.FieldScrollEnabled, field.TypeBool, value)
+		_node.ScrollEnabled = value
 	}
 	if value, ok := hcc.mutation.Paths(); ok {
 		_spec.SetField(heatmapconfig.FieldPaths, field.TypeJSON, value)

@@ -4722,6 +4722,8 @@ type HeatmapConfigMutation struct {
 	typ               string
 	id                *int64
 	enabled           *bool
+	clicks_enabled    *bool
+	scroll_enabled    *bool
 	paths             *[]string
 	appendpaths       []string
 	groups            *[]heatmap.GroupRule
@@ -4918,6 +4920,78 @@ func (m *HeatmapConfigMutation) OldEnabled(ctx context.Context) (v bool, err err
 // ResetEnabled resets all changes to the "enabled" field.
 func (m *HeatmapConfigMutation) ResetEnabled() {
 	m.enabled = nil
+}
+
+// SetClicksEnabled sets the "clicks_enabled" field.
+func (m *HeatmapConfigMutation) SetClicksEnabled(b bool) {
+	m.clicks_enabled = &b
+}
+
+// ClicksEnabled returns the value of the "clicks_enabled" field in the mutation.
+func (m *HeatmapConfigMutation) ClicksEnabled() (r bool, exists bool) {
+	v := m.clicks_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClicksEnabled returns the old "clicks_enabled" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldClicksEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClicksEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClicksEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClicksEnabled: %w", err)
+	}
+	return oldValue.ClicksEnabled, nil
+}
+
+// ResetClicksEnabled resets all changes to the "clicks_enabled" field.
+func (m *HeatmapConfigMutation) ResetClicksEnabled() {
+	m.clicks_enabled = nil
+}
+
+// SetScrollEnabled sets the "scroll_enabled" field.
+func (m *HeatmapConfigMutation) SetScrollEnabled(b bool) {
+	m.scroll_enabled = &b
+}
+
+// ScrollEnabled returns the value of the "scroll_enabled" field in the mutation.
+func (m *HeatmapConfigMutation) ScrollEnabled() (r bool, exists bool) {
+	v := m.scroll_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScrollEnabled returns the old "scroll_enabled" field's value of the HeatmapConfig entity.
+// If the HeatmapConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *HeatmapConfigMutation) OldScrollEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScrollEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScrollEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScrollEnabled: %w", err)
+	}
+	return oldValue.ScrollEnabled, nil
+}
+
+// ResetScrollEnabled resets all changes to the "scroll_enabled" field.
+func (m *HeatmapConfigMutation) ResetScrollEnabled() {
+	m.scroll_enabled = nil
 }
 
 // SetPaths sets the "paths" field.
@@ -5379,12 +5453,18 @@ func (m *HeatmapConfigMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *HeatmapConfigMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 12)
 	if m.site != nil {
 		fields = append(fields, heatmapconfig.FieldSiteID)
 	}
 	if m.enabled != nil {
 		fields = append(fields, heatmapconfig.FieldEnabled)
+	}
+	if m.clicks_enabled != nil {
+		fields = append(fields, heatmapconfig.FieldClicksEnabled)
+	}
+	if m.scroll_enabled != nil {
+		fields = append(fields, heatmapconfig.FieldScrollEnabled)
 	}
 	if m.paths != nil {
 		fields = append(fields, heatmapconfig.FieldPaths)
@@ -5422,6 +5502,10 @@ func (m *HeatmapConfigMutation) Field(name string) (ent.Value, bool) {
 		return m.SiteID()
 	case heatmapconfig.FieldEnabled:
 		return m.Enabled()
+	case heatmapconfig.FieldClicksEnabled:
+		return m.ClicksEnabled()
+	case heatmapconfig.FieldScrollEnabled:
+		return m.ScrollEnabled()
 	case heatmapconfig.FieldPaths:
 		return m.Paths()
 	case heatmapconfig.FieldGroups:
@@ -5451,6 +5535,10 @@ func (m *HeatmapConfigMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldSiteID(ctx)
 	case heatmapconfig.FieldEnabled:
 		return m.OldEnabled(ctx)
+	case heatmapconfig.FieldClicksEnabled:
+		return m.OldClicksEnabled(ctx)
+	case heatmapconfig.FieldScrollEnabled:
+		return m.OldScrollEnabled(ctx)
 	case heatmapconfig.FieldPaths:
 		return m.OldPaths(ctx)
 	case heatmapconfig.FieldGroups:
@@ -5489,6 +5577,20 @@ func (m *HeatmapConfigMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetEnabled(v)
+		return nil
+	case heatmapconfig.FieldClicksEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClicksEnabled(v)
+		return nil
+	case heatmapconfig.FieldScrollEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScrollEnabled(v)
 		return nil
 	case heatmapconfig.FieldPaths:
 		v, ok := value.([]string)
@@ -5651,6 +5753,12 @@ func (m *HeatmapConfigMutation) ResetField(name string) error {
 		return nil
 	case heatmapconfig.FieldEnabled:
 		m.ResetEnabled()
+		return nil
+	case heatmapconfig.FieldClicksEnabled:
+		m.ResetClicksEnabled()
+		return nil
+	case heatmapconfig.FieldScrollEnabled:
+		m.ResetScrollEnabled()
 		return nil
 	case heatmapconfig.FieldPaths:
 		m.ResetPaths()

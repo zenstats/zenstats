@@ -141,6 +141,8 @@ type GroupRule struct {
 type Config struct {
 	Groups        []GroupRule `json:"groups"`
 	Enabled       bool        `json:"enabled"`
+	ClicksEnabled bool        `json:"clicks_enabled"`
+	ScrollEnabled bool        `json:"scroll_enabled"`
 	Paths         []string    `json:"paths"`
 	SampleRate    float64     `json:"sample_rate"`
 	MaxClicks     int         `json:"max_clicks"`
@@ -150,7 +152,7 @@ type Config struct {
 }
 
 func DefaultConfig() Config {
-	return Config{Groups: []GroupRule{}, Paths: []string{}, SampleRate: .1, MaxClicks: 100, RawDays: 7, AggregateDays: 90, Timezone: "UTC"}
+	return Config{Groups: []GroupRule{}, Paths: []string{}, ClicksEnabled: true, SampleRate: .1, MaxClicks: 100, RawDays: 7, AggregateDays: 90, Timezone: "UTC"}
 }
 
 func (c Config) Validate() error {

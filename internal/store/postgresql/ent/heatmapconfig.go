@@ -24,6 +24,10 @@ type HeatmapConfig struct {
 	SiteID int64 `json:"site_id,omitempty"`
 	// Enabled holds the value of the "enabled" field.
 	Enabled bool `json:"enabled,omitempty"`
+	// ClicksEnabled holds the value of the "clicks_enabled" field.
+	ClicksEnabled bool `json:"clicks_enabled,omitempty"`
+	// ScrollEnabled holds the value of the "scroll_enabled" field.
+	ScrollEnabled bool `json:"scroll_enabled,omitempty"`
 	// Paths holds the value of the "paths" field.
 	Paths []string `json:"paths,omitempty"`
 	// Groups holds the value of the "groups" field.
@@ -73,7 +77,7 @@ func (*HeatmapConfig) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case heatmapconfig.FieldPaths, heatmapconfig.FieldGroups:
 			values[i] = new([]byte)
-		case heatmapconfig.FieldEnabled:
+		case heatmapconfig.FieldEnabled, heatmapconfig.FieldClicksEnabled, heatmapconfig.FieldScrollEnabled:
 			values[i] = new(sql.NullBool)
 		case heatmapconfig.FieldSampleRate:
 			values[i] = new(sql.NullFloat64)
@@ -115,6 +119,18 @@ func (hc *HeatmapConfig) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field enabled", values[i])
 			} else if value.Valid {
 				hc.Enabled = value.Bool
+			}
+		case heatmapconfig.FieldClicksEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field clicks_enabled", values[i])
+			} else if value.Valid {
+				hc.ClicksEnabled = value.Bool
+			}
+		case heatmapconfig.FieldScrollEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field scroll_enabled", values[i])
+			} else if value.Valid {
+				hc.ScrollEnabled = value.Bool
 			}
 		case heatmapconfig.FieldPaths:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -214,6 +230,12 @@ func (hc *HeatmapConfig) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("enabled=")
 	builder.WriteString(fmt.Sprintf("%v", hc.Enabled))
+	builder.WriteString(", ")
+	builder.WriteString("clicks_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", hc.ClicksEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("scroll_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", hc.ScrollEnabled))
 	builder.WriteString(", ")
 	builder.WriteString("paths=")
 	builder.WriteString(fmt.Sprintf("%v", hc.Paths))

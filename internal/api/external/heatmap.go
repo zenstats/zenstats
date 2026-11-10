@@ -29,13 +29,17 @@ var heatmapLimiter = newIngestLimiter()
 var heatmapParser = sync.OnceValue(uaparser.New)
 
 func heatmapRateAllowed(domain string, n int) bool {
-	heatmapLimiter.mu.Lock()
-	defer heatmapLimiter.mu.Unlock()
-	w, ok := heatmapLimiter.windows[domain]
+	return heatmapBatchRateAllowed(heatmapLimiter, domain, n)
+}
+
+func heatmapBatchRateAllowed(limiter *ingestLimiter, domain string, n int) bool {
+	limiter.mu.Lock()
+	defer limiter.mu.Unlock()
+	w, ok := limiter.windows[domain]
 	now := time.Now()
 	if !ok || !now.Before(w.resetTime) {
 		w = &ingestWindow{resetTime: now.Add(time.Minute)}
-		heatmapLimiter.windows[domain] = w
+		limiter.windows[domain] = w
 	}
 	if w.count+n > 6000 {
 		return false
@@ -62,7 +66,7 @@ func HeatmapConfig(s *service.HeatmapService) gin.HandlerFunc {
 		for _, g := range cfg.Groups {
 			groups = append(groups, gin.H{"path": g.Path, "key": g.Key})
 		}
-		c.JSON(200, gin.H{"groups": groups, "enabled": cfg.Enabled, "paths": cfg.Paths, "sample_rate": cfg.SampleRate, "max_clicks": cfg.MaxClicks, "protocol_version": heatmap.ProtocolVersion})
+		c.JSON(200, gin.H{"groups": groups, "enabled": cfg.Enabled, "clicks_enabled": cfg.ClicksEnabled, "scroll_enabled": cfg.ScrollEnabled, "scroll_protocol_version": 1, "scroll_raw_days": min(cfg.RawDays, 7), "paths": cfg.Paths, "sample_rate": cfg.SampleRate, "max_clicks": cfg.MaxClicks, "protocol_version": heatmap.ProtocolVersion})
 	}
 }
 
@@ -107,7 +111,7 @@ func HeatmapClicks(s *service.HeatmapService) gin.HandlerFunc {
 			reject(http.StatusServiceUnavailable)
 			return
 		}
-		if !cfg.Enabled {
+		if !cfg.Enabled || !cfg.ClicksEnabled {
 			reject(http.StatusForbidden)
 			return
 		}

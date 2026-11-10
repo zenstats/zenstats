@@ -65,7 +65,7 @@ func (h *Handler) WriteAccess() gin.HandlerFunc {
 }
 func (h *Handler) SaveConfig(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16<<10)
-	var cfg heatmap.Config
+	cfg := heatmap.DefaultConfig()
 	if err := c.ShouldBindJSON(&cfg); err != nil {
 		fail(c, 400, err)
 		return

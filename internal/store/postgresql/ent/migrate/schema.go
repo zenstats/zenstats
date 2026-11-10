@@ -244,6 +244,8 @@ var (
 	HeatmapConfigsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
 		{Name: "enabled", Type: field.TypeBool, Default: false},
+		{Name: "clicks_enabled", Type: field.TypeBool, Default: true},
+		{Name: "scroll_enabled", Type: field.TypeBool, Default: false},
 		{Name: "paths", Type: field.TypeJSON},
 		{Name: "groups", Type: field.TypeJSON, Default: "[]"},
 		{Name: "sample_rate", Type: field.TypeFloat64, Default: 0.1},
@@ -262,7 +264,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "heatmap_configs_sites_heatmap_config",
-				Columns:    []*schema.Column{HeatmapConfigsColumns[10]},
+				Columns:    []*schema.Column{HeatmapConfigsColumns[12]},
 				RefColumns: []*schema.Column{SitesColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -271,7 +273,7 @@ var (
 			{
 				Name:    "heatmapconfig_site_id",
 				Unique:  true,
-				Columns: []*schema.Column{HeatmapConfigsColumns[10]},
+				Columns: []*schema.Column{HeatmapConfigsColumns[12]},
 			},
 		},
 	}

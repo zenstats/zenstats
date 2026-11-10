@@ -14,6 +14,18 @@ import (
 // retrying must run the view again. The raw table eventually replaces duplicates.
 func EnsureHeatmapTables(ctx context.Context, conn clickhouse.Conn) error {
 	queries := []string{
+		`CREATE TABLE IF NOT EXISTS heatmap_scroll_reports (
+			site_id UInt64, page_view_id UUID, started_at DateTime64(3,'UTC'), revision UInt16,
+			report_id UUID, reported_at DateTime64(3,'UTC'),
+			hostname LowCardinality(String), path String, aggregation_key LowCardinality(String),
+			version LowCardinality(String), variant LowCardinality(String),
+			viewport_width UInt16, viewport_height UInt16, document_width UInt32, document_height UInt32,
+			max_bottom UInt32, max_height UInt32, late_init Bool, clipped Bool, unsupported Bool,
+			sample_rate Float64, expires DateTime('UTC')
+		) ENGINE=ReplacingMergeTree(revision)
+		PARTITION BY toYYYYMMDD(started_at)
+		ORDER BY (site_id,toDate(started_at),page_view_id)
+		TTL expires DELETE SETTINGS index_granularity=8192,non_replicated_deduplication_window=0`,
 		`CREATE TABLE IF NOT EXISTS heatmap_clicks (
 			site_id UInt64, click_id UUID, batch_id UUID,
 			timestamp DateTime64(3, 'UTC'), bucket DateTime('UTC'),

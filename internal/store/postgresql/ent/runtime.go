@@ -145,38 +145,46 @@ func init() {
 	heatmapconfigDescEnabled := heatmapconfigFields[2].Descriptor()
 	// heatmapconfig.DefaultEnabled holds the default value on creation for the enabled field.
 	heatmapconfig.DefaultEnabled = heatmapconfigDescEnabled.Default.(bool)
+	// heatmapconfigDescClicksEnabled is the schema descriptor for clicks_enabled field.
+	heatmapconfigDescClicksEnabled := heatmapconfigFields[3].Descriptor()
+	// heatmapconfig.DefaultClicksEnabled holds the default value on creation for the clicks_enabled field.
+	heatmapconfig.DefaultClicksEnabled = heatmapconfigDescClicksEnabled.Default.(bool)
+	// heatmapconfigDescScrollEnabled is the schema descriptor for scroll_enabled field.
+	heatmapconfigDescScrollEnabled := heatmapconfigFields[4].Descriptor()
+	// heatmapconfig.DefaultScrollEnabled holds the default value on creation for the scroll_enabled field.
+	heatmapconfig.DefaultScrollEnabled = heatmapconfigDescScrollEnabled.Default.(bool)
 	// heatmapconfigDescPaths is the schema descriptor for paths field.
-	heatmapconfigDescPaths := heatmapconfigFields[3].Descriptor()
+	heatmapconfigDescPaths := heatmapconfigFields[5].Descriptor()
 	// heatmapconfig.DefaultPaths holds the default value on creation for the paths field.
 	heatmapconfig.DefaultPaths = heatmapconfigDescPaths.Default.([]string)
 	// heatmapconfigDescGroups is the schema descriptor for groups field.
-	heatmapconfigDescGroups := heatmapconfigFields[4].Descriptor()
+	heatmapconfigDescGroups := heatmapconfigFields[6].Descriptor()
 	// heatmapconfig.DefaultGroups holds the default value on creation for the groups field.
 	heatmapconfig.DefaultGroups = heatmapconfigDescGroups.Default.([]heatmap.GroupRule)
 	// heatmapconfigDescSampleRate is the schema descriptor for sample_rate field.
-	heatmapconfigDescSampleRate := heatmapconfigFields[5].Descriptor()
+	heatmapconfigDescSampleRate := heatmapconfigFields[7].Descriptor()
 	// heatmapconfig.DefaultSampleRate holds the default value on creation for the sample_rate field.
 	heatmapconfig.DefaultSampleRate = heatmapconfigDescSampleRate.Default.(float64)
 	// heatmapconfigDescMaxClicks is the schema descriptor for max_clicks field.
-	heatmapconfigDescMaxClicks := heatmapconfigFields[6].Descriptor()
+	heatmapconfigDescMaxClicks := heatmapconfigFields[8].Descriptor()
 	// heatmapconfig.DefaultMaxClicks holds the default value on creation for the max_clicks field.
 	heatmapconfig.DefaultMaxClicks = heatmapconfigDescMaxClicks.Default.(int)
 	// heatmapconfigDescRawDays is the schema descriptor for raw_days field.
-	heatmapconfigDescRawDays := heatmapconfigFields[7].Descriptor()
+	heatmapconfigDescRawDays := heatmapconfigFields[9].Descriptor()
 	// heatmapconfig.DefaultRawDays holds the default value on creation for the raw_days field.
 	heatmapconfig.DefaultRawDays = heatmapconfigDescRawDays.Default.(int)
 	// heatmapconfigDescAggregateDays is the schema descriptor for aggregate_days field.
-	heatmapconfigDescAggregateDays := heatmapconfigFields[8].Descriptor()
+	heatmapconfigDescAggregateDays := heatmapconfigFields[10].Descriptor()
 	// heatmapconfig.DefaultAggregateDays holds the default value on creation for the aggregate_days field.
 	heatmapconfig.DefaultAggregateDays = heatmapconfigDescAggregateDays.Default.(int)
 	// heatmapconfigDescTimezone is the schema descriptor for timezone field.
-	heatmapconfigDescTimezone := heatmapconfigFields[9].Descriptor()
+	heatmapconfigDescTimezone := heatmapconfigFields[11].Descriptor()
 	// heatmapconfig.DefaultTimezone holds the default value on creation for the timezone field.
 	heatmapconfig.DefaultTimezone = heatmapconfigDescTimezone.Default.(string)
 	// heatmapconfig.TimezoneValidator is a validator for the "timezone" field. It is called by the builders before save.
 	heatmapconfig.TimezoneValidator = heatmapconfigDescTimezone.Validators[0].(func(string) error)
 	// heatmapconfigDescUpdatedAt is the schema descriptor for updated_at field.
-	heatmapconfigDescUpdatedAt := heatmapconfigFields[10].Descriptor()
+	heatmapconfigDescUpdatedAt := heatmapconfigFields[12].Descriptor()
 	// heatmapconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	heatmapconfig.DefaultUpdatedAt = heatmapconfigDescUpdatedAt.Default.(func() time.Time)
 	// heatmapconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
