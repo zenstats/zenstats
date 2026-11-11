@@ -16,6 +16,8 @@ func (HeatmapConfig) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int64("id").Immutable(), field.Int64("site_id"),
 		field.Bool("enabled").Default(false),
+		field.Bool("clicks_enabled").Default(true),
+		field.Bool("scroll_enabled").Default(false),
 		field.JSON("paths", []string{}).Default([]string{}),
 		field.JSON("groups", []heatmap.GroupRule{}).Default([]heatmap.GroupRule{}).Annotations(entsql.Default("[]")),
 		field.Float("sample_rate").Default(.1), field.Int("max_clicks").Default(100),

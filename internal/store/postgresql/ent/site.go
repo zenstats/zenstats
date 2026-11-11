@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/heatmapconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/siteperformanceconfig"
 )
 
 // Site is the model entity for the Site schema.
@@ -64,6 +65,8 @@ type Site struct {
 
 // SiteEdges holds the relations/edges for other nodes in the graph.
 type SiteEdges struct {
+	// PerformanceConfig holds the value of the performance_config edge.
+	PerformanceConfig *SitePerformanceConfig `json:"performance_config,omitempty"`
 	// HeatmapConfig holds the value of the heatmap_config edge.
 	HeatmapConfig *HeatmapConfig `json:"heatmap_config,omitempty"`
 	// HeatmapSnapshots holds the value of the heatmap_snapshots edge.
@@ -92,7 +95,18 @@ type SiteEdges struct {
 	SavedPanels []*SavedPanel `json:"saved_panels,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [13]bool
+	loadedTypes [14]bool
+}
+
+// PerformanceConfigOrErr returns the PerformanceConfig value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e SiteEdges) PerformanceConfigOrErr() (*SitePerformanceConfig, error) {
+	if e.PerformanceConfig != nil {
+		return e.PerformanceConfig, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: siteperformanceconfig.Label}
+	}
+	return nil, &NotLoadedError{edge: "performance_config"}
 }
 
 // HeatmapConfigOrErr returns the HeatmapConfig value or an error if the edge
@@ -100,7 +114,7 @@ type SiteEdges struct {
 func (e SiteEdges) HeatmapConfigOrErr() (*HeatmapConfig, error) {
 	if e.HeatmapConfig != nil {
 		return e.HeatmapConfig, nil
-	} else if e.loadedTypes[0] {
+	} else if e.loadedTypes[1] {
 		return nil, &NotFoundError{label: heatmapconfig.Label}
 	}
 	return nil, &NotLoadedError{edge: "heatmap_config"}
@@ -109,7 +123,7 @@ func (e SiteEdges) HeatmapConfigOrErr() (*HeatmapConfig, error) {
 // HeatmapSnapshotsOrErr returns the HeatmapSnapshots value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) HeatmapSnapshotsOrErr() ([]*HeatmapSnapshot, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[2] {
 		return e.HeatmapSnapshots, nil
 	}
 	return nil, &NotLoadedError{edge: "heatmap_snapshots"}
@@ -118,7 +132,7 @@ func (e SiteEdges) HeatmapSnapshotsOrErr() ([]*HeatmapSnapshot, error) {
 // FunnelsOrErr returns the Funnels value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) FunnelsOrErr() ([]*Funnel, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.Funnels, nil
 	}
 	return nil, &NotLoadedError{edge: "funnels"}
@@ -127,7 +141,7 @@ func (e SiteEdges) FunnelsOrErr() ([]*Funnel, error) {
 // MembersOrErr returns the Members value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) MembersOrErr() ([]*User, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.Members, nil
 	}
 	return nil, &NotLoadedError{edge: "members"}
@@ -136,7 +150,7 @@ func (e SiteEdges) MembersOrErr() ([]*User, error) {
 // GoalsOrErr returns the Goals value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) GoalsOrErr() ([]*Goal, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.Goals, nil
 	}
 	return nil, &NotLoadedError{edge: "goals"}
@@ -145,7 +159,7 @@ func (e SiteEdges) GoalsOrErr() ([]*Goal, error) {
 // SiteMembershipsOrErr returns the SiteMemberships value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) SiteMembershipsOrErr() ([]*SiteMembership, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.SiteMemberships, nil
 	}
 	return nil, &NotLoadedError{edge: "site_memberships"}
@@ -154,7 +168,7 @@ func (e SiteEdges) SiteMembershipsOrErr() ([]*SiteMembership, error) {
 // ShieldRulesIPOrErr returns the ShieldRulesIP value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) ShieldRulesIPOrErr() ([]*ShieldRulesIp, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.ShieldRulesIP, nil
 	}
 	return nil, &NotLoadedError{edge: "shield_rules_ip"}
@@ -163,7 +177,7 @@ func (e SiteEdges) ShieldRulesIPOrErr() ([]*ShieldRulesIp, error) {
 // ShieldRulesHostnameOrErr returns the ShieldRulesHostname value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) ShieldRulesHostnameOrErr() ([]*ShieldRulesHostname, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.ShieldRulesHostname, nil
 	}
 	return nil, &NotLoadedError{edge: "shield_rules_hostname"}
@@ -172,7 +186,7 @@ func (e SiteEdges) ShieldRulesHostnameOrErr() ([]*ShieldRulesHostname, error) {
 // ShieldRulesCountryOrErr returns the ShieldRulesCountry value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) ShieldRulesCountryOrErr() ([]*ShieldRulesCountry, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.ShieldRulesCountry, nil
 	}
 	return nil, &NotLoadedError{edge: "shield_rules_country"}
@@ -181,7 +195,7 @@ func (e SiteEdges) ShieldRulesCountryOrErr() ([]*ShieldRulesCountry, error) {
 // ShieldRulesReferrerOrErr returns the ShieldRulesReferrer value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) ShieldRulesReferrerOrErr() ([]*ShieldRulesReferrer, error) {
-	if e.loadedTypes[9] {
+	if e.loadedTypes[10] {
 		return e.ShieldRulesReferrer, nil
 	}
 	return nil, &NotLoadedError{edge: "shield_rules_referrer"}
@@ -190,7 +204,7 @@ func (e SiteEdges) ShieldRulesReferrerOrErr() ([]*ShieldRulesReferrer, error) {
 // SharedLinksOrErr returns the SharedLinks value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) SharedLinksOrErr() ([]*SharedLink, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[11] {
 		return e.SharedLinks, nil
 	}
 	return nil, &NotLoadedError{edge: "shared_links"}
@@ -199,7 +213,7 @@ func (e SiteEdges) SharedLinksOrErr() ([]*SharedLink, error) {
 // SegmentsOrErr returns the Segments value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) SegmentsOrErr() ([]*Segment, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[12] {
 		return e.Segments, nil
 	}
 	return nil, &NotLoadedError{edge: "segments"}
@@ -208,7 +222,7 @@ func (e SiteEdges) SegmentsOrErr() ([]*Segment, error) {
 // SavedPanelsOrErr returns the SavedPanels value or an error if the edge
 // was not loaded in eager-loading.
 func (e SiteEdges) SavedPanelsOrErr() ([]*SavedPanel, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[13] {
 		return e.SavedPanels, nil
 	}
 	return nil, &NotLoadedError{edge: "saved_panels"}
@@ -377,6 +391,11 @@ func (s *Site) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (s *Site) Value(name string) (ent.Value, error) {
 	return s.selectValues.Get(name)
+}
+
+// QueryPerformanceConfig queries the "performance_config" edge of the Site entity.
+func (s *Site) QueryPerformanceConfig() *SitePerformanceConfigQuery {
+	return NewSiteClient(s.config).QueryPerformanceConfig(s)
 }
 
 // QueryHeatmapConfig queries the "heatmap_config" edge of the Site entity.

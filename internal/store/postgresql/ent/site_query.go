@@ -26,6 +26,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/siteperformanceconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
 )
 
@@ -36,6 +37,7 @@ type SiteQuery struct {
 	order                   []site.OrderOption
 	inters                  []Interceptor
 	predicates              []predicate.Site
+	withPerformanceConfig   *SitePerformanceConfigQuery
 	withHeatmapConfig       *HeatmapConfigQuery
 	withHeatmapSnapshots    *HeatmapSnapshotQuery
 	withFunnels             *FunnelQuery
@@ -83,6 +85,28 @@ func (sq *SiteQuery) Unique(unique bool) *SiteQuery {
 func (sq *SiteQuery) Order(o ...site.OrderOption) *SiteQuery {
 	sq.order = append(sq.order, o...)
 	return sq
+}
+
+// QueryPerformanceConfig chains the current query on the "performance_config" edge.
+func (sq *SiteQuery) QueryPerformanceConfig() *SitePerformanceConfigQuery {
+	query := (&SitePerformanceConfigClient{config: sq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := sq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := sq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(site.Table, site.FieldID, selector),
+			sqlgraph.To(siteperformanceconfig.Table, siteperformanceconfig.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, site.PerformanceConfigTable, site.PerformanceConfigColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(sq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // QueryHeatmapConfig chains the current query on the "heatmap_config" edge.
@@ -563,6 +587,7 @@ func (sq *SiteQuery) Clone() *SiteQuery {
 		order:                   append([]site.OrderOption{}, sq.order...),
 		inters:                  append([]Interceptor{}, sq.inters...),
 		predicates:              append([]predicate.Site{}, sq.predicates...),
+		withPerformanceConfig:   sq.withPerformanceConfig.Clone(),
 		withHeatmapConfig:       sq.withHeatmapConfig.Clone(),
 		withHeatmapSnapshots:    sq.withHeatmapSnapshots.Clone(),
 		withFunnels:             sq.withFunnels.Clone(),
@@ -580,6 +605,17 @@ func (sq *SiteQuery) Clone() *SiteQuery {
 		sql:  sq.sql.Clone(),
 		path: sq.path,
 	}
+}
+
+// WithPerformanceConfig tells the query-builder to eager-load the nodes that are connected to
+// the "performance_config" edge. The optional arguments are used to configure the query builder of the edge.
+func (sq *SiteQuery) WithPerformanceConfig(opts ...func(*SitePerformanceConfigQuery)) *SiteQuery {
+	query := (&SitePerformanceConfigClient{config: sq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	sq.withPerformanceConfig = query
+	return sq
 }
 
 // WithHeatmapConfig tells the query-builder to eager-load the nodes that are connected to
@@ -803,7 +839,8 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 	var (
 		nodes       = []*Site{}
 		_spec       = sq.querySpec()
-		loadedTypes = [13]bool{
+		loadedTypes = [14]bool{
+			sq.withPerformanceConfig != nil,
 			sq.withHeatmapConfig != nil,
 			sq.withHeatmapSnapshots != nil,
 			sq.withFunnels != nil,
@@ -836,6 +873,12 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 	}
 	if len(nodes) == 0 {
 		return nodes, nil
+	}
+	if query := sq.withPerformanceConfig; query != nil {
+		if err := sq.loadPerformanceConfig(ctx, query, nodes, nil,
+			func(n *Site, e *SitePerformanceConfig) { n.Edges.PerformanceConfig = e }); err != nil {
+			return nil, err
+		}
 	}
 	if query := sq.withHeatmapConfig; query != nil {
 		if err := sq.loadHeatmapConfig(ctx, query, nodes, nil,
@@ -936,6 +979,33 @@ func (sq *SiteQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Site, e
 	return nodes, nil
 }
 
+func (sq *SiteQuery) loadPerformanceConfig(ctx context.Context, query *SitePerformanceConfigQuery, nodes []*Site, init func(*Site), assign func(*Site, *SitePerformanceConfig)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Site)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(siteperformanceconfig.FieldSiteID)
+	}
+	query.Where(predicate.SitePerformanceConfig(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(site.PerformanceConfigColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SiteID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "site_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
 func (sq *SiteQuery) loadHeatmapConfig(ctx context.Context, query *HeatmapConfigQuery, nodes []*Site, init func(*Site), assign func(*Site, *HeatmapConfig)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[int64]*Site)

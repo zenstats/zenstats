@@ -19,6 +19,10 @@ const (
 	FieldSiteID = "site_id"
 	// FieldEnabled holds the string denoting the enabled field in the database.
 	FieldEnabled = "enabled"
+	// FieldClicksEnabled holds the string denoting the clicks_enabled field in the database.
+	FieldClicksEnabled = "clicks_enabled"
+	// FieldScrollEnabled holds the string denoting the scroll_enabled field in the database.
+	FieldScrollEnabled = "scroll_enabled"
 	// FieldPaths holds the string denoting the paths field in the database.
 	FieldPaths = "paths"
 	// FieldGroups holds the string denoting the groups field in the database.
@@ -53,6 +57,8 @@ var Columns = []string{
 	FieldID,
 	FieldSiteID,
 	FieldEnabled,
+	FieldClicksEnabled,
+	FieldScrollEnabled,
 	FieldPaths,
 	FieldGroups,
 	FieldSampleRate,
@@ -76,6 +82,10 @@ func ValidColumn(column string) bool {
 var (
 	// DefaultEnabled holds the default value on creation for the "enabled" field.
 	DefaultEnabled bool
+	// DefaultClicksEnabled holds the default value on creation for the "clicks_enabled" field.
+	DefaultClicksEnabled bool
+	// DefaultScrollEnabled holds the default value on creation for the "scroll_enabled" field.
+	DefaultScrollEnabled bool
 	// DefaultPaths holds the default value on creation for the "paths" field.
 	DefaultPaths []string
 	// DefaultGroups holds the default value on creation for the "groups" field.
@@ -114,6 +124,16 @@ func BySiteID(opts ...sql.OrderTermOption) OrderOption {
 // ByEnabled orders the results by the enabled field.
 func ByEnabled(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEnabled, opts...).ToFunc()
+}
+
+// ByClicksEnabled orders the results by the clicks_enabled field.
+func ByClicksEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldClicksEnabled, opts...).ToFunc()
+}
+
+// ByScrollEnabled orders the results by the scroll_enabled field.
+func ByScrollEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldScrollEnabled, opts...).ToFunc()
 }
 
 // BySampleRate orders the results by the sample_rate field.

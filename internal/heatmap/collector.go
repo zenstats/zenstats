@@ -32,37 +32,58 @@ type Quality struct {
 	LastFailure      *time.Time `json:"last_failure"`
 }
 
-type queuedClicks struct {
+type queuedBatch[T any] struct {
 	id   uint64
-	rows []Row
+	rows []T
 }
 
 // Collector has its own bounded queue and one writer. Ordinary event/session
 // workers never wait for this queue and heatmap writes cannot spawn unbounded work.
-type Collector struct {
+type Collector = BatchCollector[Row]
+
+// BatchCollector shares the bounded transport and quality contract across independent datasets.
+type BatchCollector[T any] struct {
 	mu      sync.Mutex
-	queue   chan queuedClicks
+	queue   chan queuedBatch[T]
 	closed  bool
 	next    uint64
 	pending map[uint64]time.Time
 	quality Quality
-	writer  Writer
+	writer  BatchWriter[T]
 	done    chan struct{}
 }
 
-func NewCollector(writer Writer) *Collector {
-	c := &Collector{queue: make(chan queuedClicks, 128), pending: make(map[uint64]time.Time), writer: writer, done: make(chan struct{})}
+type BatchWriter[T any] interface {
+	Insert(context.Context, []T) error
+}
+
+func NewCollector(writer Writer) *Collector { return NewBatchCollector[Row](writer) }
+
+func NewBatchCollector[T any](writer BatchWriter[T]) *BatchCollector[T] {
+	c := &BatchCollector[T]{queue: make(chan queuedBatch[T], 128), pending: make(map[uint64]time.Time), writer: writer, done: make(chan struct{})}
 	c.quality.InstanceID = uuid.NewString()
 	c.quality.StartedAt = time.Now().UTC()
 	go c.run()
 	return c
 }
 
-func (c *Collector) Received(n int) { c.mu.Lock(); c.quality.Received += uint64(n); c.mu.Unlock() }
-func (c *Collector) Rejected(n int) { c.mu.Lock(); c.quality.Rejected += uint64(n); c.mu.Unlock() }
-func (c *Collector) Filtered(n int) { c.mu.Lock(); c.quality.Filtered += uint64(n); c.mu.Unlock() }
+func (c *BatchCollector[T]) Received(n int) {
+	c.mu.Lock()
+	c.quality.Received += uint64(n)
+	c.mu.Unlock()
+}
+func (c *BatchCollector[T]) Rejected(n int) {
+	c.mu.Lock()
+	c.quality.Rejected += uint64(n)
+	c.mu.Unlock()
+}
+func (c *BatchCollector[T]) Filtered(n int) {
+	c.mu.Lock()
+	c.quality.Filtered += uint64(n)
+	c.mu.Unlock()
+}
 
-func (c *Collector) Enqueue(rows []Row) error {
+func (c *BatchCollector[T]) Enqueue(rows []T) error {
 	if len(rows) == 0 || len(rows) > MaxBatchSize {
 		return errors.New("invalid click batch size")
 	}
@@ -73,7 +94,7 @@ func (c *Collector) Enqueue(rows []Row) error {
 		return ErrQueueFull
 	}
 	c.next++
-	item := queuedClicks{id: c.next, rows: rows}
+	item := queuedBatch[T]{id: c.next, rows: rows}
 	select {
 	case c.queue <- item:
 		c.pending[item.id] = time.Now()
@@ -86,7 +107,7 @@ func (c *Collector) Enqueue(rows []Row) error {
 	}
 }
 
-func (c *Collector) Snapshot() Quality {
+func (c *BatchCollector[T]) Snapshot() Quality {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	q := c.quality
@@ -98,7 +119,7 @@ func (c *Collector) Snapshot() Quality {
 	return q
 }
 
-func (c *Collector) Shutdown() {
+func (c *BatchCollector[T]) Shutdown() {
 	c.mu.Lock()
 	if !c.closed {
 		c.closed = true
@@ -108,12 +129,12 @@ func (c *Collector) Shutdown() {
 	<-c.done
 }
 
-func (c *Collector) run() {
+func (c *BatchCollector[T]) run() {
 	defer close(c.done)
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	items := []queuedClicks{}
-	rows := []Row{}
+	items := []queuedBatch[T]{}
+	rows := []T{}
 	flush := func() {
 		if len(rows) == 0 {
 			return

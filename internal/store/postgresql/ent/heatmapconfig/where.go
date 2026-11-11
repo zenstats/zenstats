@@ -65,6 +65,16 @@ func Enabled(v bool) predicate.HeatmapConfig {
 	return predicate.HeatmapConfig(sql.FieldEQ(FieldEnabled, v))
 }
 
+// ClicksEnabled applies equality check predicate on the "clicks_enabled" field. It's identical to ClicksEnabledEQ.
+func ClicksEnabled(v bool) predicate.HeatmapConfig {
+	return predicate.HeatmapConfig(sql.FieldEQ(FieldClicksEnabled, v))
+}
+
+// ScrollEnabled applies equality check predicate on the "scroll_enabled" field. It's identical to ScrollEnabledEQ.
+func ScrollEnabled(v bool) predicate.HeatmapConfig {
+	return predicate.HeatmapConfig(sql.FieldEQ(FieldScrollEnabled, v))
+}
+
 // SampleRate applies equality check predicate on the "sample_rate" field. It's identical to SampleRateEQ.
 func SampleRate(v float64) predicate.HeatmapConfig {
 	return predicate.HeatmapConfig(sql.FieldEQ(FieldSampleRate, v))
@@ -123,6 +133,26 @@ func EnabledEQ(v bool) predicate.HeatmapConfig {
 // EnabledNEQ applies the NEQ predicate on the "enabled" field.
 func EnabledNEQ(v bool) predicate.HeatmapConfig {
 	return predicate.HeatmapConfig(sql.FieldNEQ(FieldEnabled, v))
+}
+
+// ClicksEnabledEQ applies the EQ predicate on the "clicks_enabled" field.
+func ClicksEnabledEQ(v bool) predicate.HeatmapConfig {
+	return predicate.HeatmapConfig(sql.FieldEQ(FieldClicksEnabled, v))
+}
+
+// ClicksEnabledNEQ applies the NEQ predicate on the "clicks_enabled" field.
+func ClicksEnabledNEQ(v bool) predicate.HeatmapConfig {
+	return predicate.HeatmapConfig(sql.FieldNEQ(FieldClicksEnabled, v))
+}
+
+// ScrollEnabledEQ applies the EQ predicate on the "scroll_enabled" field.
+func ScrollEnabledEQ(v bool) predicate.HeatmapConfig {
+	return predicate.HeatmapConfig(sql.FieldEQ(FieldScrollEnabled, v))
+}
+
+// ScrollEnabledNEQ applies the NEQ predicate on the "scroll_enabled" field.
+func ScrollEnabledNEQ(v bool) predicate.HeatmapConfig {
+	return predicate.HeatmapConfig(sql.FieldNEQ(FieldScrollEnabled, v))
 }
 
 // SampleRateEQ applies the EQ predicate on the "sample_rate" field.

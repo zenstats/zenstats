@@ -25,6 +25,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/siteperformanceconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
 )
 
@@ -322,6 +323,25 @@ func (su *SiteUpdate) ClearVerifiedAt() *SiteUpdate {
 	return su
 }
 
+// SetPerformanceConfigID sets the "performance_config" edge to the SitePerformanceConfig entity by ID.
+func (su *SiteUpdate) SetPerformanceConfigID(id int64) *SiteUpdate {
+	su.mutation.SetPerformanceConfigID(id)
+	return su
+}
+
+// SetNillablePerformanceConfigID sets the "performance_config" edge to the SitePerformanceConfig entity by ID if the given value is not nil.
+func (su *SiteUpdate) SetNillablePerformanceConfigID(id *int64) *SiteUpdate {
+	if id != nil {
+		su = su.SetPerformanceConfigID(*id)
+	}
+	return su
+}
+
+// SetPerformanceConfig sets the "performance_config" edge to the SitePerformanceConfig entity.
+func (su *SiteUpdate) SetPerformanceConfig(s *SitePerformanceConfig) *SiteUpdate {
+	return su.SetPerformanceConfigID(s.ID)
+}
+
 // SetHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by ID.
 func (su *SiteUpdate) SetHeatmapConfigID(id int64) *SiteUpdate {
 	su.mutation.SetHeatmapConfigID(id)
@@ -524,6 +544,12 @@ func (su *SiteUpdate) AddSavedPanels(s ...*SavedPanel) *SiteUpdate {
 // Mutation returns the SiteMutation object of the builder.
 func (su *SiteUpdate) Mutation() *SiteMutation {
 	return su.mutation
+}
+
+// ClearPerformanceConfig clears the "performance_config" edge to the SitePerformanceConfig entity.
+func (su *SiteUpdate) ClearPerformanceConfig() *SiteUpdate {
+	su.mutation.ClearPerformanceConfig()
+	return su
 }
 
 // ClearHeatmapConfig clears the "heatmap_config" edge to the HeatmapConfig entity.
@@ -949,6 +975,35 @@ func (su *SiteUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if su.mutation.VerifiedAtCleared() {
 		_spec.ClearField(site.FieldVerifiedAt, field.TypeTime)
+	}
+	if su.mutation.PerformanceConfigCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   site.PerformanceConfigTable,
+			Columns: []string{site.PerformanceConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(siteperformanceconfig.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := su.mutation.PerformanceConfigIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   site.PerformanceConfigTable,
+			Columns: []string{site.PerformanceConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(siteperformanceconfig.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if su.mutation.HeatmapConfigCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1820,6 +1875,25 @@ func (suo *SiteUpdateOne) ClearVerifiedAt() *SiteUpdateOne {
 	return suo
 }
 
+// SetPerformanceConfigID sets the "performance_config" edge to the SitePerformanceConfig entity by ID.
+func (suo *SiteUpdateOne) SetPerformanceConfigID(id int64) *SiteUpdateOne {
+	suo.mutation.SetPerformanceConfigID(id)
+	return suo
+}
+
+// SetNillablePerformanceConfigID sets the "performance_config" edge to the SitePerformanceConfig entity by ID if the given value is not nil.
+func (suo *SiteUpdateOne) SetNillablePerformanceConfigID(id *int64) *SiteUpdateOne {
+	if id != nil {
+		suo = suo.SetPerformanceConfigID(*id)
+	}
+	return suo
+}
+
+// SetPerformanceConfig sets the "performance_config" edge to the SitePerformanceConfig entity.
+func (suo *SiteUpdateOne) SetPerformanceConfig(s *SitePerformanceConfig) *SiteUpdateOne {
+	return suo.SetPerformanceConfigID(s.ID)
+}
+
 // SetHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by ID.
 func (suo *SiteUpdateOne) SetHeatmapConfigID(id int64) *SiteUpdateOne {
 	suo.mutation.SetHeatmapConfigID(id)
@@ -2022,6 +2096,12 @@ func (suo *SiteUpdateOne) AddSavedPanels(s ...*SavedPanel) *SiteUpdateOne {
 // Mutation returns the SiteMutation object of the builder.
 func (suo *SiteUpdateOne) Mutation() *SiteMutation {
 	return suo.mutation
+}
+
+// ClearPerformanceConfig clears the "performance_config" edge to the SitePerformanceConfig entity.
+func (suo *SiteUpdateOne) ClearPerformanceConfig() *SiteUpdateOne {
+	suo.mutation.ClearPerformanceConfig()
+	return suo
 }
 
 // ClearHeatmapConfig clears the "heatmap_config" edge to the HeatmapConfig entity.
@@ -2477,6 +2557,35 @@ func (suo *SiteUpdateOne) sqlSave(ctx context.Context) (_node *Site, err error) 
 	}
 	if suo.mutation.VerifiedAtCleared() {
 		_spec.ClearField(site.FieldVerifiedAt, field.TypeTime)
+	}
+	if suo.mutation.PerformanceConfigCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   site.PerformanceConfigTable,
+			Columns: []string{site.PerformanceConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(siteperformanceconfig.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := suo.mutation.PerformanceConfigIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   site.PerformanceConfigTable,
+			Columns: []string{site.PerformanceConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(siteperformanceconfig.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if suo.mutation.HeatmapConfigCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -33,6 +33,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/siteperformanceconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/subaccount"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/systemconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
@@ -120,6 +121,7 @@ func checkColumn(table, column string) error {
 			shieldrulesreferrer.Table:    shieldrulesreferrer.ValidColumn,
 			site.Table:                   site.ValidColumn,
 			sitemembership.Table:         sitemembership.ValidColumn,
+			siteperformanceconfig.Table:  siteperformanceconfig.ValidColumn,
 			subaccount.Table:             subaccount.ValidColumn,
 			systemconfig.Table:           systemconfig.ValidColumn,
 			user.Table:                   user.ValidColumn,

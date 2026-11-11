@@ -23,6 +23,7 @@ import (
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/shieldrulesreferrer"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/site"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/sitemembership"
+	"github.com/zenstats/zenstats/internal/store/postgresql/ent/siteperformanceconfig"
 	"github.com/zenstats/zenstats/internal/store/postgresql/ent/user"
 )
 
@@ -295,6 +296,25 @@ func (sc *SiteCreate) SetNillableVerifiedAt(t *time.Time) *SiteCreate {
 func (sc *SiteCreate) SetID(i int64) *SiteCreate {
 	sc.mutation.SetID(i)
 	return sc
+}
+
+// SetPerformanceConfigID sets the "performance_config" edge to the SitePerformanceConfig entity by ID.
+func (sc *SiteCreate) SetPerformanceConfigID(id int64) *SiteCreate {
+	sc.mutation.SetPerformanceConfigID(id)
+	return sc
+}
+
+// SetNillablePerformanceConfigID sets the "performance_config" edge to the SitePerformanceConfig entity by ID if the given value is not nil.
+func (sc *SiteCreate) SetNillablePerformanceConfigID(id *int64) *SiteCreate {
+	if id != nil {
+		sc = sc.SetPerformanceConfigID(*id)
+	}
+	return sc
+}
+
+// SetPerformanceConfig sets the "performance_config" edge to the SitePerformanceConfig entity.
+func (sc *SiteCreate) SetPerformanceConfig(s *SitePerformanceConfig) *SiteCreate {
+	return sc.SetPerformanceConfigID(s.ID)
 }
 
 // SetHeatmapConfigID sets the "heatmap_config" edge to the HeatmapConfig entity by ID.
@@ -769,6 +789,22 @@ func (sc *SiteCreate) createSpec() (*Site, *sqlgraph.CreateSpec) {
 	if value, ok := sc.mutation.VerifiedAt(); ok {
 		_spec.SetField(site.FieldVerifiedAt, field.TypeTime, value)
 		_node.VerifiedAt = &value
+	}
+	if nodes := sc.mutation.PerformanceConfigIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   site.PerformanceConfigTable,
+			Columns: []string{site.PerformanceConfigColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(siteperformanceconfig.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := sc.mutation.HeatmapConfigIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

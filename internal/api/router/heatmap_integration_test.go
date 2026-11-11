@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"github.com/zenstats/zenstats/config"
 	"github.com/zenstats/zenstats/internal/auth"
 	"github.com/zenstats/zenstats/internal/heatmap"
+	p "github.com/zenstats/zenstats/internal/performance"
 	"github.com/zenstats/zenstats/internal/service"
 	cl "github.com/zenstats/zenstats/internal/store/clickhouse"
 	"github.com/zenstats/zenstats/internal/store/clickhouse/repository"
@@ -69,9 +71,14 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 	if err := cl.EnsureHeatmapTables(ctx, conn); err != nil {
 		t.Fatal(err)
 	}
+	if err := cl.EnsurePerformanceTables(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
 	storage := t.TempDir()
 	s := service.NewHeatmapService(db, repository.NewHeatmap(conn), storage)
 	defer s.Shutdown()
+	performanceService := service.NewPerformanceService(db, s)
+	defer performanceService.Shutdown()
 	owner, err := db.Client.User.Create().SetEmail("owner@example.test").SetIsAdmin(true).Save(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -126,6 +133,7 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	registerHeatmapRouterWithService(r.Group("/api"), s)
+	registerPerformanceRouterWithService(r.Group("/api"), performanceService)
 	call := func(method, url, token, contentType string, body []byte) *httptest.ResponseRecorder {
 		t.Helper()
 		req := httptest.NewRequest(method, url, bytes.NewReader(body))
@@ -135,7 +143,11 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 		if token != "" {
 			req.Header.Set("Authorization", "Bearer "+token)
 		}
-		if strings.HasPrefix(url, "/api/heatmap/clicks") {
+		if strings.HasPrefix(url, "/api/heatmap/clicks") || strings.HasPrefix(url, "/api/heatmap/scroll") {
+			req.Header.Set("Origin", "https://example.test")
+		}
+		if strings.HasPrefix(url, "/api/performance/reports") {
+			req.RemoteAddr = "127.0.0.1:1234"
 			req.Header.Set("Origin", "https://example.test")
 		}
 		res := httptest.NewRecorder()
@@ -209,6 +221,224 @@ func TestHeatmapAPIIntegration(t *testing.T) {
 		from, to, err := s.DateRange(ctx, site.ID, "2026-11-09", "2026-11-09")
 		if err != nil || from.Format(time.RFC3339) != "2026-11-08T18:15:00Z" || to.Sub(from) != 24*time.Hour {
 			t.Fatal(from, to, err)
+		}
+	})
+	t.Run("scroll snapshots authorization retention and independent transport", func(t *testing.T) {
+		now := time.Now().UTC()
+		report := heatmap.ScrollReport{ID: uuid.New(), PageViewID: uuid.New(), StartedAt: now, Timestamp: now, Revision: 1, Page: page, MaxBottom: 600, MaxHeight: 1600}
+		batch := heatmap.ScrollBatch{Version: 1, Domain: site.Domain, ID: uuid.New(), SampleRate: 1, Reports: []heatmap.ScrollReport{report}}
+		post := func(b heatmap.ScrollBatch) *httptest.ResponseRecorder {
+			return call("POST", "/api/heatmap/scroll", "", "text/plain", encode(b))
+		}
+		if got := post(batch).Code; got != 403 {
+			t.Fatal(got)
+		}
+		cfg.ScrollEnabled = true
+		if got := code(call("PUT", base+"/config", viewerToken, "application/json", encode(cfg))); got != 403 {
+			t.Fatal(got)
+		}
+		if got := code(call("PUT", base+"/config", token, "application/json", encode(cfg))); got != 200 {
+			t.Fatal(got)
+		}
+		saved, err := s.Config(ctx, site.ID)
+		if err != nil || !saved.ScrollEnabled || !saved.ClicksEnabled {
+			t.Fatal(saved, err)
+		}
+		var capability struct {
+			ScrollEnabled bool `json:"scroll_enabled"`
+			ScrollVersion int  `json:"scroll_protocol_version"`
+		}
+		res := call("GET", "/api/heatmap/config?domain=example.test", "", "", nil)
+		if err := json.Unmarshal(res.Body.Bytes(), &capability); err != nil || !capability.ScrollEnabled || capability.ScrollVersion != 1 {
+			t.Fatal(res.Body.String(), err)
+		}
+		invalid := batch
+		invalid.Reports = append([]heatmap.ScrollReport{}, report, report)
+		invalid.Reports[1].ID = uuid.New()
+		invalid.Reports[1].Revision = 0
+		if got := post(invalid).Code; got != 400 {
+			t.Fatal(got)
+		}
+		invalid.Reports = append([]heatmap.ScrollReport{}, report)
+		invalid.Reports[0].Page.Hostname = "unrelated.test"
+		if got := post(invalid).Code; got != 403 {
+			t.Fatal(got)
+		}
+		request := httptest.NewRequest("POST", "/api/heatmap/scroll", bytes.NewReader(encode(batch)))
+		request.Header.Set("Origin", "https://unrelated.test")
+		response := httptest.NewRecorder()
+		r.ServeHTTP(response, request)
+		if response.Code != 403 {
+			t.Fatal(response.Code)
+		}
+		for range 2 {
+			if got := post(batch).Code; got != 202 {
+				t.Fatal(got)
+			}
+		}
+		batch.Reports[0].ID = uuid.New()
+		batch.Reports[0].Revision = 2
+		batch.Reports[0].MaxBottom = 1200
+		if got := post(batch).Code; got != 202 {
+			t.Fatal(got)
+		}
+		s.ScrollCollector.Shutdown()
+		quality := s.ScrollCollector.Snapshot()
+		if quality.Accepted != 3 || quality.Persisted != 3 || quality.Pending != 0 || quality.Failed != 0 {
+			t.Fatalf("%+v", quality)
+		}
+		loc, _ := time.LoadLocation(saved.Timezone)
+		today := now.In(loc).Format("2006-01-02")
+		query := "?start=" + today + "&end=" + today
+		for _, suffix := range []string{"/scroll/pages" + query, "/scroll/data" + query + "&page=" + url.QueryEscape(string(encode(page)))} {
+			if got := code(call("GET", base+suffix, otherToken, "", nil)); got != 404 {
+				t.Fatal(got)
+			}
+			if got := code(call("GET", base+suffix, "", "", nil)); got != 401 {
+				t.Fatal(got)
+			}
+			if got := code(call("GET", base+suffix, subToken, "", nil)); got != 200 {
+				t.Fatal(got)
+			}
+		}
+		res = call("GET", base+"/scroll/data"+query+"&page="+url.QueryEscape(string(encode(page))), viewerToken, "", nil)
+		var result struct {
+			Data heatmap.ScrollData `json:"data"`
+		}
+		if err := json.Unmarshal(res.Body.Bytes(), &result); err != nil || result.Data.SampledViews != 1 || result.Data.ValidViews != 1 || result.Data.AverageMaxDepth != 75 || len(result.Data.Regions) != 80 {
+			t.Fatal(res.Body.String(), err)
+		}
+		old := now.In(loc).AddDate(0, 0, -8).Format("2006-01-02")
+		if got := code(call("GET", base+"/scroll/pages?start="+old+"&end="+today, token, "", nil)); got != 400 {
+			t.Fatal(got)
+		}
+		if got := code(call("GET", "/api/admin/scroll-quality", viewerToken, "", nil)); got != 403 {
+			t.Fatal(got)
+		}
+		if got := code(call("GET", "/api/admin/scroll-quality", token, "", nil)); got != 200 {
+			t.Fatal(got)
+		}
+		if res := post(batch); res.Code != 503 || res.Header().Get("Retry-After") == "" {
+			t.Fatal(res.Code, res.Header())
+		}
+	})
+	t.Run("performance collection, missing metrics and permissions", func(t *testing.T) {
+		base := "/api/sites/example.test/performance"
+		now := time.Now().UTC()
+		value := 9000.
+		contextReport := p.Report{ID: uuid.New(), LifecycleID: uuid.New(), Kind: "context", Revision: 1, NavigationStartedAt: now, ReportedAt: now, Hostname: "example.test", Path: "/pricing", Release: "v1", NavigationType: "navigate", Supported: p.Names}
+		metric := contextReport
+		metric.Kind = "metric"
+		metric.ID = uuid.New()
+		metric.MetricName = "LCP"
+		metric.MetricID = "v6-test"
+		metric.Value = &value
+		metric.Supported = nil
+		batch := p.Batch{Version: 1, Domain: site.Domain, ID: uuid.New(), SampleRate: 1, ConfigVersion: 1, Reports: []p.Report{contextReport, metric}}
+		post := func(b p.Batch) *httptest.ResponseRecorder {
+			return call("POST", "/api/performance/reports", "", "text/plain", encode(b))
+		}
+		if got := post(batch).Code; got != 403 {
+			t.Fatal(got)
+		}
+		if got := code(call("GET", base+"/config", "", "", nil)); got != 401 {
+			t.Fatal(got)
+		}
+		if got := code(call("GET", base+"/config", otherToken, "", nil)); got != 404 {
+			t.Fatal(got)
+		}
+		cfg := p.DefaultConfig()
+		cfg.Enabled = true
+		cfg.Paths = []string{"/pricing"}
+		cfg.SampleRate = 1
+		for _, tok := range []string{viewerToken, subToken} {
+			if got := code(call("PUT", base+"/config", tok, "application/json", encode(cfg))); got != 403 {
+				t.Fatal(got)
+			}
+		}
+		res := call("PUT", base+"/config", token, "application/json", encode(cfg))
+		if code(res) != 200 {
+			t.Fatal(res.Body.String())
+		}
+		saved, err := performanceService.Config(ctx, site.ID)
+		if err != nil || saved.Version != 1 || !saved.Enabled {
+			t.Fatal(saved, err)
+		}
+		var capability struct {
+			Enabled bool   `json:"enabled"`
+			Version uint64 `json:"config_version"`
+		}
+		res = call("GET", "/api/performance/config?domain=example.test", "", "", nil)
+		if err := json.Unmarshal(res.Body.Bytes(), &capability); err != nil || !capability.Enabled || capability.Version != 1 {
+			t.Fatal(res.Body.String(), err)
+		}
+		invalid := batch
+		invalid.Reports = append([]p.Report{}, contextReport, metric)
+		invalid.Reports[1].MetricName = "FID"
+		if got := post(invalid).Code; got != 400 {
+			t.Fatal(got)
+		}
+		invalid.Reports[1].MetricName = "LCP"
+		invalid.Reports[1].Hostname = "unrelated.test"
+		if got := post(invalid).Code; got != 403 {
+			t.Fatal(got)
+		}
+		req := httptest.NewRequest("POST", "/api/performance/reports", bytes.NewReader(encode(batch)))
+		req.Header.Set("Origin", "https://unrelated.test")
+		recorder := httptest.NewRecorder()
+		r.ServeHTTP(recorder, req)
+		if recorder.Code != 403 {
+			t.Fatal(recorder.Code)
+		}
+		if res := call("POST", "/api/performance/reports", "", "text/plain", bytes.Repeat([]byte(" "), 17<<10)); res.Code != 413 {
+			t.Fatal(res.Code)
+		}
+		for range 2 {
+			if got := post(batch).Code; got != 202 {
+				t.Fatal(got)
+			}
+		}
+		value = 1500.
+		metric.Value = &value
+		metric.ID = uuid.New()
+		metric.Revision = 2
+		batch.Reports = []p.Report{metric}
+		if got := post(batch).Code; got != 202 {
+			t.Fatal(got)
+		}
+		performanceService.Collector.Shutdown()
+		quality := performanceService.Collector.Snapshot()
+		if quality.Accepted != 5 || quality.Persisted != 5 || quality.Pending != 0 {
+			t.Fatal(quality)
+		}
+		loc, _ := time.LoadLocation(saved.Timezone)
+		today := now.In(loc).Format("2006-01-02")
+		query := "/data?start=" + today + "&end=" + today
+		if got := code(call("GET", base+query, otherToken, "", nil)); got != 404 {
+			t.Fatal(got)
+		}
+		res = call("GET", base+query, subToken, "", nil)
+		var result struct {
+			Data p.Data `json:"data"`
+		}
+		if code(res) != 200 {
+			t.Fatal(res.Body.String())
+		}
+		if err := json.Unmarshal(res.Body.Bytes(), &result); err != nil || result.Data.Navigations != 1 || result.Data.Metrics[0].Samples != 1 || result.Data.Metrics[0].P75 == nil || *result.Data.Metrics[0].P75 != 1500 || result.Data.Metrics[1].P75 != nil || result.Data.Metrics[1].Good != 0 {
+			t.Fatal(res.Body.String(), err)
+		}
+		old := now.In(loc).AddDate(0, 0, -8).Format("2006-01-02")
+		if got := code(call("GET", base+"/data?start="+old+"&end="+today, token, "", nil)); got != 400 {
+			t.Fatal(got)
+		}
+		if got := code(call("GET", "/api/admin/performance-quality", viewerToken, "", nil)); got != 403 {
+			t.Fatal(got)
+		}
+		if got := code(call("GET", "/api/admin/performance-quality", token, "", nil)); got != 200 {
+			t.Fatal(got)
+		}
+		if res := post(batch); res.Code != 503 || res.Header().Get("Retry-After") == "" {
+			t.Fatal(res.Code, res.Header())
 		}
 	})
 	t.Run("atomic validation and no event session pipeline", func(t *testing.T) {

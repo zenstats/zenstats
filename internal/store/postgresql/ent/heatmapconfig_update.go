@@ -59,6 +59,34 @@ func (hcu *HeatmapConfigUpdate) SetNillableEnabled(b *bool) *HeatmapConfigUpdate
 	return hcu
 }
 
+// SetClicksEnabled sets the "clicks_enabled" field.
+func (hcu *HeatmapConfigUpdate) SetClicksEnabled(b bool) *HeatmapConfigUpdate {
+	hcu.mutation.SetClicksEnabled(b)
+	return hcu
+}
+
+// SetNillableClicksEnabled sets the "clicks_enabled" field if the given value is not nil.
+func (hcu *HeatmapConfigUpdate) SetNillableClicksEnabled(b *bool) *HeatmapConfigUpdate {
+	if b != nil {
+		hcu.SetClicksEnabled(*b)
+	}
+	return hcu
+}
+
+// SetScrollEnabled sets the "scroll_enabled" field.
+func (hcu *HeatmapConfigUpdate) SetScrollEnabled(b bool) *HeatmapConfigUpdate {
+	hcu.mutation.SetScrollEnabled(b)
+	return hcu
+}
+
+// SetNillableScrollEnabled sets the "scroll_enabled" field if the given value is not nil.
+func (hcu *HeatmapConfigUpdate) SetNillableScrollEnabled(b *bool) *HeatmapConfigUpdate {
+	if b != nil {
+		hcu.SetScrollEnabled(*b)
+	}
+	return hcu
+}
+
 // SetPaths sets the "paths" field.
 func (hcu *HeatmapConfigUpdate) SetPaths(s []string) *HeatmapConfigUpdate {
 	hcu.mutation.SetPaths(s)
@@ -267,6 +295,12 @@ func (hcu *HeatmapConfigUpdate) sqlSave(ctx context.Context) (n int, err error) 
 	if value, ok := hcu.mutation.Enabled(); ok {
 		_spec.SetField(heatmapconfig.FieldEnabled, field.TypeBool, value)
 	}
+	if value, ok := hcu.mutation.ClicksEnabled(); ok {
+		_spec.SetField(heatmapconfig.FieldClicksEnabled, field.TypeBool, value)
+	}
+	if value, ok := hcu.mutation.ScrollEnabled(); ok {
+		_spec.SetField(heatmapconfig.FieldScrollEnabled, field.TypeBool, value)
+	}
 	if value, ok := hcu.mutation.Paths(); ok {
 		_spec.SetField(heatmapconfig.FieldPaths, field.TypeJSON, value)
 	}
@@ -386,6 +420,34 @@ func (hcuo *HeatmapConfigUpdateOne) SetEnabled(b bool) *HeatmapConfigUpdateOne {
 func (hcuo *HeatmapConfigUpdateOne) SetNillableEnabled(b *bool) *HeatmapConfigUpdateOne {
 	if b != nil {
 		hcuo.SetEnabled(*b)
+	}
+	return hcuo
+}
+
+// SetClicksEnabled sets the "clicks_enabled" field.
+func (hcuo *HeatmapConfigUpdateOne) SetClicksEnabled(b bool) *HeatmapConfigUpdateOne {
+	hcuo.mutation.SetClicksEnabled(b)
+	return hcuo
+}
+
+// SetNillableClicksEnabled sets the "clicks_enabled" field if the given value is not nil.
+func (hcuo *HeatmapConfigUpdateOne) SetNillableClicksEnabled(b *bool) *HeatmapConfigUpdateOne {
+	if b != nil {
+		hcuo.SetClicksEnabled(*b)
+	}
+	return hcuo
+}
+
+// SetScrollEnabled sets the "scroll_enabled" field.
+func (hcuo *HeatmapConfigUpdateOne) SetScrollEnabled(b bool) *HeatmapConfigUpdateOne {
+	hcuo.mutation.SetScrollEnabled(b)
+	return hcuo
+}
+
+// SetNillableScrollEnabled sets the "scroll_enabled" field if the given value is not nil.
+func (hcuo *HeatmapConfigUpdateOne) SetNillableScrollEnabled(b *bool) *HeatmapConfigUpdateOne {
+	if b != nil {
+		hcuo.SetScrollEnabled(*b)
 	}
 	return hcuo
 }
@@ -627,6 +689,12 @@ func (hcuo *HeatmapConfigUpdateOne) sqlSave(ctx context.Context) (_node *Heatmap
 	}
 	if value, ok := hcuo.mutation.Enabled(); ok {
 		_spec.SetField(heatmapconfig.FieldEnabled, field.TypeBool, value)
+	}
+	if value, ok := hcuo.mutation.ClicksEnabled(); ok {
+		_spec.SetField(heatmapconfig.FieldClicksEnabled, field.TypeBool, value)
+	}
+	if value, ok := hcuo.mutation.ScrollEnabled(); ok {
+		_spec.SetField(heatmapconfig.FieldScrollEnabled, field.TypeBool, value)
 	}
 	if value, ok := hcuo.mutation.Paths(); ok {
 		_spec.SetField(heatmapconfig.FieldPaths, field.TypeJSON, value)

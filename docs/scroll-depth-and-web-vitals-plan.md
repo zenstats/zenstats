@@ -1,8 +1,32 @@
 # 滚动深度热力图与 Web Vitals：调研及实施规划
 
-调研日期：2026-11-10。状态：设计建议，尚未实施采集、数据库和页面功能。
+调研日期：2026-11-10。状态：滚动深度第一阶段与 Core Web Vitals 首版已实现并在本地验证；历史封账汇总与生产规模压测尚未完成。
 
 本文补充 `feature-roadmap-and-specifications.md`，作为这两项功能的实施依据。Web 任务见 [Web 实施规划](../../zenstats-web/docs/scroll-depth-and-web-vitals-plan.md)。
+
+## 已实现范围：滚动深度第一阶段
+
+- 热力图总开关下新增独立 `clicks_enabled`（默认 true）和 `scroll_enabled`（默认 false）。升级需执行 PostgreSQL `migrate`；ClickHouse 启动时幂等创建 `heatmap_scroll_reports`。
+- Tracker 在安装页选择热力图构建项，使用 `script.heatmap.js` 或匹配的自定义／Hash变体，并保留 `data-heatmap="true"`，更新自托管 `heatmap.js` 后根据能力字段启用滚动。未开启滚动时不发送滚动报告；页面未点击、未滚动也记录初始可见样本。
+- `POST /api/heatmap/scroll` 使用独立有界队列、原子批校验、站点／Origin／屏蔽校验、有限重试和管理员质量计数。**202 表示进入内存队列，不能视为落库成功**；质量计数记录报告条数，去重后的浏览数由查询产生。
+- `GET /api/sites/:domain/heatmap/scroll/pages` 与 `/scroll/data` 只允许查询最近 `min(raw_days, 7)` 个自然日，使用冻结站点时区。沿用读权限，跨站成员不可访问；`GET /api/admin/scroll-quality` 仅管理员可读。
+- 浏览 ID 只存内存；报告最多12个 revision。查询先按浏览解析最新整条快照，再按维度过滤；不依赖后台合并，也不会把重试或每次增量上报累加为新浏览。
+- 页面最大高度增长超过初始高度25%、报告截断、不支持布局的浏览不计入有效分母。标记可能重叠；延迟初始化保留在样本中并单独提示。比例表示实际采样浏览的几何触达，不能外推为独立访客、阅读完成率或元素曝光。
+- Web 提供独立滚动页面列表、80段色带、25/50/75/100%触达卡、平均初始首屏线、质量标记与无截图查看，复用聚合标识、设备、版本及截图。
+- 点击／滚动复用热力图专用两连接池及一个查询槽；查询继续限制单线程、5秒、128MiB。保留PV、UV、Session及原有 engagement 滚动指标口径。
+- 当前不支持滚动的90天历史聚合；`aggregate_days` 仍只控制原有点击聚合。后续任务按下文分阶段推进，不应把以下设计视为全部已交付。
+
+## 已实现范围：Core Web Vitals 首版
+
+- 独立站点配置默认关闭；Tracker 需选择性能构建项，使用 `script.performance.js` 或匹配的自定义／Hash变体，并显式设置 `data-performance="true"`。默认脚本不含热力图或性能加载器，仅添加属性不会生效。锁定官方 `web-vitals@6.2.3`，采集 LCP、INP、CLS，并提供 TTFB、FCP 辅助指标；不增加普通 PV、UV、Session 或业务事件计数。
+- PostgreSQL `site_performance_configs` 保存采样率、路径白名单、1～7天保留期及配置版本；执行 `migrate` 更新。ClickHouse 创建独立 `web_vitals_reports`，采用 TTL 清理原始报告。
+- `GET /api/performance/config` 与 `POST /api/performance/reports` 提供公开能力配置和独立采集；单批最多20条、16KiB，原子校验、独立限流和有界队列。**202 仅表示进入内存队列，不能推断落库成功**。管理员在采集质量页面及 `/api/admin/performance-quality` 查看接收、待写、持久化、重试和丢弃计数。
+- `GET/PUT /api/sites/:domain/performance/config` 沿用站点读权限及所有者/管理员写权限，子账号只读；`GET /api/sites/:domain/performance/data` 提供 P75、分级、覆盖率、每日趋势和慢页面排行，支持设备、路径、主机、版本、浏览器、国家及导航类型筛选。
+- 按文档导航采集，SPA 路由切换保留初始文档 URL；BFCache 恢复新建生命周期。浏览身份仅保存在内存，不采集 DOM、资源 URL 或持久化用户 ID；不启用 soft navigation、attribution 或 reportAllChanges。
+- 查询先按指标实例解析最新整条 revision，再过滤和计算原始样本 P75；不取最大值、不平均每日 P75。缺失 INP 保持空，CLS=0 有效；后台初始化和截断指标排除有效分母，延迟初始化单列提示；三项核心指标任一不足100有效样本时整体显示“数据不足”（产品展示门槛）。
+- 仅查询冻结站点时区下最近 `raw_days` 个自然日（最多7天）；混合采样率与配置版本会提示。历史封账、30/90天聚合及生产规模压测尚未交付。
+- 与点击/滚动共用专用两连接池及一个查询槽，查询限制单线程、5秒、128MiB；结果缓存5秒、最多100组条件。
+- Web 入口：**统计页面 → Core Web Vitals**；**站点设置 → 性能监控设置 → 查看性能监控**。接入步骤见 Web 文档的性能监控章节。
 
 ## 1. 调研结论
 

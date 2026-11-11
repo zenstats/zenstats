@@ -34,15 +34,16 @@ var ErrHeatmapNotFound = errors.New("heatmap snapshot not found")
 var ErrHeatmapInvalid = errors.New("invalid heatmap snapshot")
 
 type HeatmapService struct {
-	db        *postgresql.Client
-	Repo      *repository.Heatmap
-	Collector *heatmap.Collector
-	configs   *expirable.LRU[int64, heatmap.Config]
-	directory string
-	queries   chan struct{}
-	captures  chan struct{}
-	filesMu   sync.Mutex
-	closeConn func() error
+	db              *postgresql.Client
+	Repo            *repository.Heatmap
+	Collector       *heatmap.Collector
+	ScrollCollector *heatmap.BatchCollector[heatmap.ScrollRow]
+	configs         *expirable.LRU[int64, heatmap.Config]
+	directory       string
+	queries         chan struct{}
+	captures        chan struct{}
+	filesMu         sync.Mutex
+	closeConn       func() error
 }
 
 var GetHeatmapService = sync.OnceValue(func() *HeatmapService {
@@ -57,19 +58,20 @@ var GetHeatmapService = sync.OnceValue(func() *HeatmapService {
 
 func (s *HeatmapService) Shutdown() {
 	s.Collector.Shutdown()
+	s.ScrollCollector.Shutdown()
 	if s.closeConn != nil {
 		_ = s.closeConn()
 	}
 }
 
 func NewHeatmapService(db *postgresql.Client, repo *repository.Heatmap, dataPath string) *HeatmapService {
-	return &HeatmapService{db: db, Repo: repo, Collector: heatmap.NewCollector(repo),
+	return &HeatmapService{db: db, Repo: repo, Collector: heatmap.NewCollector(repo), ScrollCollector: heatmap.NewBatchCollector[heatmap.ScrollRow](repository.NewScrollWriter(repo)),
 		configs:   expirable.NewLRU[int64, heatmap.Config](1000, nil, 10*time.Second),
-		directory: filepath.Join(dataPath, "heatmaps"), queries: make(chan struct{}, 2), captures: make(chan struct{}, 1)}
+		directory: filepath.Join(dataPath, "heatmaps"), queries: make(chan struct{}, 1), captures: make(chan struct{}, 1)}
 }
 
 func configFromEntity(r *ent.HeatmapConfig) heatmap.Config {
-	return heatmap.Config{Enabled: r.Enabled, Paths: r.Paths, Groups: r.Groups, SampleRate: r.SampleRate, MaxClicks: r.MaxClicks, RawDays: r.RawDays, AggregateDays: r.AggregateDays, Timezone: r.Timezone}
+	return heatmap.Config{Enabled: r.Enabled, ScrollEnabled: r.ScrollEnabled, ClicksEnabled: r.ClicksEnabled, Paths: r.Paths, Groups: r.Groups, SampleRate: r.SampleRate, MaxClicks: r.MaxClicks, RawDays: r.RawDays, AggregateDays: r.AggregateDays, Timezone: r.Timezone}
 }
 
 func (s *HeatmapService) CanWrite(ctx context.Context, siteID, userID int64) (bool, error) {
@@ -121,7 +123,7 @@ func (s *HeatmapService) SaveConfig(ctx context.Context, siteID int64, cfg heatm
 		if err := cfg.Validate(); err != nil {
 			return cfg, err
 		}
-		r, err = s.db.Client.HeatmapConfig.Create().SetSiteID(siteID).SetEnabled(cfg.Enabled).SetPaths(cfg.Paths).SetGroups(cfg.Groups).
+		r, err = s.db.Client.HeatmapConfig.Create().SetSiteID(siteID).SetEnabled(cfg.Enabled).SetScrollEnabled(cfg.ScrollEnabled).SetClicksEnabled(cfg.ClicksEnabled).SetPaths(cfg.Paths).SetGroups(cfg.Groups).
 			SetSampleRate(cfg.SampleRate).SetMaxClicks(cfg.MaxClicks).SetRawDays(cfg.RawDays).SetAggregateDays(cfg.AggregateDays).SetTimezone(cfg.Timezone).Save(ctx)
 		if err != nil {
 			return cfg, err
@@ -136,7 +138,7 @@ func (s *HeatmapService) SaveConfig(ctx context.Context, siteID int64, cfg heatm
 		if err := cfg.Validate(); err != nil {
 			return cfg, err
 		}
-		r, err = s.db.Client.HeatmapConfig.UpdateOne(r).SetEnabled(cfg.Enabled).SetPaths(cfg.Paths).SetGroups(cfg.Groups).
+		r, err = s.db.Client.HeatmapConfig.UpdateOne(r).SetEnabled(cfg.Enabled).SetScrollEnabled(cfg.ScrollEnabled).SetClicksEnabled(cfg.ClicksEnabled).SetPaths(cfg.Paths).SetGroups(cfg.Groups).
 			SetSampleRate(cfg.SampleRate).SetMaxClicks(cfg.MaxClicks).SetRawDays(cfg.RawDays).SetAggregateDays(cfg.AggregateDays).Save(ctx)
 		if err != nil {
 			return cfg, err

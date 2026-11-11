@@ -88,6 +88,7 @@ the address is defined in config file`,
 			_ = httpSrv.Close()
 		}
 		event.Shutdown()
+		service.GetPerformanceService().Shutdown()
 		service.GetHeatmapService().Shutdown()
 
 		// 落盘内存中的月度配额计数，再释放 DB。

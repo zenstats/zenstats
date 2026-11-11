@@ -261,6 +261,18 @@ func (f SiteMembershipFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Val
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SiteMembershipMutation", m)
 }
 
+// The SitePerformanceConfigFunc type is an adapter to allow the use of ordinary
+// function as SitePerformanceConfig mutator.
+type SitePerformanceConfigFunc func(context.Context, *ent.SitePerformanceConfigMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SitePerformanceConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SitePerformanceConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SitePerformanceConfigMutation", m)
+}
+
 // The SubAccountFunc type is an adapter to allow the use of ordinary
 // function as SubAccount mutator.
 type SubAccountFunc func(context.Context, *ent.SubAccountMutation) (ent.Value, error)
