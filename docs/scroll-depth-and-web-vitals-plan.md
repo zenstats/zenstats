@@ -7,7 +7,7 @@
 ## 已实现范围：滚动深度第一阶段
 
 - 热力图总开关下新增独立 `clicks_enabled`（默认 true）和 `scroll_enabled`（默认 false）。升级需执行 PostgreSQL `migrate`；ClickHouse 启动时幂等创建 `heatmap_scroll_reports`。
-- Tracker 沿用 `data-heatmap="true"`，更新自托管 `heatmap.js` 后即可根据新能力字段启用滚动。未开启滚动时不发送滚动报告；页面未点击、未滚动也记录初始可见样本。
+- Tracker 在安装页选择热力图构建项，使用 `script.heatmap.js` 或匹配的自定义／Hash变体，并保留 `data-heatmap="true"`，更新自托管 `heatmap.js` 后根据能力字段启用滚动。未开启滚动时不发送滚动报告；页面未点击、未滚动也记录初始可见样本。
 - `POST /api/heatmap/scroll` 使用独立有界队列、原子批校验、站点／Origin／屏蔽校验、有限重试和管理员质量计数。**202 表示进入内存队列，不能视为落库成功**；质量计数记录报告条数，去重后的浏览数由查询产生。
 - `GET /api/sites/:domain/heatmap/scroll/pages` 与 `/scroll/data` 只允许查询最近 `min(raw_days, 7)` 个自然日，使用冻结站点时区。沿用读权限，跨站成员不可访问；`GET /api/admin/scroll-quality` 仅管理员可读。
 - 浏览 ID 只存内存；报告最多12个 revision。查询先按浏览解析最新整条快照，再按维度过滤；不依赖后台合并，也不会把重试或每次增量上报累加为新浏览。
@@ -18,7 +18,7 @@
 
 ## 已实现范围：Core Web Vitals 首版
 
-- 独立站点配置默认关闭；Tracker 需显式设置 `data-performance="true"`。锁定官方 `web-vitals@6.2.3`，采集 LCP、INP、CLS，并提供 TTFB、FCP 辅助指标；不增加普通 PV、UV、Session 或业务事件计数。
+- 独立站点配置默认关闭；Tracker 需选择性能构建项，使用 `script.performance.js` 或匹配的自定义／Hash变体，并显式设置 `data-performance="true"`。默认脚本不含热力图或性能加载器，仅添加属性不会生效。锁定官方 `web-vitals@6.2.3`，采集 LCP、INP、CLS，并提供 TTFB、FCP 辅助指标；不增加普通 PV、UV、Session 或业务事件计数。
 - PostgreSQL `site_performance_configs` 保存采样率、路径白名单、1～7天保留期及配置版本；执行 `migrate` 更新。ClickHouse 创建独立 `web_vitals_reports`，采用 TTL 清理原始报告。
 - `GET /api/performance/config` 与 `POST /api/performance/reports` 提供公开能力配置和独立采集；单批最多20条、16KiB，原子校验、独立限流和有界队列。**202 仅表示进入内存队列，不能推断落库成功**。管理员在采集质量页面及 `/api/admin/performance-quality` 查看接收、待写、持久化、重试和丢弃计数。
 - `GET/PUT /api/sites/:domain/performance/config` 沿用站点读权限及所有者/管理员写权限，子账号只读；`GET /api/sites/:domain/performance/data` 提供 P75、分级、覆盖率、每日趋势和慢页面排行，支持设备、路径、主机、版本、浏览器、国家及导航类型筛选。
