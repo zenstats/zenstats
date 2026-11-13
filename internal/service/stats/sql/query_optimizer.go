@@ -79,7 +79,9 @@ func (qo *QueryOptimizer) copyQuery(query *types.Query) *types.Query {
 }
 
 func (qo *QueryOptimizer) maybeAddVisitorsMetric(metrics []string) []string {
-	if containsMetric(metrics, "visitors") {
+	// Event-name discovery requests counts only. Adding an exact visitor set
+	// makes its memory usage grow with traffic even though UV is never used.
+	if containsMetric(metrics, "visitors") || (len(metrics) == 1 && metrics[0] == "events") {
 		return metrics
 	}
 	return append([]string{"visitors"}, metrics...)
