@@ -393,7 +393,7 @@ export ZENSTATS_GEOIP_MIRROR=https://github.com/Loyalsoldier/geoip/releases/late
 
 ### "go: command not found" 或 Go 版本错误
 
-安装 Go ≥ 1.24: [go.dev/dl](https://go.dev/dl/)
+安装 Go ≥ 1.25: [go.dev/dl](https://go.dev/dl/)
 验证: `go version`
 
 ### 端口冲突
@@ -434,7 +434,9 @@ go run main.go server
 
 - [Swagger API 文档](http://localhost:8080/swagger/index.html)
 - [统计 API](docs/api-stats.md)
+- [用户流向设计](docs/user-flows.md)
 - [IP 分类配置](docs/ip-classification.md)
+- [GeoIP 质量说明](docs/geoip-quality.md)
 - [优化路线图](docs/optimization-roadmap.md)
 - [系统架构](https://github.com/zenstats/zenstats-deploy/blob/main/docs/architecture.md) (zenstats-deploy)
 - [部署指南](https://github.com/zenstats/zenstats-deploy/blob/main/docs/DEPLOY.md) (zenstats-deploy)

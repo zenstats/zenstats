@@ -392,7 +392,7 @@ Or leave `ZENSTATS_MAXMIND_LICENSE_KEY` empty — the app will use a free fallba
 
 ### "go: command not found" or wrong Go version
 
-Install Go ≥ 1.24: [go.dev/dl](https://go.dev/dl/)
+Install Go ≥ 1.25: [go.dev/dl](https://go.dev/dl/)
 Verify: `go version`
 
 ### Port conflicts
@@ -433,7 +433,9 @@ go run main.go server
 
 - [Swagger API Docs](http://localhost:8080/swagger/index.html)
 - [Statistics API](docs/api-stats.md)
+- [User Flows Architecture](docs/user-flows.md)
 - [IP Classification Configuration](docs/ip-classification.md)
+- [GeoIP Quality](docs/geoip-quality.md)
 - [Optimization Roadmap](docs/optimization-roadmap.md)
 - [System Architecture](https://github.com/zenstats/zenstats-deploy/blob/main/docs/architecture.md) (zenstats-deploy)
 - [Deployment Guide](https://github.com/zenstats/zenstats-deploy/blob/main/docs/DEPLOY.md) (zenstats-deploy)
