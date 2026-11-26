@@ -3,6 +3,7 @@ package funnel
 import (
 	"context"
 	"errors"
+	"github.com/zenstats/zenstats/config"
 	"strings"
 	"testing"
 	"time"
@@ -38,7 +39,10 @@ func TestBuildFunnelQueryUsesMinOrNullIf(t *testing.T) {
 		StartTime: time.Now().Add(-24 * time.Hour),
 		EndTime:   time.Now(),
 	}
-	query, args := svc.buildFunnelQuery(req)
+	query, args, err := svc.buildFunnelQuery(req)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if strings.Contains(query, "minIf(") {
 		t.Fatalf("query must not use minIf (returns epoch instead of NULL for non-matching users):\n%s", query)
@@ -56,5 +60,21 @@ func TestBuildFunnelQueryUsesMinOrNullIf(t *testing.T) {
 	// 页面目标应限定 pageview + pathname 精确匹配
 	if !strings.Contains(query, "(name = 'pageview' AND pathname = ?)") {
 		t.Fatalf("page goal condition missing:\n%s", query)
+	}
+}
+
+func TestBuildFunnelQueryDatabase(t *testing.T) {
+	old := config.Conf.Clickhouse.Database
+	t.Cleanup(func() { config.Conf.Clickhouse.Database = old })
+	svc := &AnalysisService{}
+	req := &AnalysisRequest{Steps: []*FunnelStep{{GoalValue: "one"}, {GoalValue: "two"}}}
+	config.Conf.Clickhouse.Database = "custom_funnel"
+	query, _, err := svc.buildFunnelQuery(req)
+	if err != nil || !strings.Contains(query, "FROM custom_funnel.events") {
+		t.Fatalf("%s: %v", query, err)
+	}
+	config.Conf.Clickhouse.Database = "invalid;db"
+	if _, _, err := svc.buildFunnelQuery(req); err == nil {
+		t.Fatal("invalid database accepted")
 	}
 }

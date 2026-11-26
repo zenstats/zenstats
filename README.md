@@ -318,8 +318,8 @@ zenstats/
 
 Settings come from embedded `config.yaml` + `ZENSTATS_` environment variable overrides.
 
-On startup the effective config is written to `config/config_<env>.yaml` (auto-generated, gitignored).
-You can also manually place a `config/config_<env>.yaml` file to override embedded defaults.
+Configuration loading does not write files. You can manually place a
+`config/config_<env>.yaml` file to override embedded defaults.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|

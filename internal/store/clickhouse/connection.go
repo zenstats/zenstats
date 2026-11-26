@@ -19,10 +19,14 @@ var (
 
 func initialize() {
 	ctx := context.Background()
+	database, err := DatabaseName()
+	if err != nil {
+		panic(err)
+	}
 	clickhouseCfg := &clickhouse.Options{
 		Addr: config.Conf.Clickhouse.Addr,
 		Auth: clickhouse.Auth{
-			Database: config.Conf.Clickhouse.Database,
+			Database: database,
 			Username: config.Conf.Clickhouse.Username,
 			Password: config.Conf.Clickhouse.Password,
 		},
@@ -61,9 +65,13 @@ func GetConnection() driver.Conn {
 // NewHeatmapConnection reserves a small pool for optional heatmap work so its
 // queries cannot exhaust connections used by events and session restoration.
 func NewHeatmapConnection() (driver.Conn, error) {
+	database, err := DatabaseName()
+	if err != nil {
+		return nil, err
+	}
 	opts := &clickhouse.Options{
 		Addr:        config.Conf.Clickhouse.Addr,
-		Auth:        clickhouse.Auth{Database: config.Conf.Clickhouse.Database, Username: config.Conf.Clickhouse.Username, Password: config.Conf.Clickhouse.Password},
+		Auth:        clickhouse.Auth{Database: database, Username: config.Conf.Clickhouse.Username, Password: config.Conf.Clickhouse.Password},
 		DialTimeout: 2 * time.Second, ReadTimeout: 6 * time.Second,
 		MaxOpenConns: 2, MaxIdleConns: 1,
 	}

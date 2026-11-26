@@ -60,11 +60,15 @@ func (g *Generator) Run(ctx context.Context, opts RunOptions) error {
 
 	// 清空已有数据
 	if opts.Clean {
+		database, err := cl.DatabaseName()
+		if err != nil {
+			return err
+		}
 		fmt.Println("清空已有 ClickHouse 数据...")
 		conn := cl.GetConnection()
 		if conn != nil {
 			for _, table := range []string{"events", "sessions", "location_data"} {
-				if err := conn.Exec(ctx, fmt.Sprintf("TRUNCATE TABLE zenstats_events_db.%s", table)); err != nil {
+				if err := conn.Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s.%s", database, table)); err != nil {
 					fmt.Printf("  清空 %s 失败（可忽略）: %v\n", table, err)
 				}
 			}

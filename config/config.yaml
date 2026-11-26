@@ -19,6 +19,18 @@ default: &default
   maxmind_license_key: ""
   geoip_mirror: ""
   base_url: ""
+  trusted_proxies: []
+  rate_limit:
+    auth_per_minute: 15 # <= 0 disables limiting
+  stats:
+    max_concurrent: 8
+    max_threads: 2
+    max_memory_usage: 268435456
+    max_execution_time: 20
+    query_timeout_seconds: 30
+    cache_enabled: true
+    cache_ttl_seconds: 15
+    cache_max_entries: 1000
   heatmap:
     screenshot_url: ""
     screenshot_token: ""
@@ -29,6 +41,8 @@ clickhouse_default: &ch_default
   username: default
   password: ""
   ssl: false
+  events_ttl_days: 730 # 0 disables TTL management
+  sessions_ttl_days: 730 # 0 disables TTL management
 
 dev:
   <<: *default

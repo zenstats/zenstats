@@ -20,6 +20,7 @@ import (
 	"github.com/zenstats/zenstats/internal/middleware"
 	"github.com/zenstats/zenstats/internal/service"
 	"github.com/zenstats/zenstats/pkg/globals"
+	"github.com/zenstats/zenstats/pkg/iputil"
 )
 
 var ServerCmd = &cobra.Command{
@@ -45,6 +46,12 @@ the address is defined in config file`,
 		}
 
 		r := gin.New()
+		if err := configureTrustedProxies(r); err != nil {
+			slog.Error("invalid trusted proxies", "error", err)
+			event.Shutdown()
+			Release()
+			return
+		}
 		r.Use(
 			gin.Recovery(),
 			middleware.LocaleMiddleware(),
@@ -53,7 +60,7 @@ the address is defined in config file`,
 		cconfig := cors.DefaultConfig()
 		cconfig.AllowAllOrigins = true
 		cconfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-		cconfig.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"}
+		cconfig.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "X-Shared-Link-Token"}
 		cconfig.AllowCredentials = false
 		cconfig.ExposeHeaders = []string{"Retry-After", "X-Zenstats-Accepted"}
 		r.Use(cors.New(cconfig))
@@ -63,7 +70,7 @@ the address is defined in config file`,
 
 		httpBase := fmt.Sprintf("%s:%d", config.Conf.Scheme.Address, config.Conf.Scheme.HttpPort)
 		slog.Info(fmt.Sprintf("start HTTP server %s", httpBase))
-		httpSrv := &http.Server{Addr: httpBase, Handler: r}
+		httpSrv := newHTTPServer(httpBase, r)
 		go func() {
 			err := httpSrv.ListenAndServe()
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -102,6 +109,28 @@ the address is defined in config file`,
 	},
 }
 
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      45 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+}
+
 func init() {
 	RootCmd.AddCommand(ServerCmd)
+}
+
+func configureTrustedProxies(r *gin.Engine) error {
+	proxies := config.Conf.TrustedProxies
+	if len(proxies) == 0 {
+		proxies = nil
+	}
+	if err := iputil.SetTrustedProxies(proxies); err != nil {
+		return err
+	}
+	return r.SetTrustedProxies(proxies)
 }

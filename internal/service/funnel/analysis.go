@@ -104,7 +104,10 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 	}
 
 	// 构建漏斗分析查询
-	query, args := s.buildFunnelQuery(req)
+	query, args, err := s.buildFunnelQuery(req)
+	if err != nil {
+		return nil, err
+	}
 
 	var totalVisitors uint64
 	stepResults := make([]*FunnelStepResult, len(req.Steps))
@@ -213,7 +216,11 @@ func (s *AnalysisService) Analyze(ctx context.Context, req *AnalysisRequest) (*F
 // buildFunnelQuery 构建漏斗分析 SQL 查询。
 // 单次扫描事件表并按用户聚合，再一次性 countIf 所有路径，最后展开为步骤行。
 // ClickHouse 会内联 CTE；用 UNION ALL 多次引用会重复扫描和聚合整段事件。
-func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any) {
+func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any, error) {
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return "", nil, err
+	}
 	// 参数顺序必须匹配最终 SQL 中 ? 的出现顺序：
 	// minIf 中的 ? (SELECT 子句，最先) → site_id/timestamp 的 ? (WHERE 子句) → WHERE OR 中的 ?
 	// 因此先把各 step 的 goal value 放入 args，再放 site_id / timestamps
@@ -262,7 +269,7 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 	query := fmt.Sprintf(
 		`WITH funnel_data AS (
 			SELECT user_id, %s
-			FROM zenstats_events_db.events
+			FROM %s.events
 			WHERE site_id = toUInt64(?)
 				AND timestamp >= ?
 				AND timestamp <= ?
@@ -274,11 +281,12 @@ func (s *AnalysisService) buildFunnelQuery(req *AnalysisRequest) (string, []any)
 		ARRAY JOIN steps AS step
 		ORDER BY step_order`,
 		strings.Join(minIfParts, ", "),
+		database,
 		strings.Join(orConds, " OR "),
 		strings.Join(selectParts, ", "),
 	)
 
-	return query + funnelQuerySettings, args
+	return query + funnelQuerySettings, args, nil
 }
 
 // parentIndices 把每个步骤的 ParentStepID 映射为其在数组中的下标；根返回 -1。

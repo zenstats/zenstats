@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/api/health"
 	"github.com/zenstats/zenstats/internal/api/sharedlinks"
+	"github.com/zenstats/zenstats/internal/middleware"
 )
 
 // RegisterRouter 注册所有 API 路由到指定的路由组。
@@ -40,5 +41,6 @@ func RegisterRouter(router *gin.RouterGroup) {
 	// public share link view (no auth required)
 	slHandle := sharedlinks.NewHandler()
 	router.GET("/share/:slug", slHandle.View())
+	router.POST("/share/:slug/authenticate", middleware.AuthRateLimit(), slHandle.Authenticate())
 
 }

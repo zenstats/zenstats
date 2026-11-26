@@ -28,6 +28,11 @@ func NewSuggestionService() *SuggestionService {
 // GetPropKeys 获取站点在指定时间范围内的所有自定义属性键名。
 // 按出现频率降序排列，最多返回 25 条。
 func (s *SuggestionService) GetPropKeys(ctx context.Context, siteID string, startTime, endTime string, query string) ([]SuggestionItem, error) {
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return nil, err
+	}
+
 	filterQuery := "%"
 	if query != "" {
 		filterQuery = "%" + query + "%"
@@ -35,7 +40,7 @@ func (s *SuggestionService) GetPropKeys(ctx context.Context, siteID string, star
 
 	sql := `
 		SELECT meta_key, count(*) AS cnt
-		FROM zenstats_events_db.events
+		FROM ` + database + `.events
 		ARRAY JOIN meta.key AS meta_key
 		WHERE site_id = ?
 		  AND timestamp >= ?
@@ -70,6 +75,11 @@ func (s *SuggestionService) GetPropKeys(ctx context.Context, siteID string, star
 // GetPropValues 获取站点在指定时间范围内，指定属性的可选值列表。
 // 按出现频率降序排列，最多返回 25 条。支持模糊搜索。
 func (s *SuggestionService) GetPropValues(ctx context.Context, siteID string, startTime, endTime string, propKey, query string) ([]SuggestionItem, error) {
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return nil, err
+	}
+
 	filterQuery := "%"
 	if query != "" {
 		filterQuery = "%" + query + "%"
@@ -80,7 +90,7 @@ func (s *SuggestionService) GetPropValues(ctx context.Context, siteID string, st
 		SELECT prop_val, count(*) AS cnt
 		FROM (
 			SELECT meta.value[indexOf(meta.key, ?)] AS prop_val
-			FROM zenstats_events_db.events
+			FROM ` + database + `.events
 			WHERE site_id = ?
 			  AND timestamp >= ?
 			  AND timestamp <= ?
@@ -124,9 +134,14 @@ func (s *SuggestionService) GetPropValues(ctx context.Context, siteID string, st
 
 // hasEmptyPropValues 检查是否存在无该属性的记录。
 func (s *SuggestionService) hasEmptyPropValues(ctx context.Context, siteID, startTime, endTime, propKey string) (bool, error) {
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return false, err
+	}
+
 	sql := `
 		SELECT count(*) > 0
-		FROM zenstats_events_db.events
+		FROM ` + database + `.events
 		WHERE site_id = ?
 		  AND timestamp >= ?
 		  AND timestamp <= ?

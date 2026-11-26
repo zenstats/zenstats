@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/zenstats/zenstats/config"
 	"github.com/zenstats/zenstats/internal/service/stats/sql"
 	"github.com/zenstats/zenstats/internal/service/stats/types"
 	cl "github.com/zenstats/zenstats/internal/store/clickhouse"
@@ -58,17 +61,70 @@ func TranslateQueryError(err error) error { return translateQueryError(err) }
 // QueryRunner 执行统计查询并返回结果
 // Shared across runner instances: dashboard cards must not occupy all database
 // connections or compete with event/session writes.
-var statsQuerySlots = make(chan struct{}, 2)
+var statsQuerySlots = struct {
+	sync.Mutex
+	active  int
+	changed chan struct{}
+}{changed: make(chan struct{})}
 
-// AcquireQuerySlot shares the read budget with specialized statistics queries.
-// Callers supply a deadline that includes queueing and release after reading.
+// AcquireQuerySlot tracks active work rather than replacing a semaphore on reload:
+// lowering the configured limit never creates a second independent pool.
 func AcquireQuerySlot(ctx context.Context) (func(), error) {
-	select {
-	case statsQuerySlots <- struct{}{}:
-		return func() { <-statsQuerySlots }, nil
-	case <-ctx.Done():
-		return nil, &ValidationError{StatusCode: 503, Message: "statistics query queue is busy; please retry"}
+	for {
+		if ctx.Err() != nil {
+			return nil, queryQueueBusy()
+		}
+		limit := effectiveStatsConfig().MaxConcurrent
+		statsQuerySlots.Lock()
+		if statsQuerySlots.active < limit {
+			statsQuerySlots.active++
+			statsQuerySlots.Unlock()
+			var once sync.Once
+			return func() {
+				once.Do(func() {
+					statsQuerySlots.Lock()
+					statsQuerySlots.active--
+					close(statsQuerySlots.changed)
+					statsQuerySlots.changed = make(chan struct{})
+					statsQuerySlots.Unlock()
+				})
+			}, nil
+		}
+		changed := statsQuerySlots.changed
+		statsQuerySlots.Unlock()
+		select {
+		case <-changed:
+		case <-ctx.Done():
+			return nil, queryQueueBusy()
+		}
 	}
+}
+
+func queryQueueBusy() error {
+	return &ValidationError{StatusCode: 503, Message: "statistics query queue is busy; please retry"}
+}
+
+func effectiveStatsConfig() config.StatsConfig {
+	cfg := config.StatsSnapshot()
+	if cfg.MaxConcurrent <= 0 {
+		cfg.MaxConcurrent = 8
+	}
+	if cfg.MaxThreads <= 0 {
+		cfg.MaxThreads = 2
+	}
+	if cfg.MaxMemoryUsage <= 0 {
+		cfg.MaxMemoryUsage = 268435456
+	}
+	if cfg.MaxExecutionTime <= 0 {
+		cfg.MaxExecutionTime = 20
+	}
+	if cfg.QueryTimeoutSeconds <= 0 {
+		cfg.QueryTimeoutSeconds = 30
+	}
+	if cfg.CacheMaxEntries <= 0 {
+		cfg.CacheMaxEntries = 1000
+	}
+	return cfg
 }
 
 type QueryRunner struct {
@@ -82,6 +138,24 @@ func NewQueryRunner() *QueryRunner {
 
 // RunQuery 执行查询并返回结果
 func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *types.Site) (*types.QueryResult, error) {
+	cfg := effectiveStatsConfig()
+	// The optimizer mutates the query, including dimensions and order entries.
+	// Keep both its rewrites and cache time alignment private to this execution.
+	query = cloneQueryValue(reflect.ValueOf(query)).Interface().(*types.Query)
+	if cfg.CacheEnabled && cfg.CacheTTLSeconds > 0 {
+		bucket := time.Duration(cfg.CacheTTLSeconds) * time.Second
+		if !query.Now.IsZero() {
+			// Use the upper edge so a cold cache still includes recently ingested events.
+			query.Now = query.Now.UTC().Truncate(bucket).Add(bucket)
+		}
+		if query.Period == "realtime" && !query.UTCTimeRange.End.IsZero() {
+			// Realtime constructors already embed the clock in both bounds. Align the
+			// end and derive the start to keep a stable, exact 30-minute moving window.
+			query.UTCTimeRange.End = query.UTCTimeRange.End.UTC().Truncate(bucket).Add(bucket)
+			query.UTCTimeRange.Start = query.UTCTimeRange.End.Add(-30 * time.Minute)
+		}
+	}
+
 	// 创建查询构建器
 	builder := sql.NewQueryBuilder()
 	// 构建SQL
@@ -90,19 +164,22 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 		return nil, fmt.Errorf("failed to build query: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(cfg.QueryTimeoutSeconds)*time.Second)
 	defer cancel()
+	return cachedQuery(ctx, queryCacheKey(site.ID, sqlStr, args, query.Dimensions, qr.conn), cfg, func() (*types.QueryResult, error) {
+		return qr.executeQuery(ctx, sqlStr, args, query, builder, cfg)
+	})
+}
+
+func (qr *QueryRunner) executeQuery(ctx context.Context, sqlStr string, args []any, query *types.Query, builder *sql.QueryBuilder, cfg config.StatsConfig) (*types.QueryResult, error) {
 	release, err := AcquireQuerySlot(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer release()
-	ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
-		"max_threads": 1, "max_memory_usage": 268435456, "max_bytes_before_external_group_by": 67108864, "max_execution_time": 20,
-	}))
 
 	// 执行查询
-	rows, err := qr.conn.Query(ctx, sqlStr, args...)
+	rows, err := qr.conn.Query(ctx, queryWithSettings(sqlStr, cfg), args...)
 	slog.Debug("query sql", "sql", sqlStr, "args", args)
 
 	if err != nil {
@@ -123,7 +200,7 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 	// A page beyond the end has no row carrying the window count. Only that
 	// uncommon case needs a separate count; regular dashboard cards scan once.
 	if builder.NeedsTotalRows(query) && len(result.Data) == 0 && query.Pagination.Offset > 0 {
-		result.TotalRows, err = qr.runCountQuery(ctx, sqlStr, args)
+		result.TotalRows, err = qr.runCountQuery(ctx, sqlStr, args, cfg)
 		if err != nil {
 			return nil, translateQueryError(err)
 		}
@@ -134,7 +211,7 @@ func (qr *QueryRunner) RunQuery(ctx context.Context, query *types.Query, site *t
 
 // runCountQuery 执行 COUNT 查询获取分页总行数
 // 注意：必须移除原始 SQL 中的 LIMIT/OFFSET 子句，否则 COUNT 的只是截断后的行数。
-func (qr *QueryRunner) runCountQuery(ctx context.Context, originalSQL string, args []any) (int, error) {
+func (qr *QueryRunner) runCountQuery(ctx context.Context, originalSQL string, args []any, cfg config.StatsConfig) (int, error) {
 	// 移除 LIMIT / OFFSET 子句（大小写不敏感）
 	cleanSQL := originalSQL
 	// 查找最后一个 LIMIT 子句的位置
@@ -152,7 +229,7 @@ func (qr *QueryRunner) runCountQuery(ctx context.Context, originalSQL string, ar
 	countSQL := fmt.Sprintf("SELECT count(*) FROM (%s)", strings.TrimSpace(cleanSQL))
 
 	var totalRows uint64
-	err := qr.conn.QueryRow(ctx, countSQL, args...).Scan(&totalRows)
+	err := qr.conn.QueryRow(ctx, queryWithSettings(countSQL, cfg), args...).Scan(&totalRows)
 	if err != nil {
 		return 0, err
 	}
@@ -375,4 +452,14 @@ func convertValue(val any) any {
 	default:
 		return val
 	}
+}
+
+// Explicit SQL SETTINGS take precedence over protocol settings. clickhouse-go
+// v2.33 derives max_execution_time from the context deadline and otherwise
+// overwrites a smaller configured execution limit.
+func queryWithSettings(query string, cfg config.StatsConfig) string {
+	return strings.TrimSuffix(strings.TrimSpace(query), ";") + fmt.Sprintf(
+		" SETTINGS max_threads=%d, max_memory_usage=%d, max_bytes_before_external_group_by=%d, max_execution_time=%d",
+		cfg.MaxThreads, cfg.MaxMemoryUsage, cfg.MaxMemoryUsage/4, cfg.MaxExecutionTime,
+	)
 }

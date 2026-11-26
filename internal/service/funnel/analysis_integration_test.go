@@ -12,6 +12,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/zenstats/zenstats/config"
+	cl "github.com/zenstats/zenstats/internal/store/clickhouse"
 )
 
 // Use inline fixtures against real ClickHouse without modifying stored events.
@@ -35,8 +36,15 @@ func TestFunnelSingleScanIntegration(t *testing.T) {
 	svc := &AnalysisService{conn: conn}
 	run := func(t *testing.T, req *AnalysisRequest, source string) ([]uint64, uint64) {
 		t.Helper()
-		query, args := svc.buildFunnelQuery(req)
-		query = strings.Replace(query, "zenstats_events_db.events", source, 1)
+		query, args, err := svc.buildFunnelQuery(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		database, err := cl.DatabaseName()
+		if err != nil {
+			t.Fatal(err)
+		}
+		query = strings.Replace(query, database+".events", source, 1)
 		var readRows atomic.Uint64
 		ctx := clickhouse.Context(context.Background(), clickhouse.WithProgress(func(p *clickhouse.Progress) {
 			readRows.Add(p.Rows)

@@ -159,3 +159,9 @@ func ErrorNew(c *gin.Context, code int, err error) {
 
 // Ensure fmt import is used
 var _ = fmt.Sprintf
+
+// ErrorWithKeyHTTPStatus preserves the translated error contract with a real HTTP status.
+func ErrorWithKeyHTTPStatus(c *gin.Context, code int, key string) {
+	locale := getLocale(c)
+	c.JSON(code, ErrorResponse{Code: code, Message: getStatusMessage(code, locale), Error: i18n.T(locale, key)})
+}

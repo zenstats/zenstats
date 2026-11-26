@@ -12,6 +12,9 @@ import (
 )
 
 func TestCreateQuery(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires PostgreSQL and ClickHouse")
+	}
 	globals.SetDB(postgresql.NewClient())
 
 	tests := []struct {

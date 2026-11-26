@@ -1,31 +1,32 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zenstats/zenstats/internal/auth"
 	"github.com/zenstats/zenstats/internal/service"
-	"github.com/zenstats/zenstats/pkg/bcrypt"
 	"github.com/zenstats/zenstats/pkg/response"
 )
 
 // SharedLinkOrAPIKeyOrJWTAuth tries shared link slug auth first, falls back to API Key / JWT.
 // Pass the shared link slug via the ?slug= query parameter.
 func SharedLinkOrAPIKeyOrJWTAuth() gin.HandlerFunc {
+	return sharedLinkAuth(func(ctx context.Context, slug string) (*service.SharedLink, error) {
+		return service.GetSharedLinkService().GetBySlug(ctx, slug)
+	})
+}
+
+func sharedLinkAuth(lookup func(context.Context, string) (*service.SharedLink, error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if slug := c.Query("slug"); slug != "" {
-			link, err := service.GetSharedLinkService().GetBySlug(c, slug)
+			link, err := lookup(c.Request.Context(), slug)
 			if err == nil {
-				// 密码保护校验：链接若设置了密码，必须提供且匹配才放行。
-				// 此前完全未校验 PasswordHash → "密码保护"形同虚设（拿到 slug 即可访问）。
-				// 密码通过 X-Shared-Link-Password 头或 ?link_password= 传入；缺失/错误一律拒绝（fail-closed）。
 				if link.PasswordHash != "" {
-					pw := c.GetHeader("X-Shared-Link-Password")
-					if pw == "" {
-						pw = c.Query("link_password")
-					}
-					if pw == "" || !bcrypt.Check(pw, link.PasswordHash) {
-						response.ErrorWithKey(c, http.StatusUnauthorized, "sharedlink.password_required")
+					claims, err := auth.ParseSharedLinkToken(c.GetHeader("X-Shared-Link-Token"))
+					if err != nil || !claims.Matches(link.Slug, link.SiteID, link.PasswordHash) {
+						response.ErrorWithKeyHTTPStatus(c, http.StatusUnauthorized, "sharedlink.password_required")
 						c.Abort()
 						return
 					}

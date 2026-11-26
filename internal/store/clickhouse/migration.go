@@ -41,60 +41,74 @@ func (m *Migration) ensureBaseTables(ctx context.Context) error {
 	err := m.ensureLocationDataTable(ctx)
 	if err != nil {
 		slog.Error("ensure location_data table failed", "error", err)
+		return err
 	}
 	err = m.ensureLocationDataDictTable(ctx)
 	if err != nil {
 		slog.Error("ensure location_data_dict table failed", "error", err)
+		return err
 	}
 	err = m.ensureImportedVisitorsTable(ctx)
 	if err != nil {
 		slog.Error("ensure imported_visitors table failed", "error", err)
+		return err
 	}
 	err = m.ensureImportedSourceTable(ctx)
 	if err != nil {
 		slog.Error("ensure imported_source table failed", "error", err)
+		return err
 	}
 
 	err = m.ensureImportedPagesTable(ctx)
 	if err != nil {
 		slog.Error("ensure imported_pages table failed", "error", err)
+		return err
 	}
 	err = m.ensureImportedOperatingSystemsTable(ctx)
 	if err != nil {
 		slog.Error("ensure imported_operating_systems table failed", "error", err)
+		return err
 	}
 	err = m.ensureImportedlocationsTable(ctx)
 	if err != nil {
 		slog.Error("ensure imported_locations table failed", "error", err)
+		return err
 	}
 	err = m.ensureImportedExitPageTable(ctx)
 	if err != nil {
 		slog.Error("ensure imported_exit_pages table failed", "error", err)
+		return err
 	}
 	err = m.ensureImportedEntryPageTable(ctx)
 	if err != nil {
 		slog.Error("ensure imported_entry_pages table failed", "error", err)
+		return err
 	}
 	err = m.ensureImportedDevicesTable(ctx)
 	if err != nil {
 		slog.Error("ensure imported_devices table failed", "error", err)
+		return err
 	}
 	err = m.ensureImportedCustomEventsTable(ctx)
 	if err != nil {
 		slog.Error("ensure imported_custom_events table failed", "error", err)
+		return err
 	}
 	err = m.ensureImportedBrowsersTable(ctx)
 	if err != nil {
 		slog.Error("ensure imported_browsers table failed", "error", err)
+		return err
 	}
 
 	err = m.ensureSessionsTable(ctx)
 	if err != nil {
 		slog.Error("ensure sessions table failed", "error", err)
+		return err
 	}
 	err = m.ensureEventsTable(ctx)
 	if err != nil {
 		slog.Error("ensure events table failed", "error", err)
+		return err
 	}
 	return nil
 }
@@ -124,13 +138,13 @@ func (m *Migration) dropAllTable(ctx context.Context) error {
 }
 
 func (m *Migration) dropTable(ctx context.Context, table string) error {
-	sql := fmt.Sprintf("DROP TABLE IF EXISTS zenstats_events_db.%s;", table)
+	sql := fmt.Sprintf("DROP TABLE IF EXISTS {{database}}.%s;", table)
 
-	return m.conn.Exec(ctx, sql)
+	return m.exec(ctx, sql)
 }
 
 func (m *Migration) ensureLocationDataTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.location_data
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.location_data
 (
     {{backtick}}type{{backtick}} LowCardinality(String),
     {{backtick}}id{{backtick}} String,
@@ -140,7 +154,7 @@ ENGINE = MergeTree
 ORDER BY (type, id)
 SETTINGS index_granularity = 128;
 `
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 
 func (m *Migration) ensureLocationDataDictTable(ctx context.Context) error {
@@ -150,18 +164,18 @@ func (m *Migration) ensureLocationDataDictTable(ctx context.Context) error {
 	// 用 CREATE OR REPLACE 保证已存在的旧字典也会被带凭据重建。
 	user := escapeCHDictLiteral(config.Conf.Clickhouse.Username)
 	pass := escapeCHDictLiteral(config.Conf.Clickhouse.Password)
-	sql := fmt.Sprintf(`CREATE OR REPLACE DICTIONARY zenstats_events_db.location_data_dict
+	sql := fmt.Sprintf(`CREATE OR REPLACE DICTIONARY {{database}}.location_data_dict
 (
     {{backtick}}type{{backtick}} String,
     {{backtick}}id{{backtick}} String,
     {{backtick}}name{{backtick}} String
 )
 PRIMARY KEY type, id
-SOURCE(CLICKHOUSE(TABLE location_data DB 'zenstats_events_db' USER '%s' PASSWORD '%s'))
+SOURCE(CLICKHOUSE(TABLE location_data DB '{{database}}' USER '%s' PASSWORD '%s'))
 LIFETIME(MIN 0 MAX 0)
 LAYOUT(COMPLEX_KEY_CACHE(SIZE_IN_CELLS 500000));`, user, pass)
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 
 // escapeCHDictLiteral 转义字典 DDL 字符串字面量中的反斜杠与单引号。
@@ -172,7 +186,7 @@ func escapeCHDictLiteral(s string) string {
 }
 
 func (m *Migration) ensureImportedVisitorsTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.imported_visitors
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.imported_visitors
 (
     {{backtick}}site_id{{backtick}} UInt64,
     {{backtick}}date{{backtick}} Date,
@@ -187,11 +201,11 @@ ENGINE = MergeTree
 ORDER BY (site_id, date)
 SETTINGS index_granularity = 8192, replicated_deduplication_window = 0;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 
 func (m *Migration) ensureImportedSourceTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.imported_sources
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.imported_sources
 (
     {{backtick}}site_id{{backtick}} UInt64,
     {{backtick}}date{{backtick}} Date,
@@ -213,10 +227,10 @@ ENGINE = MergeTree
 ORDER BY (site_id, date, source)
 SETTINGS index_granularity = 8192, replicated_deduplication_window = 0;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 func (m *Migration) ensureImportedPagesTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.imported_pages
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.imported_pages
 (
     {{backtick}}site_id{{backtick}} UInt64,
     {{backtick}}date{{backtick}} Date,
@@ -234,10 +248,10 @@ ENGINE = MergeTree
 ORDER BY (site_id, date, hostname, page)
 SETTINGS index_granularity = 8192, replicated_deduplication_window = 0;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 func (m *Migration) ensureImportedOperatingSystemsTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.imported_operating_systems
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.imported_operating_systems
 (
     {{backtick}}site_id{{backtick}} UInt64,
     {{backtick}}date{{backtick}} Date,
@@ -254,10 +268,10 @@ ENGINE = MergeTree
 ORDER BY (site_id, date, operating_system)
 SETTINGS index_granularity = 8192, replicated_deduplication_window = 0;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 func (m *Migration) ensureImportedlocationsTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.imported_locations
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.imported_locations
 (
     {{backtick}}site_id{{backtick}} UInt64,
     {{backtick}}date{{backtick}} Date,
@@ -270,18 +284,18 @@ func (m *Migration) ensureImportedlocationsTable(ctx context.Context) error {
     {{backtick}}bounces{{backtick}} UInt32,
     {{backtick}}import_id{{backtick}} UInt64,
     {{backtick}}pageviews{{backtick}} UInt64,
-    {{backtick}}country_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('country', country)),
-    {{backtick}}region_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('subdivision', region)),
-    {{backtick}}city_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('city', city))
+    {{backtick}}country_name{{backtick}} String ALIAS dictGet('{{database}}.location_data_dict', 'name', ('country', country)),
+    {{backtick}}region_name{{backtick}} String ALIAS dictGet('{{database}}.location_data_dict', 'name', ('subdivision', region)),
+    {{backtick}}city_name{{backtick}} String ALIAS dictGet('{{database}}.location_data_dict', 'name', ('city', city))
 )
 ENGINE = MergeTree
 ORDER BY (site_id, date, country, region, city)
 SETTINGS index_granularity = 8192, replicated_deduplication_window = 0;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 func (m *Migration) ensureImportedExitPageTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.imported_exit_pages
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.imported_exit_pages
 (
     {{backtick}}site_id{{backtick}} UInt64,
     {{backtick}}date{{backtick}} Date,
@@ -297,10 +311,10 @@ ENGINE = MergeTree
 ORDER BY (site_id, date, exit_page)
 SETTINGS index_granularity = 8192, replicated_deduplication_window = 0;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 func (m *Migration) ensureImportedEntryPageTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.imported_entry_pages
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.imported_entry_pages
 (
     {{backtick}}site_id{{backtick}} UInt64,
     {{backtick}}date{{backtick}} Date,
@@ -316,11 +330,11 @@ ENGINE = MergeTree
 ORDER BY (site_id, date, entry_page)
 SETTINGS index_granularity = 8192, replicated_deduplication_window = 0;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 
 func (m *Migration) ensureImportedDevicesTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.imported_devices
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.imported_devices
 (
     {{backtick}}site_id{{backtick}} UInt64,
     {{backtick}}date{{backtick}} Date,
@@ -336,11 +350,11 @@ ENGINE = MergeTree
 ORDER BY (site_id, date, device)
 SETTINGS index_granularity = 8192, replicated_deduplication_window = 0;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 
 func (m *Migration) ensureImportedCustomEventsTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.imported_custom_events
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.imported_custom_events
 (
     {{backtick}}site_id{{backtick}} UInt64,
     {{backtick}}import_id{{backtick}} UInt64,
@@ -355,10 +369,10 @@ ENGINE = MergeTree
 ORDER BY (site_id, import_id, date, name)
 SETTINGS replicated_deduplication_window = 0, index_granularity = 8192;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 func (m *Migration) ensureImportedBrowsersTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.imported_browsers
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.imported_browsers
 (
     {{backtick}}site_id{{backtick}} UInt64,
     {{backtick}}date{{backtick}} Date,
@@ -375,11 +389,11 @@ ENGINE = MergeTree
 ORDER BY (site_id, date, browser)
 SETTINGS index_granularity = 8192, replicated_deduplication_window = 0;`
 
-	return m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
+	return m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`"))
 }
 
 func (m *Migration) ensureSessionsTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.sessions
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.sessions
 (
     {{backtick}}start{{backtick}} DateTime CODEC(Delta(4), LZ4),
     {{backtick}}timestamp{{backtick}} DateTime CODEC(Delta(4), LZ4),
@@ -431,9 +445,9 @@ func (m *Migration) ensureSessionsTable(ctx context.Context) error {
     {{backtick}}os_version{{backtick}} LowCardinality(String) ALIAS operating_system_version,
     {{backtick}}device{{backtick}} LowCardinality(String) ALIAS screen_size,
     {{backtick}}source{{backtick}} String ALIAS referrer_source,
-    {{backtick}}country_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('country', country_code)),
-    {{backtick}}city_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('city', city_geoname_id)),
-    {{backtick}}continent_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('continent', continent_geoname_id)),
+    {{backtick}}country_name{{backtick}} String ALIAS dictGet('{{database}}.location_data_dict', 'name', ('country', country_code)),
+    {{backtick}}city_name{{backtick}} String ALIAS dictGet('{{database}}.location_data_dict', 'name', ('city', city_geoname_id)),
+    {{backtick}}continent_name{{backtick}} String ALIAS dictGet('{{database}}.location_data_dict', 'name', ('continent', continent_geoname_id)),
     INDEX minmax_timestamp timestamp TYPE minmax GRANULARITY 1
 )
 ENGINE = VersionedCollapsingMergeTree(sign, version)
@@ -443,15 +457,21 @@ ORDER BY (site_id, toDate(start), user_id, session_id)
 SAMPLE BY user_id
 SETTINGS index_granularity = 8192, non_replicated_deduplication_window = 1000;`
 
-	if err := m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`")); err != nil {
+	sql = withTableTTL(sql, "start", config.Conf.Clickhouse.SessionsTTLDays)
+	if err := m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`")); err != nil {
 		return err
 	}
-	m.enableInsertDedup(ctx, "sessions")
+	if err := m.enableInsertDedup(ctx, "sessions"); err != nil {
+		return err
+	}
+	if err := m.ensureTTL(ctx, "sessions", "start", config.Conf.Clickhouse.SessionsTTLDays); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (m *Migration) ensureEventsTable(ctx context.Context) error {
-	sql := `CREATE TABLE IF NOT EXISTS zenstats_events_db.events
+	sql := `CREATE TABLE IF NOT EXISTS {{database}}.events
 (
     {{backtick}}timestamp{{backtick}} DateTime CODEC(Delta(4), LZ4),
     {{backtick}}name{{backtick}} LowCardinality(String) COMMENT 'Event name',
@@ -494,9 +514,9 @@ func (m *Migration) ensureEventsTable(ctx context.Context) error {
     {{backtick}}os_version{{backtick}} LowCardinality(String) ALIAS operating_system_version,
     {{backtick}}device{{backtick}} LowCardinality(String) ALIAS screen_size,
     {{backtick}}source{{backtick}} String ALIAS referrer_source,
-    {{backtick}}country_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('country', country_code)),
-    {{backtick}}city_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('city', city_geoname_id)),
-    {{backtick}}continent_name{{backtick}} String ALIAS dictGet('zenstats_events_db.location_data_dict', 'name', ('continent', continent_geoname_id)),
+    {{backtick}}country_name{{backtick}} String ALIAS dictGet('{{database}}.location_data_dict', 'name', ('country', country_code)),
+    {{backtick}}city_name{{backtick}} String ALIAS dictGet('{{database}}.location_data_dict', 'name', ('city', city_geoname_id)),
+    {{backtick}}continent_name{{backtick}} String ALIAS dictGet('{{database}}.location_data_dict', 'name', ('continent', continent_geoname_id)),
     {{backtick}}channel{{backtick}} LowCardinality(String),
     {{backtick}}revenue{{backtick}} Nullable(Float64),
     {{backtick}}revenue_currency{{backtick}} LowCardinality(String)
@@ -508,14 +528,20 @@ ORDER BY (site_id, toDate(timestamp), name, user_id, timestamp)
 SAMPLE BY user_id
 SETTINGS index_granularity = 8192, non_replicated_deduplication_window = 1000;`
 
-	if err := m.conn.Exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`")); err != nil {
+	sql = withTableTTL(sql, "timestamp", config.Conf.Clickhouse.EventsTTLDays)
+	if err := m.exec(ctx, strings.ReplaceAll(sql, "{{backtick}}", "`")); err != nil {
 		return err
 	}
 	// 已存在的表补齐去重窗口（新建表已含于 SETTINGS）。
-	m.enableInsertDedup(ctx, "events")
+	if err := m.enableInsertDedup(ctx, "events"); err != nil {
+		return err
+	}
+	if err := m.ensureTTL(ctx, "events", "timestamp", config.Conf.Clickhouse.EventsTTLDays); err != nil {
+		return err
+	}
 	// 已存在的表补齐收入列（幂等）。
 	if err := m.ensureEventRevenueColumns(ctx); err != nil {
-		slog.Error("ensure event revenue columns failed", "error", err)
+		return fmt.Errorf("ensure event revenue columns: %w", err)
 	}
 	return nil
 }
@@ -523,20 +549,40 @@ SETTINGS index_granularity = 8192, non_replicated_deduplication_window = 1000;`
 // ensureEventRevenueColumns 为已存在的 events 表补齐收入列（幂等 ADD COLUMN IF NOT EXISTS）。
 // revenue 为 Nullable(Float64)：非收入事件为 NULL，聚合时被 sum/avg 忽略。
 func (m *Migration) ensureEventRevenueColumns(ctx context.Context) error {
-	sql := "ALTER TABLE zenstats_events_db.events " +
+	sql := "ALTER TABLE {{database}}.events " +
 		"ADD COLUMN IF NOT EXISTS revenue Nullable(Float64), " +
 		"ADD COLUMN IF NOT EXISTS revenue_currency LowCardinality(String)"
-	return m.conn.Exec(ctx, sql)
+	return m.exec(ctx, sql)
 }
 
 // enableInsertDedup 为已存在的表开启插入去重窗口，使携带相同 insert_deduplication_token
-// 的重复批次被 ClickHouse 忽略，从而让 flush 重试幂等、不重复计数。出错仅记录不阻断启动。
-func (m *Migration) enableInsertDedup(ctx context.Context, table string) {
+// 的重复批次被 ClickHouse 忽略，从而让 flush 重试幂等、不重复计数。出错透传以阻止不完整初始化。
+func (m *Migration) enableInsertDedup(ctx context.Context, table string) error {
 	sql := fmt.Sprintf(
-		"ALTER TABLE zenstats_events_db.%s MODIFY SETTING non_replicated_deduplication_window = 1000",
+		"ALTER TABLE {{database}}.%s MODIFY SETTING non_replicated_deduplication_window = 1000",
 		table,
 	)
-	if err := m.conn.Exec(ctx, sql); err != nil {
-		slog.Warn("enable insert dedup failed", "table", table, "error", err)
+	return m.exec(ctx, sql)
+}
+
+func (m *Migration) exec(ctx context.Context, query string) error {
+	database, err := DatabaseName()
+	if err != nil {
+		return err
 	}
+	return m.conn.Exec(ctx, strings.ReplaceAll(query, "{{database}}", database))
+}
+
+func withTableTTL(ddl, column string, days int) string {
+	if days <= 0 {
+		return ddl
+	}
+	return strings.Replace(ddl, "SETTINGS ", fmt.Sprintf("TTL %s + INTERVAL %d DAY DELETE\nSETTINGS ", column, days), 1)
+}
+
+func (m *Migration) ensureTTL(ctx context.Context, table, column string, days int) error {
+	if days <= 0 {
+		return nil
+	}
+	return m.exec(ctx, fmt.Sprintf("ALTER TABLE {{database}}.%s MODIFY TTL %s + INTERVAL %d DAY DELETE", table, column, days))
 }

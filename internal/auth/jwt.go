@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -110,4 +112,52 @@ func ParseToken(tokenString string) (*CustomClaims, error) {
 		return claims, nil
 	}
 	return nil, jwt.ErrInvalidKey
+}
+
+const SubjectSharedLinkToken = "shared_link_token"
+
+type SharedLinkClaims struct {
+	Slug        string `json:"slug"`
+	SiteID      int64  `json:"site_id"`
+	PasswordSig string `json:"password_sig"`
+	jwt.RegisteredClaims
+}
+
+// SharedLinkPasswordSignature binds a token to the current password hash.
+func SharedLinkPasswordSignature(passwordHash string) string {
+	digest := sha256.Sum256([]byte(passwordHash))
+	return hex.EncodeToString(digest[:16])
+}
+
+func GenerateSharedLinkToken(slug string, siteID int64, passwordHash string, ttl time.Duration) (string, error) {
+	if ttl <= 0 {
+		ttl = time.Hour
+	}
+	claims := SharedLinkClaims{
+		Slug: slug, SiteID: siteID, PasswordSig: SharedLinkPasswordSignature(passwordHash),
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject: SubjectSharedLinkToken, Issuer: "zenstats",
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
+		},
+	}
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(jwtSecret())
+}
+
+func ParseSharedLinkToken(tokenString string) (*SharedLinkClaims, error) {
+	claims := new(SharedLinkClaims)
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(*jwt.Token) (any, error) {
+		return jwtSecret(), nil
+	}, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired(), jwt.WithSubject(SubjectSharedLinkToken))
+	if err != nil {
+		return nil, err
+	}
+	if !token.Valid {
+		return nil, jwt.ErrTokenInvalidClaims
+	}
+	return claims, nil
+}
+
+// Matches checks the current link, including immediate password-change revocation.
+func (c *SharedLinkClaims) Matches(slug string, siteID int64, passwordHash string) bool {
+	return c.Slug == slug && c.SiteID == siteID && c.PasswordSig == SharedLinkPasswordSignature(passwordHash)
 }

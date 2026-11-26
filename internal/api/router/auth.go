@@ -15,6 +15,7 @@ func RegisterAuthRouter(router *gin.RouterGroup) {
 	resetPasswordHandle := auth.NewResetPasswordHandler()
 
 	auth := router.Group("/auth")
+	limit := middleware.AuthRateLimit()
 
 	// 系统初始化（仅需 CheckInitialization 中件，不需要 JWTAuth）
 	initGroup := auth.Group("")
@@ -22,16 +23,16 @@ func RegisterAuthRouter(router *gin.RouterGroup) {
 	initGroup.POST("/init", authHandle.Initialize())
 
 	// 无需登录的路由
-	auth.POST("/login", authHandle.Login())
-	auth.POST("/sub-login", authHandle.SubLogin())
-	auth.POST("/register", authHandle.Register())
+	auth.POST("/login", limit, authHandle.Login())
+	auth.POST("/sub-login", limit, authHandle.SubLogin())
+	auth.POST("/register", limit, authHandle.Register())
 	auth.POST("/refresh", authHandle.Refresh())
 	auth.GET("/state", authHandle.State())
 	auth.GET("/verify-email", emailHandle.VerifyEmail())
 
 	// 忘记密码 / 重置密码（无需登录）
-	auth.POST("/forgot-password", forgotPasswordHandle.ForgotPassword())
-	auth.POST("/reset-password", resetPasswordHandle.ResetPassword())
+	auth.POST("/forgot-password", limit, forgotPasswordHandle.ForgotPassword())
+	auth.POST("/reset-password", limit, resetPasswordHandle.ResetPassword())
 
 	// 需要登录的路由
 	auth.Use(middleware.JWTAuth())

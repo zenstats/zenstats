@@ -320,7 +320,7 @@ zenstats/
 
 配置来自内嵌 `config.yaml` + `ZENSTATS_` 环境变量覆盖。
 
-启动时生效配置写入 `config/config_<env>.yaml`（自动生成，gitignore）。也可手动放置 `config/config_<env>.yaml` 文件覆盖内嵌默认值。
+配置加载不会写入文件。可手动放置 `config/config_<env>.yaml` 文件覆盖内嵌默认值。
 
 | 变量 | 必填 | 默认 | 说明 |
 |---|---|---|---|

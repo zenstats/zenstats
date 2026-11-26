@@ -30,7 +30,12 @@ func GetImportedRepository() *ImportedRepository {
 }
 
 func (r *ImportedRepository) InsertVisitors(ctx context.Context, rows []*models.ImportedVisitors) error {
-	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO zenstats_events_db.imported_visitors (
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return err
+	}
+
+	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO `+database+`.imported_visitors (
 		site_id, date, visitors, pageviews, bounces, visits, visit_duration, import_id
 	)`)
 	if err != nil {
@@ -45,7 +50,12 @@ func (r *ImportedRepository) InsertVisitors(ctx context.Context, rows []*models.
 }
 
 func (r *ImportedRepository) InsertSources(ctx context.Context, rows []*models.ImportedSource) error {
-	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO zenstats_events_db.imported_sources (
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return err
+	}
+
+	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO `+database+`.imported_sources (
 		site_id, date, source, utm_medium, utm_campaign, utm_content, utm_term,
 		visitors, visits, visit_duration, bounces, import_id, pageviews, referrer, utm_source
 	)`)
@@ -64,7 +74,12 @@ func (r *ImportedRepository) InsertSources(ctx context.Context, rows []*models.I
 }
 
 func (r *ImportedRepository) InsertPages(ctx context.Context, rows []*models.ImportedPage) error {
-	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO zenstats_events_db.imported_pages (
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return err
+	}
+
+	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO `+database+`.imported_pages (
 		site_id, date, hostname, page, visitors, pageviews, exits, time_on_page, import_id, visits, active_visitors
 	)`)
 	if err != nil {
@@ -79,7 +94,12 @@ func (r *ImportedRepository) InsertPages(ctx context.Context, rows []*models.Imp
 }
 
 func (r *ImportedRepository) InsertOS(ctx context.Context, rows []*models.ImportedOS) error {
-	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO zenstats_events_db.imported_operating_systems (
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return err
+	}
+
+	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO `+database+`.imported_operating_systems (
 		site_id, date, operating_system, visitors, visits, visit_duration, bounces, import_id, pageviews, operating_system_version
 	)`)
 	if err != nil {
@@ -94,7 +114,12 @@ func (r *ImportedRepository) InsertOS(ctx context.Context, rows []*models.Import
 }
 
 func (r *ImportedRepository) InsertLocations(ctx context.Context, rows []*models.ImportedLocation) error {
-	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO zenstats_events_db.imported_locations (
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return err
+	}
+
+	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO `+database+`.imported_locations (
 		site_id, date, country, region, city, visitors, visits, visit_duration, bounces, import_id, pageviews
 	)`)
 	if err != nil {
@@ -109,7 +134,12 @@ func (r *ImportedRepository) InsertLocations(ctx context.Context, rows []*models
 }
 
 func (r *ImportedRepository) InsertExitPages(ctx context.Context, rows []*models.ImportedExitPage) error {
-	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO zenstats_events_db.imported_exit_pages (
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return err
+	}
+
+	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO `+database+`.imported_exit_pages (
 		site_id, date, exit_page, visitors, exits, import_id, pageviews, bounces, visit_duration
 	)`)
 	if err != nil {
@@ -124,7 +154,12 @@ func (r *ImportedRepository) InsertExitPages(ctx context.Context, rows []*models
 }
 
 func (r *ImportedRepository) InsertEntryPages(ctx context.Context, rows []*models.ImportedEntryPage) error {
-	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO zenstats_events_db.imported_entry_pages (
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return err
+	}
+
+	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO `+database+`.imported_entry_pages (
 		site_id, date, entry_page, visitors, entrances, visit_duration, bounces, import_id, pageviews
 	)`)
 	if err != nil {
@@ -139,7 +174,12 @@ func (r *ImportedRepository) InsertEntryPages(ctx context.Context, rows []*model
 }
 
 func (r *ImportedRepository) InsertDevices(ctx context.Context, rows []*models.ImportedDevice) error {
-	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO zenstats_events_db.imported_devices (
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return err
+	}
+
+	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO `+database+`.imported_devices (
 		site_id, date, device, visitors, visits, visit_duration, bounces, import_id, pageviews
 	)`)
 	if err != nil {
@@ -154,7 +194,12 @@ func (r *ImportedRepository) InsertDevices(ctx context.Context, rows []*models.I
 }
 
 func (r *ImportedRepository) InsertCustomEvents(ctx context.Context, rows []*models.ImportedCustomEvent) error {
-	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO zenstats_events_db.imported_custom_events (
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return err
+	}
+
+	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO `+database+`.imported_custom_events (
 		site_id, import_id, date, name, link_url, path, visitors, events
 	)`)
 	if err != nil {
@@ -169,7 +214,12 @@ func (r *ImportedRepository) InsertCustomEvents(ctx context.Context, rows []*mod
 }
 
 func (r *ImportedRepository) InsertBrowsers(ctx context.Context, rows []*models.ImportedBrowser) error {
-	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO zenstats_events_db.imported_browsers (
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return err
+	}
+
+	batch, err := r.conn.PrepareBatch(ctx, `INSERT INTO `+database+`.imported_browsers (
 		site_id, date, browser, visitors, visits, visit_duration, bounces, import_id, pageviews, browser_version
 	)`)
 	if err != nil {
@@ -194,15 +244,20 @@ type ImportedAggregate struct {
 }
 
 func (r *ImportedRepository) QueryAggregate(ctx context.Context, siteID uint64, start, end time.Time) (*ImportedAggregate, error) {
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return nil, err
+	}
+
 	var result ImportedAggregate
-	err := r.conn.QueryRow(ctx, `
+	err = r.conn.QueryRow(ctx, `
 		SELECT
 			coalesce(sum(visitors), 0),
 			coalesce(sum(pageviews), 0),
 			coalesce(sum(visits), 0),
 			coalesce(sum(bounces), 0),
 			coalesce(avg(visit_duration), 0)
-		FROM zenstats_events_db.imported_visitors
+		FROM `+database+`.imported_visitors
 		WHERE site_id = ? AND date >= ? AND date <= ?
 	`, siteID, start, end).Scan(
 		&result.Visitors, &result.Pageviews, &result.Visits, &result.Bounces, &result.VisitDuration,
@@ -218,16 +273,21 @@ func (r *ImportedRepository) QueryAggregate(ctx context.Context, siteID uint64, 
 }
 
 type ImportedBreakdownRow struct {
-	Name     string  `json:"name"`
-	Visitors uint64  `json:"visitors"`
+	Name      string `json:"name"`
+	Visitors  uint64 `json:"visitors"`
 	Pageviews uint64 `json:"pageviews,omitempty"`
-	Visits   uint64  `json:"visits,omitempty"`
+	Visits    uint64 `json:"visits,omitempty"`
 }
 
 func (r *ImportedRepository) QueryBreakdown(ctx context.Context, siteID uint64, start, end time.Time, tableName, dimColumn string, limit, offset int) ([]ImportedBreakdownRow, error) {
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return nil, err
+	}
+
 	sql := fmt.Sprintf(`
 		SELECT %s, sum(visitors), sum(pageviews), sum(visits)
-		FROM zenstats_events_db.%s
+		FROM `+database+`.%s
 		WHERE site_id = ? AND date >= ? AND date <= ? AND %s != ''
 		GROUP BY %s
 		ORDER BY sum(visitors) DESC
@@ -258,9 +318,14 @@ type ImportedTimeSeriesPoint struct {
 }
 
 func (r *ImportedRepository) QueryTimeSeries(ctx context.Context, siteID uint64, start, end time.Time) ([]ImportedTimeSeriesPoint, error) {
+	database, err := cl.DatabaseName()
+	if err != nil {
+		return nil, err
+	}
+
 	rows, err := r.conn.Query(ctx, `
 		SELECT toDate(date) as d, sum(visitors), sum(pageviews)
-		FROM zenstats_events_db.imported_visitors
+		FROM `+database+`.imported_visitors
 		WHERE site_id = ? AND date >= ? AND date <= ?
 		GROUP BY d
 		ORDER BY d

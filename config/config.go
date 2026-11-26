@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
+	"unicode"
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/spf13/viper"
@@ -19,7 +19,24 @@ import (
 //go:embed config.yaml
 var embeddedConfig []byte
 
+type StatsConfig struct {
+	MaxConcurrent       int   `mapstructure:"max_concurrent"`
+	MaxThreads          int   `mapstructure:"max_threads"`
+	MaxMemoryUsage      int64 `mapstructure:"max_memory_usage"`
+	MaxExecutionTime    int   `mapstructure:"max_execution_time"`
+	QueryTimeoutSeconds int   `mapstructure:"query_timeout_seconds"`
+	CacheEnabled        bool  `mapstructure:"cache_enabled"`
+	CacheTTLSeconds     int   `mapstructure:"cache_ttl_seconds"`
+	CacheMaxEntries     int   `mapstructure:"cache_max_entries"`
+}
+
 type Config struct {
+	TrustedProxies []string `mapstructure:"trusted_proxies"`
+	RateLimit      struct {
+		AuthPerMinute int `mapstructure:"auth_per_minute"`
+	} `mapstructure:"rate_limit"`
+	Stats StatsConfig `mapstructure:"stats"`
+
 	Heatmap struct {
 		ScreenshotURL   string `mapstructure:"screenshot_url"`
 		ScreenshotToken string `mapstructure:"screenshot_token"`
@@ -48,11 +65,13 @@ type Config struct {
 	} `mapstructure:"smtp"`
 
 	Clickhouse struct {
-		Addr     []string `mapstructure:"addr"`
-		Database string   `mapstructure:"database"`
-		Username string   `mapstructure:"username"`
-		Password string   `mapstructure:"password"`
-		Ssl      bool     `mapstructure:"ssl"`
+		EventsTTLDays   int      `mapstructure:"events_ttl_days"`
+		SessionsTTLDays int      `mapstructure:"sessions_ttl_days"`
+		Addr            []string `mapstructure:"addr"`
+		Database        string   `mapstructure:"database"`
+		Username        string   `mapstructure:"username"`
+		Password        string   `mapstructure:"password"`
+		Ssl             bool     `mapstructure:"ssl"`
 	} `mapstructure:"clickhouse"`
 
 	Database struct {
@@ -152,6 +171,12 @@ func Load(env string) error {
 		}
 	}
 
+	if raw, ok := os.LookupEnv("ZENSTATS_TRUSTED_PROXIES"); ok {
+		cfg.TrustedProxies = strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || unicode.IsSpace(r) })
+	}
+	if cfg.TrustedProxies == nil {
+		cfg.TrustedProxies = []string{}
+	}
 	// 8. Validate.
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("config: validate: %w", err)
@@ -161,8 +186,6 @@ func Load(env string) error {
 	Conf = cfg
 	mu.Unlock()
 
-	// Write resolved config to disk for transparency (best-effort).
-	writeConfigFile(v, env)
 	slog.Info("config: loaded", "env", env)
 
 	return nil
@@ -236,6 +259,10 @@ func resolveEnv(env string) (map[string]interface{}, error) {
 func bindAllPaths(v *viper.Viper) {
 	paths := []string{
 		"scheme.address", "scheme.http_port",
+		"trusted_proxies", "rate_limit.auth_per_minute",
+		"clickhouse.events_ttl_days", "clickhouse.sessions_ttl_days",
+		"stats.max_concurrent", "stats.max_threads", "stats.max_memory_usage", "stats.max_execution_time",
+		"stats.query_timeout_seconds", "stats.cache_enabled", "stats.cache_ttl_seconds", "stats.cache_max_entries",
 		"base_url", "pool_size", "log_level", "app_debug", "data_path",
 		"maxmind_license_key", "geoip_mirror",
 		"heatmap.screenshot_url", "heatmap.screenshot_token",
@@ -246,23 +273,6 @@ func bindAllPaths(v *viper.Viper) {
 	for _, p := range paths {
 		_ = v.BindEnv(p)
 	}
-}
-
-// writeConfigFile writes the effective config to ./config/config_<env>.yaml (best-effort).
-func writeConfigFile(v *viper.Viper, env string) {
-	configFile := filepath.Join("config", fmt.Sprintf("config_%s.yaml", env))
-	if _, err := os.Stat(configFile); err == nil {
-		return // don't overwrite existing user customizations
-	}
-	if err := os.MkdirAll(filepath.Dir(configFile), 0766); err != nil {
-		return
-	}
-	f, err := os.Create(configFile)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	_ = v.WriteConfig()
 }
 
 // Validate checks required fields and value ranges.
@@ -325,4 +335,11 @@ func applyInt(cfg *Config, key string, value int) {
 	case "smtp.port":
 		cfg.SMTP.Port = value
 	}
+}
+
+// StatsSnapshot returns a consistent configuration during Load/updates.
+func StatsSnapshot() StatsConfig {
+	mu.RLock()
+	defer mu.RUnlock()
+	return Conf.Stats
 }

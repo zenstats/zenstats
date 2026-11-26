@@ -2,11 +2,17 @@
 package sharedlinks
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"github.com/zenstats/zenstats/config"
+	"github.com/zenstats/zenstats/internal/auth"
+	"github.com/zenstats/zenstats/pkg/bcrypt"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zenstats/zenstats/internal/service"
@@ -33,12 +39,12 @@ type CreateSharedLinkRequest struct {
 
 // SharedLinkResponse 共享链接响应。
 type SharedLinkResponse struct {
-	ID               int64  `json:"id"`
-	Name             string `json:"name"`
-	Slug             string `json:"slug"`
-	URL              string `json:"url"`
-	PasswordProtected bool  `json:"password_protected"`
-	CreatedAt        string `json:"created_at"`
+	ID                int64  `json:"id"`
+	Name              string `json:"name"`
+	Slug              string `json:"slug"`
+	URL               string `json:"url"`
+	PasswordProtected bool   `json:"password_protected"`
+	CreatedAt         string `json:"created_at"`
 }
 
 // List 获取站点的所有共享链接。
@@ -200,12 +206,52 @@ func schemeFromContext(c *gin.Context) string {
 
 func toResponse(l *service.SharedLink, scheme, host string) SharedLinkResponse {
 	url := fmt.Sprintf("%s://%s/share/%s", scheme, host, l.Slug)
+	if config.Conf.BaseURL != "" {
+		url = strings.TrimRight(config.Conf.BaseURL, "/") + "/share/" + l.Slug
+	}
 	return SharedLinkResponse{
-		ID:               l.ID,
-		Name:             l.Name,
-		Slug:             l.Slug,
-		URL:              url,
+		ID:                l.ID,
+		Name:              l.Name,
+		Slug:              l.Slug,
+		URL:               url,
 		PasswordProtected: l.PasswordHash != "",
-		CreatedAt:        l.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		CreatedAt:         l.CreatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+}
+
+// Authenticate exchanges a password for a short-lived, link-bound read token.
+func (h *Handler) Authenticate() gin.HandlerFunc {
+	return authenticate(func(ctx context.Context, slug string) (*service.SharedLink, error) {
+		return service.GetSharedLinkService().GetBySlug(ctx, slug)
+	})
+}
+
+func authenticate(lookup func(context.Context, string) (*service.SharedLink, error)) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		link, err := lookup(c.Request.Context(), c.Param("slug"))
+		if err != nil {
+			response.ErrorWithHTTPStatus(c, http.StatusNotFound, http.StatusNotFound, fmt.Errorf("shared link not found"))
+			return
+		}
+		var req struct {
+			Password string `json:"password"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.ErrorWithKeyHTTPStatus(c, http.StatusUnauthorized, "sharedlink.password_required")
+			return
+		}
+		if link.PasswordHash != "" {
+			valid := bcrypt.Check(req.Password, link.PasswordHash)
+			if req.Password == "" || !valid {
+				response.ErrorWithKeyHTTPStatus(c, http.StatusUnauthorized, "sharedlink.password_required")
+				return
+			}
+		}
+		token, err := auth.GenerateSharedLinkToken(link.Slug, link.SiteID, link.PasswordHash, time.Hour)
+		if err != nil {
+			response.ErrorWithHTTPStatus(c, http.StatusInternalServerError, http.StatusInternalServerError, err)
+			return
+		}
+		response.Success(c, gin.H{"token": token, "expires_in": 3600})
 	}
 }
